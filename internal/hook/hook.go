@@ -3,7 +3,7 @@
 package hook
 
 import (
-	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,8 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/store"
 )
 
@@ -58,59 +60,111 @@ func Root(in Input, fallback, home string) (string, bool) {
 	return project.ForPath(cwd, home)
 }
 
-// LastAssistantText reads a Claude-style JSONL transcript and returns the last
-// assistant text, capped at max runes. Any oddity yields "".
+// LastAssistantText is the last assistant text in a Claude style JSONL
+// transcript, capped at max runes; "" when there is none or the file is
+// odd. It reads backwards from the end and stops at that message, so a
+// transcript of any size costs only what comes after it.
 func LastAssistantText(path string, max int) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
 	}
 	defer f.Close()
-	// A bufio.Reader has no line limit: tool results can be tens of MB, and
-	// stopping at one would leave an older message as the last.
-	rd := bufio.NewReader(f)
-	last := ""
-	for {
-		raw, rerr := rd.ReadBytes('\n')
-		if len(raw) == 0 && rerr != nil {
-			break
-		}
-		var line struct {
-			Type    string `json:"type"`
-			Message struct {
-				Content json.RawMessage `json:"content"`
-			} `json:"message"`
-		}
-		if json.Unmarshal(raw, &line) != nil || line.Type != "assistant" {
-			continue
-		}
-		var parts []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		}
-		if json.Unmarshal(line.Message.Content, &parts) == nil {
-			var texts []string
-			for _, p := range parts {
-				if p.Type == "text" && p.Text != "" {
-					texts = append(texts, p.Text)
-				}
-			}
-			if len(texts) > 0 {
-				last = strings.Join(texts, " ")
-			}
-			continue
-		}
-		var s string
-		if json.Unmarshal(line.Message.Content, &s) == nil && s != "" {
-			last = s
-		}
+	st, err := f.Stat()
+	if err != nil {
+		return ""
 	}
+	var last string
+	eachLineFromEnd(f, st.Size(), func(line []byte) bool {
+		if !bytes.Contains(line, []byte(`"assistant"`)) {
+			return true
+		}
+		last = assistantText(line)
+		return last == ""
+	})
 	last = strings.Join(strings.Fields(last), " ")
-	r := []rune(last)
-	if len(r) > max {
+	if r := []rune(last); len(r) > max {
 		return string(r[:max])
 	}
 	return last
+}
+
+// assistantText is the text of one assistant transcript line, or "".
+func assistantText(line []byte) string {
+	var l struct {
+		Type    string `json:"type"`
+		Message struct {
+			Content json.RawMessage `json:"content"`
+		} `json:"message"`
+	}
+	if json.Unmarshal(line, &l) != nil || l.Type != "assistant" {
+		return ""
+	}
+	var parts []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(l.Message.Content, &parts) == nil {
+		var texts []string
+		for _, p := range parts {
+			if p.Type == "text" && p.Text != "" {
+				texts = append(texts, p.Text)
+			}
+		}
+		return strings.Join(texts, " ")
+	}
+	var s string
+	json.Unmarshal(l.Message.Content, &s)
+	return s
+}
+
+// eachLineFromEnd calls fn for each line of r, last line first, until fn
+// returns false. It reads in chunks from the end.
+func eachLineFromEnd(r io.ReaderAt, size int64, fn func([]byte) bool) {
+	const chunk = 1 << 20
+	var tail []byte // the start of a line whose beginning is not read yet
+	for end := size; end > 0; {
+		start := max(end-chunk, 0)
+		buf := make([]byte, end-start)
+		if _, err := r.ReadAt(buf, start); err != nil && !errors.Is(err, io.EOF) {
+			return
+		}
+		buf = append(buf, tail...)
+		for {
+			nl := bytes.LastIndexByte(buf, '\n')
+			if nl < 0 {
+				break
+			}
+			if line := buf[nl+1:]; len(line) > 0 && !fn(line) {
+				return
+			}
+			buf = buf[:nl]
+		}
+		tail, end = buf, start
+	}
+	if len(tail) > 0 {
+		fn(tail)
+	}
+}
+
+// RecordEnd remembers the session that just ended in its project: which
+// agent, when, and its last assistant message. fallback is the hook's own
+// folder when the agent sent none.
+func RecordEnd(s *store.Store, in Input, agent, fallback, home string, now time.Time) error {
+	root, ok := Root(in, fallback, home)
+	if !ok {
+		return nil
+	}
+	sess := session.Session{Agent: agent, SessionID: in.SessionID, Ended: now}
+	if sess.SessionID == "" {
+		sess.SessionID = "unknown"
+	}
+	if in.TranscriptPath != "" {
+		if m := LastAssistantText(in.TranscriptPath, 300); m != "" {
+			sess.LastMessage = &m
+		}
+	}
+	return session.Record(s, root, sess)
 }
 
 // Command is the hook command line for exe: `<exe> hook <role> <agent>`,

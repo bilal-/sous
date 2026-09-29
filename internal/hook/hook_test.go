@@ -6,7 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/bilal-/sous/internal/session"
+	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/testutil"
 )
 
@@ -145,5 +148,45 @@ func TestInstallMatchesOnlyRealSousHooks(t *testing.T) {
 	}
 	if !IsOurs(Command(exe, "session-start", "claude"), "session-start", "claude") || IsOurs("/x/sous-tools/wrap hook session-start claude", "session-start", "claude") {
 		t.Fatal("IsOurs")
+	}
+}
+
+// Review: the last message is found by reading the transcript's end, so a
+// huge transcript is read in bounded time; an assistant line longer than
+// the tail window still counts.
+func TestLastAssistantTextReadsOnlyTheTail(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "t.jsonl")
+	f, _ := os.Create(p)
+	for i := 0; i < 40; i++ { // about 40 MB of tool output before the end
+		f.WriteString(`{"type":"user","message":{"content":"` + strings.Repeat("x", 1<<20) + `"}}` + "\n")
+	}
+	f.WriteString(`{"type":"assistant","message":{"content":[{"type":"text","text":"done for today"}]}}` + "\n")
+	f.WriteString(`{"type":"user","message":{"content":"` + strings.Repeat("y", 3<<20) + `"}}` + "\n")
+	f.Close()
+	start := time.Now()
+	got := LastAssistantText(p, 300)
+	if got != "done for today" {
+		t.Fatalf("%q", got)
+	}
+	if el := time.Since(start); el > time.Second {
+		t.Fatalf("took %v", el)
+	}
+}
+
+// Recording a session end, with its guard, lives here, not in the CLI.
+func TestRecordEndStoresTheLastMessage(t *testing.T) {
+	repo := testutil.Repo(t, filepath.Join(t.TempDir(), "api"), true, "")
+	tr := filepath.Join(t.TempDir(), "t.jsonl")
+	os.WriteFile(tr, []byte(`{"type":"assistant","message":{"content":[{"type":"text","text":"all green"}]}}`+"\n"), 0o644)
+	s := &store.Store{Home: t.TempDir()}
+	RecordEnd(s, Input{CWD: repo, TranscriptPath: tr}, "claude", "", "", time.Now())
+	all, _ := session.All(s)
+	if len(all) != 1 {
+		t.Fatalf("%v", all)
+	}
+	for _, sess := range all {
+		if sess.LastMessage == nil || *sess.LastMessage != "all green" || sess.SessionID != "unknown" {
+			t.Fatalf("%+v", sess)
+		}
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/hook"
-	"github.com/bilal-/sous/internal/session"
 )
 
 // sessionIntro opens what an agent sees at session start, so it knows what
@@ -26,50 +25,41 @@ func cmdHook(e *Env, a argv) int {
 	}
 	switch args[0] {
 	case "session-start":
-		// Everything — including git-backed repo resolution — runs under the
-		// guard: a hanging git must not hang the agent session.
-		done := make(chan struct{})
+		// Plugins and tracker probes must finish inside the guard; when it
+		// fires first, cancelling kills their process groups.
 		var buf bytes.Buffer
-		// Plugins and tracker probes together must finish inside the guard;
-		// if the guard fires first, cancelling kills their process groups
-		// instead of leaving them behind.
 		sub := e.child(&buf, io.Discard, true)
 		sub.PluginTimeout = 2 * time.Second
 		sub.Deadline = time.Now().Add(4 * time.Second)
 		sub.ctx()
 		defer sub.close()
-		go func() {
-			defer close(done)
-			root, ok := hook.StartRoot(in, e.Cwd, e.UserHome)
-			if !ok {
-				return
+		if guarded(func() {
+			if root, ok := hook.StartRoot(in, e.Cwd, e.UserHome); ok {
+				cmdHere(sub, argv{pos: []string{root}})
 			}
-			cmdHere(sub, argv{pos: []string{root}})
-		}()
-		select {
-		case <-done:
-			if buf.Len() > 0 {
-				fmt.Fprintln(e.Stdout, sessionIntro)
-			}
+		}) && buf.Len() > 0 {
+			fmt.Fprintln(e.Stdout, sessionIntro)
 			io.Copy(e.Stdout, &buf)
-		case <-time.After(5 * time.Second):
-			sub.close()
 		}
 	case "session-end":
-		root, ok := hook.Root(in, e.Cwd, e.UserHome)
-		if !ok {
-			return 0
-		}
-		sess := session.Session{Agent: args[1], SessionID: in.SessionID, Ended: time.Now()}
-		if in.TranscriptPath != "" {
-			if m := hook.LastAssistantText(in.TranscriptPath, 300); m != "" {
-				sess.LastMessage = &m
-			}
-		}
-		if sess.SessionID == "" {
-			sess.SessionID = "unknown"
-		}
-		session.Record(e.store(), root, sess)
+		guarded(func() { hook.RecordEnd(e.store(), in, args[1], e.Cwd, e.UserHome, time.Now()) })
 	}
 	return 0
 }
+
+// guarded runs fn but gives up after hookGuard, so a slow git, a huge
+// transcript or a busy lock never holds up the agent. It reports whether
+// fn finished in time.
+func guarded(fn func()) bool {
+	done := make(chan struct{})
+	go func() { defer close(done); fn() }()
+	select {
+	case <-done:
+		return true
+	case <-time.After(hookGuard):
+		return false
+	}
+}
+
+// hookGuard is how long a hook may take before the agent carries on.
+const hookGuard = 5 * time.Second
