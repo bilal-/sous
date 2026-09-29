@@ -55,6 +55,10 @@ type RemoteScanner struct {
 	MR         bool // hits are merge requests: refs use "!" (see tracker.Ref)
 }
 
+// searchLimit is how many results one query asks for; reaching it means
+// the answer may be cut short.
+const searchLimit = 1000
+
 // Scan is the Scanner for this tracker.
 func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) error {
 	if err := rs.Available(); err != nil {
@@ -76,17 +80,21 @@ func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) e
 	for _, identity := range rs.Identities {
 		for _, q := range rs.Queries {
 			hits, err := q.Fetch(identity)
-			if err != nil {
-				fmt.Fprintf(warn, "%s %s%s: %v\n", rs.Name, q.Key, as(identity), err)
-				if firstErr == nil {
-					firstErr = err
-				}
-				continue
+			if err == nil && len(hits) >= searchLimit {
+				// A full page may have more behind it: show what came, and say
+				// the scan is incomplete, so earlier findings stay (stale).
+				err = fmt.Errorf("more than %d results; some may be missing", searchLimit)
 			}
 			for _, h := range hits {
 				if sig, ok := rs.signal(q, h, byRepo); ok && !emitted[sig.ID] {
 					emitted[sig.ID] = true
 					WriteLine(w, sig)
+				}
+			}
+			if err != nil {
+				fmt.Fprintf(warn, "%s %s%s: %v\n", rs.Name, q.Key, as(identity), err)
+				if firstErr == nil {
+					firstErr = err
 				}
 			}
 		}

@@ -23,7 +23,7 @@ type glMR struct {
 // glMRs runs one merge_requests query on a host and returns hits keyed by
 // host so RemoteScanner can map them to local repos.
 func glMRs(host, query string) ([]Hit, error) {
-	out, err := tracker.GLabRun(host, "api", "merge_requests?state=opened&per_page=100&"+query)
+	out, err := tracker.GLabRun(host, "api", "--paginate", "merge_requests?state=opened&per_page=100&"+query)
 	if err != nil {
 		return nil, err
 	}

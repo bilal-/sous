@@ -3,6 +3,7 @@ package signal
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/bilal-/sous/internal/config"
@@ -19,7 +20,7 @@ type ghPR struct {
 }
 
 func ghSearch(account string, extra ...string) ([]Hit, error) {
-	args := append([]string{"search", "prs", "--state=open", "--limit", "100", "--json", "repository,number,title,updatedAt"}, extra...)
+	args := append([]string{"search", "prs", "--state=open", "--limit", strconv.Itoa(searchLimit), "--json", "repository,number,title,updatedAt"}, extra...)
 	out, err := tracker.GHRun(account, args...)
 	if err != nil {
 		return nil, err
