@@ -170,3 +170,36 @@ func TestTokenReadsNeverOverlap(t *testing.T) {
 		}
 	}
 }
+
+// An ~/.ssh/config alias reads as its real host, from the file alone:
+// nothing is run (ssh -G would run Match exec lines) and nothing leaves
+// the machine.
+func TestParseRemoteResolvesSSHAliases(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
+	os.WriteFile(filepath.Join(home, ".ssh", "config"), []byte(`
+Match exec "touch `+filepath.Join(home, "ran")+`"
+  User nobody
+Host gh-work gh-*
+  HostName github.com
+  User git
+Host lab
+    hostname GIT.EXAMPLE.ORG
+`), 0o600)
+	resetSSHAliases()
+	for in, want := range map[string]string{
+		"gh-work/acme/api": "github.com",
+		"gh-home/acme/api": "github.com",
+		"lab/team/web":     "git.example.org",
+		"github.com/a/b":   "github.com",
+		"unknown/team/web": "",
+	} {
+		if host, _ := ParseRemote(in); host != want {
+			t.Errorf("%q → %q, want %q", in, host, want)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(home, "ran")); err == nil {
+		t.Fatal("ssh config must be read, never executed")
+	}
+}

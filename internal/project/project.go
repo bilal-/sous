@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -138,56 +137,39 @@ func Remote(path string) string {
 	return normalizeRemote(strings.TrimSpace(out))
 }
 
+// normalizeRemote turns any git remote into "host/path", as plain text:
+// git@host:path, user@host:path, host:path, ssh://user@host:port/path and
+// https://host/path. It does no lookups; this string is the project's
+// identity, so it must not change with the machine's ssh config.
 func normalizeRemote(url string) string {
 	if url == "" {
 		return ""
 	}
 	url = strings.TrimSuffix(strings.TrimSuffix(url, "/"), ".git")
-	switch {
-	case strings.HasPrefix(url, "git@"):
-		url = strings.Replace(strings.TrimPrefix(url, "git@"), ":", "/", 1)
-	case strings.Contains(url, "://"):
-		url = url[strings.Index(url, "://")+3:]
-		if i := strings.Index(url, "@"); i >= 0 {
-			url = url[i+1:]
+	if i := strings.Index(url, "://"); i >= 0 {
+		url = url[i+3:]
+		if at := strings.Index(url, "@"); at >= 0 && at < strings.IndexByte(url+"/", '/') {
+			url = url[at+1:]
 		}
+		host, rest, _ := strings.Cut(url, "/")
+		host, _, _ = strings.Cut(host, ":") // a port is not part of the host
+		return joinRemote(host, rest)
 	}
-	host, rest, _ := strings.Cut(url, "/")
-	host, _, _ = strings.Cut(host, ":") // a port is not part of the host's name
-	if !strings.Contains(host, ".") && host != "" && rest != "" {
-		host = sshHost(host) // an alias from ~/.ssh/config
+	// scp style: [user@]host:path
+	if host, rest, ok := strings.Cut(url, ":"); ok && !strings.Contains(host, "/") {
+		if at := strings.LastIndex(host, "@"); at >= 0 {
+			host = host[at+1:]
+		}
+		return joinRemote(host, rest)
 	}
-	if rest == "" {
-		return host
-	}
-	return host + "/" + rest
+	return url
 }
 
-var (
-	sshMu    sync.Mutex
-	sshCache = map[string]string{}
-)
-
-// sshHost resolves an ~/.ssh/config alias ("gh-work") to its real host name
-// with `ssh -G`, which only reads config and never connects. Unknown or
-// failing aliases stay as they are.
-func sshHost(alias string) string {
-	sshMu.Lock()
-	defer sshMu.Unlock()
-	if h, ok := sshCache[alias]; ok {
-		return h
+func joinRemote(host, path string) string {
+	if path == "" {
+		return host
 	}
-	h := alias
-	if out, err := exec.Command("ssh", "-G", alias).Output(); err == nil {
-		for _, line := range strings.Split(string(out), "\n") {
-			if v, ok := strings.CutPrefix(line, "hostname "); ok && strings.TrimSpace(v) != "" {
-				h = strings.ToLower(strings.TrimSpace(v))
-				break
-			}
-		}
-	}
-	sshCache[alias] = h
-	return h
+	return host + "/" + strings.TrimPrefix(path, "/")
 }
 
 // ForPath returns the repo root containing path.

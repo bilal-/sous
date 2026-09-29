@@ -193,17 +193,6 @@ func TestFacts(t *testing.T) {
 	}
 }
 
-// An SSH host alias from ~/.ssh/config reads as the real host.
-func TestRemoteResolvesSSHHostAlias(t *testing.T) {
-	testutil.FakeBin(t, "ssh", `[ "$1 $2" = "-G gh-work" ] && printf 'user git\nhostname github.com\nport 22\n' || printf 'hostname %s\n' "$2"`)
-	if got := normalizeRemote("git@gh-work:acme/api.git"); got != "github.com/acme/api" {
-		t.Fatalf("%q", got)
-	}
-	if got := normalizeRemote("git@github.com:acme/api.git"); got != "github.com/acme/api" {
-		t.Fatalf("%q", got)
-	}
-}
-
 // A git repo at $HOME (dotfiles) must not swallow every folder under it.
 func TestForPathIgnoresARepoAtHome(t *testing.T) {
 	home := t.TempDir()
@@ -235,5 +224,19 @@ func TestAgo(t *testing.T) {
 	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
 	if Ago(now, now.Add(time.Minute)) != "just now" || Ago(now, now.Add(-3*time.Hour)) != "3h ago" {
 		t.Fatal(Ago(now, now.Add(time.Minute)), Ago(now, now.Add(-3*time.Hour)))
+	}
+}
+
+// Review: host:org/repo without git@ (an ssh alias, or user@host) keeps its
+// org; before the fix these collapsed to host/repo.
+func TestRemoteFormsWithoutGitAt(t *testing.T) {
+	for in, want := range map[string]string{
+		"github.com:acme/api.git":            "github.com/acme/api",
+		"dev@git.example.org:acme/api":       "git.example.org/acme/api",
+		"ssh://dev@git.example.org/acme/api": "git.example.org/acme/api",
+	} {
+		if got := normalizeRemote(in); got != want {
+			t.Errorf("%q → %q, want %q", in, got, want)
+		}
 	}
 }

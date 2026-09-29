@@ -219,10 +219,72 @@ func GLab(host string, args ...string) *exec.Cmd {
 }
 
 // ParseRemote splits "host/path/to/repo" as produced by project.Remote.
+//
+// A host with no dot is taken as an alias from ~/.ssh/config (Host gh-work,
+// HostName github.com), so a remote like gh-work:acme/api counts as GitHub.
 func ParseRemote(remote string) (host, path string) {
 	host, path, ok := strings.Cut(remote, "/")
+	if ok && !strings.Contains(host, ".") {
+		host = sshAlias(host)
+	}
 	if !ok || !strings.Contains(host, ".") {
 		return "", ""
 	}
 	return host, path
+}
+
+var (
+	sshOnce    sync.Once
+	sshAliases map[string]string
+)
+
+func resetSSHAliases() { sshOnce = sync.Once{} }
+
+// sshAlias looks an alias up in ~/.ssh/config: the HostName of the first
+// Host block whose pattern matches. The file is only read, never run (ssh
+// -G would run Match exec lines), and read once per process.
+func sshAlias(alias string) string {
+	sshOnce.Do(func() { sshAliases = readSSHConfig() })
+	for _, pat := range sshAliasOrder {
+		if ok, _ := filepath.Match(pat, alias); ok {
+			return sshAliases[pat]
+		}
+	}
+	return alias
+}
+
+var sshAliasOrder []string
+
+func readSSHConfig() map[string]string {
+	sshAliasOrder = nil
+	out := map[string]string{}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return out
+	}
+	b, err := os.ReadFile(filepath.Join(home, ".ssh", "config"))
+	if err != nil {
+		return out
+	}
+	var patterns []string
+	for _, line := range strings.Split(string(b), "\n") {
+		fields := strings.Fields(strings.ReplaceAll(line, "=", " "))
+		if len(fields) < 2 || strings.HasPrefix(fields[0], "#") {
+			continue
+		}
+		switch strings.ToLower(fields[0]) {
+		case "host":
+			patterns = fields[1:]
+		case "match":
+			patterns = nil // conditions sous does not evaluate
+		case "hostname":
+			for _, p := range patterns {
+				if _, seen := out[p]; !seen && !strings.HasPrefix(p, "!") {
+					out[p] = strings.ToLower(fields[1])
+					sshAliasOrder = append(sshAliasOrder, p)
+				}
+			}
+		}
+	}
+	return out
 }
