@@ -16,6 +16,10 @@ func cmdGo(e *Env, a argv) int {
 	if code != 0 {
 		return code
 	}
+	if a.has("where") { // for the shell wrapper: the folder, nothing started
+		fmt.Fprintln(e.Stdout, p.Path)
+		return 0
+	}
 	cfg, code := e.config()
 	if code != 0 {
 		return code

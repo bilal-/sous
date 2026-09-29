@@ -238,6 +238,8 @@ Options:
 * `-a <agent>` (or `--agent`): which agent to start: `claude`, `codex`, or
   the name of a launcher plugin. The default is `agent` in configuration,
   or `claude`.
+* `--where`: only print the project folder `go` would use, and start
+  nothing. The shell snippet uses it to move your terminal there.
 
 ## Setting up
 

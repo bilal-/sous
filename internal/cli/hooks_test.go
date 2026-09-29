@@ -245,7 +245,7 @@ func TestZshWrapperFindsTheProjectAnywhere(t *testing.T) {
 	os.MkdirAll(proj, 0o755)
 	bin := filepath.Join(dir, "bin")
 	os.MkdirAll(bin, 0o755)
-	os.WriteFile(filepath.Join(bin, "sous"), []byte("#!/bin/sh\n[ \"$1 $2\" = \"projects --path\" ] && [ \"$3\" = api ] && echo "+proj+"\nexit 0\n"), 0o755)
+	os.WriteFile(filepath.Join(bin, "sous"), []byte("#!/bin/sh\n[ \"$1 $2\" = \"go --where\" ] && echo "+proj+"\nexit 0\n"), 0o755)
 	snippet := filepath.Join(dir, "sous.zsh")
 	os.WriteFile(snippet, []byte(shellSnippet), 0o644)
 	for _, args := range []string{"go api", "go -a codex api", "go --agent codex api", "go --agent=codex api", "go api -a codex"} {

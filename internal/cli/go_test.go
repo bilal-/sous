@@ -151,3 +151,20 @@ func TestGoDotMeansThisProject(t *testing.T) {
 		t.Fatalf("%v\n%s", err, out)
 	}
 }
+
+// sous go --where prints the project folder sous go would use, parsed the
+// same way, and starts nothing. The zsh wrapper relies on it.
+func TestGoWherePrintsTheProjectOnly(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("a/ios-app", true)
+	real, _ := filepath.EvalSymlinks(p)
+	for _, args := range [][]string{{"go", "--where", "ios"}, {"go", "-a", "codex", "--where", "ios"}, {"go", "ios", "--agent=codex", "--where"}} {
+		out, errs, code := f.run(args...)
+		if code != 0 || strings.TrimSpace(out) != real {
+			t.Errorf("%v: %d %q %q", args, code, out, errs)
+		}
+	}
+	if _, _, code := f.run("go", "--where", "--bogus", "ios"); code != 2 {
+		t.Fatal("bad arguments fail as they would for go")
+	}
+}

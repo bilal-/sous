@@ -9,20 +9,8 @@ fi
 # cannot change this shell's directory, so the wrapper does the cd first.
 sous() {
   if [[ "$1" == go ]]; then
-    # Find the project among the arguments, skipping -a/--agent and its value.
-    local a p="" skip=0
-    for a in "${@:2}"; do
-      if (( skip )); then skip=0; continue; fi
-      case "$a" in
-        -a|--agent) skip=1 ;;
-        -*) ;;
-        *) p="$a"; break ;;
-      esac
-    done
-    if [[ -n "$p" && "$p" != . ]]; then
-      p="$(command sous projects --path "$p")" || return $?
-      cd "$p" || return $?
-    fi
+    local p
+    p="$(command sous go --where "${@:2}" 2>/dev/null)" && cd "$p"
   fi
   command sous "$@"
 }
