@@ -59,11 +59,12 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/store      saving data files safely: locked, written whole, upgraded in place
     internal/config     config.toml: reading it, the list of settings (from Config's fields), and safe editing (Set), checked to change only what was asked
     internal/hook       agent hook input, the hook command format, and adding hooks to an agent's settings
-    internal/install    setup's steps: agent hooks and skills, and the shell line
+    internal/install    setup's steps: agent hooks and skills, and the shell line, and Check for each
+    internal/doctor     sous doctor: every check, in one list, with how to fix it
     internal/testutil   helpers shared by every package's tests
 
-Code only depends downward, in this order: `cli`, then `report` and
-`install`, then `board`, `filing`, `hook` and `launcher`, then `signal` and `backend`, then
+Code only depends downward, in this order: `cli`, then `doctor`, then
+`report` and `install`, then `board`, `filing`, `hook` and `launcher`, then `signal` and `backend`, then
 `tracker`, `plugin`, `thread`, `session` and `project`, then `store` and
 `config`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.

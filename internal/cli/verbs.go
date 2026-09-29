@@ -42,6 +42,7 @@ func init() {
 		{"config", cmdConfig, true, &argSpec{bools: []string{"unset", "add", "remove"}, values: []string{"p"}, max: -1}, "sous config [<key> <value...>] [-p <project>] [--unset] [--add] [--remove]   show or change settings; -p for one project or org/*"},
 		{"go", cmdGo, false, exactly(1, []string{"where"}, []string{"a|agent", "in"}), "sous go <project> [-a <launcher>] [--where] [--in <folder>]   start your agent in that project; --where only prints the folder"},
 		{"setup", cmdSetup, false, &argSpec{bools: []string{"codex-session-end", "print-skill", "no-shell"}, max: -1}, "sous setup [folder...] [--no-shell] [--print-skill] [--codex-session-end]   set everything up; folders say where your projects are"},
+		{"doctor", cmdDoctor, true, exactly(0, nil, nil), "sous doctor       check that sous is set up and working, and how to fix what is not"},
 		{"version", cmdVersion, false, exactly(0, nil, nil), "sous version"},
 		{"help", cmdHelp, false, exactly(0, nil, nil), "sous help"},
 		// Internal doors: how the runner re-execs built-ins, and hooks. Not in help.

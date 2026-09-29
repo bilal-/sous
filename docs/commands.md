@@ -9,7 +9,7 @@ everyday flow, start with the [README](../README.md). Run
 * [Notes](#notes): `note`, `edit`, `kind`, `snooze`, `done`
 * [Sharing a note](#sharing-a-note): `file`, `note --file`, `done --close`
 * [Going to a project](#going-to-a-project): `go`
-* [Setting up](#setting-up): `setup`, `config`, `version`, `help`
+* [Setting up](#setting-up): `setup`, `config`, `doctor`, `version`, `help`
 * [Options for the shell and menu bar](#options-for-the-shell-and-menu-bar): `--ambient`, `--cached`, `--refresh`, `--menubar`
 * [Commands for plugins and hooks](#commands-for-plugins-and-hooks): `signal`, `backend`, `launcher`, `hook`
 * [How project names are matched](#how-project-names-are-matched)
@@ -316,6 +316,37 @@ Options:
   plugins, gitlab_hosts) instead of replacing it.
 * `--json`
 
+### `sous doctor`
+
+Checks that sous is set up and working, and for anything that is not, says
+the command that fixes it. It changes nothing. It looks at:
+
+* config.toml and your project folders (and how many projects are in them)
+* the agent hooks for Claude Code and Codex, and that they run this sous
+* the sous skill in every folder agents read, and that it is current
+* the line in your shell's startup file
+* `gh` and `glab`: installed, logged in, each configured account or host,
+  and whether your GitHub token can read notifications
+* each plugin you listed
+* your notes, sessions and observations files
+* how old the saved board is
+
+```
+sous doctor · 15 checks · 0 problems · 1 to look at
+
+  ✓ config: ~/.sous/config.toml reads
+  ✓ project folders: 26 projects in ~/code
+  ...
+  ! GitHub notifications: HTTP 403
+      fix: gh auth refresh -s notifications
+```
+
+`✗` is broken, `!` is worth a look (such as an optional tracker not logged
+in). It exits `1` when something is broken, else `0`. This is the one
+command that asks GitHub and GitLab directly, so it can take a few seconds.
+
+Options: `--json`.
+
 ### `sous version`
 
 Print the version. Builds from source show how far past a release they are,
@@ -370,7 +401,7 @@ code `2`. It never guesses.
 | Code | Meaning |
 |---|---|
 | `0` | Fine. |
-| `1` | Something failed: a data file, a tracker, a missing tool. The message says what. |
+| `1` | Something failed: a data file, a tracker, a missing tool. The message says what. For `sous doctor`, something is broken. |
 | `2` | The command was wrong (unknown option, wrong arguments, bad value), or a name matched more than one project. |
 | `3` | `--cached` or `--ambient` was asked for the board before there was one. A first board is being built. (For a signal plugin, exit `3` means "not set up here"; see [plugins.md](plugins.md).) |
 

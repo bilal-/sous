@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -41,7 +40,7 @@ func cmdSetup(e *Env, a argv) int {
 	if a.has("no-shell") {
 		done = append(done, "shell: skipped. To show the board in new shells, run sous --ambient from your shell's startup file")
 	} else {
-		msg, err := install.Shell(e.UserHome, e.Home, filepath.Base(e.Shell), runtime.GOOS, e.Zdotdir)
+		msg, err := install.Shell(e.UserHome, e.Home, e.Shell, runtime.GOOS, e.Zdotdir)
 		if err != nil {
 			return fail(e, 1, "%v", err)
 		}

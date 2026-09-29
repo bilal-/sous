@@ -9,7 +9,7 @@ import (
 )
 
 func TestCheckGitHub(t *testing.T) {
-	testutil.FakeBin(t, "gh", `case "$*" in
+	fakeTool(t, "gh", `case "$*" in
   "auth status") exit 0;;
   "auth token --user work-account") echo tok;;
   "auth token --user gone") exit 1;;
@@ -45,4 +45,14 @@ func TestCheckGitHubNotInstalledIsOptional(t *testing.T) {
 	if r := CheckGitHub([]string{"work-account"}); r[0].OK {
 		t.Fatalf("configured accounts need gh: %+v", r)
 	}
+}
+
+// fakeTool installs a fake gh or glab and clears what tracker cached about
+// the last one (tokens, GitLab hosts), before and after, so tests cannot
+// see each other's answers.
+func fakeTool(t *testing.T, tool, body string) {
+	t.Helper()
+	ResetCache()
+	t.Cleanup(ResetCache)
+	testutil.FakeBin(t, tool, body)
 }

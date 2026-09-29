@@ -45,6 +45,8 @@ For agents:
     <!-- sous:... --> markers to make filing work unless the user asks. If
     sous says there is no tracker, say so.
   sous done means the user's task is finished, not that you wrote code.
+  When sous shows a ? or a source failed, run sous doctor for the cause and
+    the fix, and tell the user.
   (ref missing) and (status unavailable) mean sous could not confirm, not done.
   When work is put off, the user waits on someone, or an idea belongs to
     another project, offer to note it in one line. Write it only on a yes.
@@ -65,7 +67,7 @@ type Env struct {
 	Store    *store.Store
 	Cwd      string // the working directory, read once; tests set it instead of chdir
 	UserHome string // the person's home folder, read once
-	Shell    string // $SHELL
+	Shell    string // the shell's name, from $SHELL: "zsh", "bash", "fish"
 	Zdotdir  string // $ZDOTDIR, where zsh keeps its startup files when set
 	Source   string // SOUS_SOURCE: who is writing notes ("agent"), read once
 	// Timeout for one signal plugin. The session hook shortens it so a slow
@@ -204,7 +206,7 @@ func newEnv(cwd string, stdin io.Reader, stdout, stderr io.Writer) *Env {
 	e := &Env{Home: home, Stdin: stdin, Stdout: stdout, Stderr: stderr, Exe: stableExe(exe), Store: &store.Store{Home: home}, Cwd: cwd}
 	e.Source = os.Getenv("SOUS_SOURCE")
 	e.UserHome, _ = os.UserHomeDir()
-	e.Shell, e.Zdotdir = os.Getenv("SHELL"), os.Getenv("ZDOTDIR")
+	e.Shell, e.Zdotdir = filepath.Base(os.Getenv("SHELL")), os.Getenv("ZDOTDIR")
 	cache, _ := os.UserCacheDir()
 	tracker.Init(e.UserHome, cache, os.Environ())
 	e.Cfg, e.cfgErr = config.Load(home, e.UserHome)

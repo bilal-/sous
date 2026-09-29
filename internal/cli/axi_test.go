@@ -44,12 +44,12 @@ func TestAXI4And5ReadVerbsAnswerWhenEmpty(t *testing.T) {
 	p := f.mkrepo("acme/chime", true)
 	for _, v := range readVerbs() {
 		out, errs, code := f.runIn(p, v.name)
-		if code != 0 || strings.TrimSpace(out) == "" {
+		if code != 0 && !(v.name == "doctor" && code == 1) || strings.TrimSpace(out) == "" { // doctor: 1 means problems found
 			t.Errorf("%s: %d %q %q", v.name, code, out, errs)
 		}
 		out, errs, code = f.runIn(p, v.name, "--json")
 		var anyJSON any
-		if code != 0 || json.Unmarshal([]byte(out), &anyJSON) != nil || anyJSON == nil {
+		if code != 0 && !(v.name == "doctor" && code == 1) || json.Unmarshal([]byte(out), &anyJSON) != nil || anyJSON == nil {
 			t.Errorf("%s --json: %d %q %q", v.name, code, out, errs)
 		}
 	}

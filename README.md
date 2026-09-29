@@ -200,6 +200,11 @@ There is nothing else to do: installing runs `sous setup`, which
 
 It tells you what it did. Open a new terminal and the board is there.
 
+If something looks wrong later (a `?` in the headline, an agent that
+does not know sous), run `sous doctor`. It checks every part of the setup,
+including your GitHub and GitLab logins, and says the command that fixes
+anything that is not right.
+
 If your projects live somewhere else, say where:
 
     sous setup ~/where/my/repos/are
@@ -343,6 +348,8 @@ explains itself with `--help`.
 | `sous report [--week] [--open]` | what changed lately |
 | `sous go <project> [-a agent]` | start your agent in a project |
 | `sous setup [folder...]` | set everything up; folders say where your projects are |
+| `sous config [key value...]` | see or change settings |
+| `sous doctor` | check the setup, and how to fix what is not right |
 
 To write a note that starts with a dash, put `--` before it:
 `sous note -- "-2 tests failing"`.
