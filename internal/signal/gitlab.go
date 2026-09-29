@@ -69,7 +69,7 @@ func ScanGitLab(cfg *config.Config) Scanner {
 				return hostsErr
 			}
 			if len(hosts) == 0 {
-				return errors.New("not logged in to any GitLab host (run glab auth login)")
+				return fmt.Errorf("%w to any GitLab host (run glab auth login)", tracker.ErrNoLogin)
 			}
 			return nil
 		},

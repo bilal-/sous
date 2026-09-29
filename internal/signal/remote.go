@@ -59,7 +59,7 @@ type RemoteScanner struct {
 func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) error {
 	if err := rs.Available(); err != nil {
 		fmt.Fprintf(warn, "%s: %v\n", rs.Name, err)
-		if !rs.Configured {
+		if !rs.Configured && (errors.Is(err, tracker.ErrNotInstalled) || errors.Is(err, tracker.ErrNoLogin)) {
 			return fmt.Errorf("%w: %v", ErrNotSetUp, err)
 		}
 		return err

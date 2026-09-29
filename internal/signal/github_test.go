@@ -167,3 +167,18 @@ func TestScanGitHubNotSetUp(t *testing.T) {
 		t.Fatalf("a configured account without gh is a real failure: %v", err)
 	}
 }
+
+// Review: only a missing tool or a real logout is "not set up"; a network
+// or keyring failure is a failure, named in the headline.
+func TestScanGitHubNetworkFailureIsAFailure(t *testing.T) {
+	fakeGH(t, `echo "error connecting to api.github.com:
+network is unreachable" >&2; exit 1`)
+	var warn bytes.Buffer
+	err := ScanGitHub(&config.Config{})(nil, io.Discard, &warn, time.Now())
+	if err == nil || errors.Is(err, ErrNotSetUp) {
+		t.Fatalf("%v", err)
+	}
+	if strings.Count(strings.TrimSpace(warn.String()), "\n") != 0 {
+		t.Fatalf("the reason is one line: %q", warn.String())
+	}
+}

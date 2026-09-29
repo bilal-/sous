@@ -199,8 +199,8 @@ func Output(cmd *exec.Cmd) ([]byte, error) {
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		if msg := strings.TrimSpace(stderr.String()); msg != "" {
-			return out, errors.New(msg)
+		if msg := strings.Join(strings.Fields(stderr.String()), " "); msg != "" {
+			return out, errors.New(msg) // one line, however the tool wrapped it
 		}
 		return out, err
 	}
@@ -259,6 +259,9 @@ func Init(home, cache string, env []string) {
 func childEnv(extra ...string) []string {
 	envMu.Lock()
 	defer envMu.Unlock()
+	if baseEnv == nil { // Init not called: run with this process's environment
+		return append(os.Environ(), extra...)
+	}
 	return append(slices.Clone(baseEnv), extra...)
 }
 
@@ -441,7 +444,7 @@ func GHReady(account string) error {
 	}
 	if _, err := GHRun(account, "auth", "status"); err != nil {
 		if account == "" && loggedOut(err) {
-			return errors.New("not logged in (run gh auth login)")
+			return fmt.Errorf("%w (run gh auth login)", ErrNoLogin)
 		}
 		return err // the tool's own words: a keyring or network problem, or which account
 	}
@@ -456,7 +459,7 @@ func GLabReady(host string) error {
 	}
 	if _, err := GLabRun(host, "auth", "status"); err != nil {
 		if loggedOut(err) {
-			return fmt.Errorf("not logged in to %s (run glab auth login --hostname %s)", host, host)
+			return fmt.Errorf("%w to %s (run glab auth login --hostname %s)", ErrNoLogin, host, host)
 		}
 		return fmt.Errorf("%s: %w", host, err)
 	}
@@ -478,7 +481,15 @@ func GLabInstalled() error { return installed("glab") }
 // installed: is tool on PATH? The error says it is not.
 func installed(tool string) error {
 	if _, err := exec.LookPath(tool); err != nil {
-		return errors.New(tool + " not installed")
+		return fmt.Errorf("%s %w", tool, ErrNotInstalled)
 	}
 	return nil
 }
+
+// ErrNotInstalled and ErrNoLogin: the tool is missing, or has no login.
+// Either means a tracker is simply not set up here, unlike a network or
+// keyring failure.
+var (
+	ErrNotInstalled = errors.New("not installed")
+	ErrNoLogin      = errors.New("not logged in")
+)
