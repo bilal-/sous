@@ -239,3 +239,18 @@ func TestRemoteFormsWithoutGitAt(t *testing.T) {
 		}
 	}
 }
+
+// Review: a folder sous cannot read is unavailable, not empty.
+func TestUnreadableFolderIsUnavailable(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root reads everything")
+	}
+	root := t.TempDir()
+	org := filepath.Join(root, "acme")
+	os.MkdirAll(org, 0o755)
+	os.Chmod(org, 0o000)
+	t.Cleanup(func() { os.Chmod(org, 0o755) })
+	if _, unavailable := Discover([]string{root}, nil, io.Discard); unavailable != 1 {
+		t.Fatalf("unavailable = %d", unavailable)
+	}
+}

@@ -22,6 +22,8 @@ type ObsEntry struct {
 	LastSeen    time.Time `json:"last_seen"`
 	Hash        string    `json:"hash"`
 	SnoozedHash *string   `json:"snoozed_hash"`
+	// Stale: kept only because its plugin could not check it last time.
+	Stale bool `json:"stale,omitempty"`
 }
 
 type ObsDoc struct {
@@ -99,10 +101,9 @@ func Observe(s *store.Store, c Collected, scanned []string, now time.Time) ([]Ob
 			case !inScope[prev.Project] || !ran[prev.Plugin]:
 				fresh[id] = prev // not scanned this run: keep as is, don't render
 			case !okPlugins[prev.Plugin]:
-				fresh[id] = prev // plugin failed or is off: keep and render stale
-				o := prev.observed(id)
-				o.Stale = true
-				out = append(out, o)
+				prev.Stale = true // plugin failed or is off: keep, and say so
+				fresh[id] = prev
+				out = append(out, prev.observed(id))
 			}
 		}
 		d.Signals = fresh
@@ -138,6 +139,7 @@ func (e ObsEntry) observed(id string) Observed {
 		Tagged:    Tagged{Signal: Signal{ID: id, Project: e.Project, Kind: e.Kind, Text: e.Text, Observed: e.LastSeen, Ref: e.Ref}, Plugin: e.Plugin},
 		FirstSeen: e.FirstSeen, LastSeen: e.LastSeen,
 		Snoozed: e.SnoozedHash != nil && *e.SnoozedHash == e.Hash,
+		Stale:   e.Stale,
 	}
 }
 

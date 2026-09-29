@@ -244,3 +244,19 @@ func TestObserveOnlySettlesThePluginsThatRan(t *testing.T) {
 		t.Fatalf("%+v", known)
 	}
 }
+
+// Review: a row kept because its plugin failed is remembered as stale, so
+// here (which reads it back later) does not show it as fresh.
+func TestStaleIsRememberedForKnown(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	Observe(s, ran("github", Signal{ID: "s:pr", Project: "/p", Kind: Me, Text: "review requested"}), []string{"/p"}, t0)
+	Observe(s, Collected{Plugins: []PluginStatus{{Name: "github", Status: StatusFailed}}}, []string{"/p"}, t0.Add(time.Hour))
+	if k, _ := Known(s, "/p"); len(k) != 1 || !k[0].Stale {
+		t.Fatalf("%+v", k)
+	}
+	Observe(s, ran("github", Signal{ID: "s:pr", Project: "/p", Kind: Me, Text: "review requested"}), []string{"/p"}, t0.Add(2*time.Hour))
+	if k, _ := Known(s, "/p"); k[0].Stale {
+		t.Fatal("seen again: fresh")
+	}
+}

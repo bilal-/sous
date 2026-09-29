@@ -83,7 +83,7 @@ func TestCollectSkipsBadLinesKeepsGood(t *testing.T) {
 	if len(c.Signals) != 2 {
 		t.Fatalf("good lines must survive a bad one: %+v", c.Signals)
 	}
-	if c.Plugins[0].Status != "ok" || c.Plugins[0].Error == nil || !strings.Contains(*c.Plugins[0].Error, "1 unreadable line") {
+	if c.Plugins[0].Status != StatusFailed || c.Plugins[0].Error == nil || !strings.Contains(*c.Plugins[0].Error, "1 unreadable line") {
 		t.Fatalf("bad line must be counted: %+v", c.Plugins[0])
 	}
 }
@@ -96,5 +96,16 @@ func TestCollectNotSetUp(t *testing.T) {
 	c := Collect(context.Background(), Plugins("", nil, []string{off}), []string{"/p"}, time.Second)
 	if st := c.Plugins[0]; st.Status != "off" || st.Error == nil || *st.Error != "gh: not logged in run gh auth login" {
 		t.Fatalf("%+v %q", st, *st.Error)
+	}
+}
+
+// Review: a plugin whose output was partly unreadable did not report
+// everything, so what it found before is kept (stale), not dropped.
+func TestUnreadableLinesMakeThePluginIncomplete(t *testing.T) {
+	dir := t.TempDir()
+	p := script(t, dir, "sous-signal-half", `echo "not json"`)
+	c := Collect(context.Background(), Plugins("", nil, []string{p}), []string{"/p"}, time.Second)
+	if c.Plugins[0].Status == StatusOK {
+		t.Fatalf("%+v", c.Plugins[0])
 	}
 }

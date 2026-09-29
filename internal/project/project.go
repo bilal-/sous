@@ -65,7 +65,12 @@ func Discover(roots, ignore []string, warn io.Writer) ([]Project, int) {
 			add(&out, seen, filepath.Dir(root), root, ignore)
 			continue
 		}
-		level1, _ := os.ReadDir(root)
+		level1, err := os.ReadDir(root)
+		if err != nil {
+			fmt.Fprintf(warn, "sous: cannot read %s: %v\n", root, err)
+			unavailable++
+			continue
+		}
 		for _, d1 := range level1 {
 			p1 := filepath.Join(root, d1.Name())
 			if !isDir(p1) { // os.Stat, not DirEntry.IsDir: symlinked repos and org folders count
@@ -75,7 +80,12 @@ func Discover(roots, ignore []string, warn io.Writer) ([]Project, int) {
 				add(&out, seen, root, p1, ignore)
 				continue // never descend into a repo
 			}
-			level2, _ := os.ReadDir(p1)
+			level2, err := os.ReadDir(p1)
+			if err != nil { // an org folder sous cannot read: its projects are unknown
+				fmt.Fprintf(warn, "sous: cannot read %s: %v\n", p1, err)
+				unavailable++
+				continue
+			}
 			for _, d2 := range level2 {
 				p2 := filepath.Join(p1, d2.Name())
 				if !isDir(p2) {

@@ -111,8 +111,10 @@ func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) 
 	if !res.TimedOut {
 		sigs, bad := ReadLinesLenient(strings.NewReader(res.Stdout))
 		if bad > 0 && r.st.Status == StatusOK {
+			// Some findings could not be read: the scan is incomplete, so
+			// what it reported before is kept, stale, rather than dropped.
 			msg := fmt.Sprintf("%d unreadable line(s) skipped", bad)
-			r.st.Error = &msg
+			r.st.Status, r.st.Error = StatusFailed, &msg
 		}
 		for _, s := range sigs {
 			r.sigs = append(r.sigs, Tagged{Signal: s, Plugin: p.Name})
