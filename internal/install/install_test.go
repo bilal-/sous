@@ -160,3 +160,23 @@ func TestZshWrapperFindsTheProjectAnywhere(t *testing.T) {
 		t.Error("--where only answers; it must not move the shell")
 	}
 }
+
+// Review: only sous's own startup lines are replaced; any other line that
+// merely mentions sous.zsh is left alone. A comment that mentions .bashrc
+// is not a line that sources it.
+func TestShellTouchesOnlyItsOwnLines(t *testing.T) {
+	home := t.TempDir()
+	mine := "export SOUS_SNIPPET=\"$HOME/.sous/sous.zsh\"\n"
+	os.WriteFile(filepath.Join(home, ".zshrc"), []byte(mine), 0o644)
+	Shell(home, filepath.Join(home, ".sous"), "zsh", "linux", "")
+	b, _ := os.ReadFile(filepath.Join(home, ".zshrc"))
+	if !strings.Contains(string(b), mine) || !strings.Contains(string(b), `source "$HOME/.sous/sous.zsh"`) {
+		t.Fatalf("%s", b)
+	}
+	h2 := t.TempDir()
+	os.WriteFile(filepath.Join(h2, ".bash_profile"), []byte("# source ~/.bashrc if needed\nexport A=1\n"), 0o644)
+	Shell(h2, filepath.Join(h2, ".sous"), "bash", "darwin", "")
+	if b, _ := os.ReadFile(filepath.Join(h2, ".bash_profile")); !strings.Contains(string(b), "sous --ambient") {
+		t.Fatalf("a comment about .bashrc does not source it:\n%s", b)
+	}
+}

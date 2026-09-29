@@ -194,7 +194,7 @@ func Command(exe, role, agent string) string {
 // arguments exactly ours.
 func IsOurs(command, role, agent string, exe ...string) bool {
 	tail := " hook " + role + " " + agent
-	if prog, ok := strings.CutSuffix(command, tail); ok && !strings.ContainsAny(prog, "'\"") && (strings.HasSuffix(prog, "/sous") || prog == "sous") {
+	if prog, ok := strings.CutSuffix(command, tail); ok && oldUnquotedPath(prog) {
 		return true // an older, unquoted line, whose path may hold spaces
 	}
 	args := shellSplit(command)
@@ -202,6 +202,13 @@ func IsOurs(command, role, agent string, exe ...string) bool {
 		return false
 	}
 	return filepath.Base(args[0]) == "sous" || len(exe) > 0 && args[0] == exe[0]
+}
+
+// oldUnquotedPath: prog is nothing but an absolute path to a sous binary,
+// as older versions wrote it without quotes (so spaces are allowed, and
+// nothing that makes it a shell command: no prefix, no operators).
+func oldUnquotedPath(prog string) bool {
+	return strings.HasPrefix(prog, "/") && strings.HasSuffix(prog, "/sous") && !strings.ContainsAny(prog, "'\";&|$`<>(){}=\\")
 }
 
 // Install puts command (from Command) into an agent's settings file for

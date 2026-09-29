@@ -228,3 +228,20 @@ func TestLastAssistantTextIsLinearOnALongLine(t *testing.T) {
 		t.Fatalf("took %v", el)
 	}
 }
+
+// Review: only a command that runs a sous binary is ours; echo, compound
+// commands and prefixes are someone else's.
+func TestIsOursRejectsLookalikes(t *testing.T) {
+	for _, c := range []string{
+		"echo /opt/sous hook session-start claude",
+		"cd /x && /opt/sous hook session-start claude",
+		"FOO=1 /opt/sous hook session-start claude",
+	} {
+		if IsOurs(c, RoleStart, "claude") {
+			t.Errorf("%q is not ours", c)
+		}
+	}
+	if !IsOurs("/Users/Sam Smith/bin/sous hook session-start claude", RoleStart, "claude") {
+		t.Error("an old unquoted path with a space is ours")
+	}
+}

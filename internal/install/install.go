@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
@@ -137,10 +139,10 @@ func Shell(home, sousHome, shell, goos, zdotdir string) (string, error) {
 				files = append(files, f)
 			}
 		}
-		line = `if [[ $- == *i* ]] && command -v sous >/dev/null; then sous --ambient 2>/dev/null; fi`
+		line = bashLine
 	case "fish":
 		files = []string{filepath.Join(home, ".config", "fish", "conf.d", "sous.fish")}
-		line = "status is-interactive; and command -q sous; and sous --ambient 2>/dev/null"
+		line = fishLine
 	default:
 		return fmt.Sprintf("shell: %s is not one sous knows. To show the board in new shells, run sous --ambient from its startup file", shell), nil
 	}
@@ -171,7 +173,7 @@ func bashLoginFile(home string) string {
 		if err != nil {
 			continue
 		}
-		if strings.Contains(string(b), ".bashrc") {
+		if sourcesBashrc.Match(b) {
 			return ""
 		}
 		return p
@@ -179,14 +181,36 @@ func bashLoginFile(home string) string {
 	return filepath.Join(home, ".bash_profile")
 }
 
+// sourcesBashrc: a line (not a comment) that runs ~/.bashrc.
+var sourcesBashrc = regexp.MustCompile(`(?m)^[^#\n]*(?:\bsource|(?:^|[\s;&|])\.)\s+"?(?:~|\$HOME|\$\{HOME\})/\.bashrc"?`)
+
 // shellComment marks the line sous adds.
 const shellComment = "# sous: show what is waiting on you in new shells"
 
-// isSousLine: a line an earlier sous (or the person) added to show the
-// board: it runs sous --ambient or sources sous.zsh, and is not a comment.
+// sourcesSnippet is a line that sources ~/.sous/sous.zsh, however the
+// home folder is written.
+var sourcesSnippet = regexp.MustCompile(`^(?:source|\.)\s+"?(?:\$HOME|~|\$\{HOME\})/\.sous/sous\.zsh"?$`)
+
+// The lines setup adds for bash and fish. Both print only in interactive
+// shells, and bash's always succeeds (a startup file must not end failing).
+const (
+	bashLine = "if [[ $- == *i* ]] && command -v sous >/dev/null; then sous --ambient 2>/dev/null; fi"
+	fishLine = "status is-interactive; and command -q sous; and sous --ambient 2>/dev/null"
+)
+
+// knownLines are the other startup lines sous has written, or told people
+// to write, to show the board.
+var knownLines = []string{
+	"sous --ambient", "sous --ambient 2>/dev/null", "sous --cached",
+	"command -v sous >/dev/null && sous --ambient 2>/dev/null",
+	bashLine, fishLine,
+}
+
+// isSousLine: a startup line sous put there (or told the person to add).
+// A line that merely mentions sous is someone else's.
 func isSousLine(l string) bool {
 	l = strings.TrimSpace(l)
-	return !strings.HasPrefix(l, "#") && (strings.Contains(l, "sous --ambient") || strings.Contains(l, "sous.zsh"))
+	return sourcesSnippet.MatchString(l) || slices.Contains(knownLines, l)
 }
 
 // addLine puts line into file once: an earlier sous line is replaced in
