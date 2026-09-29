@@ -5,6 +5,8 @@ package signaltest
 
 import (
 	"context"
+	"encoding/json"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -46,9 +48,16 @@ func Run(t *testing.T, argv []string, projects []string) {
 		}
 		seen[s.ID] = true
 	}
-	second := scan(t, argv, projects)
-	if !slices.EqualFunc(first, second, func(a, b signal.Signal) bool { return a.ID == b.ID && a.Text == b.Text }) {
-		t.Errorf("a second scan of the same projects differs: ids must be stable\nfirst:  %v\nsecond: %v", first, second)
+	// Ids must be stable; the order of lines is not part of the contract.
+	byID := func(sigs []signal.Signal) map[string]string {
+		m := map[string]string{}
+		for _, s := range sigs {
+			m[s.ID] = s.Text
+		}
+		return m
+	}
+	if a, b := byID(first), byID(scan(t, argv, projects)); !maps.Equal(a, b) {
+		t.Errorf("a second scan of the same projects differs: ids must be stable\nfirst:  %v\nsecond: %v", a, b)
 	}
 }
 
@@ -57,6 +66,12 @@ func scan(t *testing.T, argv []string, projects []string) []signal.Signal {
 	res := plugin.Exec(context.Background(), argv, []byte(strings.Join(projects, "\n")+"\n"), 15*time.Second)
 	if res.TimedOut || res.Err != nil || res.Code != 0 {
 		t.Fatalf("the plugin failed: exit %d, %v, %s", res.Code, res.Err, res.Stderr)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(res.Stdout), "\n") {
+		var raw map[string]json.RawMessage
+		if line != "" && (json.Unmarshal([]byte(line), &raw) != nil || string(raw["v"]) != "0") {
+			t.Fatalf("not a finding in contract version 0 (every line carries \"v\":0):\n%s", line)
+		}
 	}
 	sigs, bad := signal.ReadLinesLenient(strings.NewReader(res.Stdout))
 	if bad > 0 {

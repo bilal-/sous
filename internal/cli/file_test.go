@@ -425,3 +425,14 @@ func TestExamplePluginConforms(t *testing.T) {
 	example, _ := filepath.Abs(filepath.Join("..", "..", "examples", "sous-signal-todo"))
 	signaltest.Run(t, []string{example, "scan"}, []string{p, quiet})
 }
+
+// Review: a folder name with a tab or quote keeps its exact name in the
+// finding, so the board can match it to its project.
+func TestExamplePluginKeepsOddFolderNames(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/tab\there \"q\"", true)
+	os.WriteFile(filepath.Join(p, "x.go"), []byte("// TODO(me) x\n"), 0o644)
+	f.git(p, "add", "x.go")
+	example, _ := filepath.Abs(filepath.Join("..", "..", "examples", "sous-signal-todo"))
+	signaltest.Run(t, []string{example, "scan"}, []string{p})
+}
