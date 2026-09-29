@@ -10,6 +10,10 @@ import (
 	"github.com/bilal-/sous/internal/store"
 )
 
+// LastMessageRunes caps how much of a session's last message is kept, and
+// shown where space is short.
+const LastMessageRunes = 300
+
 type Session struct {
 	Agent       string    `json:"agent"`
 	SessionID   string    `json:"session_id"`

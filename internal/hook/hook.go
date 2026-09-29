@@ -169,12 +169,19 @@ func RecordEnd(s *store.Store, in Input, agent, fallback, home string, now time.
 		sess.SessionID = "unknown"
 	}
 	if in.TranscriptPath != "" {
-		if m := LastAssistantText(in.TranscriptPath, 300); m != "" {
+		if m := LastAssistantText(in.TranscriptPath, session.LastMessageRunes); m != "" {
 			sess.LastMessage = &m
 		}
 	}
 	return session.Record(s, root, sess)
 }
+
+// The two hook roles: what sous does when an agent session starts, and
+// when it ends.
+const (
+	RoleStart = "session-start"
+	RoleEnd   = "session-end"
+)
 
 // Command is the hook command line for exe: `<exe> hook <role> <agent>`,
 // with exe quoted for the shell when it needs it.

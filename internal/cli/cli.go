@@ -206,7 +206,7 @@ func newEnv(cwd string, stdin io.Reader, stdout, stderr io.Writer) *Env {
 	tracker.Init(e.UserHome, cache)
 	e.Cfg, e.cfgErr = config.Load(home, e.UserHome)
 	if e.Cfg == nil {
-		e.Cfg = &config.Config{Agent: "claude", RefreshHours: 4}
+		e.Cfg = config.Default()
 	}
 	return e
 }

@@ -65,6 +65,11 @@ func (c *Config) Identities(key string) []string {
 	return out
 }
 
+// Default is the configuration before config.toml says anything.
+func Default() *Config { return &Config{Agent: "claude", RefreshHours: defaultRefreshHours} }
+
+const defaultRefreshHours = 4
+
 // NoRootsHint says what to do when no project folders are set yet.
 const NoRootsHint = "no project folders yet. Run sous setup to find them, or sous setup ~/path/to/your/projects"
 
@@ -73,7 +78,7 @@ func Path(sousHome string) string { return filepath.Join(sousHome, "config.toml"
 
 // Load reads config.toml from sousHome; ~ in paths means userHome.
 func Load(sousHome, userHome string) (*Config, error) {
-	c := &Config{Agent: "claude", RefreshHours: 4}
+	c := Default()
 	b, err := os.ReadFile(Path(sousHome))
 	if errors.Is(err, os.ErrNotExist) {
 		return c, nil
@@ -99,7 +104,7 @@ func (c *Config) RefreshWindow() time.Duration {
 	if c.RefreshHours > 0 {
 		return time.Duration(c.RefreshHours) * time.Hour
 	}
-	return 4 * time.Hour
+	return defaultRefreshHours * time.Hour
 }
 
 // Expand turns a leading ~ into the user's home directory.

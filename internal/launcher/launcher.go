@@ -9,8 +9,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"os/exec"
 	"path/filepath"
+	"slices"
 
 	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/store"
@@ -33,7 +35,8 @@ func Launchers(exe string, builtins, thirdParty []string) []Launcher {
 // Each is exec'd in the project directory with the user's terminal.
 var Builtins = map[string]string{"claude": "claude", "codex": "codex"}
 
-func BuiltinNames() []string { return []string{"claude", "codex"} }
+// BuiltinNames, sorted, from Builtins.
+func BuiltinNames() []string { return slices.Sorted(maps.Keys(Builtins)) }
 
 func Find(ls []Launcher, name string) (Launcher, bool) {
 	for _, l := range ls {

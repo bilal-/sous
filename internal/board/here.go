@@ -136,7 +136,7 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 		if d.Session.LastMessage != nil && *d.Session.LastMessage != "" {
 			msg := *d.Session.LastMessage
 			if brief {
-				msg = Ellipsize(msg, 300)
+				msg = Ellipsize(msg, session.LastMessageRunes)
 			}
 			line += fmt.Sprintf(" · ended: %q", msg)
 		}

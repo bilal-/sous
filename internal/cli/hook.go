@@ -24,7 +24,7 @@ func cmdHook(e *Env, a argv) int {
 		return 0
 	}
 	switch args[0] {
-	case "session-start":
+	case hook.RoleStart:
 		// Plugins and tracker probes must finish inside the guard; when it
 		// fires first, cancelling kills their process groups.
 		var buf bytes.Buffer
@@ -41,7 +41,7 @@ func cmdHook(e *Env, a argv) int {
 			fmt.Fprintln(e.Stdout, sessionIntro)
 			io.Copy(e.Stdout, &buf)
 		}
-	case "session-end":
+	case hook.RoleEnd:
 		guarded(func() { hook.RecordEnd(e.store(), in, args[1], e.Cwd, e.UserHome, time.Now()) })
 	}
 	return 0

@@ -69,13 +69,13 @@ func Hooks(home, exe string, codexEnd bool) ([]string, error) {
 	codex := filepath.Join(home, ".codex", "hooks.json")
 	type h struct{ file, event, role, agent string }
 	hs := []h{
-		{claude, "SessionStart", "session-start", "claude"},
-		{claude, "SessionEnd", "session-end", "claude"},
-		{codex, "SessionStart", "session-start", "codex"},
+		{claude, "SessionStart", hook.RoleStart, "claude"},
+		{claude, "SessionEnd", hook.RoleEnd, "claude"},
+		{codex, "SessionStart", hook.RoleStart, "codex"},
 	}
 	codexNote := ""
 	if codexEnd {
-		hs = append(hs, h{codex, "SessionEnd", "session-end", "codex"})
+		hs = append(hs, h{codex, "SessionEnd", hook.RoleEnd, "codex"})
 		codexNote = " and when it ends"
 	}
 	for _, x := range hs {
