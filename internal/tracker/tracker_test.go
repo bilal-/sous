@@ -154,6 +154,8 @@ func TestInstallIDRefusesToReplaceADamagedFile(t *testing.T) {
 // Reading tokens is one at a time across processes, so a gh upgrade asks
 // for keychain access once rather than once per parallel check.
 func TestTokenReadsNeverOverlap(t *testing.T) {
+	t.Setenv("HOME", t.TempDir()) // the lock lives in the user cache folder
+	t.Setenv("XDG_CACHE_HOME", "")
 	lock := filepath.Join(t.TempDir(), "busy")
 	fakeBin(t, "gh", `mkdir "`+lock+`" 2>/dev/null || { echo overlap >&2; exit 1; }; sleep 0.2; rmdir "`+lock+`"; echo tok`)
 	var wg sync.WaitGroup

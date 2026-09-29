@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/bilal-/sous/internal/config"
 )
@@ -108,11 +109,8 @@ func ghToken(account string) (string, error) {
 // gh upgrade each read can raise a macOS keychain prompt, and parallel
 // status checks would stack them.
 func readToken(account string) (string, error) {
-	if f, err := os.OpenFile(filepath.Join(os.TempDir(), "sous-gh-token.lock"), os.O_CREATE|os.O_RDWR, 0o600); err == nil {
-		defer f.Close()
-		if syscall.Flock(int(f.Fd()), syscall.LOCK_EX) == nil {
-			defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-		}
+	if unlock := tokenLock(); unlock != nil {
+		defer unlock()
 	}
 	out, err := exec.Command("gh", "auth", "token", "--user", account).Output()
 	tok := strings.TrimSpace(string(out))
@@ -287,4 +285,32 @@ func readSSHConfig() map[string]string {
 		}
 	}
 	return out
+}
+
+// tokenLock takes a per-user lock around gh token reads, waiting at most a
+// minute (long enough to answer a keychain prompt). It lives in the user's
+// cache folder, not the shared temp folder. nil means no lock was taken,
+// and the read goes ahead anyway.
+func tokenLock() func() {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		return nil
+	}
+	dir = filepath.Join(dir, "sous")
+	if os.MkdirAll(dir, 0o700) != nil {
+		return nil
+	}
+	f, err := os.OpenFile(filepath.Join(dir, "gh-token.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil
+	}
+	for deadline := time.Now().Add(time.Minute); ; time.Sleep(50 * time.Millisecond) {
+		if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) == nil {
+			return func() { syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }
+		}
+		if time.Now().After(deadline) {
+			f.Close()
+			return nil
+		}
+	}
 }
