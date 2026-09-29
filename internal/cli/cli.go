@@ -20,21 +20,6 @@ import (
 // Version is set at build time: -ldflags "-X github.com/bilal-/sous/internal/cli.Version=v0.1.0".
 var Version = "0.1.0-dev"
 
-// The zsh ambient snippet ships inside the binary; `sous setup` writes it to
-// SOUS_HOME so a downloaded release has no dependency on a checkout.
-//
-//go:embed shell/sous.zsh
-var shellSnippet string
-
-//go:embed assets/sous.5m.sh
-var swiftbarPlugin string
-
-// swiftbarExePlaceholder in sous.5m.sh is replaced by the path to sous.
-const swiftbarExePlaceholder = "@SOUS@"
-
-//go:embed assets/SKILL.md
-var skillMD string
-
 const usageHeader = `sous %s: one list of what is waiting on you, across every project.
 
   sous              the board: what's waiting on you across all projects

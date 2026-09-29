@@ -3,6 +3,7 @@ package board
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -51,7 +52,7 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 		roots = in.Cfg.Roots
 	}
 	if len(roots) == 0 {
-		return nil, fmt.Errorf("no roots: add roots = [\"~/code\"] to %s/config.toml or pass a folder", in.Store.Home)
+		return nil, errors.New(config.NoRootsHint)
 	}
 	ps, unavailable := project.Discover(roots, in.Cfg.Ignore, in.Warn)
 	paths := make([]string, len(ps))
@@ -134,7 +135,7 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 	s := Classify(d)
 	switch {
 	case d.Checked == 0:
-		fmt.Fprintln(w, "sous · nothing checked · no projects under your roots (set roots in ~/.sous/config.toml)")
+		fmt.Fprintln(w, "sous · nothing checked · no projects in your project folders")
 	case s.Total() == 0 && len(s.Why) == 0:
 		fmt.Fprintln(w, "sous · 0 on you · nothing waiting")
 	case len(s.Why) > 0:

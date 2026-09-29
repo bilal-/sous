@@ -41,9 +41,6 @@ func buildBoard(e *Env, roots []string) (*board.Data, int) {
 	return d, 0
 }
 
-// noProjectsHint is what to do when sous knows no project folders yet.
-const noProjectsHint = "none yet. Run sous setup to find them, or sous setup ~/path/to/your/projects"
-
 // unconfigured: config.toml is fine but names no project folders.
 func (e *Env) unconfigured() bool { return e.cfgErr == nil && len(e.Cfg.Roots) == 0 }
 
@@ -52,7 +49,7 @@ func cmdBoard(e *Env, roots []string) int {
 		if e.JSON {
 			return e.writeJSON(map[string]any{"projects": []any{}, "configured": false})
 		}
-		fmt.Fprintln(e.Stdout, "sous · projects: "+noProjectsHint)
+		fmt.Fprintln(e.Stdout, "sous · "+config.NoRootsHint)
 		return 0
 	}
 	d, code := buildBoard(e, roots)
@@ -101,10 +98,10 @@ func cmdAmbient(e *Env) int {
 	code := 0
 	switch {
 	case e.cfgErr != nil:
-		fmt.Fprintf(e.Stdout, "sous: %s/config.toml could not be read: %v\n", config.Tilde(e.UserHome, e.Home), e.cfgErr)
+		fmt.Fprintf(e.Stdout, "sous: %s could not be read: %v\n", config.Tilde(e.UserHome, config.Path(e.Home)), e.cfgErr)
 	case e.unconfigured():
 		// Nothing to build yet: say once what to do, then stay quiet.
-		fmt.Fprintln(e.Stdout, "sous · projects: "+noProjectsHint)
+		fmt.Fprintln(e.Stdout, "sous · "+config.NoRootsHint)
 	default:
 		code = cmdCached(e)
 	}

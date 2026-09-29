@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bilal-/sous/internal/install"
 )
 
 // readVerbs are the verbs that show something (they take --json).
@@ -124,7 +126,7 @@ func TestAXI5EmptyStatesAreDefinitive(t *testing.T) {
 	if out, _, _ := f.run("projects", "--json"); strings.TrimSpace(out) != "[]" {
 		t.Fatalf("%q", out)
 	}
-	if out, _, _ := f.run(); !strings.Contains(out, "no projects under") || !strings.Contains(out, "config.toml") {
+	if out, _, _ := f.run(); !strings.Contains(out, "nothing checked") {
 		t.Fatalf("a fresh board must say what to do:\n%s", out)
 	}
 }
@@ -217,10 +219,10 @@ func TestAmbientWithNoRootsHintsOnce(t *testing.T) {
 // The skill only says sous exists and when to use it; the CLI teaches the
 // rest. A skill that repeats commands drifts every release.
 func TestSkillIsBarebonesAndHelpCarriesTheRules(t *testing.T) {
-	if lines := strings.Count(skillMD, "\n"); lines > 15 {
+	if lines := strings.Count(install.Skill, "\n"); lines > 15 {
 		t.Fatalf("the skill has %d lines; keep it to when to use sous, and point at sous help", lines)
 	}
-	if strings.Contains(skillMD, "sous note -p") || strings.Contains(skillMD, "--close") {
+	if strings.Contains(install.Skill, "sous note -p") || strings.Contains(install.Skill, "--close") {
 		t.Fatal("commands belong in sous help, not the skill")
 	}
 	f := fixture(t)

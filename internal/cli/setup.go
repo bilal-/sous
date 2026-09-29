@@ -2,15 +2,12 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/install"
-	"github.com/bilal-/sous/internal/project"
-	"github.com/bilal-/sous/internal/store"
 )
 
 // cmdSetup sets everything up and says what it did: where the projects
@@ -18,7 +15,7 @@ import (
 // Folders on the line become the roots. Safe to run again.
 func cmdSetup(e *Env, a argv) int {
 	if a.has("print-skill") {
-		fmt.Fprint(e.Stdout, skillMD)
+		fmt.Fprint(e.Stdout, install.Skill)
 		return 0
 	}
 	var done []string
@@ -27,7 +24,7 @@ func cmdSetup(e *Env, a argv) int {
 		return code
 	}
 	done = append(done, roots)
-	skills, err := install.Skills(e.UserHome, []byte(skillMD))
+	skills, err := install.Skills(e.UserHome, []byte(install.Skill))
 	if err != nil {
 		return fail(e, 1, "%v", err)
 	}
@@ -37,7 +34,8 @@ func cmdSetup(e *Env, a argv) int {
 		return fail(e, 1, "%v", err)
 	}
 	done = append(done, hooks...)
-	if err := store.WriteFile(filepath.Join(e.Home, "sous.zsh"), []byte(shellSnippet), 0o644); err != nil {
+	menubar, err := install.Files(e.Home, e.Exe)
+	if err != nil {
 		return fail(e, 1, "%v", err)
 	}
 	if a.has("no-shell") {
@@ -49,10 +47,6 @@ func cmdSetup(e *Env, a argv) int {
 		}
 		done = append(done, msg)
 	}
-	menubar := filepath.Join(e.Home, "sous.5m.sh")
-	if err := store.WriteFile(menubar, []byte(strings.Replace(swiftbarPlugin, swiftbarExePlaceholder, e.Exe, 1)), 0o755); err != nil {
-		return fail(e, 1, "%v", err)
-	}
 	fmt.Fprintln(e.Stdout, "sous is set up:")
 	for _, d := range done {
 		fmt.Fprintf(e.Stdout, "  ✓ %s\n", d)
@@ -62,44 +56,26 @@ func cmdSetup(e *Env, a argv) int {
 	return 0
 }
 
-// setupRoots: folders given replace the roots; otherwise keep what config
-// has, or use the usual places that hold repos. It returns the line to show.
+// setupRoots applies install.Roots and returns the line to show.
 func setupRoots(e *Env, given []string) (string, int) {
 	if e.cfgErr != nil {
-		return "", fail(e, 1, "%s/config.toml could not be read (%v); fix it, then run sous setup again", e.Home, e.cfgErr)
+		return "", fail(e, 1, "%s could not be read (%v); fix it, then run sous setup again", config.Tilde(e.UserHome, config.Path(e.Home)), e.cfgErr)
 	}
-	var roots []string
+	roots, kept, err := install.Roots(e.UserHome, given, e.Cfg.Roots)
 	switch {
-	case len(given) > 0:
-		for _, g := range given {
-			abs, err := filepath.Abs(config.Expand(e.UserHome, g))
-			if st, serr := os.Stat(abs); err != nil || serr != nil || !st.IsDir() {
-				return "", fail(e, 2, "%s is not a folder", g)
-			}
-			roots = append(roots, abs)
-		}
-	case len(e.Cfg.Roots) > 0:
-		return "projects: looking in " + shownRoots(e, e.Cfg.Roots) + " (change with sous setup <folder>)", 0
-	default:
-		roots = project.LikelyRoots(e.UserHome)
-		if len(roots) == 0 {
-			return "projects: " + noProjectsHint, 0
-		}
+	case err != nil:
+		return "", fail(e, 2, "%v", err)
+	case len(roots) == 0:
+		return "projects: " + config.NoRootsHint, 0
 	}
-	written := make([]string, len(roots))
-	for i, r := range roots {
-		written[i] = config.Tilde(e.UserHome, r)
-	}
-	if err := config.SetRoots(e.Home, written); err != nil {
-		return "", fail(e, 1, "%v", err)
-	}
-	return "projects: looking in " + shownRoots(e, roots) + " (change with sous setup <folder>)", 0
-}
-
-func shownRoots(e *Env, roots []string) string {
 	shown := make([]string, len(roots))
 	for i, r := range roots {
 		shown[i] = config.Tilde(e.UserHome, r)
 	}
-	return strings.Join(shown, ", ")
+	if !kept {
+		if err := config.SetRoots(e.Home, shown); err != nil {
+			return "", fail(e, 1, "%v", err)
+		}
+	}
+	return "projects: looking in " + strings.Join(shown, ", ") + " (change with sous setup <folder>)", 0
 }

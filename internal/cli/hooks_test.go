@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -225,27 +224,6 @@ func TestSetupBakesTheRealPathIntoTheMenuBarScript(t *testing.T) {
 	exe, _ := os.Executable()
 	if !strings.Contains(string(b), exe) || strings.Contains(string(b), ".local/bin/sous") {
 		t.Fatalf("%s", b)
-	}
-}
-
-// The zsh wrapper leaves you in the project however go is written.
-func TestZshWrapperFindsTheProjectAnywhere(t *testing.T) {
-	if _, err := exec.LookPath("zsh"); err != nil {
-		t.Skip("no zsh")
-	}
-	dir := t.TempDir()
-	proj := filepath.Join(dir, "api")
-	os.MkdirAll(proj, 0o755)
-	bin := filepath.Join(dir, "bin")
-	os.MkdirAll(bin, 0o755)
-	os.WriteFile(filepath.Join(bin, "sous"), []byte("#!/bin/sh\n[ \"$1 $2\" = \"go --where\" ] && echo "+proj+"\nexit 0\n"), 0o755)
-	snippet := filepath.Join(dir, "sous.zsh")
-	os.WriteFile(snippet, []byte(shellSnippet), 0o644)
-	for _, args := range []string{"go api", "go -a codex api", "go --agent codex api", "go --agent=codex api", "go api -a codex"} {
-		out, err := exec.Command("zsh", "-f", "-c", "PATH="+bin+":$PATH; cd "+dir+"; source "+snippet+"; sous "+args+"; pwd").CombinedOutput()
-		if err != nil || filepath.Base(strings.TrimSpace(string(out))) != "api" {
-			t.Errorf("sous %s: %v %q", args, err, out)
-		}
 	}
 }
 

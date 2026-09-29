@@ -4,6 +4,7 @@
 package install
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,8 +12,55 @@ import (
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/hook"
+	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
 )
+
+// Skill is the sous skill: a few lines saying when to reach for sous and to
+// run sous help. The CLI teaches the rest.
+//
+//go:embed assets/SKILL.md
+var Skill string
+
+//go:embed assets/sous.zsh
+var zshSnippet string
+
+//go:embed assets/sous.5m.sh
+var menuBarScript string
+
+// Files writes what the shell line and the menu bar run, into sousHome:
+// the zsh snippet, and the SwiftBar script pointed at the sous at exe.
+// It returns the menu bar script's path.
+func Files(sousHome, exe string) (string, error) {
+	if err := store.WriteFile(filepath.Join(sousHome, "sous.zsh"), []byte(zshSnippet), 0o644); err != nil {
+		return "", err
+	}
+	menubar := filepath.Join(sousHome, "sous.5m.sh")
+	if err := store.WriteFile(menubar, []byte(strings.Replace(menuBarScript, "@SOUS@", exe, 1)), 0o755); err != nil {
+		return "", err
+	}
+	return menubar, os.Chmod(menubar, 0o755) // SwiftBar runs it, whatever mode it had
+}
+
+// Roots picks the project folders: the ones given, else the ones config
+// already has (kept is true), else the usual places that hold projects.
+// Nothing is written here.
+func Roots(userHome string, given, configured []string) (roots []string, kept bool, err error) {
+	switch {
+	case len(given) > 0:
+		for _, g := range given {
+			abs, err := filepath.Abs(config.Expand(userHome, g))
+			if st, serr := os.Stat(abs); err != nil || serr != nil || !st.IsDir() {
+				return nil, false, fmt.Errorf("%s is not a folder", g)
+			}
+			roots = append(roots, abs)
+		}
+		return roots, false, nil
+	case len(configured) > 0:
+		return configured, true, nil
+	}
+	return project.LikelyRoots(userHome), false, nil
+}
 
 // Hooks adds the session hooks for Claude Code (start and end) and Codex
 // (start; end too when codexEnd), for the sous at exe.

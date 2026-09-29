@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/project"
 )
 
@@ -18,7 +19,7 @@ func loadProjects(e *Env, roots []string) ([]project.Project, int, int) {
 		roots = cfg.Roots
 	}
 	if len(roots) == 0 {
-		return nil, 0, fail(e, 1, "no roots: add roots = [\"~/code\"] to %s/config.toml or pass --root", e.Home)
+		return nil, 0, fail(e, 1, "%s (or pass --root)", config.NoRootsHint)
 	}
 	ps, unavailable := project.Discover(roots, cfg.Ignore, e.Stderr)
 	return ps, unavailable, 0
@@ -52,7 +53,7 @@ func cmdProjects(e *Env, a argv) int {
 		return e.writeJSON(ps)
 	}
 	if len(ps) == 0 {
-		fmt.Fprintln(e.Stdout, "0 projects under your roots (set roots in ~/.sous/config.toml)")
+		fmt.Fprintln(e.Stdout, "0 projects in your project folders")
 		return 0
 	}
 	project.RenderTable(e.Stdout, ps, time.Now().UTC())
@@ -73,7 +74,7 @@ func resolveProject(e *Env, term string) (project.Project, int) {
 			return project.Project{}, code
 		}
 		if len(cfg.Roots) == 0 {
-			return project.Project{}, fail(e, 1, "no roots: add roots = [\"~/code\"] to %s/config.toml", e.Home)
+			return project.Project{}, fail(e, 1, "%s", config.NoRootsHint)
 		}
 		roots, ignore = cfg.Roots, cfg.Ignore
 	}

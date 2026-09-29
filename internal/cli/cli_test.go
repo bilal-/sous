@@ -56,7 +56,7 @@ func TestProjects(t *testing.T) {
 	}
 	os.Remove(filepath.Join(f.SousHome, "config.toml"))
 	_, errs, code := f.run("projects")
-	if code != 1 || !strings.Contains(errs, "roots") {
+	if code != 1 || !strings.Contains(errs, "sous setup") {
 		t.Fatalf("no config no root: %d %q", code, errs)
 	}
 	_, _, code = f.run("projects", "--root", f.WS)

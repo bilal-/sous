@@ -65,10 +65,16 @@ func (c *Config) Identities(key string) []string {
 	return out
 }
 
+// NoRootsHint says what to do when no project folders are set yet.
+const NoRootsHint = "no project folders yet. Run sous setup to find them, or sous setup ~/path/to/your/projects"
+
+// Path is config.toml's place in sousHome.
+func Path(sousHome string) string { return filepath.Join(sousHome, "config.toml") }
+
 // Load reads config.toml from sousHome; ~ in paths means userHome.
 func Load(sousHome, userHome string) (*Config, error) {
 	c := &Config{Agent: "claude", RefreshHours: 4}
-	b, err := os.ReadFile(filepath.Join(sousHome, "config.toml"))
+	b, err := os.ReadFile(Path(sousHome))
 	if errors.Is(err, os.ErrNotExist) {
 		return c, nil
 	}
@@ -127,7 +133,7 @@ func SetRoots(home string, roots []string) error {
 		quoted[i] = strconv.Quote(r)
 	}
 	line := "roots = [" + strings.Join(quoted, ", ") + "]"
-	return store.EditFile(filepath.Join(home, "config.toml"), 0o644, func(b []byte) ([]byte, error) {
+	return store.EditFile(Path(home), 0o644, func(b []byte) ([]byte, error) {
 		s := string(b)
 		if start, end, ok := topLevelKey(s, "roots"); ok {
 			s = s[:start] + line + s[end:]
