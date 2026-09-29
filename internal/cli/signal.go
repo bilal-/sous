@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"time"
 
 	"github.com/bilal-/sous/internal/signal"
@@ -18,6 +19,9 @@ func cmdSignal(e *Env, a argv) int {
 		return fail(e, 2, "no built-in signal plugin: %s", args[0])
 	}
 	if err := scan(signal.ReadPaths(e.Stdin), e.Stdout, e.Stderr, time.Now().UTC()); err != nil {
+		if errors.Is(err, signal.ErrNotSetUp) {
+			return signal.ExitNotSetUp
+		}
 		return 1
 	}
 	return 0

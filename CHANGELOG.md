@@ -7,6 +7,20 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.1.3]
+
+### Fixed
+* A first run with no config shows a short welcome with the one line to
+  add, instead of an error.
+* GitHub or GitLab that was never set up on this machine (tool missing or
+  not logged in, and nothing in config) no longer puts `?` on every board.
+  If it found things before and is now logged out, its rows stay, marked
+  stale, and the headline says which source is not set up.
+* Multi-line errors from gh or glab are shown on one line.
+
+### Added
+* Signal plugins can exit with code 3 to say "not set up here".
+
 ## [0.1.2]
 
 ### Fixed

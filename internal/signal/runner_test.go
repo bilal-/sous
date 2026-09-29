@@ -87,3 +87,14 @@ func TestCollectSkipsBadLinesKeepsGood(t *testing.T) {
 		t.Fatalf("bad line must be counted: %+v", c.Plugins[0])
 	}
 }
+
+// Exit 3 means "not set up on this machine": status off, reason kept, and
+// multi-line tool output squashed to one readable line.
+func TestCollectNotSetUp(t *testing.T) {
+	dir := t.TempDir()
+	off := script(t, dir, "sous-signal-off", `printf 'gh: not logged in\n\n   run gh auth login\n' >&2; exit 3`)
+	c := Collect(context.Background(), Plugins("", nil, []string{off}), []string{"/p"}, time.Second)
+	if st := c.Plugins[0]; st.Status != "off" || st.Error == nil || *st.Error != "gh: not logged in run gh auth login" {
+		t.Fatalf("%+v %q", st, *st.Error)
+	}
+}

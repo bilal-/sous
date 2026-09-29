@@ -94,8 +94,21 @@ func classify(v view, now time.Time, threads []thread.View, signals []signal.Obs
 	for _, o := range unf {
 		s.Unfinished = append(s.Unfinished, signalRow(o, now))
 	}
+	staleFrom := map[string]bool{}
+	for _, o := range signals {
+		if o.Stale {
+			staleFrom[o.Plugin] = true
+		}
+	}
 	for _, p := range plugins {
-		if p.Status != "ok" {
+		switch {
+		case p.Status == "ok":
+		case p.Status == "off":
+			// Never set up is not a gap; set up before and gone now is.
+			if staleFrom[p.Name] {
+				s.Why = append(s.Why, p.Name+" not set up")
+			}
+		default:
 			s.Why = append(s.Why, p.Name+" "+p.Status)
 		}
 	}
@@ -159,7 +172,7 @@ func ClassifyHere(h *HereData) Sections {
 func PluginFailures(d *Data) string {
 	var b strings.Builder
 	for _, p := range d.Plugins {
-		if p.Status == "ok" {
+		if p.Status == "ok" || p.Status == "off" {
 			continue
 		}
 		fmt.Fprintf(&b, " · %s: %s", p.Name, p.Status)

@@ -24,7 +24,7 @@ func Plugins(exe string, builtins, thirdParty []string) []Plugin {
 
 type PluginStatus struct {
 	Name   string  `json:"name"`
-	Status string  `json:"status"` // ok | failed | timeout
+	Status string  `json:"status"` // ok | failed | timeout | off (not set up here)
 	Error  *string `json:"error"`
 }
 
@@ -77,7 +77,10 @@ func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) 
 		r.st.Error = &msg
 	case res.Err != nil || res.Code != 0:
 		r.st.Status = "failed"
-		msg := strings.TrimSpace(res.Stderr)
+		if res.Code == ExitNotSetUp {
+			r.st.Status = "off"
+		}
+		msg := strings.Join(strings.Fields(res.Stderr), " ")
 		if msg == "" && res.Err != nil {
 			msg = res.Err.Error()
 		}

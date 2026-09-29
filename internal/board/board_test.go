@@ -153,3 +153,21 @@ func TestAsOfShowsTheDateWhenNotToday(t *testing.T) {
 		t.Fatalf("%s", b.String())
 	}
 }
+
+// A source that was never set up is not a gap. One that found things
+// before and now is not set up is: its old rows are stale, and it is named.
+func TestNotSetUpIsOnlyAGapWhenItHadData(t *testing.T) {
+	now := time.Now()
+	off := []signal.PluginStatus{{Name: "github", Status: "off"}}
+	var b bytes.Buffer
+	Render(&b, &Data{Checked: 2, RenderedAt: now, Plugins: off})
+	if head := strings.SplitN(b.String(), "\n", 2)[0]; head != "sous · 0 on you · nothing waiting" || strings.Contains(b.String(), "github") {
+		t.Fatalf("never set up must be quiet:\n%s", b.String())
+	}
+	stale := []signal.Observed{{Tagged: signal.Tagged{Signal: signal.Signal{ID: "s:1", Project: "/code/acme/api", Kind: signal.Me, Text: "review requested"}, Plugin: "github"}, FirstSeen: now, Stale: true}}
+	b.Reset()
+	Render(&b, &Data{Checked: 2, RenderedAt: now, Plugins: off, Signals: stale})
+	if head := strings.SplitN(b.String(), "\n", 2)[0]; !strings.Contains(head, "? on you (github not set up, stale rows)") {
+		t.Fatalf("%s", head)
+	}
+}

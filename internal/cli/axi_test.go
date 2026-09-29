@@ -141,3 +141,13 @@ func TestAXI7SkillForAnyAgent(t *testing.T) {
 		t.Fatal("--print-skill must not install anything")
 	}
 }
+
+// A first run with no config is a welcome, not an error.
+func TestFirstRunWelcomes(t *testing.T) {
+	f := fixture(t)
+	os.Remove(filepath.Join(f.SousHome, "config.toml"))
+	out, errs, code := f.run()
+	if code != 0 || !strings.Contains(out, "roots") || !strings.Contains(out, "config.toml") || errs != "" {
+		t.Fatalf("%d %q %q", code, out, errs)
+	}
+}

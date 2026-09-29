@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -40,7 +41,31 @@ func buildBoard(e *Env, roots []string) (*board.Data, int) {
 	return d, 0
 }
 
+const welcome = `sous · no projects yet
+
+  Tell sous where your projects live, then run sous again:
+
+    mkdir -p %[1]s
+    printf 'roots = ["~/code"]\n' >> %[1]s/config.toml
+
+  Change ~/code to the folder that holds your repos. sous looks two
+  folders deep. sous setup adds the agent hooks and shell snippet.
+`
+
 func cmdBoard(e *Env, roots []string) int {
+	if len(roots) == 0 && e.cfgErr == nil && len(e.Cfg.Roots) == 0 {
+		if e.JSON {
+			return e.writeJSON(map[string]any{"projects": []any{}, "configured": false})
+		}
+		home := e.Home
+		if h, err := os.UserHomeDir(); err == nil {
+			if rest, ok := strings.CutPrefix(home, h); ok {
+				home = "~" + rest
+			}
+		}
+		fmt.Fprintf(e.Stdout, welcome, home)
+		return 0
+	}
 	d, code := buildBoard(e, roots)
 	if code != 0 {
 		return code

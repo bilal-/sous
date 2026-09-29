@@ -35,6 +35,14 @@ type Query struct {
 	Fetch func(identity string) ([]Hit, error)
 }
 
+// ErrNotSetUp: the tool this plugin needs is missing or logged out and
+// nothing in config asks for it. A plugin exits ExitNotSetUp; the board
+// treats that as quiet unless the plugin found things before.
+var ErrNotSetUp = errors.New("not set up")
+
+// ExitNotSetUp is the exit code for ErrNotSetUp in the signal contract.
+const ExitNotSetUp = 3
+
 // errNotApplicable: the tracker is not part of this setup at all (no hosts
 // configured or logged in) — the scan succeeds with nothing to report.
 var errNotApplicable = errors.New("not applicable")

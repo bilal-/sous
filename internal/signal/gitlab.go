@@ -67,6 +67,9 @@ func ScanGitLab(cfg *config.Config) Scanner {
 			// rather than vanish.
 			if hostsErr != nil {
 				fmt.Fprintln(warn, hostsErr)
+				if len(cfg.GitLabHosts) == 0 {
+					return ErrNotSetUp // glab present but never logged in
+				}
 				return hostsErr
 			}
 			// No GitLab in this person's life: nothing to check, nothing failed.

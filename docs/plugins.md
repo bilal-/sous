@@ -67,8 +67,11 @@ A few rules keep the board trustworthy:
   with a non zero code and say why on standard error. sous then keeps what
   you reported last time and marks it stale. If you exit `0` with no lines,
   sous takes that to mean nothing is waiting, and clears old rows.
-* **Nothing to do is not a failure.** If your service is not set up on this
-  machine at all, exit `0` quietly.
+* **Not set up is not a failure.** If the tool or login your plugin needs
+  is missing and the person never configured it, exit `3` with the reason
+  on standard error. sous stays quiet about it, unless your plugin found
+  things before: then those rows are kept, marked stale, and the headline
+  says your plugin is not set up.
 * A line sous cannot read is counted and skipped, so one stray debug print
   does not throw away everything else.
 

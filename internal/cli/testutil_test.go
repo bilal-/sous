@@ -85,3 +85,12 @@ func TestMain(m *testing.M) {
 	}
 	os.Exit(m.Run())
 }
+
+// brokenGH: gh is logged in but GitHub errors, a real failure (the default
+// fixture gh is logged out, which means GitHub is simply not set up).
+func (f *fx) brokenGH(githubRepos ...string) {
+	for _, r := range githubRepos {
+		f.git(r, "remote", "add", "origin", "git@github.com:acme/"+filepath.Base(r)+".git")
+	}
+	os.WriteFile(filepath.Join(f.Home, "bin", "gh"), []byte("#!/bin/sh\n[ \"$1 $2\" = \"auth status\" ] && exit 0\necho 'HTTP 502: bad gateway' >&2; exit 1\n"), 0o755)
+}

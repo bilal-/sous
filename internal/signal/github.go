@@ -46,19 +46,23 @@ func ScanGitHub(cfg *config.Config) Scanner {
 		Host:       "github.com",
 		Identities: append([]string{""}, cfg.Identities("github_account")...),
 		Available: func(warn io.Writer) error {
+			configured := len(cfg.Identities("github_account")) > 0
 			if _, err := exec.LookPath("gh"); err != nil {
 				fmt.Fprintln(warn, "gh not installed")
+				if !configured {
+					return ErrNotSetUp
+				}
 				return errors.New("gh not installed")
 			}
 			// With configured accounts, each is tried on its own and a failure
 			// is reported per account; a broken default login alone must not
 			// hide what they can see.
-			if len(cfg.Identities("github_account")) > 0 {
+			if configured {
 				return nil
 			}
 			if err := exec.Command("gh", "auth", "status").Run(); err != nil {
 				fmt.Fprintln(warn, "gh: not logged in (run gh auth login)")
-				return errors.New("gh not logged in")
+				return ErrNotSetUp
 			}
 			return nil
 		},

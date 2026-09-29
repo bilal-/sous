@@ -21,6 +21,7 @@ func TestBoardCLI(t *testing.T) {
 	f.runIn(w, "note", "-k", "me", "need final copy for pricing")
 	f.runIn(ra, "note", "-k", "them", "waiting on Play Console review")
 	f.runIn(w, "note", "an idea")
+	f.brokenGH(ra)
 
 	out, _, code := f.run()
 	if code != 0 {
@@ -74,7 +75,7 @@ func TestCachedAndRefresh(t *testing.T) {
 		t.Fatalf("refresh must be silent: %d %q", code, out)
 	}
 	out, _, _ = f.run("--cached")
-	if !strings.Contains(out, "1 found") || !strings.Contains(out, "(cached · just now)") {
+	if !strings.Contains(out, "1 on you") || !strings.Contains(out, "(cached · just now)") {
 		t.Fatalf("cached: %q", out)
 	}
 	// Stale cache: prints old board now, refreshes in background.
@@ -88,10 +89,10 @@ func TestCachedAndRefresh(t *testing.T) {
 	b, _ = json.Marshal(c)
 	os.WriteFile(p, b, 0o644)
 	out, _, _ = f.run("--cached")
-	if !strings.Contains(out, "1 found") {
+	if !strings.Contains(out, "1 on you") {
 		t.Fatalf("stale must print old board immediately: %q", out)
 	}
-	waitFor(t, func() bool { b, _ = os.ReadFile(p); return strings.Contains(string(b), "0 found") })
+	waitFor(t, func() bool { b, _ = os.ReadFile(p); return strings.Contains(string(b), "0 on you") })
 }
 
 // waitFor polls a condition for up to 10s; detached refreshes re-exec the
@@ -166,6 +167,7 @@ func TestMenubarIsAPureReader(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(f.SousHome, "cache.json")); err == nil {
 		t.Fatal("--menubar must not trigger a refresh")
 	}
+	f.brokenGH(r)
 	f.run("--refresh")
 	out, _, _ = f.run("--menubar")
 	if !strings.HasPrefix(out, "⚑ 1?\n") || !strings.Contains(out, "thing · a/r · ") || !strings.Contains(out, "param2=a/r") || !strings.Contains(out, "github failed") {

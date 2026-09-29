@@ -2,6 +2,8 @@ package signal
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -156,5 +158,24 @@ esac`)
 	ScanGitHub(cfg)([]string{app}, &out, &warn, time.Now())
 	if !strings.Contains(out.String(), "review me") {
 		t.Fatalf("out=%q warn=%q", out.String(), warn.String())
+	}
+}
+
+// With nothing configured, gh missing or logged out means GitHub is not set
+// up here: a quiet "off", not a failure on every board.
+func TestScanGitHubNotSetUp(t *testing.T) {
+	testutil.OnlyGit(t)
+	var warn bytes.Buffer
+	if err := ScanGitHub(&config.Config{})(nil, io.Discard, &warn, time.Now()); !errors.Is(err, ErrNotSetUp) {
+		t.Fatalf("no gh: %v", err)
+	}
+	fakeGH(t, `echo "You are not logged into any GitHub hosts." >&2; exit 1`)
+	if err := ScanGitHub(&config.Config{})(nil, io.Discard, &warn, time.Now()); !errors.Is(err, ErrNotSetUp) {
+		t.Fatalf("logged out: %v", err)
+	}
+	cfg := &config.Config{Projects: map[string]map[string]string{"acme/*": {"github_account": "work-account"}}}
+	testutil.OnlyGit(t)
+	if err := ScanGitHub(cfg)(nil, io.Discard, &warn, time.Now()); err == nil || errors.Is(err, ErrNotSetUp) {
+		t.Fatalf("a configured account without gh is a real failure: %v", err)
 	}
 }
