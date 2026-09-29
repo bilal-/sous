@@ -4,17 +4,14 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/bilal-/sous/internal/store"
 )
 
 type Config struct {
@@ -128,71 +125,14 @@ func Expand(home, p string) string {
 	return p
 }
 
-// SetRoots writes roots into config.toml, creating it if needed. Only the
-// top-level roots value changes, however it was written (one line, several
-// lines, indented); comments, tables and every other setting stay as they
-// were. The result is checked to parse before it is saved.
-//
-// Roots are stored as people write them: under userHome as ~/..., others as
-// given.
+// SetRoots writes the project folders, as people write them: under
+// userHome as ~/..., others as given.
 func SetRoots(home, userHome string, roots []string) error {
-	quoted := make([]string, len(roots))
+	shown := make([]string, len(roots))
 	for i, r := range roots {
-		quoted[i] = strconv.Quote(Tilde(userHome, r))
+		shown[i] = Tilde(userHome, r)
 	}
-	line := "roots = [" + strings.Join(quoted, ", ") + "]"
-	return store.EditFile(Path(home), 0o644, func(b []byte) ([]byte, error) {
-		s := string(b)
-		if start, end, ok := topLevelKey(s, "roots"); ok {
-			s = s[:start] + line + s[end:]
-		} else {
-			s = line + "\n" + s // above everything, so never inside a [table]
-		}
-		var check Config
-		if _, err := toml.Decode(s, &check); err != nil {
-			return nil, fmt.Errorf("config.toml would not parse after setting roots (%v); edit it by hand", err)
-		}
-		want := make([]string, len(roots))
-		for i, r := range roots {
-			want[i] = Tilde(userHome, r)
-		}
-		if !slices.Equal(check.Roots, want) {
-			return nil, errors.New("config.toml has roots written in a way sous cannot safely change; edit it by hand")
-		}
-		return []byte(s), nil
-	})
-}
-
-// topLevelKey finds `key = value` among the top-level settings (before the
-// first [table]) and returns the byte span from the key to the end of its
-// value. It reads the file once, as TOML does: strings of every kind
-// (including multi-line ones), comments, and arrays across lines, so text
-// that only looks like the key is never taken for it.
-func topLevelKey(s, key string) (start, end int, ok bool) {
-	sc := tomlScanner{s: s}
-	for sc.i < len(s) {
-		sc.skipBlank()
-		if sc.i >= len(s) {
-			break
-		}
-		if s[sc.i] == '[' {
-			return 0, 0, false // a table starts: the rest is not top level
-		}
-		lineStart := sc.i
-		name := sc.keyName()
-		sc.skipSpaces()
-		if sc.i >= len(s) || s[sc.i] != '=' {
-			sc.skipLine()
-			continue
-		}
-		sc.i++
-		sc.value()
-		if name == key {
-			return lineStart, sc.i, true
-		}
-		sc.skipLine()
-	}
-	return 0, 0, false
+	return Set(home, nil, "roots", shown)
 }
 
 // tomlScanner walks TOML text just far enough to find where a top-level
@@ -230,6 +170,43 @@ func (sc *tomlScanner) skipLine() {
 	if sc.i < len(sc.s) {
 		sc.i++
 	}
+}
+
+// header reads a [table] header and returns its path, each part unquoted:
+// [ projects . 'acme/*' ] is {"projects", "acme/*"}. The scanner moves to
+// the next line.
+func (sc *tomlScanner) header() []string {
+	sc.i++ // [
+	var parts []string
+	for sc.i < len(sc.s) && sc.s[sc.i] != ']' && sc.s[sc.i] != '\n' {
+		sc.skipSpaces()
+		start := sc.i
+		if c := sc.s[sc.i]; c == '"' || c == '\'' {
+			sc.str()
+			raw := sc.s[start:sc.i]
+			if c == '"' {
+				if u, err := strconv.Unquote(raw); err == nil {
+					raw = u
+				} else {
+					raw = raw[1 : len(raw)-1]
+				}
+			} else {
+				raw = raw[1 : len(raw)-1]
+			}
+			parts = append(parts, raw)
+		} else {
+			for sc.i < len(sc.s) && !strings.ContainsRune(". \t]\n", rune(sc.s[sc.i])) {
+				sc.i++
+			}
+			parts = append(parts, sc.s[start:sc.i])
+		}
+		sc.skipSpaces()
+		if sc.i < len(sc.s) && sc.s[sc.i] == '.' {
+			sc.i++
+		}
+	}
+	sc.skipLine()
+	return parts
 }
 
 // keyName reads a bare or quoted key (dotted keys read whole).
