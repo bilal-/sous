@@ -174,3 +174,15 @@ func TestAsOf(t *testing.T) {
 		}
 	}
 }
+
+// Review: a source that stopped working is named even when every row it
+// found was snoozed.
+func TestLostSourceIsNamedEvenWhenItsRowsAreSnoozed(t *testing.T) {
+	now := time.Now()
+	stale := []signal.Observed{{Tagged: signal.Tagged{Signal: signal.Signal{ID: "s:1", Project: "/code/acme/api", Kind: signal.Me, Text: "review requested"}, Plugin: "github"}, FirstSeen: now, Stale: true, Snoozed: true}}
+	var b bytes.Buffer
+	Render(&b, &Data{Checked: 2, RenderedAt: now, Plugins: []signal.PluginStatus{{Name: "github", Status: signal.StatusOff}}, Signals: stale})
+	if head := strings.SplitN(b.String(), "\n", 2)[0]; !strings.Contains(head, "github not set up") {
+		t.Fatalf("%s", head)
+	}
+}

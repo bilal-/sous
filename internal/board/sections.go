@@ -91,11 +91,11 @@ func (s *Sections) routeSignals(v view, now time.Time, signals []signal.Observed
 	stale := map[string]bool{}
 	var unf []signal.Observed
 	for _, o := range signals {
+		if o.Stale { // counted even when hidden: a lost source is still named
+			stale[o.Plugin] = true
+		}
 		if o.Snoozed && (o.Kind == signal.Unfinished || !v.snoozedPromises) {
 			continue
-		}
-		if o.Stale {
-			stale[o.Plugin] = true
 		}
 		switch o.Kind {
 		case signal.Me:

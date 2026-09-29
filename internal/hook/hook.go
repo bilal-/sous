@@ -122,29 +122,38 @@ func assistantText(line []byte) string {
 // returns false. It reads in chunks from the end.
 func eachLineFromEnd(r io.ReaderAt, size int64, fn func([]byte) bool) {
 	const chunk = 1 << 20
-	var tail []byte // the start of a line whose beginning is not read yet
+	var parts [][]byte // the unfinished line's pieces, last piece first
+	flush := func(head []byte) bool {
+		line := head
+		if len(parts) > 0 { // join once, when the line's start is found
+			line = append([]byte{}, head...)
+			for i := len(parts) - 1; i >= 0; i-- {
+				line = append(line, parts[i]...)
+			}
+			parts = parts[:0]
+		}
+		return len(line) == 0 || fn(line)
+	}
 	for end := size; end > 0; {
 		start := max(end-chunk, 0)
 		buf := make([]byte, end-start)
 		if _, err := r.ReadAt(buf, start); err != nil && !errors.Is(err, io.EOF) {
 			return
 		}
-		buf = append(buf, tail...)
 		for {
 			nl := bytes.LastIndexByte(buf, '\n')
 			if nl < 0 {
 				break
 			}
-			if line := buf[nl+1:]; len(line) > 0 && !fn(line) {
+			if !flush(buf[nl+1:]) {
 				return
 			}
 			buf = buf[:nl]
 		}
-		tail, end = buf, start
+		parts = append(parts, buf) // only newly read bytes are ever scanned
+		end = start
 	}
-	if len(tail) > 0 {
-		fn(tail)
-	}
+	flush(nil)
 }
 
 // RecordEnd remembers the session that just ended in its project: which

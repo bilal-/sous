@@ -211,3 +211,20 @@ func TestInstallCopesWithOddSettings(t *testing.T) {
 		t.Fatalf("old hooks replaced per matcher, spaced path recognized:\n%s", s)
 	}
 }
+
+// Review: one very long line (a big tool result) must not be copied again
+// for every chunk read before it; reading stays linear.
+func TestLastAssistantTextIsLinearOnALongLine(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "t.jsonl")
+	f, _ := os.Create(p)
+	f.WriteString(`{"type":"assistant","message":{"content":[{"type":"text","text":"before the long line"}]}}` + "\n")
+	f.WriteString(`{"type":"user","message":{"content":"` + strings.Repeat("z", 120<<20) + `"}}` + "\n")
+	f.Close()
+	start := time.Now()
+	if got := LastAssistantText(p, 300); got != "before the long line" {
+		t.Fatalf("%q", got)
+	}
+	if el := time.Since(start); el > time.Second {
+		t.Fatalf("took %v", el)
+	}
+}
