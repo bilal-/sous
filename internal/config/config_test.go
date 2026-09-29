@@ -81,3 +81,28 @@ func TestProjectTypedAndIdentities(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 }
+
+func TestSetRootsKeepsTheRestOfTheFile(t *testing.T) {
+	home := t.TempDir()
+	os.WriteFile(filepath.Join(home, "config.toml"), []byte("# mine\nagent = \"codex\"\nroots = [\"~/old\"]\n\n[projects.\"acme/*\"]\nbackend = \"markdown\"\n"), 0o644)
+	if err := SetRoots(home, []string{"~/code", "~/work"}); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(filepath.Join(home, "config.toml"))
+	want := "# mine\nagent = \"codex\"\nroots = [\"~/code\", \"~/work\"]\n\n[projects.\"acme/*\"]\nbackend = \"markdown\"\n"
+	if string(b) != want {
+		t.Fatalf("%q", b)
+	}
+	fresh := t.TempDir()
+	SetRoots(fresh, []string{"~/code"})
+	c, err := Load(fresh)
+	if err != nil || len(c.Roots) != 1 {
+		t.Fatal(c, err)
+	}
+	withTable := t.TempDir()
+	os.WriteFile(filepath.Join(withTable, "config.toml"), []byte("[projects.\"acme/*\"]\nbackend = \"markdown\"\n"), 0o644)
+	SetRoots(withTable, []string{"~/code"})
+	if c, err := Load(withTable); err != nil || len(c.Roots) != 1 || c.Project("acme/x").Backend != "markdown" {
+		t.Fatalf("roots must go above any table: %+v %v", c, err)
+	}
+}

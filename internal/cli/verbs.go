@@ -40,7 +40,7 @@ func init() {
 		{"done", cmdDone, false, exactly(1, []string{"close"}, nil), "sous done <n> [--close]"},
 		{"file", cmdFile, false, exactly(1, []string{"force"}, nil), "sous file <n> [--force]    file a note in the project's tracker"},
 		{"go", cmdGo, false, exactly(1, nil, []string{"a|agent"}), "sous go <project> [-a <launcher>]   start your agent in that project"},
-		{"setup", cmdSetup, false, exactly(0, []string{"codex-session-end", "print-skill"}, nil), "sous setup [--print-skill]   install agent hooks, skill, shell snippet; --print-skill only prints the skill for other agents"},
+		{"setup", cmdSetup, false, &argSpec{bools: []string{"codex-session-end", "print-skill", "no-shell"}, max: -1}, "sous setup [folder...] [--no-shell]   set everything up; folders say where your projects are; --print-skill prints the skill for other agents"},
 		{"version", cmdVersion, false, exactly(0, nil, nil), "sous version"},
 		{"help", cmdHelp, false, exactly(0, nil, nil), "sous help"},
 		// Internal doors: how the runner re-execs built-ins, and hooks. Not in help.

@@ -66,7 +66,7 @@ func TestHooksCLI(t *testing.T) {
 	os.MkdirAll(filepath.Join(f.Home, ".claude"), 0o755)
 	os.WriteFile(filepath.Join(f.Home, ".claude", "settings.json"), []byte(`{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"/other/thing"}]}]}}`), 0o644)
 	out, _, code = f.run("setup")
-	if code != 0 || !strings.Contains(out, "source") || !strings.Contains(out, "sous.zsh") {
+	if code != 0 || !strings.Contains(out, "sous is set up") || !strings.Contains(out, "Claude Code") {
 		t.Fatalf("setup: %d %q", code, out)
 	}
 	cs, _ := os.ReadFile(filepath.Join(f.Home, ".claude", "settings.json"))
@@ -114,6 +114,7 @@ func TestHookSessionStartBoundedEvenIfGitHangs(t *testing.T) {
 
 func TestSetupWritesEmbeddedShellSnippet(t *testing.T) {
 	f := fixture(t)
+	t.Setenv("SHELL", "/bin/zsh")
 	out, _, code := f.run("setup")
 	if code != 0 {
 		t.Fatal(code)
@@ -123,8 +124,8 @@ func TestSetupWritesEmbeddedShellSnippet(t *testing.T) {
 	if err != nil || !strings.Contains(string(b), "sous --ambient") {
 		t.Fatalf("snippet not written: %v", err)
 	}
-	if !strings.Contains(out, `source "`+snippet+`"`) {
-		t.Fatalf("setup must print the SOUS_HOME snippet path:\n%s", out)
+	if rc, _ := os.ReadFile(filepath.Join(f.Home, ".zshrc")); !strings.Contains(string(rc), `source "$HOME/.sous/sous.zsh"`) {
+		t.Fatalf("setup must add the SOUS_HOME snippet to .zshrc:\n%s", rc)
 	}
 	if strings.Contains(out, "shell/sous.zsh") {
 		t.Fatal("must not reference the checkout")
@@ -246,5 +247,65 @@ func TestZshWrapperFindsTheProjectAnywhere(t *testing.T) {
 		if err != nil || filepath.Base(strings.TrimSpace(string(out))) != "api" {
 			t.Errorf("sous %s: %v %q", args, err, out)
 		}
+	}
+}
+
+// sous setup does the whole setup: finds projects, writes config, and adds
+// itself to the shell once.
+func TestSetupFindsProjectsAndAddsItselfToTheShell(t *testing.T) {
+	f := fixture(t)
+	os.Remove(filepath.Join(f.SousHome, "config.toml"))
+	f.git(f.Home, "init", "-q", filepath.Join(f.Home, "code", "acme", "api"))
+	t.Setenv("SHELL", "/bin/zsh")
+	out, errs, code := f.run("setup")
+	if code != 0 || !strings.Contains(out, "~/code") {
+		t.Fatalf("%d %q %q", code, out, errs)
+	}
+	cfg, _ := os.ReadFile(filepath.Join(f.SousHome, "config.toml"))
+	if !strings.Contains(string(cfg), `roots = ["~/code"]`) {
+		t.Fatalf("%s", cfg)
+	}
+	f.run("setup")
+	rc, _ := os.ReadFile(filepath.Join(f.Home, ".zshrc"))
+	if strings.Count(string(rc), ".sous/sous.zsh") != 1 {
+		t.Fatalf("one line, added once:\n%s", rc)
+	}
+	// Folders given on the line replace the roots.
+	os.MkdirAll(filepath.Join(f.Home, "work"), 0o755)
+	f.run("setup", filepath.Join(f.Home, "work"))
+	cfg, _ = os.ReadFile(filepath.Join(f.SousHome, "config.toml"))
+	if !strings.Contains(string(cfg), `roots = ["~/work"]`) {
+		t.Fatalf("%s", cfg)
+	}
+	if _, _, code := f.run("setup", filepath.Join(f.Home, "missing")); code != 2 {
+		t.Fatal("a folder that does not exist is a usage error")
+	}
+}
+
+func TestSetupShells(t *testing.T) {
+	for shell, rc := range map[string]string{"/bin/bash": ".bashrc", "/usr/local/bin/fish": ".config/fish/conf.d/sous.fish"} {
+		f := fixture(t)
+		t.Setenv("SHELL", shell)
+		f.run("setup")
+		b, err := os.ReadFile(filepath.Join(f.Home, rc))
+		if err != nil || !strings.Contains(string(b), "sous --ambient") {
+			t.Fatalf("%s: %v %q", shell, err, b)
+		}
+	}
+	f := fixture(t)
+	t.Setenv("SHELL", "/bin/zsh")
+	f.run("setup", "--no-shell")
+	if _, err := os.Stat(filepath.Join(f.Home, ".zshrc")); err == nil {
+		t.Fatal("--no-shell must not touch the shell")
+	}
+}
+
+// Nothing found and nothing given: say the one command to run.
+func TestSetupWithNoProjectsFoundSaysWhatToDo(t *testing.T) {
+	f := fixture(t)
+	os.Remove(filepath.Join(f.SousHome, "config.toml"))
+	out, _, code := f.run("setup", "--no-shell")
+	if code != 0 || !strings.Contains(out, "sous setup ~/") {
+		t.Fatalf("%d %q", code, out)
 	}
 }

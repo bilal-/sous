@@ -7,6 +7,15 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.1.4]
+
+### Changed
+* `sous setup` now does the whole setup. It finds your projects in the
+  usual places (or takes the folders you name: `sous setup ~/code`), and
+  adds one line to your zsh, bash or fish startup file so new terminals
+  show the board. It says what it did. `--no-shell` leaves your shell alone.
+  Installing is now a single command.
+
 ## [0.1.3]
 
 ### Fixed

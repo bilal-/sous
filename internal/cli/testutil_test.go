@@ -27,6 +27,7 @@ func fixture(t *testing.T) *fx {
 	os.MkdirAll(filepath.Join(home, "bin"), 0o755)
 	t.Setenv("HOME", home)
 	t.Setenv("SOUS_HOME", f.SousHome)
+	t.Setenv("SHELL", "/bin/zsh") // setup edits the shell file; never depend on the real one
 	t.Setenv("PATH", filepath.Join(home, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("GIT_AUTHOR_NAME", "Sous Tests")
 	t.Setenv("GIT_AUTHOR_EMAIL", "sous-tests@example.invalid")

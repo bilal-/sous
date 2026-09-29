@@ -6,7 +6,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,4 +100,37 @@ func Expand(p string) string {
 		return filepath.Join(home, strings.TrimPrefix(p, "~"))
 	}
 	return p
+}
+
+var rootsLine = regexp.MustCompile(`(?m)^roots\s*=.*$`)
+
+// SetRoots writes roots into config.toml, creating it if needed. Only the
+// roots line changes; comments and every other setting stay as written.
+func SetRoots(home string, roots []string) error {
+	quoted := make([]string, len(roots))
+	for i, r := range roots {
+		quoted[i] = strconv.Quote(r)
+	}
+	line := "roots = [" + strings.Join(quoted, ", ") + "]"
+	p := filepath.Join(home, "config.toml")
+	b, err := os.ReadFile(p)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	s := string(b)
+	switch {
+	case rootsLine.MatchString(s):
+		s = rootsLine.ReplaceAllLiteralString(s, line)
+	default:
+		// Above everything, so it can never land inside a [table].
+		s = line + "\n" + s
+	}
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		return err
+	}
+	tmp := p + ".tmp"
+	if err := os.WriteFile(tmp, []byte(s), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, p)
 }

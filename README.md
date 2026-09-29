@@ -135,7 +135,7 @@ sous is young. Here is an honest list.
 | Works today | Not yet |
 |---|---|
 | macOS and Linux, on Intel and Apple silicon | Windows |
-| the board in new **zsh** shells | a ready made snippet for bash or fish (see below) |
+| the board in new **zsh**, **bash** and **fish** shells | other shells (run `sous --ambient` from their startup file) |
 | session hooks and a skill for **Claude Code** and **Codex** | hooks for other agents (they can still use sous, see below) |
 | git: uncommitted files, unpushed commits, stashes, branches with no upstream | |
 | **GitHub**: reviews asked of you, changes asked on your pull requests; filing and closing issues | GitHub notifications, CI status |
@@ -152,21 +152,19 @@ sous is young. Here is an honest list.
     curl -fsSL https://raw.githubusercontent.com/bilal-/sous/main/install.sh | sh
 
 That downloads the latest release, checks it against its checksum, puts
-`sous` in `~/.local/bin`, and runs `sous setup`. If `~/.local/bin` is not on
+`sous` in `~/.local/bin`, and sets everything up (see below). If `~/.local/bin` is not on
 your `PATH`, the script tells you. To install a particular version, run
 `curl ... | SOUS_VERSION=v0.1.0 sh`. To put `sous` somewhere else, set
 `SOUS_BIN` the same way.
 
 **With Homebrew** (macOS or Linux):
 
-    brew install bilal-/tap/sous
-    sous setup
+    brew install bilal-/tap/sous && sous setup
 
 **From source**, with Go 1.27 or newer:
 
     git clone https://github.com/bilal-/sous && cd sous
-    make install
-    sous setup
+    make install && sous setup
 
 You need `git`. For GitHub, install [`gh`](https://cli.github.com) and run
 `gh auth login`. For GitLab, install [`glab`](https://gitlab.com/gitlab-org/cli)
@@ -175,34 +173,31 @@ and never asks for a token.
 
 To remove sous, delete `~/.local/bin/sous` and `~/.sous`, the `sous` skill
 folders under `~/.claude/skills` and `~/.codex/skills`, the `sous hook` lines
-in `~/.claude/settings.json` and `~/.codex/hooks.json`, and the `sous.zsh`
-line in `~/.zshrc`.
+in `~/.claude/settings.json` and `~/.codex/hooks.json`, and the two lines
+starting with `# sous:` in your shell's startup file (or
+`~/.config/fish/conf.d/sous.fish` for fish).
 
-## Set up in two minutes
+## Setting up
 
-1. Tell sous where your projects live. It looks two folders deep, so a root
-   like `~/code` finds `~/code/acme/api`.
+There is nothing else to do: installing runs `sous setup`, which
 
-       mkdir -p ~/.sous
-       printf 'roots = ["~/code"]\n' > ~/.sous/config.toml
+* finds your projects by looking in the usual places (`~/code`, `~/src`,
+  `~/projects`, `~/workspace`, `~/Developer` and a few more). It looks two
+  folders deep, so `~/code` finds `~/code/acme/api`.
+* adds session hooks and the `sous` skill for Claude Code and Codex
+* adds one line to your shell's startup file (zsh, bash or fish), so new
+  terminals show the board
+* writes a menu bar script for [SwiftBar](https://swiftbar.app)
 
-2. Show the board in new shells. For zsh:
+It tells you what it did. Open a new terminal and the board is there.
 
-       echo 'source "$HOME/.sous/sous.zsh"' >> ~/.zshrc
+If your projects live somewhere else, say where:
 
-   For bash or fish, add `sous --cached` to your shell's startup file. It
-   prints the saved board instantly and refreshes it in the background.
+    sous setup ~/where/my/repos/are
 
-3. Open a new terminal. The board is there.
-
-`sous setup` is safe to run again at any time. It installs:
-
-* session hooks for Claude Code and Codex, so an agent starting in a project
-  sees where you left off
-* the `sous` skill for both agents, so you can ask them to take notes for you
-* `~/.sous/sous.zsh`, which prints the board in new zsh shells and lets
-  `sous go` leave you inside the project
-* `~/.sous/sous.5m.sh`, a menu bar plugin for [SwiftBar](https://swiftbar.app)
+Name more than one folder if you like. `sous setup` is safe to run again at
+any time. Add `--no-shell` if you would rather not have your shell's startup
+file touched.
 
 ## Everyday workflows
 
@@ -335,7 +330,7 @@ explains itself with `--help`.
 | `sous file <n> [--force]` | send a note to the project's tracker |
 | `sous report [--week] [--open]` | what changed lately |
 | `sous go <project> [-a agent]` | start your agent in a project |
-| `sous setup [--print-skill]` | install hooks, skill and shell snippet, or just print the skill |
+| `sous setup [folder...]` | set everything up; folders say where your projects are |
 
 To write a note that starts with a dash, put `--` before it:
 `sous note -- "-2 tests failing"`.
