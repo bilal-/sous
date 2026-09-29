@@ -365,7 +365,9 @@ name was ambiguous, `3` asked for the cached board before there was one.
 
 ## Configuration
 
-`~/.sous/config.toml`:
+Change settings with `sous config` (see
+[the command guide](docs/commands.md#sous-config)), or edit
+`~/.sous/config.toml` by hand:
 
 ```toml
 roots = ["~/code"]             # where your projects live

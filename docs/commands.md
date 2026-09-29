@@ -9,7 +9,7 @@ everyday flow, start with the [README](../README.md). Run
 * [Notes](#notes): `note`, `edit`, `kind`, `snooze`, `done`
 * [Sharing a note](#sharing-a-note): `file`, `note --file`, `done --close`
 * [Going to a project](#going-to-a-project): `go`
-* [Setting up](#setting-up): `setup`, `version`, `help`
+* [Setting up](#setting-up): `setup`, `config`, `version`, `help`
 * [Options for the shell and menu bar](#options-for-the-shell-and-menu-bar): `--ambient`, `--cached`, `--refresh`, `--menubar`
 * [Commands for plugins and hooks](#commands-for-plugins-and-hooks): `signal`, `backend`, `launcher`, `hook`
 * [How project names are matched](#how-project-names-are-matched)
@@ -278,6 +278,32 @@ Options:
 * `--codex-session-end`: also add a Codex session end hook, for Codex
   versions that support it.
 
+### `sous config`
+
+Shows every setting, its value, and whether it is a default, then any
+settings for particular projects.
+
+    sous config                                   show everything
+    sous config agent codex                       change a setting
+    sous config ignore scratch/* tmp/*            a list takes several values
+    sous config -p api backend markdown           one project (rough name)
+    sous config -p 'acme/*' github_account work   every project in the acme folder
+    sous config --unset agent                     back to the default
+    sous config -p api --unset backend
+
+The settings are described in [Configuration](#configuration). Values are
+checked before anything is written: an agent or backend must be one sous
+knows, and `refresh_hours` a whole number above 0. The file keeps its
+comments and layout, and sous refuses (and changes nothing) if a setting is
+written in a way it cannot change safely.
+
+Options:
+
+* `-p <project>`: work on one project's settings. The name can be rough, or
+  `org/*` for every project in an org folder.
+* `--unset`: remove the setting.
+* `--json`
+
 ### `sous version`
 
 Print the version. Builds from source show how far past a release they are,
@@ -349,7 +375,8 @@ code `2`. It never guesses.
 ## Configuration
 
 `~/.sous/config.toml`. Every setting is optional except `roots`, which
-`sous setup` writes for you.
+`sous setup` writes for you. Change settings with
+[`sous config`](#sous-config), or edit the file by hand.
 
 ```toml
 roots = ["~/code", "~/work"]   # where your projects live; sous looks two folders deep

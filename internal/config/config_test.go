@@ -181,3 +181,16 @@ func TestSetRootsStoresTildeForm(t *testing.T) {
 		t.Fatalf("%s", b)
 	}
 }
+
+func TestKeysComeFromConfigFields(t *testing.T) {
+	if got := KeyNames(); got != "roots, ignore, agent, refresh_hours, plugins, gitlab_hosts" {
+		t.Fatal(got)
+	}
+	k, _ := KeyNamed("refresh_hours")
+	if v, err := k.Parse([]string{"3"}); err != nil || v != 3 {
+		t.Fatal(v, err)
+	}
+	if v := k.Value(Default()); v != 4 {
+		t.Fatal(v)
+	}
+}
