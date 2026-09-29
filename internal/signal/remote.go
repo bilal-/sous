@@ -1,7 +1,6 @@
 package signal
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -34,10 +33,10 @@ type Query struct {
 	Label string // row text prefix: "review requested"
 	Item  string // "PR #" or "MR !" — noun and sigil as the tracker writes them
 	Kind  Kind   // Me (waiting on me) or Them (mine, waiting on others); "" = Me
+	// Fetch returns what it found. When the answer may be cut short it
+	// returns the hits it has with an error wrapping ErrIncomplete: they are
+	// shown, and the scan counts as incomplete, so earlier rows stay stale.
 	Fetch func(identity string) ([]Hit, error)
-	// Limit is how many results Fetch asks for; reaching it means the answer
-	// may be cut short. 0 means searchLimit.
-	Limit int
 }
 
 // ErrNotSetUp: the tool this plugin needs is missing or logged out and
@@ -60,9 +59,15 @@ type RemoteScanner struct {
 	MR         bool // hits are merge requests: refs use "!" (see tracker.Ref)
 }
 
-// searchLimit is how many results one query asks for; reaching it means
-// the answer may be cut short.
+// searchLimit is how many results one search asks for; a search that
+// fills it may have more behind it.
 const searchLimit = 1000
+
+// ErrIncomplete: a query's answer may be cut short.
+var ErrIncomplete = errors.New("some may be missing")
+
+// incomplete wraps ErrIncomplete with how many results there were.
+func incomplete(n int) error { return fmt.Errorf("%d or more results; %w", n, ErrIncomplete) }
 
 // Scan is the Scanner for this tracker.
 func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) error {
@@ -85,11 +90,6 @@ func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) e
 	for _, identity := range rs.Identities {
 		for _, q := range rs.Queries {
 			hits, err := q.Fetch(identity)
-			if limit := cmp.Or(q.Limit, searchLimit); err == nil && len(hits) >= limit {
-				// A full page may have more behind it: show what came, and say
-				// the scan is incomplete, so earlier findings stay (stale).
-				err = fmt.Errorf("more than %d results; some may be missing", limit)
-			}
 			for _, h := range hits {
 				if sig, ok := rs.signal(q, h, byRepo); ok && !emitted[sig.ID] {
 					emitted[sig.ID] = true

@@ -33,19 +33,25 @@ func ghSearch(account string, extra ...string) ([]Hit, error) {
 	for _, pr := range prs {
 		hits = append(hits, Hit{Repo: pr.Repository.NameWithOwner, Number: fmt.Sprint(pr.Number), Title: pr.Title, Updated: pr.UpdatedAt})
 	}
+	if len(prs) >= searchLimit {
+		return hits, incomplete(searchLimit)
+	}
 	return hits, nil
 }
 
 // ghFailingChecks: your open pull requests whose latest checks failed. One
 // GraphQL search; pending, passing or absent checks are not failing.
 func ghFailingChecks(account string) ([]Hit, error) {
-	out, err := tracker.GHRun(account, "api", "graphql", "-f", "query="+checksQuery)
+	out, err := tracker.GHRun(account, "api", "--hostname", tracker.GitHubHost, "graphql", "-f", "query="+checksQuery)
 	if err != nil {
 		return nil, err
 	}
 	var resp struct {
 		Data *struct {
 			Search struct {
+				PageInfo struct {
+					HasNextPage bool `json:"hasNextPage"`
+				} `json:"pageInfo"`
 				Nodes []struct {
 					Number     int       `json:"number"`
 					Title      string    `json:"title"`
@@ -91,13 +97,16 @@ func ghFailingChecks(account string) ([]Hit, error) {
 		}
 		hits = append(hits, Hit{Repo: n.Repository.NameWithOwner, Number: strconv.Itoa(n.Number), Title: n.Title, Updated: n.UpdatedAt, State: c.OID})
 	}
+	if resp.Data.Search.PageInfo.HasNextPage { // more pull requests than one page
+		return hits, incomplete(checksPage)
+	}
 	return hits, nil
 }
 
 // checksPage is how many of your open pull requests one checks search reads.
 const checksPage = 100
 
-var checksQuery = `query{search(query:"is:pr is:open author:@me archived:false",type:ISSUE,first:` + strconv.Itoa(checksPage) + `){nodes{... on PullRequest{number title updatedAt repository{nameWithOwner} commits(last:1){nodes{commit{oid statusCheckRollup{state}}}}}}}}`
+var checksQuery = `query{search(query:"is:pr is:open author:@me archived:false",type:ISSUE,first:` + strconv.Itoa(checksPage) + `){pageInfo{hasNextPage} nodes{... on PullRequest{number title updatedAt repository{nameWithOwner} commits(last:1){nodes{commit{oid statusCheckRollup{state}}}}}}}}`
 
 // ScanGitHub: obligations with a person on the other end, searched once per
 // configured account (the active one plus every github_account in config).
@@ -119,7 +128,7 @@ func ScanGitHub(cfg *config.Config) Scanner {
 		Queries: []Query{
 			{Key: "review", Label: "review requested", Item: "PR #", Fetch: func(a string) ([]Hit, error) { return ghSearch(a, "--review-requested=@me") }},
 			{Key: "changes", Label: "changes requested", Item: "PR #", Fetch: func(a string) ([]Hit, error) { return ghSearch(a, "--author=@me", "--review=changes_requested") }},
-			{Key: "checks", Label: "checks failing", Item: "PR #", Fetch: ghFailingChecks, Limit: checksPage},
+			{Key: "checks", Label: "checks failing", Item: "PR #", Fetch: ghFailingChecks},
 		},
 	}.Scan
 }

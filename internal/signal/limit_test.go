@@ -29,7 +29,7 @@ func TestFullPageMeansIncomplete(t *testing.T) {
 	page.WriteString("]")
 	trackertest.Fake(t, "gh", `case "$*" in "auth status") exit 0;; *) printf '%s' '`+page.String()+`';; esac`)
 	err := ScanGitHub(&config.Config{})([]string{app}, io.Discard, io.Discard, time.Now())
-	if err == nil || !strings.Contains(err.Error(), "more than") {
+	if err == nil || !strings.Contains(err.Error(), "some may be missing") {
 		t.Fatalf("%v", err)
 	}
 }
