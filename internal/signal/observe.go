@@ -52,8 +52,8 @@ var ErrUnknownSignal = errors.New("no such signal (run sous first)")
 const PruneAfter = 30 * 24 * time.Hour
 
 // hashOf is the content hash a snooze is tied to, distinct from ID. With no
-// state it is exactly the hash earlier versions stored, so upgrading does
-// not end anyone's snoozes.
+// state it is the hash earlier versions stored. A plugin that starts
+// sending a state (git's dirty row did in 0.1.1) ends its old snoozes once.
 func hashOf(s Signal) string {
 	if s.State == "" {
 		return ID(s.Text, string(s.Kind))
@@ -172,7 +172,9 @@ func Snooze(s *store.Store, id string) error {
 			}
 			sort.Strings(hits)
 			switch {
-			case len(hits) == 0 || len(id) < len("s:")+3:
+			case len(id) < len("s:")+3:
+				return fmt.Errorf("%s is too short; type at least 3 characters after s:", id)
+			case len(hits) == 0:
 				return fmt.Errorf("%w: %s", ErrUnknownSignal, id)
 			case len(hits) > 1:
 				return fmt.Errorf("%s matches %d rows: %s", id, len(hits), strings.Join(hits, ", "))

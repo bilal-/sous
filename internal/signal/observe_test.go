@@ -206,3 +206,14 @@ func TestSnoozeByUniquePrefix(t *testing.T) {
 		t.Fatalf("%+v", obs)
 	}
 }
+
+func TestSnoozePrefixTooShortSaysSo(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	Observe(s, collected("x", "git"), []string{"/p"}, time.Now())
+	if err := Snooze(s, "s:x"); err != nil {
+		t.Fatal("an exact id of any length works:", err)
+	}
+	if err := Snooze(s, "s:a"); err == nil || !strings.Contains(err.Error(), "at least 3") {
+		t.Fatalf("%v", err)
+	}
+}

@@ -111,10 +111,11 @@ func scanOne(p string, w, warn io.Writer, now time.Time) bool {
 	}
 
 	if st := must("status", "--porcelain"); st != "" {
-		// The summary counts files; the state follows their content, so more
-		// edits to the same file end a snooze.
-		stat, _ := gitOut(p, "diff", "HEAD", "--numstat")
-		sum := sha256.Sum256([]byte(st + "\x00" + stat))
+		// The summary counts files; the state follows what changed in them
+		// (the diff itself, and which files are new), so any further edit
+		// ends a snooze. The content of new untracked files is not read.
+		diff, _ := gitOut(p, "diff", "HEAD")
+		sum := sha256.Sum256([]byte(st + "\x00" + diff))
 		emit("dirty", Unfinished, fmt.Sprintf("%d files uncommitted · %s", countLines(st), branch), now, hex.EncodeToString(sum[:8]))
 	}
 	if up, err := gitOut(p, "rev-parse", "--abbrev-ref", "-q", "@{u}"); err == nil && up != "" {

@@ -169,3 +169,32 @@ func TestGitDirtyStateFollowsEdits(t *testing.T) {
 		t.Fatalf("%q %q / %q %q", text1, s1, text2, s2)
 	}
 }
+
+// Review: an edit that keeps the same line counts (a word swapped) and a
+// new untracked file both change the dirty state.
+func TestGitDirtyStateFollowsContent(t *testing.T) {
+	r := repo(t, filepath.Join(t.TempDir(), "acme/api"), true)
+	os.WriteFile(filepath.Join(r, "a.txt"), []byte("one\n"), 0o644)
+	git(t, r, "add", "a.txt")
+	git(t, r, "commit", "-q", "-m", "a")
+	state := func() string {
+		var out bytes.Buffer
+		ScanGit([]string{r}, &out, io.Discard, time.Now())
+		sigs, _ := readLines(&out)
+		for _, s := range sigs {
+			if strings.Contains(s.Text, "uncommitted") {
+				return s.State
+			}
+		}
+		return ""
+	}
+	os.WriteFile(filepath.Join(r, "a.txt"), []byte("two\n"), 0o644)
+	s1 := state()
+	os.WriteFile(filepath.Join(r, "a.txt"), []byte("six\n"), 0o644)
+	s2 := state()
+	os.WriteFile(filepath.Join(r, "new.txt"), []byte("x"), 0o644)
+	s3 := state()
+	if s1 == "" || s1 == s2 || s2 == s3 {
+		t.Fatalf("%q %q %q", s1, s2, s3)
+	}
+}
