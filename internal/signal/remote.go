@@ -64,14 +64,7 @@ func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) e
 		}
 		return err
 	}
-	byRepo := map[string]string{} // lower "host/repo" → local path
-	for _, p := range paths {
-		host, path := tracker.ParseRemote(project.Remote(p))
-		if host == "" || (rs.Host != "" && host != rs.Host) {
-			continue
-		}
-		byRepo[strings.ToLower(host+"/"+path)] = p
-	}
+	byRepo := rs.localRepos(paths)
 	if len(byRepo) == 0 {
 		return nil
 	}
@@ -91,30 +84,47 @@ func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) e
 				continue
 			}
 			for _, h := range hits {
-				host := h.Host
-				if host == "" {
-					host = rs.Host
+				if sig, ok := rs.signal(q, h, byRepo); ok && !emitted[sig.ID] {
+					emitted[sig.ID] = true
+					WriteLine(w, sig)
 				}
-				p, ok := byRepo[strings.ToLower(host+"/"+h.Repo)]
-				if !ok {
-					continue
-				}
-				id := ID(p, fmt.Sprintf("%s:%s:%s", rs.Name, q.Key, h.Number))
-				if emitted[id] {
-					continue
-				}
-				emitted[id] = true
-				ref := tracker.Ref{Tracker: rs.Name, Host: host, Repo: h.Repo, Number: h.Number, MR: rs.MR}.String()
-				kind := q.Kind
-				if kind == "" {
-					kind = Me
-				}
-				WriteLine(w, Signal{ID: id, Project: p, Kind: kind,
-					Text: fmt.Sprintf("%s · %s%s %s", q.Label, q.Item, h.Number, h.Title), Observed: h.Updated, Ref: &ref})
 			}
 		}
 	}
 	return firstErr
+}
+
+// localRepos maps lower "host/repo" to the local project folder, for the
+// projects on this tracker.
+func (rs RemoteScanner) localRepos(paths []string) map[string]string {
+	byRepo := map[string]string{}
+	for _, p := range paths {
+		host, path := tracker.ParseRemote(project.Remote(p))
+		if host != "" && (rs.Host == "" || host == rs.Host) {
+			byRepo[strings.ToLower(host+"/"+path)] = p
+		}
+	}
+	return byRepo
+}
+
+// signal turns one hit into a signal for its local project; false when the
+// repo is not one of ours.
+func (rs RemoteScanner) signal(q Query, h Hit, byRepo map[string]string) (Signal, bool) {
+	host := h.Host
+	if host == "" {
+		host = rs.Host
+	}
+	p, ok := byRepo[strings.ToLower(host+"/"+h.Repo)]
+	if !ok {
+		return Signal{}, false
+	}
+	kind := q.Kind
+	if kind == "" {
+		kind = Me
+	}
+	ref := tracker.Ref{Tracker: rs.Name, Host: host, Repo: h.Repo, Number: h.Number, MR: rs.MR}.String()
+	return Signal{ID: ID(p, fmt.Sprintf("%s:%s:%s", rs.Name, q.Key, h.Number)), Project: p, Kind: kind,
+		Text: fmt.Sprintf("%s · %s%s %s", q.Label, q.Item, h.Number, h.Title), Observed: h.Updated, Ref: &ref}, true
 }
 
 func as(identity string) string {

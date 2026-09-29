@@ -84,41 +84,22 @@ func Observe(s *store.Store, c Collected, scanned []string, now time.Time) ([]Ob
 	}
 	var out []Observed
 	_, err := store.Modify[ObsDoc](s, "observed", ObsMigrator{}, func(d *ObsDoc) error {
-		if d.Signals == nil {
-			d.Signals = map[string]ObsEntry{}
-		}
 		fresh := map[string]ObsEntry{}
 		for _, t := range c.Signals {
-			h := hashOf(t.Signal)
-			prev, had := d.Signals[t.ID]
-			e := ObsEntry{Plugin: t.Plugin, Project: t.Project, Kind: t.Kind, Text: t.Text, Ref: t.Ref, FirstSeen: now, LastSeen: now, Hash: h}
-			// Age is how long the thing has been waiting, not when sous first
-			// noticed: a plugin that knows (PR updatedAt) sets Observed earlier.
-			if had {
-				e.FirstSeen = prev.FirstSeen
-				if prev.Hash == h {
-					e.SnoozedHash = prev.SnoozedHash
-				}
-			}
-			if !t.Observed.IsZero() && t.Observed.Before(e.FirstSeen) {
-				e.FirstSeen = t.Observed.UTC()
-			}
+			e := merge(d.Signals[t.ID], t, now)
 			fresh[t.ID] = e
 			out = append(out, Observed{Tagged: t, FirstSeen: e.FirstSeen, LastSeen: now,
-				Snoozed: e.SnoozedHash != nil && *e.SnoozedHash == h})
+				Snoozed: e.SnoozedHash != nil && *e.SnoozedHash == e.Hash})
 		}
 		for id, prev := range d.Signals {
-			if _, ok := fresh[id]; ok {
-				continue
-			}
-			if now.Sub(prev.LastSeen) > PruneAfter {
-				continue // nothing has vouched for it in a month; let it go
+			if _, ok := fresh[id]; ok || now.Sub(prev.LastSeen) > PruneAfter {
+				continue // refreshed now, or unvouched for a month: let it go
 			}
 			switch {
 			case !inScope[prev.Project]:
 				fresh[id] = prev // not scanned this run: keep as is, don't render
 			case !okPlugins[prev.Plugin]:
-				fresh[id] = prev // plugin failed: keep and render stale
+				fresh[id] = prev // plugin failed or is off: keep and render stale
 				o := prev.observed(id)
 				o.Stale = true
 				out = append(out, o)
@@ -129,6 +110,25 @@ func Observe(s *store.Store, c Collected, scanned []string, now time.Time) ([]Ob
 	})
 	sort.SliceStable(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, err
+}
+
+// merge is a signal seen now, joined with what was known about it. Age is
+// how long the thing has been waiting, not when sous noticed: first seen is
+// kept, and moved earlier when the plugin knows better (a PR's updatedAt).
+// A snooze holds while the content is unchanged.
+func merge(prev ObsEntry, t Tagged, now time.Time) ObsEntry {
+	h := hashOf(t.Signal)
+	e := ObsEntry{Plugin: t.Plugin, Project: t.Project, Kind: t.Kind, Text: t.Text, Ref: t.Ref, FirstSeen: now, LastSeen: now, Hash: h}
+	if !prev.FirstSeen.IsZero() {
+		e.FirstSeen = prev.FirstSeen
+		if prev.Hash == h {
+			e.SnoozedHash = prev.SnoozedHash
+		}
+	}
+	if !t.Observed.IsZero() && t.Observed.Before(e.FirstSeen) {
+		e.FirstSeen = t.Observed.UTC()
+	}
+	return e
 }
 
 // observed is the entry as last seen: what a view shows when no plugin ran
