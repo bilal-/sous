@@ -7,6 +7,14 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+* docs/commands.md: a guide to every command, option, exit code,
+  environment variable and setting. A test keeps it in step with the code.
+
+### Fixed
+* With no project folders set, new shells say once what to do instead of
+  "building your board now" every time.
+
 ## [0.1.4]
 
 ### Changed

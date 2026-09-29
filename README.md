@@ -312,6 +312,7 @@ issue, or send a pull request adding hooks for it.
 
 ## All commands
 
+The full guide, with every option, is [docs/commands.md](docs/commands.md).
 Every command that shows something also takes `--json`, and every command
 explains itself with `--help`.
 

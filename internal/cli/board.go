@@ -109,7 +109,13 @@ func cmdAmbient(e *Env) int {
 	if st, err := os.Stat(stamp); err == nil && time.Since(st.ModTime()) < e.Cfg.RefreshWindow() {
 		return 0
 	}
-	code := cmdCached(e)
+	code := 0
+	if e.cfgErr == nil && len(e.Cfg.Roots) == 0 {
+		// Nothing to build yet: say once what to do, then stay quiet.
+		fmt.Fprintln(e.Stdout, "sous: no projects yet. Run sous setup, or sous setup ~/path/to/your/projects")
+	} else {
+		code = cmdCached(e)
+	}
 	if code == 0 { // 3 means no board yet: leave the stamp so the next shell shows it
 		os.MkdirAll(e.Home, 0o755)
 		if f, err := os.Create(stamp); err == nil {

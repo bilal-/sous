@@ -151,3 +151,53 @@ func TestFirstRunWelcomes(t *testing.T) {
 		t.Fatalf("%d %q %q", code, out, errs)
 	}
 }
+
+// docs/commands.md covers every command and every option in the verb
+// table, so the guide cannot fall behind the code.
+func TestCommandGuideCoversEveryCommandAndOption(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "docs", "commands.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	guide := string(b)
+	for _, v := range verbs {
+		if !strings.Contains(guide, "sous "+v.name) {
+			t.Errorf("docs/commands.md does not cover sous %s", v.name)
+		}
+		if v.args == nil {
+			continue
+		}
+		for _, group := range [][]string{v.args.bools, v.args.values} {
+			for _, names := range group {
+				for _, n := range strings.Split(names, "|") {
+					flag := "--" + n
+					if len(n) == 1 {
+						flag = "-" + n
+					}
+					if !strings.Contains(guide, "`"+flag) {
+						t.Errorf("docs/commands.md does not cover %s %s", v.name, flag)
+					}
+				}
+			}
+		}
+	}
+	for _, mode := range []string{"--ambient", "--cached", "--refresh", "--menubar", "--json", "--brief"} {
+		if !strings.Contains(guide, mode) {
+			t.Errorf("docs/commands.md does not cover %s", mode)
+		}
+	}
+}
+
+// With no roots yet, a new shell says once what to do, then stays quiet
+// for the refresh window, instead of "building" on every shell.
+func TestAmbientWithNoRootsHintsOnce(t *testing.T) {
+	f := fixture(t)
+	os.Remove(filepath.Join(f.SousHome, "config.toml"))
+	out, _, code := f.run("--ambient")
+	if code != 0 || !strings.Contains(out, "sous setup") || strings.Contains(out, "building") {
+		t.Fatalf("%d %q", code, out)
+	}
+	if out, _, _ := f.run("--ambient"); out != "" {
+		t.Fatalf("second shell: %q", out)
+	}
+}

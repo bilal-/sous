@@ -4,7 +4,9 @@ This guide is for every person and agent changing sous. It is short on
 purpose. The design lives in [docs/design.md](docs/design.md), and when the
 two disagree, the design wins. Plugin authors read
 [docs/plugins.md](docs/plugins.md), so change it whenever the plugin
-contract changes.
+contract changes. Every command and option is described in
+[docs/commands.md](docs/commands.md); a test fails when a new one is
+missing from it.
 
 ## What sous is
 
