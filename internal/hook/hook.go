@@ -210,9 +210,25 @@ func Install(settingsPath, event, command string) (bool, error) {
 		hooks = map[string]any{}
 		doc["hooks"] = hooks
 	}
-	groups, _ := hooks[event].([]any)
-	var kept []any
-	placed, changed := false, false
+	kept, changed := placeHook(hooks[event], command, role, agent, args[0])
+	if !changed {
+		return false, nil
+	}
+	hooks[event] = kept
+	out, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return false, err
+	}
+	return true, store.WriteFile(settingsPath, out, 0o644)
+}
+
+// placeHook returns event's hook groups with command in them exactly once:
+// the first sous hook for role and agent is updated in place, any others
+// are removed, and every other hook is kept. changed says whether anything
+// moved.
+func placeHook(event any, command, role, agent, exe string) (kept []any, changed bool) {
+	groups, _ := event.([]any)
+	placed := false
 	for _, g := range groups {
 		gm, _ := g.(map[string]any)
 		inner, _ := gm["hooks"].([]any)
@@ -221,7 +237,7 @@ func Install(settingsPath, event, command string) (bool, error) {
 			hm, _ := h.(map[string]any)
 			c, _ := hm["command"].(string)
 			switch {
-			case !IsOurs(c, role, agent, args[0]):
+			case !IsOurs(c, role, agent, exe):
 				keep = append(keep, h)
 			case !placed:
 				placed = true
@@ -242,15 +258,7 @@ func Install(settingsPath, event, command string) (bool, error) {
 		kept = append(kept, map[string]any{"hooks": []any{map[string]any{"type": "command", "command": command, "timeout": 10}}})
 		changed = true
 	}
-	if !changed {
-		return false, nil
-	}
-	hooks[event] = kept
-	out, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return false, err
-	}
-	return true, store.WriteFile(settingsPath, out, 0o644)
+	return kept, changed
 }
 
 // shellQuote quotes s for a POSIX shell when it holds anything but plain
