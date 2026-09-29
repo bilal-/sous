@@ -66,18 +66,18 @@ func hashOf(s Signal) string {
 // then, whatever its text now says), clears a snooze when the text changes,
 // drops signals that vanished from an ok plugin, re-emits last-known
 // signals of failed plugins as stale, and leaves untouched every
-// observation for a project outside `scanned` (a scoped board must not wipe
-// state it never looked at).
+// observation for a project outside `scanned` or from a plugin that did not
+// run (a scoped board, or here running only git, must not wipe or stale
+// what it never looked at).
 func Observe(s *store.Store, c Collected, scanned []string, now time.Time) ([]Observed, error) {
 	now = now.UTC()
-	okPlugins := map[string]bool{}
+	okPlugins, ran := map[string]bool{}, map[string]bool{}
 	for _, p := range c.Plugins {
+		ran[p.Name] = true
 		if p.Status == StatusOK {
 			okPlugins[p.Name] = true
 		}
 	}
-	// scanned nil = "I only ran some plugins for some paths": keep every
-	// prior observation untouched except those this run refreshed.
 	inScope := map[string]bool{}
 	for _, p := range scanned {
 		inScope[p] = true
@@ -96,7 +96,7 @@ func Observe(s *store.Store, c Collected, scanned []string, now time.Time) ([]Ob
 				continue // refreshed now, or unvouched for a month: let it go
 			}
 			switch {
-			case !inScope[prev.Project]:
+			case !inScope[prev.Project] || !ran[prev.Plugin]:
 				fresh[id] = prev // not scanned this run: keep as is, don't render
 			case !okPlugins[prev.Plugin]:
 				fresh[id] = prev // plugin failed or is off: keep and render stale

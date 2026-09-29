@@ -77,7 +77,7 @@ func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 // the board learned last from the others (remote trackers), minus git's
 // informational rows. Nothing but root's observations is touched.
 func hereSignals(in Inputs, col signal.Collected, root string) ([]signal.Observed, error) {
-	obs, err := signal.Observe(in.Store, col, nil, in.Now)
+	obs, err := signal.Observe(in.Store, col, []string{root}, in.Now) // only the plugins run here are settled
 	if err != nil {
 		return nil, err
 	}

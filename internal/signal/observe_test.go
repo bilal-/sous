@@ -220,3 +220,27 @@ func TestSnoozePrefixTooShortSaysSo(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+// Review: a scan that runs only some plugins (here runs git) settles what
+// those plugins found, and leaves the others' rows as they were: not
+// dropped, not stale.
+func TestObserveOnlySettlesThePluginsThatRan(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	full := Collected{
+		Signals: []Tagged{
+			{Signal: Signal{ID: "s:dirty", Project: "/p", Kind: Unfinished, Text: "1 files uncommitted"}, Plugin: "git"},
+			{Signal: Signal{ID: "s:pr", Project: "/p", Kind: Me, Text: "review requested"}, Plugin: "github"},
+		},
+		Plugins: []PluginStatus{{Name: "git", Status: StatusOK}, {Name: "github", Status: StatusOK}},
+	}
+	Observe(s, full, []string{"/p"}, t0)
+	obs, _ := Observe(s, ran("git"), []string{"/p"}, t0.Add(time.Hour)) // committed: git finds nothing
+	if len(obs) != 0 {
+		t.Fatalf("the github row is not rendered by a git-only scan, and the dirty row is gone: %+v", obs)
+	}
+	known, _ := Known(s, "/p")
+	if len(known) != 1 || known[0].ID != "s:pr" || known[0].Stale {
+		t.Fatalf("%+v", known)
+	}
+}
