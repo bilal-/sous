@@ -207,17 +207,22 @@ func MarkdownClose(project, ref string) error {
 		return err
 	}
 	defer f.Close()
-	lines, idx, count, err := findMarker(f, key)
+	all, err := io.ReadAll(f)
 	if err != nil {
 		return err
 	}
-	switch {
-	case count == 0:
+	// Everything is located in the raw bytes: scanned lines lose any \r and
+	// would put the offset short.
+	m := []byte(markerComment(key))
+	switch n := bytes.Count(all, m); {
+	case n == 0:
 		return fmt.Errorf("marker %s not found in %s", key, MarkdownFile)
-	case count > 1:
-		return fmt.Errorf("marker %s appears %d times in %s; fix the file by hand", key, count, MarkdownFile)
+	case n > 1:
+		return fmt.Errorf("marker %s appears %d times in %s; fix the file by hand", key, n, MarkdownFile)
 	}
-	switch boxState(lines[idx]) {
+	at := bytes.Index(all, m)
+	lineStart := bytes.LastIndexByte(all[:at], '\n') + 1
+	switch boxState(string(all[lineStart:at])) {
 	case "closed":
 		return nil
 	case "unknown":
@@ -226,21 +231,7 @@ func MarkdownClose(project, ref string) error {
 	// Tick the box by overwriting its one byte in place: nothing is
 	// truncated, so a crash cannot empty the file, and every other byte
 	// (line endings included) stays as the person wrote it.
-	// The offset comes from the raw bytes, not from scanned lines, which
-	// have lost any \r and would count short.
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		return err
-	}
-	all, err := io.ReadAll(f)
-	if err != nil {
-		return err
-	}
-	at := bytes.Index(all, []byte(markerComment(key)))
-	lineStart := bytes.LastIndexByte(all[:max(at, 0)], '\n') + 1
 	box := bytes.Index(all[lineStart:at], []byte("[ ]"))
-	if at < 0 || box < 0 {
-		return fmt.Errorf("marker %s is not on a checkbox line", key)
-	}
 	_, err = f.WriteAt([]byte("x"), int64(lineStart+box+1))
 	return err
 }
