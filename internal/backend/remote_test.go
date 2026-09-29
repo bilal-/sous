@@ -47,15 +47,15 @@ esac`)
 	if !g.Detect(p, &warn) {
 		t.Fatalf("detect: %s", warn.String())
 	}
-	ref, err := g.File(Request{ID: 7, Project: p, Text: "notifications need context, not \"unused terminal\"", Kind: "me"})
+	ref, err := g.File(Request{ID: 7, UID: "000000000007", Project: p, Text: "notifications need context, not \"unused terminal\"", Kind: "me"})
 	if err != nil || ref != "github:acme/chime#42" {
 		t.Fatal(ref, err)
 	}
 	b, _ := os.ReadFile(calls)
-	if !strings.Contains(string(b), "issue create") || !strings.Contains(string(b), "-R acme/chime") || !strings.Contains(string(b), "sous:abcd1234:7") || !strings.Contains(string(b), "auth token --user work-account") {
+	if !strings.Contains(string(b), "issue create") || !strings.Contains(string(b), "-R acme/chime") || !strings.Contains(string(b), "sous:000000000007") || !strings.Contains(string(b), "auth token --user work-account") {
 		t.Fatalf("create call shape / account:\n%s", b)
 	}
-	ref8, err := g.File(Request{ID: 8, Project: p, Text: "again", Kind: "idea"})
+	ref8, err := g.File(Request{ID: 8, UID: "000000000008", Project: p, Text: "again", Kind: "idea"})
 	if err != nil || ref8 != "github:acme/chime#41" {
 		t.Fatal(ref8, err)
 	}
@@ -129,7 +129,7 @@ case "$*" in
 esac`)
 	g := GitHub(home, &config.Config{})
 	p := repoWithRemote(t, "o", "r", "git@github.com:o/r.git")
-	if _, err := g.File(Request{ID: 1, Project: p, Text: "x", Kind: "me"}); err == nil || !strings.Contains(err.Error(), "could not check") {
+	if _, err := g.File(Request{ID: 1, UID: "000000000001", Project: p, Text: "x", Kind: "me"}); err == nil || !strings.Contains(err.Error(), "could not check") {
 		t.Fatalf("%v", err)
 	}
 	if b, _ := os.ReadFile(calls); strings.Contains(string(b), "issue create") {
@@ -157,7 +157,7 @@ esac`)
 	if g.Detect(p, &warn) || !strings.Contains(warn.String(), "work-account") {
 		t.Fatalf("detect must refuse and name the account: %q", warn.String())
 	}
-	if _, err := g.File(Request{ID: 1, Project: p, Text: "x", Kind: "me"}); err == nil {
+	if _, err := g.File(Request{ID: 1, UID: "000000000001", Project: p, Text: "x", Kind: "me"}); err == nil {
 		t.Fatal("file must not run as the active account")
 	}
 	if _, err := g.Status(p, "github:acme/chime#1"); err == nil {
@@ -198,15 +198,15 @@ esac`)
 	if !g.Detect(p, &warn) {
 		t.Fatalf("detect: %s", warn.String())
 	}
-	ref, err := g.File(Request{ID: 7, Project: p, Text: "json api for browse & search", Kind: "me"})
+	ref, err := g.File(Request{ID: 7, UID: "000000000007", Project: p, Text: "json api for browse & search", Kind: "me"})
 	if err != nil || ref != "gitlab:git.example.org/frontend/app-next#12" {
 		t.Fatal(ref, err)
 	}
 	b, _ := os.ReadFile(calls)
-	if !strings.Contains(string(b), "--hostname git.example.org") || !strings.Contains(string(b), "projects/frontend%2Fapp-next/issues") || !strings.Contains(string(b), "sous:abcd1234:7") || !strings.Contains(string(b), "-f title=json api for browse & search") {
+	if !strings.Contains(string(b), "--hostname git.example.org") || !strings.Contains(string(b), "projects/frontend%2Fapp-next/issues") || !strings.Contains(string(b), "sous:000000000007") || !strings.Contains(string(b), "-f title=json api for browse & search") {
 		t.Fatalf("create call shape:\n%s", b)
 	}
-	if ref8, _ := g.File(Request{ID: 8, Project: p, Text: "again", Kind: "idea"}); ref8 != "gitlab:git.example.org/frontend/app-next#11" {
+	if ref8, _ := g.File(Request{ID: 8, UID: "000000000008", Project: p, Text: "again", Kind: "idea"}); ref8 != "gitlab:git.example.org/frontend/app-next#11" {
 		t.Fatal("recovery via marker:", ref8)
 	}
 	if b, _ = os.ReadFile(calls); strings.Count(string(b), "-X POST") != 1 {

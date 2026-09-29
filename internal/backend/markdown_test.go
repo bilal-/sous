@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,8 +18,8 @@ func TestMarkdownLifecycle(t *testing.T) {
 	if !MarkdownDetect(p) {
 		t.Fatal("detect")
 	}
-	ref, err := MarkdownFileNote(p, Request{ID: 7, Project: p, Text: "fix notification context", Kind: "idea"})
-	if err != nil || !strings.HasPrefix(ref, "md:FOLLOWUPS.md:7:") || len(ref) != len("md:FOLLOWUPS.md:7:")+8 {
+	ref, err := MarkdownFileNote(p, Request{ID: 7, UID: "000000000007", Project: p, Text: "fix notification context", Kind: "idea"})
+	if err != nil || ref != "md:FOLLOWUPS.md:000000000007" {
 		t.Fatal(ref, err)
 	}
 	b, _ := os.ReadFile(filepath.Join(p, MarkdownFile))
@@ -27,8 +28,8 @@ func TestMarkdownLifecycle(t *testing.T) {
 	if string(b) != want {
 		t.Fatalf("append shape (trailing newline repaired):\n%q\nwant\n%q", b, want)
 	}
-	// Crash recovery: same id and same text → the existing marker is reused.
-	ref2, err := MarkdownFileNote(p, Request{ID: 7, Project: p, Text: "fix notification context", Kind: "me"})
+	// Crash recovery: the same uid → the existing marker is reused.
+	ref2, err := MarkdownFileNote(p, Request{ID: 7, UID: "000000000007", Project: p, Text: "fix notification context", Kind: "me"})
 	if err != nil || ref2 != ref {
 		t.Fatalf("idempotent: %s vs %s (%v)", ref2, ref, err)
 	}
@@ -88,7 +89,7 @@ func TestMarkdownLifecycle(t *testing.T) {
 
 func TestMarkdownCreatesFileAndKeepsSymlinkAndMode(t *testing.T) {
 	p := t.TempDir()
-	ref, err := MarkdownFileNote(p, Request{ID: 1, Project: p, Text: "first", Kind: "me"})
+	ref, err := MarkdownFileNote(p, Request{ID: 1, UID: "000000000001", Project: p, Text: "first", Kind: "me"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +102,7 @@ func TestMarkdownCreatesFileAndKeepsSymlinkAndMode(t *testing.T) {
 	os.WriteFile(real, []byte("# N\n"), 0o664)
 	os.Chmod(real, 0o600) // explicit: WriteFile's mode is subject to umask
 	os.Symlink(real, filepath.Join(q, MarkdownFile))
-	ref, _ = MarkdownFileNote(q, Request{ID: 2, Project: q, Text: "via link", Kind: "idea"})
+	ref, _ = MarkdownFileNote(q, Request{ID: 2, UID: "000000000002", Project: q, Text: "via link", Kind: "idea"})
 	if err := MarkdownClose(q, ref); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +128,7 @@ func TestMarkdownConcurrentAppendsAllSurvive(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if _, err := MarkdownFileNote(p, Request{ID: i, Project: p, Text: "n", Kind: "idea"}); err != nil {
+			if _, err := MarkdownFileNote(p, Request{ID: i, UID: fmt.Sprintf("%012d", i), Project: p, Text: "n", Kind: "idea"}); err != nil {
 				t.Error(err)
 			}
 		}(i)
@@ -139,18 +140,17 @@ func TestMarkdownConcurrentAppendsAllSurvive(t *testing.T) {
 	}
 }
 
-// Review C2: thread ids are per-installation; a teammate's marker with the
-// same id must not be mistaken for ours. Dedupe on id+text; status/close
-// match the full id:tag.
+// Note numbers restart per install: a teammate's old marker with the same
+// number (and other text) is not ours. Ours is marked with our uid.
 func TestMarkdownDoesNotCollideOnForeignId(t *testing.T) {
 	p := t.TempDir()
 	os.WriteFile(filepath.Join(p, MarkdownFile), []byte("# F\n- [ ] teammate's item <!-- sous:3:bbbbbbbb -->\n"), 0o644)
-	ref, err := MarkdownFileNote(p, Request{ID: 3, Project: p, Text: "my note", Kind: "me"})
+	ref, err := MarkdownFileNote(p, Request{ID: 3, UID: "000000000003", Project: p, Text: "my note", Kind: "me"})
 	if err != nil || ref == "md:FOLLOWUPS.md:3:bbbbbbbb" {
 		t.Fatalf("must not adopt a foreign marker: %s %v", ref, err)
 	}
 	b, _ := os.ReadFile(filepath.Join(p, MarkdownFile))
-	if !strings.Contains(string(b), "- [ ] my note <!-- sous:3:") || strings.Count(string(b), "<!-- sous:3:") != 2 {
+	if !strings.Contains(string(b), "- [ ] my note <!-- sous:000000000003 -->") || strings.Count(string(b), "<!-- sous:") != 2 {
 		t.Fatalf("my note must be written:\n%s", b)
 	}
 	if st := MarkdownStatus(p, "md:FOLLOWUPS.md:3:bbbbbbbb"); st != "open" {
@@ -166,10 +166,10 @@ func TestMarkdownDoesNotCollideOnForeignId(t *testing.T) {
 	if !strings.Contains(string(b), "- [ ] teammate's item") || !strings.Contains(string(b), "- [x] my note") {
 		t.Fatalf("close must touch only my line:\n%s", b)
 	}
-	// Crash recovery: same id AND same text → the existing marker is reused.
-	ref2, _ := MarkdownFileNote(p, Request{ID: 3, Project: p, Text: "my note", Kind: "me"})
+	// Crash recovery: the same uid → the existing marker is reused.
+	ref2, _ := MarkdownFileNote(p, Request{ID: 3, UID: "000000000003", Project: p, Text: "my note", Kind: "me"})
 	if ref2 != ref {
-		t.Fatalf("id+text dedupe: %s vs %s", ref2, ref)
+		t.Fatalf("uid dedupe: %s vs %s", ref2, ref)
 	}
 }
 
@@ -228,5 +228,25 @@ func TestMarkdownCloseTicksTheRightBoxWithCRLF(t *testing.T) {
 	b, _ := os.ReadFile(filepath.Join(p, MarkdownFile))
 	if want := strings.Replace(orig, "- [ ] target", "- [x] target", 1); string(b) != want {
 		t.Fatalf("got %q", b)
+	}
+}
+
+// Review: a note filed just before upgrading (old id:tag marker) and
+// retried after (now with a uid) must find the item, not file it twice.
+func TestMarkdownRecoveryFindsAPreUpgradeMarker(t *testing.T) {
+	p := t.TempDir()
+	os.WriteFile(filepath.Join(p, MarkdownFile), []byte("# F\n- [ ] ship it <!-- sous:7:abcd1234 -->\n"), 0o644)
+	ref, err := MarkdownFileNote(p, Request{ID: 7, UID: "0123456789ab", Project: p, Text: "ship it", Kind: "me"})
+	b, _ := os.ReadFile(filepath.Join(p, MarkdownFile))
+	if err != nil || ref != "md:FOLLOWUPS.md:7:abcd1234" || strings.Count(string(b), "sous:") != 1 {
+		t.Fatalf("%q %v\n%s", ref, err, b)
+	}
+}
+
+// Filing needs the note's uid: every marker sous writes now is the uid.
+func TestMarkdownFilingRequiresAUID(t *testing.T) {
+	p := t.TempDir()
+	if _, err := MarkdownFileNote(p, Request{ID: 7, Project: p, Text: "x", Kind: "me"}); err == nil {
+		t.Fatal("a request without a uid must be refused")
 	}
 }

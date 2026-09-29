@@ -3,8 +3,6 @@ package backend
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -13,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 )
 
 // The markdown backend: a FOLLOWUPS.md checklist in the repo. Refs point at a
@@ -94,37 +91,21 @@ func findMarker(r io.Reader, key string) ([]string, int, int, error) {
 	return lines, idx, count, sc.Err()
 }
 
-// existingRef finds a marker for this id whose line carries exactly this
-// text — the crash-recovery case (created upstream, ref not recorded). A
-// teammate's marker with the same id but other text is not ours.
-func existingRef(r io.Reader, req Request) (string, error) {
-	sc := bufio.NewScanner(r)
-	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-	if req.UID != "" {
-		m := markerComment(req.UID)
-		for sc.Scan() {
-			if strings.Contains(sc.Text(), m) {
-				return refFor(req.UID), nil
-			}
-		}
-		return "", sc.Err()
+// existingRef finds an item already filed for this note, so a retry after
+// a crash never files it twice: by its uid marker, or by the marker a sous
+// before uids wrote (same note number and text: <!-- sous:<id>:<tag> -->).
+func existingRef(all []byte, req Request) string {
+	if bytes.Contains(all, []byte(markerComment(req.UID))) {
+		return refFor(req.UID)
 	}
-	id, text := req.ID, req.Text
-	m := fmt.Sprintf("<!-- sous:%d:", id)
-	want := "] " + text + " " + m
-	for sc.Scan() {
-		line := sc.Text()
-		i := strings.Index(line, m)
-		if i < 0 || !strings.Contains(line, want) {
-			continue
+	legacy := fmt.Sprintf("] %s <!-- sous:%d:", req.Text, req.ID)
+	if at := bytes.Index(all, []byte(legacy)); at >= 0 {
+		tag := all[at+len(legacy):]
+		if end := bytes.Index(tag, []byte(" -->")); end > 0 {
+			return refFor(strconv.Itoa(req.ID) + ":" + string(tag[:end]))
 		}
-		end := strings.Index(line[i+len(m):], " -->")
-		if end < 0 {
-			continue
-		}
-		return refFor(strconv.Itoa(id) + ":" + line[i+len(m):i+len(m)+end]), nil
 	}
-	return "", sc.Err()
+	return ""
 }
 
 func MarkdownFileNote(project string, req Request) (string, error) {
@@ -133,16 +114,17 @@ func MarkdownFileNote(project string, req Request) (string, error) {
 		return "", err
 	}
 	defer f.Close()
-	if ref, err := existingRef(f, req); err != nil {
+	if req.UID == "" {
+		return "", errors.New("the request has no uid")
+	}
+	all, err := io.ReadAll(f)
+	if err != nil {
 		return "", err
-	} else if ref != "" {
+	}
+	if ref := existingRef(all, req); ref != "" {
 		return ref, nil // already filed (crash between create and record)
 	}
 	key := req.UID
-	if key == "" { // a caller that sends no uid: the older id:tag marker
-		sum := sha256.Sum256([]byte(req.Text + "\n" + time.Now().Format(time.RFC3339Nano)))
-		key = strconv.Itoa(req.ID) + ":" + hex.EncodeToString(sum[:])[:8]
-	}
 	var prefix string
 	st, _ := f.Stat()
 	switch {

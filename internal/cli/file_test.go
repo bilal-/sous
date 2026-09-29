@@ -24,8 +24,8 @@ func TestMarkdownBackendViaRunner(t *testing.T) {
 	if err != nil || b.Name != "markdown" {
 		t.Fatalf("detect via subprocess: %+v %v", b, err)
 	}
-	ref, err := backend.File(context.Background(), b, backend.Request{ID: 3, Project: p, Text: "via runner", Kind: "idea"})
-	if err != nil || !strings.HasPrefix(ref, "md:FOLLOWUPS.md:3:") {
+	ref, err := backend.File(context.Background(), b, backend.Request{ID: 3, UID: "000000000003", Project: p, Text: "via runner", Kind: "idea"})
+	if err != nil || ref != "md:FOLLOWUPS.md:000000000003" {
 		t.Fatal(ref, err)
 	}
 	if st, _ := backend.Status(context.Background(), b, p, ref); st != "open" {

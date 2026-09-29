@@ -67,12 +67,12 @@ case "$1" in
 esac`)
 	b := Backends("", nil, []string{fake})[0]
 	reqOut := filepath.Join(dir, "out")
-	ref, err := File(context.Background(), b, Request{ID: 7, Project: reqOut, Text: "a <b> & \"c\"", Kind: "idea"})
+	ref, err := File(context.Background(), b, Request{ID: 7, UID: "000000000007", Project: reqOut, Text: "a <b> & \"c\"", Kind: "idea"})
 	if err != nil || ref != "fake:42" {
 		t.Fatal(ref, err)
 	}
 	got, _ := os.ReadFile(reqOut + ".req")
-	if string(got) != `{"v":0,"id":7,"project":"`+reqOut+`","text":"a <b> & \"c\"","kind":"idea"}`+"\n" {
+	if string(got) != `{"v":0,"id":7,"uid":"000000000007","project":"`+reqOut+`","text":"a <b> & \"c\"","kind":"idea"}`+"\n" {
 		t.Fatalf("request JSON must not HTML-escape: %s", got)
 	}
 	if st, err := Status(context.Background(), b, "/proj", "fake:42"); err != nil || st != "open" {
@@ -143,7 +143,7 @@ func TestFileRequestCarriesContractVersion(t *testing.T) {
 	}
 	dir := t.TempDir()
 	echo := script(t, dir, "sous-backend-echo", `cat > "`+dir+`/req"; echo echo:1`)
-	File(context.Background(), Backends("", nil, []string{echo})[0], Request{ID: 3, Project: "/p", Text: "x", Kind: "me"})
+	File(context.Background(), Backends("", nil, []string{echo})[0], Request{ID: 3, UID: "000000000003", Project: "/p", Text: "x", Kind: "me"})
 	if b, _ := os.ReadFile(filepath.Join(dir, "req")); !strings.HasPrefix(string(b), `{"v":0,`) {
 		t.Fatalf("request must lead with v: %s", b)
 	}

@@ -73,19 +73,18 @@ func title(text string) string {
 	return string([]rune(text)[:117]) + "…"
 }
 
-// marker is the crash-recovery comment written into the issue body.
-// With a uid (every note since 0.1.1) the marker is just the uid; without
-// one it is the older install id plus note number.
-func marker(home string, req Request) (string, error) {
-	if req.UID != "" {
-		return markerComment(req.UID), nil
+// markers are what a retry looks for in issues already filed: the note's
+// uid, and the <install>:<id> marker a sous before uids wrote. The first is
+// the one new issues carry.
+func markers(home string, req Request) ([]string, error) {
+	if req.UID == "" {
+		return nil, errors.New("the request has no uid")
 	}
-	id := req.ID
 	inst, err := tracker.InstallID(home)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return markerComment(fmt.Sprintf("%s:%d", inst, id)), nil
+	return []string{markerComment(req.UID), markerComment(fmt.Sprintf("%s:%d", inst, req.ID))}, nil
 }
 
 func (r Remote) File(req Request) (string, error) {
@@ -94,7 +93,7 @@ func (r Remote) File(req Request) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("not a %s remote", name)
 	}
-	m, err := marker(r.Home, req)
+	ms, err := markers(r.Home, req)
 	if err != nil {
 		return "", err
 	}
@@ -106,11 +105,13 @@ func (r Remote) File(req Request) (string, error) {
 		return "", fmt.Errorf("could not check for an existing issue: %w", err)
 	}
 	for _, e := range existing {
-		if strings.Contains(e.Body, m) {
-			return r.ref(t, e.Number), nil
+		for _, m := range ms {
+			if strings.Contains(e.Body, m) {
+				return r.ref(t, e.Number), nil
+			}
 		}
 	}
-	body := fmt.Sprintf("%s\n\n%s\n_Filed from sous._\n", req.Text, m)
+	body := fmt.Sprintf("%s\n\n%s\n_Filed from sous._\n", req.Text, ms[0])
 	created, err := r.CLI.Create(t, title(req.Text), body)
 	if err != nil {
 		return "", err

@@ -25,7 +25,7 @@ func Run(t *testing.T, b backend.Implementation, project string) {
 	if !b.Detect(project, io.Discard) {
 		t.Fatal("detect: backend does not claim its own project")
 	}
-	req := backend.Request{ID: 41, Project: project, Text: "conformance note", Kind: "idea"}
+	req := backend.Request{ID: 41, UID: "000000000041", Project: project, Text: "conformance note", Kind: "idea"}
 	ref, err := b.File(req)
 	if err != nil || ref == "" {
 		t.Fatalf("file: %q, %v", ref, err)
@@ -33,7 +33,7 @@ func Run(t *testing.T, b backend.Implementation, project string) {
 	if again, err := b.File(req); err != nil || again != ref {
 		t.Fatalf("file is not idempotent on id: %q then %q (%v)", ref, again, err)
 	}
-	other, err := b.File(backend.Request{ID: 42, Project: project, Text: "another note", Kind: "me"})
+	other, err := b.File(backend.Request{ID: 42, UID: "000000000042", Project: project, Text: "another note", Kind: "me"})
 	if err != nil || other == ref {
 		t.Fatalf("a second id must get its own ref: %q vs %q (%v)", other, ref, err)
 	}

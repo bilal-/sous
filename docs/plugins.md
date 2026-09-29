@@ -95,15 +95,15 @@ The `file` request looks like this:
 {"v":0,"id":7,"uid":"0123456789ab","project":"/home/sam/code/acme/api","text":"search index rebuilt on every launch","kind":"me"}
 ```
 
-`id` is the short number the person types. `uid` never changes and is
-unique across installs, so use it to recognize the note again.
+`id` is the short number the person types. `uid` never changes, is unique
+across installs, and is always sent: use it to recognize the note again.
 
 Refuse a `v` you do not know with exit code `2`.
 
 Rules that matter:
 
-* **Filing must be safe to repeat.** sous may send the same `id` again after
-  a crash. Return the same ref and do not create a second item. The built in
+* **Filing must be safe to repeat.** sous may send the same `uid` again
+  after a crash. Return the same ref and do not create a second item. The built in
   backends leave a small marker such as `<!-- sous:0123456789ab -->` (the
   `uid`) in the item, then look for it before creating anything.
 * **Never guess a state.** `unknown` means the item is gone. If you could not

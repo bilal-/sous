@@ -73,17 +73,17 @@ func TestRemoteLogicAgainstMemoryCLI(t *testing.T) {
 	cli := &memCLI{located: map[string]backend.Target{"/ws/acme/billing": {Host: "mem", Repo: "studio/billing", Identity: "acct-exact"}}, issues: map[string][]backend.Issue{}, viewErrs: map[string]error{}}
 	r := backend.Remote{CLI: cli, Home: home}
 
-	ref, err := r.File(backend.Request{ID: 7, Project: "/ws/acme/billing", Text: "x", Kind: "me"})
+	ref, err := r.File(backend.Request{ID: 7, UID: "000000000007", Project: "/ws/acme/billing", Text: "x", Kind: "me"})
 	if err != nil || ref != "mem:mem/studio/billing#101" || cli.created != 1 {
 		t.Fatal(ref, err, cli.created)
 	}
 	// Crash retry: marker found in a body → same ref, nothing created.
-	if ref2, _ := r.File(backend.Request{ID: 7, Project: "/ws/acme/billing", Text: "x", Kind: "me"}); ref2 != ref || cli.created != 1 {
+	if ref2, _ := r.File(backend.Request{ID: 7, UID: "000000000007", Project: "/ws/acme/billing", Text: "x", Kind: "me"}); ref2 != ref || cli.created != 1 {
 		t.Fatal("recovery must reuse the issue")
 	}
 	// Lookup failure fails closed.
 	cli.listErr = errors.New("502")
-	if _, err := r.File(backend.Request{ID: 8, Project: "/ws/acme/billing", Text: "y", Kind: "me"}); err == nil || cli.created != 1 {
+	if _, err := r.File(backend.Request{ID: 8, UID: "000000000008", Project: "/ws/acme/billing", Text: "y", Kind: "me"}); err == nil || cli.created != 1 {
 		t.Fatal("must not create when the lookup failed")
 	}
 	cli.listErr = nil
@@ -133,5 +133,20 @@ func TestRemoteMarkerUsesUID(t *testing.T) {
 	}
 	if body := cli.issues["acme/api"][0].Body; !strings.Contains(body, "<!-- sous:0123456789ab -->") {
 		t.Fatalf("%q", body)
+	}
+}
+
+// Review: an issue created before upgrading carries the old
+// <install>:<id> marker; the retry after upgrading must find it.
+func TestRemoteRecoveryFindsAPreUpgradeMarker(t *testing.T) {
+	home := t.TempDir()
+	os.WriteFile(filepath.Join(home, "install-id"), []byte("abcd1234\n"), 0o644)
+	cli := &memCLI{located: map[string]backend.Target{"/ws/acme/api": {Host: "mem", Repo: "acme/api"}},
+		issues:   map[string][]backend.Issue{"acme/api": {{Number: "40", Body: "x\n\n<!-- sous:abcd1234:3 -->"}}},
+		viewErrs: map[string]error{}}
+	r := backend.Remote{CLI: cli, Home: home}
+	ref, err := r.File(backend.Request{ID: 3, UID: "0123456789ab", Project: "/ws/acme/api", Text: "x", Kind: "me"})
+	if err != nil || !strings.HasSuffix(ref, "#40") || cli.created != 0 {
+		t.Fatalf("%q %v created=%d", ref, err, cli.created)
 	}
 }

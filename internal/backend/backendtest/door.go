@@ -45,7 +45,7 @@ func (d door) URL(project, ref string) (string, error) {
 func RunDoor(t *testing.T, b backend.Backend, project string) {
 	t.Helper()
 	Run(t, Door(b), project)
-	if ref, err := backend.File(context.Background(), b, backend.Request{V: 1, ID: 43, Project: project, Text: "from the future", Kind: "idea"}); err == nil {
+	if ref, err := backend.File(context.Background(), b, backend.Request{V: 1, ID: 43, UID: "000000000043", Project: project, Text: "from the future", Kind: "idea"}); err == nil {
 		t.Fatalf("a v1 request was accepted: %q", ref)
 	}
 }
