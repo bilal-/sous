@@ -124,7 +124,8 @@ func TestShellUpgradesAnOldLine(t *testing.T) {
 	}
 }
 
-// The zsh wrapper leaves you in the project however go is written.
+// The zsh wrapper leaves you in the project however go is written, finds
+// it once (go --in passes the folder on), and never moves for --where.
 func TestZshWrapperFindsTheProjectAnywhere(t *testing.T) {
 	if _, err := exec.LookPath("zsh"); err != nil {
 		t.Skip("no zsh")
@@ -134,13 +135,28 @@ func TestZshWrapperFindsTheProjectAnywhere(t *testing.T) {
 	os.MkdirAll(proj, 0o755)
 	bin := filepath.Join(dir, "bin")
 	os.MkdirAll(bin, 0o755)
-	os.WriteFile(filepath.Join(bin, "sous"), []byte("#!/bin/sh\n[ \"$1 $2\" = \"go --where\" ] && echo "+proj+"\nexit 0\n"), 0o755)
+	calls := filepath.Join(dir, "calls")
+	os.WriteFile(filepath.Join(bin, "sous"), []byte("#!/bin/sh\necho \"$*\" >> "+calls+"\ncase \"$*\" in *--where*) [ \"$1\" = go ] && [ \"$2\" = --where ] && echo "+proj+";; esac\nexit 0\n"), 0o755)
 	snippet := filepath.Join(dir, "sous.zsh")
 	os.WriteFile(snippet, []byte(zshSnippet), 0o644)
-	for _, args := range []string{"go api", "go -a codex api", "go --agent codex api", "go --agent=codex api", "go api -a codex"} {
-		out, err := exec.Command("zsh", "-f", "-c", "PATH="+bin+":$PATH; cd "+dir+"; source "+snippet+"; sous "+args+"; pwd").CombinedOutput()
-		if err != nil || filepath.Base(strings.TrimSpace(string(out))) != "api" {
-			t.Errorf("sous %s: %v %q", args, err, out)
+	sh := func(args string) string {
+		out, err := exec.Command("zsh", "-f", "-c", "PATH="+bin+":$PATH; cd "+dir+"; source "+snippet+"; sous "+args+" >/dev/null; pwd").CombinedOutput()
+		if err != nil {
+			t.Fatalf("%s: %v %s", args, err, out)
 		}
+		return filepath.Base(strings.TrimSpace(string(out)))
+	}
+	for _, args := range []string{"go api", "go -a codex api", "go --agent=codex api", "go api -a codex"} {
+		os.Remove(calls)
+		if got := sh(args); got != "api" {
+			t.Errorf("sous %s left us in %s", args, got)
+		}
+		b, _ := os.ReadFile(calls)
+		if !strings.Contains(string(b), "go --in "+proj+" ") {
+			t.Errorf("sous %s: the found folder is passed on:\n%s", args, b)
+		}
+	}
+	if got := sh("go api --where"); got == "api" {
+		t.Error("--where only answers; it must not move the shell")
 	}
 }

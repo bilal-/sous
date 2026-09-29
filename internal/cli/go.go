@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bilal-/sous/internal/launcher"
+	"github.com/bilal-/sous/internal/project"
 )
 
 // cmdGo: sous go <project> [-a <launcher>]. Writes the resume context to a
@@ -12,9 +13,14 @@ import (
 // execs the launcher in the project. A dispatcher for the human, not for work.
 func cmdGo(e *Env, a argv) int {
 	agent := a.value("a")
-	p, code := resolveProject(e, a.pos[0])
-	if code != 0 {
-		return code
+	var p project.Project
+	if in := a.value("in"); in != "" { // already found (the shell wrapper)
+		p = project.Describe(in)
+	} else {
+		var code int
+		if p, code = resolveProject(e, a.pos[0]); code != 0 {
+			return code
+		}
 	}
 	if a.has("where") { // for the shell wrapper: the folder, nothing started
 		fmt.Fprintln(e.Stdout, p.Path)

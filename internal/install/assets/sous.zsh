@@ -8,9 +8,13 @@ fi
 # `sous go X` should leave you in X after the agent exits. A child process
 # cannot change this shell's directory, so the wrapper does the cd first.
 sous() {
-  if [[ "$1" == go ]]; then
+  if [[ "$1" == go && " $* " != *" --where "* ]]; then
     local p
-    p="$(command sous go --where "${@:2}" 2>/dev/null)" && cd "$p"
+    if p="$(command sous go --where "${@:2}" 2>/dev/null)"; then
+      cd "$p" || return
+      command sous go --in "$p" "${@:2}"
+      return
+    fi
   fi
   command sous "$@"
 }

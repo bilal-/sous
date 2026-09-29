@@ -168,3 +168,15 @@ func TestGoWherePrintsTheProjectOnly(t *testing.T) {
 		t.Fatal("bad arguments fail as they would for go")
 	}
 }
+
+// go --in uses the folder given and looks nothing up.
+func TestGoInUsesTheFolderGiven(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("a/ios-app", true)
+	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\necho \"claude in $PWD\"\n"), 0o755)
+	out, err := sousCmd(f, f.Home, "go", "--in", p, "no-such-name").CombinedOutput()
+	real, _ := filepath.EvalSymlinks(p)
+	if err != nil || !strings.Contains(string(out), "claude in "+real) {
+		t.Fatalf("%v\n%s", err, out)
+	}
+}

@@ -240,6 +240,8 @@ Options:
   or `claude`.
 * `--where`: only print the project folder `go` would use, and start
   nothing. The shell snippet uses it to move your terminal there.
+* `--in <folder>`: use this folder instead of looking the project up. The
+  shell snippet passes the folder it already found.
 
 ## Setting up
 
