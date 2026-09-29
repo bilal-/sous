@@ -262,12 +262,12 @@ func Detect(ctx context.Context, bs []Backend, project, override string, warn io
 // Request is the file op's stdin. V is the contract version (0 until the
 // contract is declared public); a backend refuses one it does not speak.
 type Request struct {
-	V       int    `json:"v"`
-	ID      int    `json:"id"`
-	UID     string `json:"uid,omitempty"` // the note's stable id: mark filed items with it
+	V   int    `json:"v"`
+	ID  int    `json:"id"`
+	UID string `json:"uid,omitempty"` // the note's stable id: mark filed items with it
 	// Legacy: the note predates uids, so a retry may also look for the
 	// marker an older sous wrote (by note number). Never set for new notes.
-	Legacy bool `json:"legacy,omitempty"`
+	Legacy  bool   `json:"legacy,omitempty"`
 	Project string `json:"project"`
 	Text    string `json:"text"`
 	Kind    string `json:"kind"`
