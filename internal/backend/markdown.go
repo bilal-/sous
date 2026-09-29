@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -10,7 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
+
+	"github.com/bilal-/sous/internal/store"
 )
 
 // The markdown backend: a FOLLOWUPS.md checklist in the repo. Refs point at a
@@ -23,7 +23,7 @@ type Markdown struct{}
 
 func (Markdown) Detect(project string, _ io.Writer) bool    { return MarkdownDetect(project) }
 func (Markdown) File(req Request) (string, error)           { return MarkdownFileNote(req.Project, req) }
-func (Markdown) Status(project, ref string) (string, error) { return MarkdownStatus(project, ref), nil }
+func (Markdown) Status(project, ref string) (string, error) { return MarkdownStatus(project, ref) }
 func (Markdown) Close(project, ref string) error            { return MarkdownClose(project, ref) }
 func (Markdown) URL(string, string) (string, error)         { return "", ErrUnsupported }
 
@@ -32,24 +32,6 @@ func mdPath(project string) string { return filepath.Join(project, MarkdownFile)
 func MarkdownDetect(project string) bool {
 	st, err := os.Stat(mdPath(project))
 	return err == nil && !st.IsDir()
-}
-
-// openLocked opens (creating if asked) and takes an exclusive flock. All ops
-// serialize on the file itself; concurrent agents are the normal case.
-func openLocked(project string, create bool) (*os.File, error) {
-	flags := os.O_RDWR
-	if create {
-		flags |= os.O_CREATE
-	}
-	f, err := os.OpenFile(mdPath(project), flags, 0o644)
-	if err != nil {
-		return nil, err
-	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
-		f.Close()
-		return nil, err
-	}
-	return f, nil
 }
 
 // refKey is the marker key a markdown ref points at: the note's uid
@@ -69,27 +51,6 @@ func refKey(ref string) (string, bool) {
 }
 
 func refFor(key string) string { return "md:" + MarkdownFile + ":" + key }
-
-// findMarker returns the lines, the index of the first line holding the
-// exact marker (-1 if none), and how many lines held it. Thread ids are
-// per-installation, so a marker is only ours if the tag matches too.
-func findMarker(r io.Reader, key string) ([]string, int, int, error) {
-	var lines []string
-	idx, count := -1, 0
-	sc := bufio.NewScanner(r)
-	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-	m := markerComment(key)
-	for sc.Scan() {
-		if strings.Contains(sc.Text(), m) {
-			count++
-			if idx < 0 {
-				idx = len(lines)
-			}
-		}
-		lines = append(lines, sc.Text())
-	}
-	return lines, idx, count, sc.Err()
-}
 
 // existingRef finds an item already filed for this note, so a retry after
 // a crash never files it twice: by its uid marker, or by the marker a sous
@@ -115,38 +76,21 @@ func MarkdownFileNote(project string, req Request) (string, error) {
 	if req.UID == "" {
 		return "", errors.New("the request has no uid")
 	}
-	f, err := openLocked(project, true)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	all, err := io.ReadAll(f)
-	if err != nil {
-		return "", err
-	}
-	if ref := existingRef(all, req); ref != "" {
-		return ref, nil // already filed (crash between create and record)
-	}
-	key := req.UID
-	var prefix string
-	st, _ := f.Stat()
-	switch {
-	case st.Size() == 0:
-		prefix = "# Follow-ups\n\n"
-	default:
-		buf := make([]byte, 1)
-		f.ReadAt(buf, st.Size()-1)
-		if buf[0] != '\n' {
-			prefix = "\n"
+	ref := ""
+	err := store.EditFile(mdPath(project), 0o644, func(all []byte) ([]byte, error) {
+		if ref = existingRef(all, req); ref != "" {
+			return nil, nil // already filed (crash between create and record)
 		}
-	}
-	if _, err := f.Seek(0, io.SeekEnd); err != nil {
-		return "", err
-	}
-	if _, err := fmt.Fprintf(f, "%s- [ ] %s %s\n", prefix, req.Text, markerComment(key)); err != nil {
-		return "", err
-	}
-	return refFor(key), nil
+		ref = refFor(req.UID)
+		switch {
+		case len(all) == 0:
+			all = []byte("# Follow-ups\n\n")
+		case all[len(all)-1] != '\n':
+			all = append(all, '\n')
+		}
+		return fmt.Appendf(all, "- [ ] %s %s\n", req.Text, markerComment(req.UID)), nil
+	})
+	return ref, err
 }
 
 func boxState(line string) string {
@@ -162,21 +106,38 @@ func boxState(line string) string {
 	return "unknown"
 }
 
-func MarkdownStatus(project, ref string) string {
+// MarkdownStatus reads the box on the ref's marker line: open or closed;
+// unknown when the file or the marker is gone. It only reads, and a file
+// that exists but cannot be read is an error, never "unknown".
+func MarkdownStatus(project, ref string) (string, error) {
 	key, ok := refKey(ref)
 	if !ok {
-		return "unknown"
+		return "unknown", nil
 	}
-	f, err := openLocked(project, false)
-	if err != nil {
-		return "unknown"
+	all, err := os.ReadFile(mdPath(project))
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return "unknown", nil
+	case err != nil:
+		return "unknown", err
 	}
-	defer f.Close()
-	lines, idx, count, err := findMarker(f, key)
-	if err != nil || count != 1 {
-		return "unknown"
+	line, n := markerLine(all, key)
+	if n != 1 {
+		return "unknown", nil
 	}
-	return boxState(lines[idx])
+	return boxState(string(line)), nil
+}
+
+// markerLine is the line holding key's marker, up to the marker, and how
+// many times the marker appears.
+func markerLine(all []byte, key string) ([]byte, int) {
+	m := []byte(markerComment(key))
+	n := bytes.Count(all, m)
+	if n == 0 {
+		return nil, 0
+	}
+	at := bytes.Index(all, m)
+	return all[bytes.LastIndexByte(all[:at], '\n')+1 : at], n
 }
 
 // MarkdownClose flips the box on the unique marker line, rewriting the file
@@ -187,36 +148,25 @@ func MarkdownClose(project, ref string) error {
 	if !ok {
 		return errors.New("not a markdown ref")
 	}
-	f, err := openLocked(project, false)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	all, err := io.ReadAll(f)
-	if err != nil {
-		return err
-	}
-	// Everything is located in the raw bytes: scanned lines lose any \r and
-	// would put the offset short.
-	m := []byte(markerComment(key))
-	switch n := bytes.Count(all, m); {
-	case n == 0:
-		return fmt.Errorf("marker %s not found in %s", key, MarkdownFile)
-	case n > 1:
-		return fmt.Errorf("marker %s appears %d times in %s; fix the file by hand", key, n, MarkdownFile)
-	}
-	at := bytes.Index(all, m)
-	lineStart := bytes.LastIndexByte(all[:at], '\n') + 1
-	switch boxState(string(all[lineStart:at])) {
-	case "closed":
-		return nil
-	case "unknown":
-		return fmt.Errorf("marker %s is not on a checkbox line", key)
-	}
-	// Tick the box by overwriting its one byte in place: nothing is
-	// truncated, so a crash cannot empty the file, and every other byte
-	// (line endings included) stays as the person wrote it.
-	box := bytes.Index(all[lineStart:at], []byte("[ ]"))
-	_, err = f.WriteAt([]byte("x"), int64(lineStart+box+1))
-	return err
+	return store.EditFile(mdPath(project), 0o644, func(all []byte) ([]byte, error) {
+		line, n := markerLine(all, key)
+		switch {
+		case n == 0:
+			return nil, fmt.Errorf("marker %s not found in %s", key, MarkdownFile)
+		case n > 1:
+			return nil, fmt.Errorf("marker %s appears %d times in %s; fix the file by hand", key, n, MarkdownFile)
+		}
+		switch boxState(string(line)) {
+		case "closed":
+			return nil, nil
+		case "unknown":
+			return nil, fmt.Errorf("marker %s is not on a checkbox line", key)
+		}
+		// Tick the one box; every other byte (line endings too) stays.
+		at := bytes.Index(all, []byte(markerComment(key))) - len(line)
+		box := at + bytes.Index(line, []byte("[ ]")) + 1
+		out := bytes.Clone(all)
+		out[box] = 'x'
+		return out, nil
+	})
 }

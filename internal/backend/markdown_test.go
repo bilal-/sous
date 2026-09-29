@@ -37,11 +37,11 @@ func TestMarkdownLifecycle(t *testing.T) {
 	if strings.Count(string(b), "<!-- sous:") != 1 {
 		t.Fatalf("duplicate marker:\n%s", b)
 	}
-	if st := MarkdownStatus(p, ref); st != "open" {
+	if st := mdStatus(t, p, ref); st != "open" {
 		t.Fatal(st)
 	}
 	os.WriteFile(filepath.Join(p, MarkdownFile), []byte("- [ ] fix notification context (edited) <!-- sous:"+id+" -->\n- [ ] existing item\n"), 0o644)
-	if st := MarkdownStatus(p, ref); st != "open" {
+	if st := mdStatus(t, p, ref); st != "open" {
 		t.Fatal("edited line must still be open")
 	}
 	if err := MarkdownClose(p, ref); err != nil {
@@ -51,38 +51,38 @@ func TestMarkdownLifecycle(t *testing.T) {
 	if string(b) != "- [x] fix notification context (edited) <!-- sous:"+id+" -->\n- [ ] existing item\n" {
 		t.Fatalf("close must flip exactly the marker line's box:\n%s", b)
 	}
-	if st := MarkdownStatus(p, ref); st != "closed" {
+	if st := mdStatus(t, p, ref); st != "closed" {
 		t.Fatal(st)
 	}
 	if err := MarkdownClose(p, ref); err != nil {
 		t.Fatal("closing a closed item is fine")
 	}
 	os.WriteFile(filepath.Join(p, MarkdownFile), []byte("- [X] thing <!-- sous:"+id+" -->\n"), 0o644)
-	if st := MarkdownStatus(p, ref); st != "closed" {
+	if st := mdStatus(t, p, ref); st != "closed" {
 		t.Fatal("[X] is closed")
 	}
 	os.WriteFile(filepath.Join(p, MarkdownFile), []byte("some prose <!-- sous:"+id+" -->\n"), 0o644)
-	if st := MarkdownStatus(p, ref); st != "unknown" {
+	if st := mdStatus(t, p, ref); st != "unknown" {
 		t.Fatal(st)
 	}
 	if err := MarkdownClose(p, ref); err == nil {
 		t.Fatal("cannot close a non-checkbox line")
 	}
 	os.WriteFile(filepath.Join(p, MarkdownFile), []byte("- [ ] a <!-- sous:"+id+" -->\n- [ ] b <!-- sous:"+id+" -->\n"), 0o644)
-	if st := MarkdownStatus(p, ref); st != "unknown" {
+	if st := mdStatus(t, p, ref); st != "unknown" {
 		t.Fatal("duplicate markers are ambiguous")
 	}
 	if err := MarkdownClose(p, ref); err == nil {
 		t.Fatal("refuse to close an ambiguous marker")
 	}
 	os.WriteFile(filepath.Join(p, MarkdownFile), []byte("- [ ] something else\n"), 0o644)
-	if st := MarkdownStatus(p, ref); st != "unknown" {
+	if st := mdStatus(t, p, ref); st != "unknown" {
 		t.Fatal(st)
 	}
 	if err := MarkdownClose(p, ref); err == nil {
 		t.Fatal("close of a missing marker must error")
 	}
-	if st := MarkdownStatus(p, "md:OTHER.md:1:abc"); st != "unknown" {
+	if st := mdStatus(t, p, "md:OTHER.md:1:abc"); st != "unknown" {
 		t.Fatal("foreign ref")
 	}
 }
@@ -94,7 +94,7 @@ func TestMarkdownCreatesFileAndKeepsSymlinkAndMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(filepath.Join(p, MarkdownFile))
-	if !strings.HasPrefix(string(b), "# Follow-ups\n\n- [ ] first") || MarkdownStatus(p, ref) != "open" {
+	if !strings.HasPrefix(string(b), "# Follow-ups\n\n- [ ] first") || mdStatus(t, p, ref) != "open" {
 		t.Fatalf("%s", b)
 	}
 	q := t.TempDir()
@@ -153,10 +153,10 @@ func TestMarkdownDoesNotCollideOnForeignId(t *testing.T) {
 	if !strings.Contains(string(b), "- [ ] my note <!-- sous:000000000003 -->") || strings.Count(string(b), "<!-- sous:") != 2 {
 		t.Fatalf("my note must be written:\n%s", b)
 	}
-	if st := MarkdownStatus(p, "md:FOLLOWUPS.md:3:bbbbbbbb"); st != "open" {
+	if st := mdStatus(t, p, "md:FOLLOWUPS.md:3:bbbbbbbb"); st != "open" {
 		t.Fatal("teammate's marker still resolves by its own tag")
 	}
-	if st := MarkdownStatus(p, ref); st != "open" {
+	if st := mdStatus(t, p, ref); st != "open" {
 		t.Fatal(st)
 	}
 	if err := MarkdownClose(p, ref); err != nil {
@@ -208,10 +208,10 @@ func TestMarkdownUsesStableUIDAndKeepsOldMarkers(t *testing.T) {
 	if again, _ := MarkdownFileNote(p, Request{ID: 7, UID: "0123456789ab", Project: p, Text: "new one, edited", Kind: "me"}); again != ref {
 		t.Fatal(again)
 	}
-	if st := MarkdownStatus(p, "md:FOLLOWUPS.md:7:abcd1234"); st != "open" {
+	if st := mdStatus(t, p, "md:FOLLOWUPS.md:7:abcd1234"); st != "open" {
 		t.Fatal("old marker still readable:", st)
 	}
-	if err := MarkdownClose(p, ref); err != nil || MarkdownStatus(p, ref) != "closed" || MarkdownStatus(p, "md:FOLLOWUPS.md:7:abcd1234") != "open" {
+	if err := MarkdownClose(p, ref); err != nil || mdStatus(t, p, ref) != "closed" || mdStatus(t, p, "md:FOLLOWUPS.md:7:abcd1234") != "open" {
 		t.Fatal("closing by uid touches only that item", err)
 	}
 }
@@ -263,4 +263,32 @@ func TestRefusedRequestLeavesNoFile(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(p, MarkdownFile)); err == nil {
 		t.Fatal("a refused request created FOLLOWUPS.md")
 	}
+}
+
+// Review round 4: checking status only reads. A read-only FOLLOWUPS.md
+// still answers; a file sous cannot read is an error, not "ref missing".
+func TestMarkdownStatusOnlyReads(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root reads everything")
+	}
+	p := t.TempDir()
+	f := filepath.Join(p, MarkdownFile)
+	os.WriteFile(f, []byte("- [ ] x <!-- sous:0123456789ab -->\n"), 0o444)
+	if st, err := (Markdown{}).Status(p, "md:FOLLOWUPS.md:0123456789ab"); err != nil || st != "open" {
+		t.Fatalf("read-only file: %q %v", st, err)
+	}
+	os.Chmod(f, 0o000)
+	t.Cleanup(func() { os.Chmod(f, 0o644) })
+	if _, err := (Markdown{}).Status(p, "md:FOLLOWUPS.md:0123456789ab"); err == nil {
+		t.Fatal("an unreadable file is an error")
+	}
+}
+
+func mdStatus(t *testing.T, project, ref string) string {
+	t.Helper()
+	st, err := MarkdownStatus(project, ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
 }
