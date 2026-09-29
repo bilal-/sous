@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -59,7 +60,7 @@ func GitHubAccount(cfg *config.Config, orgName string) string {
 // as whoever happens to be active would write under the wrong identity.
 func GH(account string, args ...string) (*exec.Cmd, error) {
 	cmd := exec.Command("gh", args...)
-	cmd.Env = append(os.Environ(), "GH_PROMPT_DISABLED=1", "GH_NO_UPDATE_NOTIFIER=1")
+	cmd.Env = childEnv("GH_PROMPT_DISABLED=1", "GH_NO_UPDATE_NOTIFIER=1")
 	if account != "" {
 		tok, err := ghToken(account)
 		if err != nil {
@@ -212,7 +213,7 @@ func GLab(host string, args ...string) *exec.Cmd {
 		args = append([]string{"--hostname", host}, args...)
 	}
 	cmd := exec.Command("glab", args...)
-	cmd.Env = append(os.Environ(), "GLAB_NO_PROMPT=1", "GLAB_SEND_TELEMETRY=0")
+	cmd.Env = childEnv("GLAB_NO_PROMPT=1", "GLAB_SEND_TELEMETRY=0")
 	return cmd
 }
 
@@ -225,9 +226,7 @@ func ParseRemote(remote string) (host, path string) {
 	if !ok {
 		return "", ""
 	}
-	if host != GitHubHost { // never remap github.com (ssh.github.com is a port trick)
-		host = sshAlias(host)
-	}
+	host = sshAlias(host)
 	if !strings.Contains(host, ".") {
 		return "", ""
 	}
@@ -239,19 +238,28 @@ const GitHubHost = "github.com"
 
 var (
 	envMu    sync.Mutex
-	userHome string // set by Init from cli; "" reads no ssh config
-	cacheDir string // for the gh token lock
+	userHome string   // set by Init from cli; "" reads no ssh config
+	cacheDir string   // for the gh token lock
+	baseEnv  []string // the environment gh and glab run with
 	sshOnce  sync.Once
 	sshHosts []sshBlock
 )
 
-// Init tells tracker where the person's home and cache folders are. cli
-// calls it once; nothing in tracker reads the environment for them.
-func Init(home, cache string) {
+// Init tells tracker the person's home and cache folders and the
+// environment gh and glab should run with. cli calls it once; tracker reads
+// none of these itself.
+func Init(home, cache string, env []string) {
 	envMu.Lock()
 	defer envMu.Unlock()
-	userHome, cacheDir = home, cache
+	userHome, cacheDir, baseEnv = home, cache, env
 	sshOnce = sync.Once{}
+}
+
+// childEnv is the environment for gh and glab, plus extra settings.
+func childEnv(extra ...string) []string {
+	envMu.Lock()
+	defer envMu.Unlock()
+	return append(slices.Clone(baseEnv), extra...)
 }
 
 func homeAndCache() (string, string) {
@@ -280,58 +288,75 @@ func (b sshBlock) matches(alias string) bool {
 	return matched
 }
 
-// sshAlias is the HostName ssh would use for alias: from the first Host
-// block that matches it, as ssh takes the first value it finds. The config
-// is only read, never run (ssh -G would run Match exec lines), and read
-// once per Init.
-func sshAlias(alias string) string {
+// sshAlias is the host an ssh remote's host name really means, from
+// ~/.ssh/config, read (never run: ssh -G would run Match exec lines) once
+// per Init. A name without a dot is always looked up. A name with a dot is
+// only renamed by a Host entry naming it exactly (Host github.com-work),
+// never by a wildcard, and a tracker's own host is never renamed (Host
+// gitlab.com, HostName altssh.gitlab.com is a port trick, not a new host).
+func sshAlias(host string) string {
 	home, _ := homeAndCache()
-	sshOnce.Do(func() { sshHosts = readSSHConfig(filepath.Join(home, ".ssh", "config"), home, 0) })
-	alias = strings.ToLower(alias)
+	sshOnce.Do(func() { sshHosts = readSSHConfig(filepath.Join(home, ".ssh", "config"), home) })
+	alias := strings.ToLower(host)
+	dotted := strings.Contains(alias, ".")
+	if alias == GitHubHost || dotted && strings.Contains(alias, "gitlab") {
+		return alias
+	}
 	for _, b := range sshHosts {
-		if b.matches(alias) {
+		if b.matches(alias) && (!dotted || slices.Contains(b.patterns, alias)) {
 			return strings.ReplaceAll(b.hostname, "%h", alias)
 		}
 	}
 	return alias
 }
 
-// readSSHConfig reads the Host blocks that set a HostName, in order,
-// following Include (relative to ~/.ssh). Match blocks are skipped: their
-// conditions may run commands.
-func readSSHConfig(path, home string, depth int) []sshBlock {
-	if home == "" || depth > 8 {
+// readSSHConfig reads the Host blocks that set a HostName, in order.
+// Include lines are read in place, as part of the block they sit in; Match
+// blocks are skipped, since their conditions may run commands.
+func readSSHConfig(path, home string) []sshBlock {
+	if home == "" {
 		return nil
 	}
+	r := &sshReader{home: home}
+	r.read(path, 0)
+	return r.out
+}
+
+type sshReader struct {
+	home     string
+	out      []sshBlock
+	patterns []string // the current Host block's; nil inside Match
+	hostSet  bool     // the current block already gave a HostName
+}
+
+func (r *sshReader) read(path string, depth int) {
 	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil
+	if err != nil || depth > 8 {
+		return
 	}
-	var out []sshBlock
-	var patterns []string
-	hostnameSet := false
 	for _, line := range strings.Split(string(b), "\n") {
 		key, args := sshLine(line)
 		switch key {
 		case "host":
-			patterns, hostnameSet = args, false
-			for i := range patterns {
-				patterns[i] = strings.ToLower(patterns[i])
+			r.patterns, r.hostSet = args, false
+			for i := range r.patterns {
+				r.patterns[i] = strings.ToLower(r.patterns[i])
 			}
 		case "match":
-			patterns = nil
+			r.patterns = nil
 		case "hostname":
-			if len(patterns) > 0 && len(args) > 0 && !hostnameSet {
-				out = append(out, sshBlock{patterns: patterns, hostname: strings.ToLower(args[0])})
-				hostnameSet = true
+			if len(r.patterns) > 0 && len(args) > 0 && !r.hostSet {
+				r.out = append(r.out, sshBlock{patterns: r.patterns, hostname: strings.ToLower(args[0])})
+				r.hostSet = true
 			}
 		case "include":
-			for _, f := range sshIncludes(args, home) {
-				out = append(out, readSSHConfig(f, home, depth+1)...)
+			if depth == 0 || r.patterns != nil { // skipped inside Match
+				for _, f := range sshIncludes(args, r.home) {
+					r.read(f, depth+1)
+				}
 			}
 		}
 	}
-	return out
 }
 
 // sshIncludes are the files an Include line names: globs, relative to
@@ -355,12 +380,16 @@ func sshLine(line string) (string, []string) {
 	if line == "" || strings.HasPrefix(line, "#") {
 		return "", nil
 	}
-	key, rest, _ := strings.Cut(strings.Replace(line, "=", " ", 1), " ")
+	cut := strings.IndexFunc(line, func(r rune) bool { return r == ' ' || r == '\t' || r == '=' })
+	if cut < 0 {
+		return strings.ToLower(line), nil
+	}
+	rest := strings.TrimLeft(line[cut:], " \t=")
 	var args []string
 	for _, f := range strings.Fields(rest) {
 		args = append(args, strings.Trim(f, `"`))
 	}
-	return strings.ToLower(key), args
+	return strings.ToLower(line[:cut]), args
 }
 
 // tokenLock takes a per-user lock around gh token reads, waiting at most a

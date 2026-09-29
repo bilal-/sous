@@ -290,3 +290,34 @@ func TestEditFileSerializesEdits(t *testing.T) {
 		t.Fatalf("%d of 20 edits survived:\n%s", n, b)
 	}
 }
+
+// Review: sous's data files (notes, session messages, the board) are
+// private to the person: 0600, as before, whatever writes them.
+func TestDataFilesArePrivate(t *testing.T) {
+	s := &Store{Home: t.TempDir()}
+	Modify[doc](s, "threads", docMig{}, func(d *doc) error { return nil })
+	if fi, err := os.Stat(filepath.Join(s.Home, "threads.json")); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Fatalf("%v %v", fi.Mode().Perm(), err)
+	}
+}
+
+// A relative link inside a folder that is itself a link resolves from the
+// real folder, as the kernel does.
+func TestWriteFileFollowsRelativeLinksThroughLinkedFolders(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "repo", "dotfiles"), 0o755)
+	os.MkdirAll(filepath.Join(root, "repo", "shared"), 0o755)
+	real := filepath.Join(root, "repo", "shared", "zshrc")
+	os.WriteFile(real, []byte("old\n"), 0o644)
+	os.Symlink("../shared/zshrc", filepath.Join(root, "repo", "dotfiles", "zshrc"))
+	home := filepath.Join(root, "home")
+	os.MkdirAll(home, 0o755)
+	os.Symlink(filepath.Join(root, "repo", "dotfiles"), filepath.Join(home, "dotfiles"))
+	os.Symlink("dotfiles/zshrc", filepath.Join(home, ".zshrc"))
+	if err := WriteFile(filepath.Join(home, ".zshrc"), []byte("new\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(real); string(b) != "new\n" {
+		t.Fatalf("the real file was not written: %q", b)
+	}
+}

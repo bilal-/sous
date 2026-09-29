@@ -87,7 +87,7 @@ func (s *Store) writeNoLock(name string, raw []byte) error {
 	if !json.Valid(raw) {
 		return fmt.Errorf("refusing to write invalid JSON to %s.json", name)
 	}
-	return replace(s.path(name), raw, 0o644)
+	return replace(s.path(name), raw, 0o600) // notes and sessions are private
 }
 
 // Read returns the migrated document. The common case (already current) is
@@ -205,7 +205,11 @@ func resolveLinks(path string) (string, error) {
 			return "", err
 		}
 		if !filepath.IsAbs(target) {
-			target = filepath.Join(filepath.Dir(path), target)
+			dir := filepath.Dir(path)
+			if real, err := filepath.EvalSymlinks(dir); err == nil {
+				dir = real // relative to where the link really is
+			}
+			target = filepath.Join(dir, target)
 		}
 		path = target
 	}

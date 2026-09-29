@@ -152,8 +152,8 @@ func TestInstallIDRefusesToReplaceADamagedFile(t *testing.T) {
 // Reading tokens is one at a time across processes, so a gh upgrade asks
 // for keychain access once rather than once per parallel check.
 func TestTokenReadsNeverOverlap(t *testing.T) {
-	Init(t.TempDir(), t.TempDir())
-	t.Cleanup(func() { Init("", "") })
+	Init(t.TempDir(), t.TempDir(), nil)
+	t.Cleanup(func() { Init("", "", nil) })
 	lock := filepath.Join(t.TempDir(), "busy")
 	testutil.FakeBin(t, "gh", `mkdir "`+lock+`" 2>/dev/null || { echo overlap >&2; exit 1; }; sleep 0.2; rmdir "`+lock+`"; echo tok`)
 	var wg sync.WaitGroup
@@ -194,8 +194,8 @@ Host *
   User git
 `), 0o600)
 	os.WriteFile(filepath.Join(home, ".ssh", "conf.d", "work"), []byte("Host work-lab\n  HostName git.example.org\n"), 0o600)
-	Init(home, t.TempDir())
-	t.Cleanup(func() { Init("", "") })
+	Init(home, t.TempDir(), nil)
+	t.Cleanup(func() { Init("", "", nil) })
 	for in, want := range map[string]string{
 		"gh-work/acme/api":         "github.com",
 		"gh-home/acme/api":         "github.com",
@@ -212,5 +212,28 @@ Host *
 	}
 	if _, err := os.Stat(filepath.Join(home, "ran")); err == nil {
 		t.Fatal("ssh config must be read, never executed")
+	}
+}
+
+// Review: tabs separate ssh config words too; an Include inside a Host
+// block belongs to that block; a real tracker host (gitlab.com moved to
+// port 443 as altssh.gitlab.com) and wildcard patterns never rename a host
+// that already has a dot.
+func TestSSHConfigTabsIncludesAndRealHosts(t *testing.T) {
+	home := t.TempDir()
+	os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
+	os.WriteFile(filepath.Join(home, ".ssh", "config"), []byte("Host\twork\n\tHostName\tgithub.com\nHost lab\n  Include lab.conf\nHost gitlab.com\n  HostName altssh.gitlab.com\n  Port 443\nHost *.example.org\n  HostName proxy.example.net\n"), 0o600)
+	os.WriteFile(filepath.Join(home, ".ssh", "lab.conf"), []byte("HostName git.example.org\n"), 0o600)
+	Init(home, t.TempDir(), nil)
+	t.Cleanup(func() { Init("", "", nil) })
+	for in, want := range map[string]string{
+		"work/a/b":            "github.com",
+		"lab/a/b":             "git.example.org",
+		"gitlab.com/a/b":      "gitlab.com",
+		"git.example.org/a/b": "git.example.org",
+	} {
+		if host, _ := ParseRemote(in); host != want {
+			t.Errorf("%q → %q, want %q", in, host, want)
+		}
 	}
 }

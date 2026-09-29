@@ -205,7 +205,7 @@ func newEnv(cwd string, stdin io.Reader, stdout, stderr io.Writer) *Env {
 	e.UserHome, _ = os.UserHomeDir()
 	e.Shell, e.Zdotdir = os.Getenv("SHELL"), os.Getenv("ZDOTDIR")
 	cache, _ := os.UserCacheDir()
-	tracker.Init(e.UserHome, cache)
+	tracker.Init(e.UserHome, cache, os.Environ())
 	e.Cfg, e.cfgErr = config.Load(home, e.UserHome)
 	if e.Cfg == nil {
 		e.Cfg = config.Default()
