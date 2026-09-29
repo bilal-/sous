@@ -6,10 +6,20 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
+
+// doctorPath: only git and a sous on PATH, so doctor sees the same machine
+// everywhere (no real gh or glab, and the shell line finds sous).
+func doctorPath(t *testing.T) {
+	testutil.OnlyGit(t)
+	testutil.FakeBin(t, "sous", "")
+}
 
 func TestDoctor(t *testing.T) {
 	f := fixture(t)
+	doctorPath(t)
 	f.mkrepo("acme/api", true)
 	// Fresh: nothing installed. Problems are listed with fixes; exit 1.
 	out, _, code := f.run("doctor")
@@ -43,6 +53,7 @@ func TestDoctor(t *testing.T) {
 // A folder listed in roots that is gone is a problem, named.
 func TestDoctorMissingRoot(t *testing.T) {
 	f := fixture(t)
+	doctorPath(t)
 	f.writeConfig("roots = [\"" + filepath.Join(f.Home, "gone") + "\"]\n")
 	out, _, code := f.run("doctor")
 	if code != 1 || !strings.Contains(out, "gone") {
@@ -58,6 +69,7 @@ func TestDoctorMissingRoot(t *testing.T) {
 // files appear.
 func TestDoctorChangesNothing(t *testing.T) {
 	f := fixture(t)
+	doctorPath(t)
 	f.run("setup")
 	notes := filepath.Join(f.SousHome, "threads.json")
 	old := `{"version":1,"next_id":2,"threads":[{"id":1,"project":"/x","text":"old note","kind":"me","created":"2026-01-01T00:00:00Z"}]}`
