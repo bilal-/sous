@@ -280,7 +280,7 @@ func (sc *tomlScanner) value() {
 }
 
 // str reads one string of any kind: "basic", 'literal', """multi-line"""
-// or '''multi-line literal'''.
+// or ”'multi-line literal”'.
 func (sc *tomlScanner) str() {
 	q := sc.s[sc.i]
 	if strings.HasPrefix(sc.s[sc.i:], strings.Repeat(string(q), 3)) {
