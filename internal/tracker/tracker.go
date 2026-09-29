@@ -290,25 +290,32 @@ func (b sshBlock) matches(alias string) bool {
 
 // sshAlias is the host an ssh remote's host name really means, from
 // ~/.ssh/config, read (never run: ssh -G would run Match exec lines) once
-// per Init. A name without a dot is always looked up. A name with a dot is
-// only renamed by a Host entry naming it exactly (Host github.com-work),
-// never by a wildcard, and a tracker's own host is never renamed (Host
-// gitlab.com, HostName altssh.gitlab.com is a port trick, not a new host).
+// per Init. A name without a dot is looked up like ssh does. A name with a
+// dot is renamed only by a Host entry naming it exactly, and only onto a
+// tracker's own host (Host github.com-work, HostName github.com): a port
+// trick (gitlab.com → altssh.gitlab.com) or an address is not a new host.
 func sshAlias(host string) string {
 	home, _ := homeAndCache()
 	sshOnce.Do(func() { sshHosts = readSSHConfig(filepath.Join(home, ".ssh", "config"), home) })
 	alias := strings.ToLower(host)
 	dotted := strings.Contains(alias, ".")
-	if alias == GitHubHost || dotted && strings.Contains(alias, "gitlab") {
-		return alias
-	}
 	for _, b := range sshHosts {
-		if b.matches(alias) && (!dotted || slices.Contains(b.patterns, alias)) {
-			return strings.ReplaceAll(b.hostname, "%h", alias)
+		if !b.matches(alias) {
+			continue
+		}
+		to := strings.ReplaceAll(b.hostname, "%h", alias)
+		if !dotted || slices.Contains(b.patterns, alias) && slices.Contains(trackerHosts, to) {
+			return to
+		}
+		if dotted {
+			return alias
 		}
 	}
 	return alias
 }
+
+// trackerHosts are the public hosts a dotted ssh alias may stand for.
+var trackerHosts = []string{GitHubHost, "gitlab.com"}
 
 // readSSHConfig reads the Host blocks that set a HostName, in order.
 // Include lines are read in place, as part of the block they sit in; Match
@@ -325,8 +332,9 @@ func readSSHConfig(path, home string) []sshBlock {
 type sshReader struct {
 	home     string
 	out      []sshBlock
-	patterns []string // the current Host block's; nil inside Match
+	patterns []string // the current Host block's
 	hostSet  bool     // the current block already gave a HostName
+	inMatch  bool     // inside a Match block, which sous skips
 }
 
 func (r *sshReader) read(path string, depth int) {
@@ -338,23 +346,28 @@ func (r *sshReader) read(path string, depth int) {
 		key, args := sshLine(line)
 		switch key {
 		case "host":
-			r.patterns, r.hostSet = args, false
+			r.patterns, r.hostSet, r.inMatch = args, false, false
 			for i := range r.patterns {
 				r.patterns[i] = strings.ToLower(r.patterns[i])
 			}
 		case "match":
-			r.patterns = nil
+			r.patterns, r.inMatch = nil, true
 		case "hostname":
-			if len(r.patterns) > 0 && len(args) > 0 && !r.hostSet {
+			if len(r.patterns) > 0 && len(args) > 0 && !r.hostSet && !r.inMatch {
 				r.out = append(r.out, sshBlock{patterns: r.patterns, hostname: strings.ToLower(args[0])})
 				r.hostSet = true
 			}
 		case "include":
-			if depth == 0 || r.patterns != nil { // skipped inside Match
-				for _, f := range sshIncludes(args, r.home) {
-					r.read(f, depth+1)
-				}
+			if r.inMatch {
+				continue
 			}
+			// An included file is read as part of the current block; the
+			// block is restored after, as ssh does.
+			saved := *r
+			for _, f := range sshIncludes(args, r.home) {
+				r.read(f, depth+1)
+			}
+			r.patterns, r.hostSet, r.inMatch = saved.patterns, saved.hostSet, saved.inMatch
 		}
 	}
 }
