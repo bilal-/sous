@@ -326,7 +326,7 @@ the command that fixes it. It changes nothing. It looks at:
 * the sous skill in every folder agents read, and that it is current
 * the line in your shell's startup file
 * `gh` and `glab`: installed, logged in, each configured account or host,
-  and whether your GitHub token can read notifications
+  and whether each GitHub login can read notifications
 * each plugin you listed
 * your notes, sessions and observations files
 * how old the saved board is
@@ -342,8 +342,11 @@ sous doctor · 15 checks · 0 problems · 1 to look at
 ```
 
 `✗` is broken, `!` is worth a look (such as an optional tracker not logged
-in). It exits `1` when something is broken, else `0`. This is the one
-command that asks GitHub and GitLab directly, so it can take a few seconds.
+in). An account or host your config.toml names is not optional, so its
+failing is broken. It exits `1` when something is broken, else `0`. This is
+the one command that asks GitHub and GitLab directly, so it can take a few
+seconds; a `gh` or `glab` that has not answered in 30 seconds is reported
+as such.
 
 Options: `--json`.
 

@@ -105,6 +105,26 @@ func TestV0MigratesAndPersists(t *testing.T) {
 	}
 }
 
+func TestReadOnlyMigratesInMemoryAndTouchesNothing(t *testing.T) {
+	s := &Store{Home: t.TempDir(), ReadOnly: true}
+	p := filepath.Join(s.Home, "threads.json")
+	old := []byte(`{"items":["a","b"]}`)
+	os.WriteFile(p, old, 0o644)
+	d, err := Load[doc](s, "threads", docMig{})
+	if err != nil || d.Version != 1 || d.NextID != 3 {
+		t.Fatalf("migrated: %+v %v", d, err)
+	}
+	if b, _ := os.ReadFile(p); string(b) != string(old) {
+		t.Fatalf("file changed: %s", b)
+	}
+	if _, err := os.Stat(filepath.Join(s.Home, "threads.lock")); !os.IsNotExist(err) {
+		t.Fatal("a read only store made a lock file")
+	}
+	if _, err := s.Update("threads", docMig{}, func(b []byte) ([]byte, error) { return b, nil }); err == nil {
+		t.Fatal("a read only store wrote")
+	}
+}
+
 func TestConcurrentModifiesAllLand(t *testing.T) {
 	s := &Store{Home: t.TempDir()}
 	var wg sync.WaitGroup

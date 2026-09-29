@@ -52,3 +52,23 @@ func TestDoctorMissingRoot(t *testing.T) {
 		t.Fatalf("no roots: %s", out)
 	}
 }
+
+// doctor only looks: an old notes file is read, not upgraded, and no lock
+// files appear.
+func TestDoctorChangesNothing(t *testing.T) {
+	f := fixture(t)
+	f.run("setup")
+	notes := filepath.Join(f.SousHome, "threads.json")
+	old := `{"version":1,"next_id":2,"threads":[{"id":1,"project":"/x","text":"old note","kind":"me","created":"2026-01-01T00:00:00Z"}]}`
+	os.WriteFile(notes, []byte(old), 0o600)
+	before, _ := os.ReadDir(f.SousHome)
+	if out, _, _ := f.run("doctor"); !strings.Contains(out, "notes (threads.json): reads") {
+		t.Fatalf("old notes: %s", out)
+	}
+	if b, _ := os.ReadFile(notes); string(b) != old {
+		t.Fatalf("doctor upgraded the notes file: %s", b)
+	}
+	if after, _ := os.ReadDir(f.SousHome); len(after) != len(before) {
+		t.Fatalf("doctor made files: %v then %v", before, after)
+	}
+}

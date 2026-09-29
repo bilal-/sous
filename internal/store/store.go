@@ -14,7 +14,14 @@ import (
 
 var ErrNewer = errors.New("file was written by a newer sous")
 
-type Store struct{ Home string }
+type Store struct {
+	Home string
+	// ReadOnly: Read upgrades an old file in memory only, with no lock and
+	// no write, and Update refuses. For looking without touching (doctor).
+	ReadOnly bool
+}
+
+var errReadOnly = errors.New("this store is read only")
 
 // Migrator describes one document's schema: its empty form, its current
 // version, and how to step an older version forward by one. Each document
@@ -105,6 +112,10 @@ func (s *Store) Read(name string, m Migrator) ([]byte, error) {
 	if v, verr := version(raw); verr == nil && v == m.Current() {
 		return raw, nil
 	}
+	if s.ReadOnly {
+		raw, _, err := s.readNoLock(name, m)
+		return raw, err
+	}
 	unlock, err := s.lock(name)
 	if err != nil {
 		return nil, err
@@ -124,6 +135,9 @@ func (s *Store) Read(name string, m Migrator) ([]byte, error) {
 
 // Update is read-modify-write under the lock. fn's error aborts without writing.
 func (s *Store) Update(name string, m Migrator, fn func([]byte) ([]byte, error)) ([]byte, error) {
+	if s.ReadOnly {
+		return nil, errReadOnly
+	}
 	unlock, err := s.lock(name)
 	if err != nil {
 		return nil, err

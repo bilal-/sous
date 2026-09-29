@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
@@ -83,6 +84,18 @@ func checkSkill(home string, p skillPlace) Result {
 	return r
 }
 
+// hasLine: whether text has line, and whether it has an older sous line
+// instead (which setup would replace).
+func hasLine(text, line string) (has, older bool) {
+	for _, l := range strings.Split(text, "\n") {
+		if strings.TrimSpace(l) == line {
+			return true, false
+		}
+		older = older || isSousLine(l)
+	}
+	return false, older
+}
+
 func checkShell(home, sousHome, shell, goos, zdotdir string) Result {
 	files, line, ok := shellTarget(home, sousHome, shell, goos, zdotdir)
 	r := Result{Name: "shell (" + shell + ")"}
@@ -92,14 +105,18 @@ func checkShell(home, sousHome, shell, goos, zdotdir string) Result {
 	}
 	for _, f := range files {
 		b, _ := os.ReadFile(f)
-		found := false
-		for _, l := range strings.Split(string(b), "\n") {
-			if strings.TrimSpace(l) == line || isSousLine(l) {
-				found = true
-			}
-		}
-		if !found {
+		switch has, older := hasLine(string(b), line); {
+		case older:
+			r.Detail, r.Fix = config.Tilde(home, f)+" has an older sous line", "sous setup"
+			return r
+		case !has:
 			r.Detail, r.Fix = "new shells do not show the board ("+config.Tilde(home, f)+" has no sous line)", "sous setup"
+			return r
+		}
+	}
+	if shell == "zsh" {
+		if _, err := os.Stat(filepath.Join(sousHome, "sous.zsh")); err != nil {
+			r.Detail, r.Fix = config.Tilde(home, filepath.Join(sousHome, "sous.zsh"))+" is missing, so the line does nothing", "sous setup"
 			return r
 		}
 	}

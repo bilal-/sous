@@ -2,18 +2,21 @@ package tracker
 
 import (
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
 )
 
 // Result is one tracker check: whether it works, what was found, and the
-// command that puts it right.
+// command that puts it right. Needed: config.toml names this account or
+// host, so its failing is a problem rather than a note.
 type Result struct {
 	Name   string
 	OK     bool
 	Detail string
 	Fix    string
+	Needed bool
 }
 
 // CheckGitHub says whether gh can do what sous asks of it: installed,
@@ -25,18 +28,29 @@ func CheckGitHub(accounts []string) []Result {
 		if len(accounts) == 0 {
 			return []Result{{Name: "gh", OK: true, Detail: "not installed; GitHub is not set up here (optional)"}}
 		}
-		return []Result{{Name: "gh", Detail: "not installed, but config.toml names GitHub accounts", Fix: "install gh: https://cli.github.com"}}
+		return []Result{{Name: "gh", Detail: "not installed, but config.toml names GitHub accounts", Fix: "install gh: https://cli.github.com", Needed: true}}
 	}
 	out := []Result{readyResult("gh", GHReady(""), "gh auth login")}
 	for _, a := range accounts {
-		out = append(out, readyResult("GitHub account "+a, GHReady(a), "gh auth login --hostname github.com  (then log in as "+a+")"))
+		r := readyResult("GitHub account "+a, GHReady(a), "gh auth login --hostname github.com  (then log in as "+a+")")
+		r.Needed = true
+		out = append(out, r)
 	}
-	if out[0].OK {
-		_, err := GHRun("", "api", "--hostname", GitHubHost, "notifications", "-F", "per_page=1", "--method", "GET")
-		r := readyResult("GitHub notifications", err, "gh auth refresh -s notifications")
+	// Notifications, with each working login's own token.
+	for i, a := range append([]string{""}, accounts...) {
+		if !out[i].OK {
+			continue
+		}
+		name := "GitHub notifications"
+		if a != "" {
+			name += " (" + a + ")"
+		}
+		_, err := GHRun(a, "api", "--hostname", GitHubHost, "notifications", "-F", "per_page=1", "--method", "GET")
+		r := readyResult(name, err, "gh auth refresh -s notifications")
 		if err != nil && !strings.Contains(err.Error(), "403") && !strings.Contains(err.Error(), "404") {
 			r.Fix = "" // not a scope problem: the reason says what it is
 		}
+		r.Needed = a != ""
 		out = append(out, r)
 	}
 	return out
@@ -48,18 +62,20 @@ func CheckGitLab(configured []string) []Result {
 		if len(configured) == 0 {
 			return []Result{{Name: "glab", OK: true, Detail: "not installed; GitLab is not set up here (optional)"}}
 		}
-		return []Result{{Name: "glab", Detail: "not installed, but config.toml names GitLab hosts", Fix: "install glab: https://gitlab.com/gitlab-org/cli"}}
+		return []Result{{Name: "glab", Detail: "not installed, but config.toml names GitLab hosts", Fix: "install glab: https://gitlab.com/gitlab-org/cli", Needed: true}}
 	}
 	hosts, err := GitLabHosts(&config.Config{GitLabHosts: configured})
 	if err != nil {
-		return []Result{{Name: "glab", Detail: "could not ask glab which hosts it knows: " + err.Error(), Fix: "glab auth status"}}
+		return []Result{{Name: "glab", Detail: "could not ask glab which hosts it knows: " + err.Error(), Fix: "glab auth status", Needed: len(configured) > 0}}
 	}
 	if len(hosts) == 0 {
 		return []Result{{Name: "glab", OK: true, Detail: "installed, not logged in to any host; GitLab is not set up here (optional)"}}
 	}
 	out := []Result{{Name: "glab", OK: true, Detail: "installed"}}
 	for _, h := range hosts {
-		out = append(out, readyResult("GitLab host "+h, GLabReady(h), "glab auth login --hostname "+h))
+		r := readyResult("GitLab host "+h, GLabReady(h), "glab auth login --hostname "+h)
+		r.Needed = slices.Contains(configured, h)
+		out = append(out, r)
 	}
 	return out
 }

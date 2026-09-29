@@ -19,6 +19,7 @@ func TestCheckFindsWhatSetupLeftAndWhatIsMissing(t *testing.T) {
 	}
 	Hooks(home, exe, false)
 	Skills(home, []byte(Skill))
+	Files(sousHome, exe)
 	Shell(home, sousHome, "zsh", "linux", "")
 	for _, c := range Check(home, sousHome, exe, "zsh", "linux", "") {
 		if !c.OK {
@@ -37,5 +38,25 @@ func TestCheckFindsWhatSetupLeftAndWhatIsMissing(t *testing.T) {
 	got := strings.Join(problems, "\n")
 	if !strings.Contains(got, "/old/place/sous") || !strings.Contains(got, "Codex") || !strings.Contains(got, "out of date") {
 		t.Fatalf("%s", got)
+	}
+}
+
+// The shell line counts only when it is the one setup writes now, and for
+// zsh when the file it sources is there.
+func TestCheckShellWantsTheCurrentLineAndItsFile(t *testing.T) {
+	home := t.TempDir()
+	sousHome := filepath.Join(home, ".sous")
+	shell := func() Result { return checkShell(home, sousHome, "zsh", "linux", "") }
+	os.WriteFile(filepath.Join(home, ".zshrc"), []byte("source \"$HOME/old/sous.zsh\"\n"), 0o644)
+	if r := shell(); r.OK || r.Fix != "sous setup" {
+		t.Fatalf("an older line: %+v", r)
+	}
+	Shell(home, sousHome, "zsh", "linux", "")
+	if r := shell(); r.OK || !strings.Contains(r.Detail, "sous.zsh") {
+		t.Fatalf("no sous.zsh: %+v", r)
+	}
+	Files(sousHome, "/usr/local/bin/sous")
+	if r := shell(); !r.OK {
+		t.Fatalf("set up: %+v", r)
 	}
 }

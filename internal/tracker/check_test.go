@@ -19,14 +19,17 @@ esac`)
 	t.Cleanup(func() { Init("", "", nil) })
 	var lines []string
 	for _, r := range CheckGitHub([]string{"work-account", "gone"}) {
-		lines = append(lines, r.Name+"|"+map[bool]string{true: "ok", false: "no"}[r.OK]+"|"+r.Fix)
+		lines = append(lines, r.Name+"|"+map[bool]string{true: "ok", false: "no"}[r.OK]+"|"+map[bool]string{true: "needed", false: "optional"}[r.Needed]+"|"+r.Fix)
 	}
 	got := strings.Join(lines, "\n")
+	// Each account's notifications are checked with its own token; what
+	// config.toml names is needed, the default login is optional.
 	for _, want := range []string{
-		"gh|ok|",
-		"GitHub account work-account|ok|",
-		"GitHub account gone|no|gh auth login",
-		"GitHub notifications|no|gh auth refresh -s notifications",
+		"gh|ok|optional|",
+		"GitHub account work-account|ok|needed|",
+		"GitHub account gone|no|needed|gh auth login",
+		"GitHub notifications|no|optional|gh auth refresh -s notifications",
+		"GitHub notifications (work-account)|no|needed|gh auth refresh -s notifications",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in\n%s", want, got)
@@ -42,7 +45,7 @@ func TestCheckGitHubNotInstalledIsOptional(t *testing.T) {
 	if len(r) != 1 || !r[0].OK || !strings.Contains(r[0].Detail, "not installed") {
 		t.Fatalf("%+v", r)
 	}
-	if r := CheckGitHub([]string{"work-account"}); r[0].OK {
+	if r := CheckGitHub([]string{"work-account"}); r[0].OK || !r[0].Needed {
 		t.Fatalf("configured accounts need gh: %+v", r)
 	}
 }

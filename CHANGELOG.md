@@ -12,7 +12,7 @@ upgraded, never broken.
 ### Added
 * `sous doctor` checks every part of the setup (config and project
   folders, agent hooks and skills, the shell line, `gh` and `glab` logins
-  and accounts, notification access, plugins, data files, the saved board)
+  and accounts, each login's notification access, plugins, data files, the saved board)
   and says the command that fixes anything that is not right. It exits 1
   when something is broken. `--json` for agents.
 

@@ -3,6 +3,7 @@
 package doctor
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -56,16 +57,52 @@ func Run(in Inputs) []Check {
 		out = append(out, fromResult(r.Name, r.OK, r.Detail, r.Fix, Bad))
 	}
 	if in.Cfg != nil {
-		for _, r := range tracker.CheckGitHub(in.Cfg.Identities(config.KeyGitHubAccount)) {
-			out = append(out, fromResult(r.Name, r.OK, r.Detail, r.Fix, Warn))
-		}
-		for _, r := range tracker.CheckGitLab(in.Cfg.GitLabHosts) {
-			out = append(out, fromResult(r.Name, r.OK, r.Detail, r.Fix, Warn))
-		}
+		out = append(out, trackerChecks(in.Cfg)...)
 		out = append(out, pluginChecks(in.Cfg.Plugins)...)
 	}
 	out = append(out, dataChecks(in.SousHome, in.Now)...)
 	return append(out, boardCheck(in))
+}
+
+// trackerTimeout bounds each tracker's checks: a gh or glab that hangs is
+// reported, not waited on.
+var trackerTimeout = 30 * time.Second
+
+// trackerChecks asks gh and glab at once, each within trackerTimeout. What
+// config.toml names is needed, so its failing is a problem; the rest is a
+// note.
+func trackerChecks(cfg *config.Config) []Check {
+	runs := []struct {
+		tool  string
+		check func() []tracker.Result
+	}{
+		{"gh", func() []tracker.Result { return tracker.CheckGitHub(cfg.Identities(config.KeyGitHubAccount)) }},
+		{"glab", func() []tracker.Result { return tracker.CheckGitLab(cfg.GitLabHosts) }},
+	}
+	answers := make([]chan []tracker.Result, len(runs))
+	for i, r := range runs {
+		answers[i] = make(chan []tracker.Result, 1)
+		go func() { answers[i] <- r.check() }()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), trackerTimeout)
+	defer cancel()
+	var out []Check
+	for i, r := range runs {
+		var results []tracker.Result
+		select {
+		case results = <-answers[i]:
+		case <-ctx.Done():
+			results = []tracker.Result{{Name: r.tool, Detail: fmt.Sprintf("did not answer within %s", trackerTimeout), Fix: r.tool + " auth status"}}
+		}
+		for _, t := range results {
+			notOK := Warn
+			if t.Needed {
+				notOK = Bad
+			}
+			out = append(out, fromResult(t.Name, t.OK, t.Detail, t.Fix, notOK))
+		}
+	}
+	return out
 }
 
 // Problems counts the checks that are broken (not the warnings).
@@ -143,7 +180,7 @@ func pluginChecks(plugins []string) []Check {
 // dataChecks reads each data file the way sous does, so a damaged or newer
 // file shows here rather than as a failed board.
 func dataChecks(sousHome string, now time.Time) []Check {
-	s := &store.Store{Home: sousHome}
+	s := &store.Store{Home: sousHome, ReadOnly: true}
 	reads := []struct {
 		name string
 		read func() error
@@ -166,7 +203,7 @@ func dataChecks(sousHome string, now time.Time) []Check {
 // boardCheck: new shells print the saved board; an old one means the
 // background refresh is not running.
 func boardCheck(in Inputs) Check {
-	c, err := board.ReadCache(&store.Store{Home: in.SousHome})
+	c, err := board.ReadCache(&store.Store{Home: in.SousHome, ReadOnly: true})
 	switch {
 	case err != nil:
 		return Check{Name: "saved board", Status: Bad, Detail: err.Error(), Fix: "sous --refresh"}
