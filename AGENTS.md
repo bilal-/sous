@@ -56,11 +56,12 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/project    finding projects, reading git facts, matching rough names
     internal/store      saving data files safely: locked, written whole, upgraded in place
     internal/config     config.toml
-    internal/hook       agent hook input, and installing hooks
+    internal/hook       agent hook input, the hook command format, and adding hooks to an agent's settings
+    internal/install    setup's steps: agent hooks and skills, and the shell line
     internal/testutil   helpers shared by every package's tests
 
-Code only depends downward, in this order: `cli`, then `report`, then
-`board`, `filing`, `hook` and `launcher`, then `signal` and `backend`, then
+Code only depends downward, in this order: `cli`, then `report` and
+`install`, then `board`, `filing`, `hook` and `launcher`, then `signal` and `backend`, then
 `tracker`, `plugin`, `thread`, `session` and `project`, then `store` and
 `config`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.

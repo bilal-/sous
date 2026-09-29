@@ -64,9 +64,10 @@ func (c *Config) Identities(key string) []string {
 	return out
 }
 
-func Load(home string) (*Config, error) {
+// Load reads config.toml from sousHome; ~ in paths means userHome.
+func Load(sousHome, userHome string) (*Config, error) {
 	c := &Config{Agent: "claude", RefreshHours: 4}
-	b, err := os.ReadFile(filepath.Join(home, "config.toml"))
+	b, err := os.ReadFile(filepath.Join(sousHome, "config.toml"))
 	if errors.Is(err, os.ErrNotExist) {
 		return c, nil
 	}
@@ -77,10 +78,10 @@ func Load(home string) (*Config, error) {
 		return nil, err
 	}
 	for i, r := range c.Roots {
-		c.Roots[i] = Expand(r)
+		c.Roots[i] = Expand(userHome, r)
 	}
 	for i, p := range c.Plugins {
-		c.Plugins[i] = Expand(p)
+		c.Plugins[i] = Expand(userHome, p)
 	}
 	return c, nil
 }
@@ -95,11 +96,10 @@ func (c *Config) RefreshWindow() time.Duration {
 }
 
 // Expand turns a leading ~ into the user's home directory.
-// Tilde is the inverse of Expand: a path under the home folder written as
-// ~/..., the way people type it.
-func Tilde(p string) string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
+// Tilde writes a path under home as ~/..., the way people type it. It is
+// the inverse of Expand.
+func Tilde(home, p string) string {
+	if home == "" {
 		return p
 	}
 	if rest, ok := strings.CutPrefix(p, home); ok && (rest == "" || rest[0] == '/') {
@@ -108,9 +108,9 @@ func Tilde(p string) string {
 	return p
 }
 
-func Expand(p string) string {
+// Expand turns a leading ~ into home.
+func Expand(home, p string) string {
 	if p == "~" || strings.HasPrefix(p, "~/") {
-		home, _ := os.UserHomeDir()
 		return filepath.Join(home, strings.TrimPrefix(p, "~"))
 	}
 	return p

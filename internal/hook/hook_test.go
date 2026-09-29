@@ -74,19 +74,19 @@ func TestInstallIdempotent(t *testing.T) {
 
 func TestStartRoot(t *testing.T) {
 	dir := t.TempDir()
-	if _, ok := StartRoot(Input{CWD: dir, Source: "startup"}, ""); ok {
+	if _, ok := StartRoot(Input{CWD: dir, Source: "startup"}, "", ""); ok {
 		t.Fatal("non-repo cwd must not resolve")
 	}
 	for _, src := range []string{"resume", "clear", "compact"} {
-		if _, ok := StartRoot(Input{CWD: dir, Source: src}, ""); ok {
+		if _, ok := StartRoot(Input{CWD: dir, Source: src}, "", ""); ok {
 			t.Fatalf("%s must not inject", src)
 		}
 	}
-	if _, ok := StartRoot(Input{}, dir); ok {
+	if _, ok := StartRoot(Input{}, dir, ""); ok {
 		t.Fatal("empty cwd falls back to the caller's directory, which is not a repo here")
 	}
 	repo := testutil.Repo(t, filepath.Join(dir, "chime"), false, "")
-	if root, ok := StartRoot(Input{}, repo); !ok || filepath.Base(root) != "chime" {
+	if root, ok := StartRoot(Input{}, repo, ""); !ok || filepath.Base(root) != "chime" {
 		t.Fatalf("fallback to the caller's directory: %q %v", root, ok)
 	}
 }

@@ -1,202 +1,105 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
-	"github.com/bilal-/sous/internal/hook"
+	"github.com/bilal-/sous/internal/install"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/store"
 )
 
-// cmdSetup is the whole installation, safe to run again: where your
-// projects are, the agent hooks and skill, the shell line, and the menu bar
-// script. It says what it changed. Folders on the line become the roots.
+// cmdSetup sets everything up and says what it did: where the projects
+// are, agent hooks and skills, the shell line, and the menu bar script.
+// Folders on the line become the roots. Safe to run again.
 func cmdSetup(e *Env, a argv) int {
 	if a.has("print-skill") {
 		fmt.Fprint(e.Stdout, skillMD)
 		return 0
 	}
-	home, _ := os.UserHomeDir()
-	if err := os.MkdirAll(e.Home, 0o755); err != nil {
-		return fail(e, 1, "%v", err)
-	}
 	var done []string
-	say := func(format string, args ...any) { done = append(done, fmt.Sprintf(format, args...)) }
-
-	// 1. Where your projects are.
-	if code := setupRoots(e, home, a.pos, say); code != 0 {
+	roots, code := setupRoots(e, a.pos)
+	if code != 0 {
 		return code
 	}
-
-	// 2. Agent hooks and the skill.
-	claude := filepath.Join(home, ".claude", "settings.json")
-	codex := filepath.Join(home, ".codex", "hooks.json")
-	type inst struct{ file, event, cmd string }
-	installs := []inst{
-		{claude, "SessionStart", hook.Command(e.Exe, "session-start", "claude")},
-		{claude, "SessionEnd", hook.Command(e.Exe, "session-end", "claude")},
-		{codex, "SessionStart", hook.Command(e.Exe, "session-start", "codex")},
+	done = append(done, roots)
+	skills, err := install.Skills(e.UserHome, []byte(skillMD))
+	if err != nil {
+		return fail(e, 1, "%v", err)
 	}
-	codexNote := ""
-	if a.has("codex-session-end") {
-		installs = append(installs, inst{codex, "SessionEnd", hook.Command(e.Exe, "session-end", "codex")})
-		codexNote = " and when it ends"
+	done = append(done, skills...)
+	hooks, err := install.Hooks(e.UserHome, e.Exe, a.has("codex-session-end"))
+	if err != nil {
+		return fail(e, 1, "%v", err)
 	}
-	for _, i := range installs {
-		if _, err := hook.Install(i.file, i.event, i.cmd); err != nil {
-			return fail(e, 1, "%s: %v", i.file, err)
-		}
-	}
-	for _, sk := range skillHomes(home) {
-		dir := filepath.Join(sk.dir, "sous")
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fail(e, 1, "%v", err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(skillMD), 0o644); err != nil {
-			return fail(e, 1, "writing the skill: %v", err)
-		}
-		if sk.who != "" {
-			say("%s: %s", sk.who, sk.what)
-		}
-	}
-	say("Claude Code: sees where you left off when a session starts, and has the sous skill")
-	say("Codex: sees where you left off when a session starts%s, and has the sous skill", codexNote)
-
-	// 3. The shell.
-	snippet := filepath.Join(e.Home, "sous.zsh")
-	if err := os.WriteFile(snippet, []byte(shellSnippet), 0o644); err != nil {
-		return fail(e, 1, "writing %s: %v", snippet, err)
+	done = append(done, hooks...)
+	if err := store.WriteFile(filepath.Join(e.Home, "sous.zsh"), []byte(shellSnippet), 0o644); err != nil {
+		return fail(e, 1, "%v", err)
 	}
 	if a.has("no-shell") {
-		say("shell: skipped. To show the board in new shells, run sous --ambient from your shell's startup file")
-	} else if msg, err := setupShell(home, e.Home); err != nil {
-		return fail(e, 1, "%v", err)
+		done = append(done, "shell: skipped. To show the board in new shells, run sous --ambient from your shell's startup file")
 	} else {
-		say("%s", msg)
+		msg, err := install.Shell(e.UserHome, e.Home, filepath.Base(e.Shell), runtime.GOOS, e.Zdotdir)
+		if err != nil {
+			return fail(e, 1, "%v", err)
+		}
+		done = append(done, msg)
 	}
-
-	// 4. The menu bar script (SwiftBar on macOS), pointed at this sous.
-	swiftbar := filepath.Join(e.Home, "sous.5m.sh")
-	if err := os.WriteFile(swiftbar, []byte(strings.Replace(swiftbarPlugin, "$HOME/.local/bin/sous", e.Exe, 1)), 0o755); err != nil {
-		return fail(e, 1, "writing %s: %v", swiftbar, err)
+	menubar := filepath.Join(e.Home, "sous.5m.sh")
+	if err := store.WriteFile(menubar, []byte(strings.Replace(swiftbarPlugin, swiftbarExePlaceholder, e.Exe, 1)), 0o755); err != nil {
+		return fail(e, 1, "%v", err)
 	}
-
 	fmt.Fprintln(e.Stdout, "sous is set up:")
 	for _, d := range done {
 		fmt.Fprintf(e.Stdout, "  ✓ %s\n", d)
 	}
 	fmt.Fprintf(e.Stdout, "\nOpen a new terminal to see your board, or run sous now.\n")
-	fmt.Fprintf(e.Stdout, "Menu bar (optional, needs SwiftBar): link %s into SwiftBar's plugin folder.\n", config.Tilde(swiftbar))
+	fmt.Fprintf(e.Stdout, "Menu bar (optional, needs SwiftBar): link %s into SwiftBar's plugin folder.\n", config.Tilde(e.UserHome, menubar))
 	return 0
 }
 
-// skillHome is one place agents look for skills.
-type skillHome struct{ dir, who, what string }
-
-// skillHomes: where to put the sous skill. Claude Code and Codex are
-// reported with their hooks; ~/.agents/skills is the shared Agent Skills
-// folder that Gemini CLI, Kimi, Cursor and others read; Antigravity keeps
-// its own, used only when Antigravity is installed.
-func skillHomes(home string) []skillHome {
-	hs := []skillHome{
-		{dir: filepath.Join(home, ".claude", "skills")},
-		{dir: filepath.Join(home, ".codex", "skills")},
-		{dir: filepath.Join(home, ".agents", "skills"), who: "Gemini CLI, Kimi, Cursor and other agents", what: "have the sous skill (in ~/.agents/skills, the shared folder they read)"},
-	}
-	if st, err := os.Stat(filepath.Join(home, ".gemini", "antigravity")); err == nil && st.IsDir() {
-		hs = append(hs, skillHome{dir: filepath.Join(home, ".gemini", "antigravity", "skills"), who: "Antigravity", what: "has the sous skill"})
-	}
-	return hs
-}
-
-// likelyRoots are where people usually keep their repos.
-var likelyRoots = []string{"code", "src", "dev", "projects", "workspace", "repos", "git", "Developer", "Projects", "Documents/GitHub"}
-
 // setupRoots: folders given replace the roots; otherwise keep what config
-// has, or look in the usual places.
-func setupRoots(e *Env, home string, given []string, say func(string, ...any)) int {
+// has, or use the usual places that hold repos. It returns the line to show.
+func setupRoots(e *Env, given []string) (string, int) {
+	if e.cfgErr != nil {
+		return "", fail(e, 1, "%s/config.toml could not be read (%v); fix it, then run sous setup again", e.Home, e.cfgErr)
+	}
 	var roots []string
 	switch {
 	case len(given) > 0:
 		for _, g := range given {
-			abs, err := filepath.Abs(config.Expand(g))
+			abs, err := filepath.Abs(config.Expand(e.UserHome, g))
 			if st, serr := os.Stat(abs); err != nil || serr != nil || !st.IsDir() {
-				return fail(e, 2, "%s is not a folder", g)
+				return "", fail(e, 2, "%s is not a folder", g)
 			}
-			roots = append(roots, config.Tilde(abs))
+			roots = append(roots, abs)
 		}
-	case e.cfgErr == nil && len(e.Cfg.Roots) > 0:
-		shown := make([]string, len(e.Cfg.Roots))
-		for i, r := range e.Cfg.Roots {
-			shown[i] = config.Tilde(r)
-		}
-		say("projects: looking in %s (change with sous setup <folder>)", strings.Join(shown, ", "))
-		return 0
+	case len(e.Cfg.Roots) > 0:
+		return "projects: looking in " + shownRoots(e, e.Cfg.Roots) + " (change with sous setup <folder>)", 0
 	default:
-		for _, r := range likelyRoots {
-			dir := filepath.Join(home, r)
-			if st, err := os.Stat(dir); err != nil || !st.IsDir() {
-				continue
-			}
-			if ps, _ := project.Discover([]string{dir}, nil, nil); len(ps) > 0 {
-				roots = append(roots, "~/"+r)
-			}
-		}
+		roots = project.LikelyRoots(e.UserHome)
 		if len(roots) == 0 {
-			say("projects: none found in the usual places. Tell sous where they are: sous setup ~/path/to/your/projects")
-			return 0
+			return "projects: " + noProjectsHint, 0
 		}
 	}
-	if e.cfgErr != nil {
-		return fail(e, 1, "%s/config.toml could not be read (%v); fix it, then run sous setup again", e.Home, e.cfgErr)
+	written := make([]string, len(roots))
+	for i, r := range roots {
+		written[i] = config.Tilde(e.UserHome, r)
 	}
-	if err := config.SetRoots(e.Home, roots); err != nil {
-		return fail(e, 1, "%v", err)
+	if err := config.SetRoots(e.Home, written); err != nil {
+		return "", fail(e, 1, "%v", err)
 	}
-	say("projects: looking in %s (change with sous setup <folder>)", strings.Join(roots, ", "))
-	return 0
+	return "projects: looking in " + shownRoots(e, roots) + " (change with sous setup <folder>)", 0
 }
 
-// setupShell adds one line to the shell's startup file, once.
-func setupShell(home, sousHome string) (string, error) {
-	shell := filepath.Base(os.Getenv("SHELL"))
-	var rc, line string
-	switch shell {
-	case "zsh":
-		rc, line = filepath.Join(home, ".zshrc"), `source "`+config.Tilde(filepath.Join(sousHome, "sous.zsh"))+`"`
-		line = strings.Replace(line, "~", "$HOME", 1)
-	case "bash":
-		rc, line = filepath.Join(home, ".bashrc"), "command -v sous >/dev/null && sous --ambient 2>/dev/null"
-	case "fish":
-		rc, line = filepath.Join(home, ".config", "fish", "conf.d", "sous.fish"), "status is-interactive; and command -q sous; and sous --ambient 2>/dev/null"
-	default:
-		return fmt.Sprintf("shell: %s is not one sous knows. To show the board in new shells, run sous --ambient from its startup file", shell), nil
+func shownRoots(e *Env, roots []string) string {
+	shown := make([]string, len(roots))
+	for i, r := range roots {
+		shown[i] = config.Tilde(e.UserHome, r)
 	}
-	b, err := os.ReadFile(rc)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	}
-	if strings.Contains(string(b), line) || strings.Contains(string(b), ".sous/sous.zsh") {
-		return fmt.Sprintf("shell: new %s shells show the board (already in %s)", shell, config.Tilde(rc)), nil
-	}
-	if err := os.MkdirAll(filepath.Dir(rc), 0o755); err != nil {
-		return "", err
-	}
-	f, err := os.OpenFile(rc, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	prefix := ""
-	if len(b) > 0 && !strings.HasSuffix(string(b), "\n") {
-		prefix = "\n"
-	}
-	if _, err := fmt.Fprintf(f, "%s\n# sous: show what is waiting on you in new shells\n%s\n", prefix, line); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("shell: new %s shells show the board (added one line to %s)", shell, config.Tilde(rc)), nil
+	return strings.Join(shown, ", ")
 }

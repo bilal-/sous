@@ -70,12 +70,12 @@ func TestForPath(t *testing.T) {
 	repo := filepath.Join(ws, "a/repo")
 	mkrepo(t, repo)
 	os.MkdirAll(filepath.Join(repo, "src/deep"), 0o755)
-	root, ok := ForPath(filepath.Join(repo, "src/deep"))
+	root, ok := ForPath(filepath.Join(repo, "src/deep"), "")
 	realRepo, _ := filepath.EvalSymlinks(repo)
 	if !ok || root != realRepo {
 		t.Fatalf("ForPath: %q %v", root, ok)
 	}
-	if _, ok := ForPath(ws); ok {
+	if _, ok := ForPath(ws, ""); ok {
 		t.Fatal("ws is not in a repo")
 	}
 }
@@ -197,15 +197,14 @@ func TestFacts(t *testing.T) {
 func TestForPathIgnoresARepoAtHome(t *testing.T) {
 	home := t.TempDir()
 	testutil.Repo(t, home, true, "")
-	t.Setenv("HOME", home)
 	sub := filepath.Join(home, "notes")
 	os.MkdirAll(sub, 0o755)
-	if root, ok := ForPath(sub); ok {
+	if root, ok := ForPath(sub, home); ok {
 		t.Fatalf("resolved to %q", root)
 	}
 	inner := filepath.Join(home, "code", "api")
 	testutil.Repo(t, inner, true, "")
-	if root, ok := ForPath(inner); !ok || filepath.Base(root) != "api" {
+	if root, ok := ForPath(inner, home); !ok || filepath.Base(root) != "api" {
 		t.Fatalf("a real project under home still resolves: %q %v", root, ok)
 	}
 }

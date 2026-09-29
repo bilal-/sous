@@ -176,13 +176,13 @@ func joinRemote(host, path string) string {
 //
 // A repo whose root is the home folder (a dotfiles repo) is not a project:
 // otherwise every folder under home would belong to it.
-func ForPath(path string) (string, bool) {
+func ForPath(path, home string) (string, bool) {
 	out, err := git(path, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", false
 	}
 	root := strings.TrimSpace(out)
-	if home, err := os.UserHomeDir(); err == nil && samePath(root, home) {
+	if home != "" && samePath(root, home) {
 		return "", false
 	}
 	return root, true
@@ -280,4 +280,40 @@ func ReadFacts(root string) (Facts, error) {
 		}
 	}
 	return f, nil
+}
+
+// likelyRootNames are where people usually keep their repos, under home.
+var likelyRootNames = []string{"code", "src", "dev", "projects", "workspace", "repos", "git", "Developer", "Projects", "Documents/GitHub"}
+
+// LikelyRoots are the usual project folders under home that hold at least
+// one git repo, two folders deep at most. Nothing is described or run;
+// it only looks for .git.
+func LikelyRoots(home string) []string {
+	var roots []string
+	for _, name := range likelyRootNames {
+		dir := filepath.Join(home, name)
+		if hasRepo(dir, 2) {
+			roots = append(roots, dir)
+		}
+	}
+	return roots
+}
+
+func hasRepo(dir string, depth int) bool {
+	if isRepo(dir) {
+		return true
+	}
+	if depth == 0 {
+		return false
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") && hasRepo(filepath.Join(dir, e.Name()), depth-1) {
+			return true
+		}
+	}
+	return false
 }

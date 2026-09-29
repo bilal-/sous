@@ -223,3 +223,23 @@ func TestReadMigratesOnlyUnderTheLock(t *testing.T) {
 		t.Fatal("Migrate ran without the lock held")
 	}
 }
+
+// A symlinked file (a dotfiles repo's .zshrc or config.toml) is written
+// through: the link stays a link and the target gets the new content.
+func TestWriteFileFollowsSymlinks(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "dotfiles", "zshrc")
+	os.MkdirAll(filepath.Dir(target), 0o755)
+	os.WriteFile(target, []byte("old\n"), 0o644)
+	link := filepath.Join(dir, ".zshrc")
+	os.Symlink(target, link)
+	if err := WriteFile(link, []byte("new\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Lstat(link); fi.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("the link was replaced by a file")
+	}
+	if b, _ := os.ReadFile(target); string(b) != "new\n" {
+		t.Fatalf("%q", b)
+	}
+}

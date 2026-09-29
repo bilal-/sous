@@ -77,7 +77,7 @@ func resolveProject(e *Env, term string) (project.Project, int) {
 		}
 		roots, ignore = cfg.Roots, cfg.Ignore
 	}
-	p, err := project.Resolve(roots, ignore, term, e.Cwd, e.Stderr)
+	p, err := project.Resolve(roots, ignore, term, e.Cwd, e.UserHome, e.Stderr)
 	switch {
 	case err == nil:
 		return p, 0

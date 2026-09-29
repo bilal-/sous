@@ -2,22 +2,10 @@ package cli
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"path/filepath"
 
 	"github.com/bilal-/sous/internal/launcher"
-	"github.com/bilal-/sous/internal/store"
 )
-
-// writeHereFile keeps one resume file per project under SOUS_HOME/here,
-// replaced whole each time, so sous go never leaves temp files behind.
-func writeHereFile(home, project string, body []byte) (string, error) {
-	sum := sha256.Sum256([]byte(project))
-	name := filepath.Join(home, "here", hex.EncodeToString(sum[:6])+".txt")
-	return name, store.WriteFile(name, body, 0o600)
-}
 
 // cmdGo: sous go <project> [-a <launcher>]. Writes the resume context to a
 // temp file named by SOUS_HERE_FILE (launchers that want it read it), then
@@ -56,7 +44,7 @@ func cmdGo(e *Env, a argv) int {
 	defer sub.close()
 	cmdHere(sub, argv{pos: []string{p.Path}})
 	var env []string
-	if name, err := writeHereFile(e.Home, p.Path, here.Bytes()); err == nil {
+	if name, err := launcher.WriteContext(e.Home, p.Path, here.Bytes()); err == nil {
 		env = append(env, "SOUS_HERE_FILE="+name)
 	}
 	fmt.Fprintf(e.Stderr, "→ %s in %s\n", l.Name, p.Path)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -192,4 +193,19 @@ func WriteCache(s *store.Store, d *Data) error {
 		return nil
 	})
 	return err
+}
+
+// Ambient is the at-most-once-per-window rule for new shells: Due says
+// whether the board should print again, Mark records that it did.
+type Ambient struct{ Home string }
+
+func (a Ambient) stamp() string { return filepath.Join(a.Home, ".ambient-stamp") }
+
+func (a Ambient) Due(now time.Time, window time.Duration) bool {
+	st, err := os.Stat(a.stamp())
+	return err != nil || now.Sub(st.ModTime()) >= window
+}
+
+func (a Ambient) Mark() error {
+	return store.WriteFile(a.stamp(), nil, 0o644)
 }

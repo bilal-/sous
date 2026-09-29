@@ -29,6 +29,9 @@ var shellSnippet string
 //go:embed assets/sous.5m.sh
 var swiftbarPlugin string
 
+// swiftbarExePlaceholder in sous.5m.sh is replaced by the path to sous.
+const swiftbarExePlaceholder = "@SOUS@"
+
 //go:embed assets/SKILL.md
 var skillMD string
 
@@ -64,17 +67,20 @@ For agents:
 // is loaded once per invocation and the store is one value, so every verb
 // sees the same world.
 type Env struct {
-	Home   string // SOUS_HOME
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
-	JSON   bool
-	Brief  bool
-	Exe    string // path to this binary, for re-exec of built-in plugins
-	Cfg    *config.Config
-	Store  *store.Store
-	Cwd    string // the working directory, read once; tests set it instead of chdir
-	Source string // SOUS_SOURCE: who is writing notes ("agent"), read once
+	Home     string // SOUS_HOME
+	Stdin    io.Reader
+	Stdout   io.Writer
+	Stderr   io.Writer
+	JSON     bool
+	Brief    bool
+	Exe      string // path to this binary, for re-exec of built-in plugins
+	Cfg      *config.Config
+	Store    *store.Store
+	Cwd      string // the working directory, read once; tests set it instead of chdir
+	UserHome string // the person's home folder, read once
+	Shell    string // $SHELL
+	Zdotdir  string // $ZDOTDIR, where zsh keeps its startup files when set
+	Source   string // SOUS_SOURCE: who is writing notes ("agent"), read once
 	// Timeout for one signal plugin. The session hook shortens it so a slow
 	// plugin cannot eat the hook's 5 s guard.
 	PluginTimeout time.Duration
@@ -132,7 +138,7 @@ func (e *Env) store() *store.Store { return e.Store }
 // child: the same world, different I/O — for verbs that run another verb
 // internally (hooks and go run `here`).
 func (e *Env) child(stdout, stderr io.Writer, brief bool) *Env {
-	return &Env{Home: e.Home, Stdin: strings.NewReader(""), Stdout: stdout, Stderr: stderr, Brief: brief, Exe: e.Exe, Cfg: e.Cfg, Store: e.Store, Cwd: e.Cwd, Source: e.Source, PluginTimeout: e.PluginTimeout, Deadline: e.Deadline, cfgErr: e.cfgErr}
+	return &Env{Home: e.Home, Stdin: strings.NewReader(""), Stdout: stdout, Stderr: stderr, Brief: brief, Exe: e.Exe, Cfg: e.Cfg, Store: e.Store, Cwd: e.Cwd, UserHome: e.UserHome, Shell: e.Shell, Zdotdir: e.Zdotdir, Source: e.Source, PluginTimeout: e.PluginTimeout, Deadline: e.Deadline, cfgErr: e.cfgErr}
 }
 
 func sousHome() string {
@@ -195,7 +201,9 @@ func run(args []string, cwd string, stdin io.Reader, stdout, stderr io.Writer) i
 	e := &Env{Home: home, Stdin: stdin, Stdout: stdout, Stderr: stderr, Exe: exe, Store: &store.Store{Home: home}, Cwd: cwd}
 	defer e.close()
 	e.Source = os.Getenv("SOUS_SOURCE")
-	e.Cfg, e.cfgErr = config.Load(home)
+	e.UserHome, _ = os.UserHomeDir()
+	e.Shell, e.Zdotdir = os.Getenv("SHELL"), os.Getenv("ZDOTDIR")
+	e.Cfg, e.cfgErr = config.Load(home, e.UserHome)
 	if e.Cfg == nil {
 		e.Cfg = &config.Config{Agent: "claude", RefreshHours: 4}
 	}

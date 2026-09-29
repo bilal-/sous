@@ -41,23 +41,18 @@ func buildBoard(e *Env, roots []string) (*board.Data, int) {
 	return d, 0
 }
 
-const welcome = `sous · no projects yet
+// noProjectsHint is what to do when sous knows no project folders yet.
+const noProjectsHint = "none yet. Run sous setup to find them, or sous setup ~/path/to/your/projects"
 
-  Tell sous where your projects live, then run sous again:
-
-    mkdir -p %[1]s
-    printf 'roots = ["~/code"]\n' >> %[1]s/config.toml
-
-  Change ~/code to the folder that holds your repos. sous looks two
-  folders deep. sous setup adds the agent hooks and shell snippet.
-`
+// unconfigured: config.toml is fine but names no project folders.
+func (e *Env) unconfigured() bool { return e.cfgErr == nil && len(e.Cfg.Roots) == 0 }
 
 func cmdBoard(e *Env, roots []string) int {
-	if len(roots) == 0 && e.cfgErr == nil && len(e.Cfg.Roots) == 0 {
+	if len(roots) == 0 && e.unconfigured() {
 		if e.JSON {
 			return e.writeJSON(map[string]any{"projects": []any{}, "configured": false})
 		}
-		fmt.Fprintf(e.Stdout, welcome, config.Tilde(e.Home))
+		fmt.Fprintln(e.Stdout, "sous · projects: "+noProjectsHint)
 		return 0
 	}
 	d, code := buildBoard(e, roots)
@@ -81,7 +76,7 @@ func cmdPath(e *Env, arg string) int {
 	}
 	if st, err := os.Stat(candidate); err == nil && st.IsDir() {
 		arg = candidate
-		if _, ok := project.ForPath(arg); ok {
+		if _, ok := project.ForPath(arg, e.UserHome); ok {
 			return cmdHere(e, argv{pos: []string{arg}})
 		}
 		if ps, _ := project.Discover([]string{arg}, nil, io.Discard); len(ps) > 0 {
@@ -99,22 +94,22 @@ func cmdPath(e *Env, arg string) int {
 // cmdAmbient is what a new shell runs: the cached board, at most once per
 // refresh window (refresh_hours in config.toml, the only setting for it).
 func cmdAmbient(e *Env) int {
-	stamp := filepath.Join(e.Home, ".ambient-stamp")
-	if st, err := os.Stat(stamp); err == nil && time.Since(st.ModTime()) < e.Cfg.RefreshWindow() {
+	amb := board.Ambient{Home: e.Home}
+	if !amb.Due(time.Now(), e.Cfg.RefreshWindow()) {
 		return 0
 	}
 	code := 0
-	if e.cfgErr == nil && len(e.Cfg.Roots) == 0 {
+	switch {
+	case e.cfgErr != nil:
+		fmt.Fprintf(e.Stdout, "sous: %s/config.toml could not be read: %v\n", config.Tilde(e.UserHome, e.Home), e.cfgErr)
+	case e.unconfigured():
 		// Nothing to build yet: say once what to do, then stay quiet.
-		fmt.Fprintln(e.Stdout, "sous: no projects yet. Run sous setup, or sous setup ~/path/to/your/projects")
-	} else {
+		fmt.Fprintln(e.Stdout, "sous · projects: "+noProjectsHint)
+	default:
 		code = cmdCached(e)
 	}
-	if code == 0 { // 3 means no board yet: leave the stamp so the next shell shows it
-		os.MkdirAll(e.Home, 0o755)
-		if f, err := os.Create(stamp); err == nil {
-			f.Close()
-		}
+	if code == 0 { // no board yet: leave it due, so the next shell shows it
+		amb.Mark()
 	}
 	return code
 }

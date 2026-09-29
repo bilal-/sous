@@ -93,7 +93,7 @@ var ErrNotInProject = errors.New("not inside a project")
 // Resolve implements the -p rule: a term goes through the ladder over the
 // discovered projects; no term means the repo containing cwd, which need
 // not be under a root (it is still a fine place to take a note).
-func Resolve(roots, ignore []string, term, cwd string, warn io.Writer) (Project, error) {
+func Resolve(roots, ignore []string, term, cwd, home string, warn io.Writer) (Project, error) {
 	if term != "" {
 		if warn == nil {
 			warn = io.Discard
@@ -101,7 +101,7 @@ func Resolve(roots, ignore []string, term, cwd string, warn io.Writer) (Project,
 		ps, _ := Discover(roots, ignore, warn)
 		return Match(ps, term)
 	}
-	root, ok := ForPath(cwd)
+	root, ok := ForPath(cwd, home)
 	if !ok {
 		return Project{}, ErrNotInProject
 	}

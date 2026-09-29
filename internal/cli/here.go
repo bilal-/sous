@@ -16,7 +16,7 @@ func cmdHere(e *Env, a argv) int {
 	if len(a.pos) == 1 {
 		start = a.pos[0]
 	}
-	root, ok := project.ForPath(start)
+	root, ok := project.ForPath(start, e.UserHome)
 	if !ok {
 		return fail(e, 2, "not inside a project; use sous here <path> or sous <project>")
 	}

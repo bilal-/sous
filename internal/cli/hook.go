@@ -40,7 +40,7 @@ func cmdHook(e *Env, a argv) int {
 		defer sub.close()
 		go func() {
 			defer close(done)
-			root, ok := hook.StartRoot(in, e.Cwd)
+			root, ok := hook.StartRoot(in, e.Cwd, e.UserHome)
 			if !ok {
 				return
 			}
@@ -56,7 +56,7 @@ func cmdHook(e *Env, a argv) int {
 			sub.close()
 		}
 	case "session-end":
-		root, ok := hook.Root(in, e.Cwd)
+		root, ok := hook.Root(in, e.Cwd, e.UserHome)
 		if !ok {
 			return 0
 		}

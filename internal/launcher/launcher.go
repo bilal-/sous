@@ -6,10 +6,14 @@
 package launcher
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/bilal-/sous/internal/plugin"
+	"github.com/bilal-/sous/internal/store"
 )
 
 type Launcher struct {
@@ -48,4 +52,13 @@ func ExecArgv(l Launcher, path string) (string, []string, error) {
 	}
 	argv := append(append([]string{}, l.Argv...), "run", path)
 	return argv0, argv, nil
+}
+
+// WriteContext saves the resume summary handed to an agent started in
+// project, as SOUS_HERE_FILE: one file per project under home/here,
+// replaced each time, so nothing piles up.
+func WriteContext(home, project string, body []byte) (string, error) {
+	sum := sha256.Sum256([]byte(project))
+	name := filepath.Join(home, "here", hex.EncodeToString(sum[:6])+".txt")
+	return name, store.WriteFile(name, body, 0o600)
 }

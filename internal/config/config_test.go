@@ -8,7 +8,7 @@ import (
 )
 
 func TestLoadDefaultsWhenMissing(t *testing.T) {
-	c, err := Load(t.TempDir())
+	c, err := Load(t.TempDir(), "/h")
 	if err != nil || c.Agent != "claude" || c.RefreshHours != 4 || len(c.Roots) != 0 {
 		t.Fatalf("%+v %v", c, err)
 	}
@@ -29,7 +29,7 @@ plugins = ["~/.sous/plugins/sous-signal-jira"]
 backend = "jira"
 jira_project = "WAS"
 `), 0o644)
-	c, err := Load(dir)
+	c, err := Load(dir, home)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,15 +50,14 @@ jira_project = "WAS"
 func TestLoadBadTOML(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "config.toml"), []byte("roots = [\n"), 0o644)
-	if _, err := Load(dir); err == nil {
+	if _, err := Load(dir, "/h"); err == nil {
 		t.Fatal("bad TOML must error")
 	}
 }
 
 func TestExpand(t *testing.T) {
-	t.Setenv("HOME", "/h")
 	for in, want := range map[string]string{"~": "/h", "~/x": "/h/x", "/abs": "/abs", "rel": "rel", "~x": "~x"} {
-		if got := Expand(in); got != want {
+		if got := Expand("/h", in); got != want {
 			t.Errorf("Expand(%q)=%q want %q", in, got, want)
 		}
 	}
@@ -95,27 +94,26 @@ func TestSetRootsKeepsTheRestOfTheFile(t *testing.T) {
 	}
 	fresh := t.TempDir()
 	SetRoots(fresh, []string{"~/code"})
-	c, err := Load(fresh)
+	c, err := Load(fresh, "/h")
 	if err != nil || len(c.Roots) != 1 {
 		t.Fatal(c, err)
 	}
 	withTable := t.TempDir()
 	os.WriteFile(filepath.Join(withTable, "config.toml"), []byte("[projects.\"acme/*\"]\nbackend = \"markdown\"\n"), 0o644)
 	SetRoots(withTable, []string{"~/code"})
-	if c, err := Load(withTable); err != nil || len(c.Roots) != 1 || c.Project("acme/x").Backend != "markdown" {
+	if c, err := Load(withTable, "/h"); err != nil || len(c.Roots) != 1 || c.Project("acme/x").Backend != "markdown" {
 		t.Fatalf("roots must go above any table: %+v %v", c, err)
 	}
 }
 
 func TestTildeIsExpandsInverse(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
 	for _, p := range []string{"~", "~/code", "~/code/acme"} {
-		if got := Tilde(Expand(p)); got != p {
+		if got := Tilde(home, Expand(home, p)); got != p {
 			t.Errorf("%q → %q", p, got)
 		}
 	}
-	if got := Tilde(home + "x/code"); got != home+"x/code" {
+	if got := Tilde(home, home+"x/code"); got != home+"x/code" {
 		t.Fatalf("a sibling folder is not under home: %q", got)
 	}
 }
@@ -134,7 +132,7 @@ func TestSetRootsHandlesRealTOML(t *testing.T) {
 		if err := SetRoots(home, []string{"~/code"}); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		c, err := Load(home)
+		c, err := Load(home, "/h")
 		b, _ := os.ReadFile(filepath.Join(home, "config.toml"))
 		if err != nil || len(c.Roots) != 1 || c.Agent != "codex" || strings.Count(string(b), "roots") != strings.Count(in, "roots")+boolInt(!strings.Contains(strings.SplitN(in, "[projects", 2)[0], "roots")) {
 			t.Fatalf("%s: %v %+v\n%s", name, err, c, b)

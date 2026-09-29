@@ -191,7 +191,12 @@ func Modify[T any](s *Store, name string, m Migrator, fn func(*T) error) (*T, er
 // a rename, so a reader never sees half a file and two writers never share
 // a temp file. For files that are not versioned documents (config.toml, an
 // agent's settings, resume files).
+//
+// A symlink is written through (a dotfiles repo's .zshrc stays a link).
 func WriteFile(path string, data []byte, perm os.FileMode) error {
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		path = real
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}

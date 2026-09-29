@@ -147,7 +147,7 @@ func TestFirstRunWelcomes(t *testing.T) {
 	f := fixture(t)
 	os.Remove(filepath.Join(f.SousHome, "config.toml"))
 	out, errs, code := f.run()
-	if code != 0 || !strings.Contains(out, "roots") || !strings.Contains(out, "config.toml") || errs != "" {
+	if code != 0 || !strings.Contains(out, "sous setup") || errs != "" {
 		t.Fatalf("%d %q %q", code, out, errs)
 	}
 }

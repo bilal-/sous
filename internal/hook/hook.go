@@ -38,16 +38,16 @@ func Parse(r io.Reader) (Input, bool) {
 }
 
 // StartRoot: the repo to inject for, only on a fresh session.
-func StartRoot(in Input, fallback string) (string, bool) {
+func StartRoot(in Input, fallback, home string) (string, bool) {
 	if in.Source != "" && in.Source != "startup" {
 		return "", false
 	}
-	return Root(in, fallback)
+	return Root(in, fallback, home)
 }
 
 // Root is the repo the hook's cwd is in — the input's cwd, or fallback
 // (the hook process's own directory) when the agent sent none.
-func Root(in Input, fallback string) (string, bool) {
+func Root(in Input, fallback, home string) (string, bool) {
 	cwd := in.CWD
 	if cwd == "" {
 		cwd = fallback
@@ -55,7 +55,7 @@ func Root(in Input, fallback string) (string, bool) {
 	if cwd == "" {
 		return "", false
 	}
-	return project.ForPath(cwd)
+	return project.ForPath(cwd, home)
 }
 
 // LastAssistantText reads a Claude-style JSONL transcript and returns the last
