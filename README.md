@@ -142,7 +142,7 @@ sous is young. Here is an honest list.
 | **GitLab**: merge requests to review, yours awaiting review; filing and closing issues | GitLab to do items |
 | `FOLLOWUPS.md` in the project as a simple tracker | Jira, Linear, Gitea, Bitbucket (plugins welcome) |
 | a menu bar view through [SwiftBar](https://swiftbar.app) on macOS | a Linux tray icon |
-| plugins in any language | a stable plugin contract (it is a draft until 1.0) |
+| plugins in any language, on a contract that only grows until 1.0 | a contract frozen for good (that is what 1.0 means) |
 | install by script, Homebrew or from source | Windows, other package managers |
 
 ## Install
@@ -425,7 +425,9 @@ standard output, so you can write one in any language. The built in GitHub,
 GitLab and git support go through exactly the same door, so they are good
 examples to read.
 
-[docs/plugins.md](docs/plugins.md) explains how to write one, and
+The quickest start is [the example plugin](examples/sous-signal-todo),
+about fifty lines of plain shell. [docs/plugins.md](docs/plugins.md)
+explains the contract, which is stable and only grows until 1.0, and
 [CONTRIBUTING.md](CONTRIBUTING.md) explains how to send it in. Connectors we
 would especially like to see: Jira, Linear, Gitea, Bitbucket, Azure DevOps,
 Sentry, and CI status.
@@ -448,8 +450,8 @@ sous is young: version 0.1, still before 1.0. Commands and flags may change
 between minor versions, and every change is noted in
 [CHANGELOG.md](CHANGELOG.md). Your data files are always carried forward: a
 new version upgrades them, and an older version refuses a newer file rather
-than damaging it. The plugin contract is still a draft and will be frozen
-before 1.0.
+than damaging it. The plugin contract is stable: until 1.0 it only grows,
+and 1.0 freezes it.
 
 ## License
 

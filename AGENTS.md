@@ -50,6 +50,8 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/signal     the signal contract, the runner, what has been seen before, and the git, GitHub and GitLab signals
     internal/backend    the backend contract, FOLLOWUPS.md, and GitHub and GitLab issues
     internal/backend/backendtest   the rules every backend must pass
+    internal/signal/signaltest     the rules every signal must pass
+    examples/sous-signal-todo      a small plugin in plain shell, for people starting their own
     internal/tracker    gh and glab: which account or host a project uses, running them safely, and the ref format
     internal/launcher   the launcher contract, and Claude Code and Codex
     internal/plugin     the one way sous runs another program: find it by name, run it with a time limit

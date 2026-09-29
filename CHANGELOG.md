@@ -7,6 +7,23 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+* Failing checks on your open pull requests are on you: "checks failing ·
+  PR #14". A new push ends a snooze on the row.
+* Unread GitHub notifications addressed to you are on you: mentions, team
+  mentions and assignments on issues and pull requests. Reading the
+  notification on GitHub clears the row. Notifications need a classic
+  token; if yours cannot read them, sous says how to fix it
+  (`gh auth refresh -s notifications`).
+* `sous config` shows every setting and changes them, for everything or
+  for one project (`-p api`, or `-p 'acme/*'`), checking values first and
+  keeping the file's comments and layout.
+* The plugin contract is stable: version 0 only grows until 1.0, which
+  freezes it. docs/plugins.md says what that promises.
+* An example plugin, `examples/sous-signal-todo`, in plain shell, and a
+  conformance suite for signal plugins (`signaltest`) alongside the one
+  for backends.
+
 ## [0.1.7]
 
 ### Fixed

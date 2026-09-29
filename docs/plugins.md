@@ -4,9 +4,20 @@ A plugin teaches sous something new: a place where work waits on you, a
 tracker to file notes in, or a way to start work in a project. This guide
 shows how to write one.
 
-**The contract is a draft (v0).** It may still change before 1.0. Every
-message carries a version field `v`, so a plugin and sous can always tell
-which version they are speaking, and a change will never be silent.
+**The contract is version 0, and it is stable.** Everything on this page
+is what sous speaks today and will keep speaking. Until 1.0 it only grows:
+new optional fields, new optional calls, new exit codes you may use. A
+plugin written today keeps working. Anything that would break a plugin
+waits for a new contract version, which sous will speak alongside this one
+for a while. Freezing the contract for good is what 1.0 means.
+
+Every message carries its version in `v`, so a plugin and sous can always
+tell which version they are speaking.
+
+**The quickest start** is the example plugin,
+[examples/sous-signal-todo](../examples/sous-signal-todo): about fifty lines
+of plain shell that turn `TODO(me)` comments into a row per project. Copy
+it and change what it looks for.
 
 ## The basics
 
@@ -22,11 +33,11 @@ Any language works. sous passes arguments, writes to your standard input,
 and reads your standard output. Anything you print to standard error is
 shown to the person when something goes wrong, so make it a clear sentence.
 
-sous runs a plugin only when it is listed in `~/.sous/config.toml`:
+sous runs a plugin only when it is listed in its settings:
 
-```toml
-plugins = ["~/.sous/plugins/sous-backend-jira"]
-```
+    sous config plugins ~/.sous/plugins/sous-backend-jira
+
+(or `plugins = [...]` in `~/.sous/config.toml`).
 
 Each run has a time limit (15 seconds for most calls). When time is up, sous
 stops your program and any programs it started.
@@ -52,7 +63,7 @@ you find:
 | `v` | contract version, `0` |
 | `id` | starts with `s:`; must stay the same for the same thing on every run |
 | `project` | one of the folders you were given |
-| `kind` | `me` (waiting on you), `them` (waiting on someone else), `unfinished` (work left behind) |
+| `kind` | `me` (waiting on you), `them` (waiting on someone else), `unfinished` (work left behind), `info` (a fact for `sous here`, never a row on the board) |
 | `text` | one short line, as the person should read it |
 | `observed` | when it began waiting, if you know; sous uses this for its age |
 | `ref` | optional pointer to the item, like `github:owner/repo#14` |
@@ -96,9 +107,10 @@ The `file` request looks like this:
 ```
 
 `id` is the short number the person types. `uid` never changes, is unique
-across installs, and is always sent: use it to recognize the note again. `legacy` is true only for notes made before
-sous 0.1.1: a built in backend then also looks for the older marker it may
-have left, which carried the note's number.
+across installs, and is always sent: use it to recognize the note again.
+`legacy` is true only for notes made before sous 0.1.1: a built in backend
+then also looks for the older marker it may have left, which carried the
+note's number. Ignore fields you do not know; more may be added.
 
 Refuse a `v` you do not know with exit code `2`.
 
@@ -128,12 +140,18 @@ off, which you can pass to an agent as its first message.
 
 ## Testing your plugin
 
-The conformance suite in `internal/backend/backendtest` checks a backend
-against every rule above, and `RunDoor` drives your program exactly the way
-sous does. Go only lets code inside the sous repository import it, so run it
-from a small test in a sous checkout:
+Two conformance suites check a plugin against every rule above, running it
+exactly the way sous does: `internal/signal/signaltest` for signals and
+`internal/backend/backendtest` for backends. The example plugin and sous's
+own built ins pass them. Go only lets code inside the sous repository
+import them, so run them from a small test in a sous checkout:
 
 ```go
+func TestTodoConforms(t *testing.T) {
+	signaltest.Run(t, []string{"/path/to/sous-signal-todo", "scan"},
+		[]string{"/path/to/a/project/with/something/to/report"})
+}
+
 func TestJiraConforms(t *testing.T) {
 	b := backend.Backends("", nil, []string{"/path/to/sous-backend-jira"})[0]
 	backendtest.RunDoor(t, b, "/path/to/a/project/it/detects")

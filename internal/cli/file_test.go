@@ -12,6 +12,7 @@ import (
 
 	"github.com/bilal-/sous/internal/backend"
 	"github.com/bilal-/sous/internal/backend/backendtest"
+	"github.com/bilal-/sous/internal/signal/signaltest"
 )
 
 func TestMarkdownBackendViaRunner(t *testing.T) {
@@ -401,4 +402,26 @@ func TestMarkdownConformsThroughTheDoor(t *testing.T) {
 	p := t.TempDir()
 	os.WriteFile(filepath.Join(p, backend.MarkdownFile), []byte("# Follow-ups\n"), 0o644)
 	backendtest.RunDoor(t, backend.Backends(exe, []string{"markdown"}, nil)[0], p)
+}
+
+// The built-in git signal, reached through the same door as any plugin,
+// meets the signal contract.
+func TestGitSignalConformsThroughTheDoor(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	os.WriteFile(filepath.Join(p, "x.txt"), []byte("uncommitted"), 0o644)
+	exe, _ := os.Executable()
+	signaltest.Run(t, []string{exe, "signal", "git", "scan"}, []string{p})
+}
+
+// The example plugin in examples/ meets the signal contract: a working
+// starting point for anyone writing one.
+func TestExamplePluginConforms(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	os.WriteFile(filepath.Join(p, "x.go"), []byte("// TODO(me) finish this\n"), 0o644)
+	f.git(p, "add", "x.go")
+	quiet := f.mkrepo("acme/web", true)
+	example, _ := filepath.Abs(filepath.Join("..", "..", "examples", "sous-signal-todo"))
+	signaltest.Run(t, []string{example, "scan"}, []string{p, quiet})
 }

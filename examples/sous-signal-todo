@@ -1,0 +1,55 @@
+#!/bin/sh
+# sous-signal-todo: an example sous signal plugin, in plain POSIX sh.
+#
+# For each project folder sous gives it on standard input, it counts the
+# lines in files git tracks that say TODO(me), and reports one "unfinished"
+# row per project that has any. Copy it to start your own plugin.
+#
+# Try it:   echo ~/code/acme/api | ./sous-signal-todo scan
+# Use it:   sous config plugins /path/to/sous-signal-todo
+#
+# The contract, in short (docs/plugins.md has the rest):
+#   * called as: sous-signal-todo scan
+#   * reads project folders, one per line, on standard input
+#   * prints one JSON object per line for each finding
+#   * exits 0 when it checked everything, non zero when it could not
+#     (sous then keeps what it reported before, marked stale)
+#   * exits 3 when it is not set up here (here: git is missing)
+set -u
+
+[ "${1:-}" = scan ] || { echo "usage: sous-signal-todo scan" >&2; exit 2; }
+command -v git >/dev/null 2>&1 || { echo "git not installed" >&2; exit 3; }
+
+# hash: the first 12 hex characters of the SHA-256 of standard input.
+if command -v sha256sum >/dev/null 2>&1; then
+  hash() { sha256sum | cut -c1-12; }
+elif command -v shasum >/dev/null 2>&1; then
+  hash() { shasum -a 256 | cut -c1-12; }
+else
+  echo "needs sha256sum or shasum" >&2
+  exit 3
+fi
+
+# json: a string as a JSON string (backslashes and quotes escaped; project
+# paths rarely hold anything else, and control characters are dropped).
+json() { printf '%s' "$1" | tr -d '\000-\037' | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+status=0
+while IFS= read -r project; do
+  [ -n "$project" ] || continue
+  # git grep exits 1 when nothing matches: that is an answer, not a failure.
+  matches=$(git -C "$project" grep -n -F 'TODO(me)' 2>/dev/null)
+  case $? in
+    0) ;;
+    1) continue ;;
+    *) echo "could not search $project" >&2; status=1; continue ;;
+  esac
+  count=$(printf '%s\n' "$matches" | wc -l | tr -d ' ')
+  # The id stays the same for this project; the state changes when the
+  # TODO lines do, so a snooze ends when they change.
+  id="s:$(printf '%s\ttodo' "$project" | hash)"
+  state=$(printf '%s' "$matches" | hash)
+  printf '{"v":0,"id":"%s","project":"%s","kind":"unfinished","text":"%s TODO(me) left","state":"%s"}\n' \
+    "$id" "$(json "$project")" "$count" "$state"
+done
+exit $status
