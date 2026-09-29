@@ -9,7 +9,6 @@ import (
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/testutil"
-	"github.com/bilal-/sous/internal/tracker"
 	"github.com/bilal-/sous/internal/tracker/trackertest"
 )
 
@@ -174,7 +173,7 @@ esac`)
 
 func fakeGLab(t *testing.T, calls, body string) {
 	// Real glab prints notices on stderr beside JSON on stdout.
-	testutil.FakeBin(t, "glab", "echo \"$*\" >> "+calls+"\necho 'DEPRECATION WARNING: x' >&2\n"+body)
+	trackertest.Fake(t, "glab", "echo \"$*\" >> "+calls+"\necho 'DEPRECATION WARNING: x' >&2\n"+body)
 }
 
 func TestGitLabBackendLifecycle(t *testing.T) {
@@ -244,8 +243,6 @@ esac`)
 // Review F16: a project hosted elsewhere (Bitbucket, Gitea) is simply not a
 // GitLab project; only a GitLab-looking host glab doesn't know gets the hint.
 func TestGitLabLocateHintsOnlyForGitLabHosts(t *testing.T) {
-	tracker.ResetCache()
-	t.Cleanup(tracker.ResetCache)
 	fakeGLab(t, filepath.Join(t.TempDir(), "calls"), `echo "No hosts are configured on this machine." >&2; exit 1`)
 	g := GitLab(t.TempDir(), &config.Config{})
 	var warn bytes.Buffer

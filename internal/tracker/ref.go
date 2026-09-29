@@ -19,7 +19,7 @@ type Ref struct {
 }
 
 // defaultHost: trackers whose host goes unwritten.
-var defaultHost = map[string]string{"github": "github.com"}
+var defaultHost = map[string]string{"github": GitHubHost}
 
 func (r Ref) String() string {
 	sep := "#"

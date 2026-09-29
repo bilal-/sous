@@ -112,14 +112,14 @@ func existingRef(all []byte, req Request) string {
 }
 
 func MarkdownFileNote(project string, req Request) (string, error) {
+	if req.UID == "" {
+		return "", errors.New("the request has no uid")
+	}
 	f, err := openLocked(project, true)
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
-	if req.UID == "" {
-		return "", errors.New("the request has no uid")
-	}
 	all, err := io.ReadAll(f)
 	if err != nil {
 		return "", err

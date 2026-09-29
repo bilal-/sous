@@ -15,6 +15,7 @@ import (
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/tracker"
 )
 
 // Version is set at build time: -ldflags "-X github.com/bilal-/sous/internal/cli.Version=v0.1.0".
@@ -201,6 +202,8 @@ func newEnv(cwd string, stdin io.Reader, stdout, stderr io.Writer) *Env {
 	e.Source = os.Getenv("SOUS_SOURCE")
 	e.UserHome, _ = os.UserHomeDir()
 	e.Shell, e.Zdotdir = os.Getenv("SHELL"), os.Getenv("ZDOTDIR")
+	cache, _ := os.UserCacheDir()
+	tracker.Init(e.UserHome, cache)
 	e.Cfg, e.cfgErr = config.Load(home, e.UserHome)
 	if e.Cfg == nil {
 		e.Cfg = &config.Config{Agent: "claude", RefreshHours: 4}

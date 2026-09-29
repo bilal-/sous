@@ -2,9 +2,7 @@ package signal
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"os/exec"
 	"time"
 
 	"github.com/bilal-/sous/internal/config"
@@ -40,24 +38,19 @@ func ghSearch(account string, extra ...string) ([]Hit, error) {
 // ScanGitHub: obligations with a person on the other end, searched once per
 // configured account (the active one plus every github_account in config).
 func ScanGitHub(cfg *config.Config) Scanner {
+	accounts := cfg.Identities("github_account")
 	return RemoteScanner{
 		Name:       "github",
-		Host:       "github.com",
-		Identities: append([]string{""}, cfg.Identities("github_account")...),
-		Configured: len(cfg.Identities("github_account")) > 0,
+		Host:       tracker.GitHubHost,
+		Identities: append([]string{""}, accounts...),
+		Configured: len(accounts) > 0,
 		Available: func() error {
-			if _, err := exec.LookPath("gh"); err != nil {
-				return errors.New("gh not installed")
-			}
 			// Configured accounts are each tried on their own, so a broken
 			// default login alone does not hide what they can see.
-			if len(cfg.Identities("github_account")) > 0 {
-				return nil
+			if len(accounts) > 0 {
+				return tracker.GHInstalled()
 			}
-			if err := exec.Command("gh", "auth", "status").Run(); err != nil {
-				return errors.New("not logged in (run gh auth login)")
-			}
-			return nil
+			return tracker.GHReady("")
 		},
 		Queries: []Query{
 			{Key: "review", Label: "review requested", Item: "PR #", Fetch: func(a string) ([]Hit, error) { return ghSearch(a, "--review-requested=@me") }},

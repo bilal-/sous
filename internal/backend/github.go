@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
@@ -26,7 +25,7 @@ func (githubCLI) Name() string { return "github" }
 
 func (g githubCLI) Locate(projectPath string, _ io.Writer) (Target, bool) {
 	host, path := tracker.ParseRemote(project.Remote(projectPath))
-	if host != "github.com" {
+	if host != tracker.GitHubHost {
 		return Target{}, false
 	}
 	return Target{Host: host, Repo: path, Identity: tracker.GitHubAccount(g.cfg, project.OrgName(projectPath))}, true
@@ -48,11 +47,7 @@ func (g githubCLI) run(t Target, args ...string) (string, error) {
 }
 
 func (g githubCLI) Available(t Target, warn io.Writer) bool {
-	if _, err := exec.LookPath("gh"); err != nil {
-		fmt.Fprintln(warn, "gh not installed")
-		return false
-	}
-	if _, err := g.run(t, "auth", "status"); err != nil {
+	if err := tracker.GHReady(t.Identity); err != nil {
 		fmt.Fprintln(warn, err)
 		return false
 	}

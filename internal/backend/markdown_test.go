@@ -256,3 +256,11 @@ func TestMarkdownFilingRequiresAUID(t *testing.T) {
 		t.Fatal("a request without a uid must be refused")
 	}
 }
+
+func TestRefusedRequestLeavesNoFile(t *testing.T) {
+	p := t.TempDir()
+	MarkdownFileNote(p, Request{ID: 1, Project: p, Text: "x", Kind: "me"})
+	if _, err := os.Stat(filepath.Join(p, MarkdownFile)); err == nil {
+		t.Fatal("a refused request created FOLLOWUPS.md")
+	}
+}

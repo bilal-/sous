@@ -152,8 +152,8 @@ func TestInstallIDRefusesToReplaceADamagedFile(t *testing.T) {
 // Reading tokens is one at a time across processes, so a gh upgrade asks
 // for keychain access once rather than once per parallel check.
 func TestTokenReadsNeverOverlap(t *testing.T) {
-	t.Setenv("HOME", t.TempDir()) // the lock lives in the user cache folder
-	t.Setenv("XDG_CACHE_HOME", "")
+	Init(t.TempDir(), t.TempDir())
+	t.Cleanup(func() { Init("", "") })
 	lock := filepath.Join(t.TempDir(), "busy")
 	testutil.FakeBin(t, "gh", `mkdir "`+lock+`" 2>/dev/null || { echo overlap >&2; exit 1; }; sleep 0.2; rmdir "`+lock+`"; echo tok`)
 	var wg sync.WaitGroup
@@ -176,24 +176,35 @@ func TestTokenReadsNeverOverlap(t *testing.T) {
 // the machine.
 func TestParseRemoteResolvesSSHAliases(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
-	os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
+	os.MkdirAll(filepath.Join(home, ".ssh", "conf.d"), 0o700)
 	os.WriteFile(filepath.Join(home, ".ssh", "config"), []byte(`
+Include conf.d/*
 Match exec "touch `+filepath.Join(home, "ran")+`"
   User nobody
-Host gh-work gh-*
+Host gh-work gh-* !gh-private
   HostName github.com
   User git
-Host lab
+Host github.com-work
+  HostName "github.com"
+Host LAB
     hostname GIT.EXAMPLE.ORG
+Host github.com
+  HostName ssh.github.com
+Host *
+  User git
 `), 0o600)
-	resetSSHAliases()
+	os.WriteFile(filepath.Join(home, ".ssh", "conf.d", "work"), []byte("Host work-lab\n  HostName git.example.org\n"), 0o600)
+	Init(home, t.TempDir())
+	t.Cleanup(func() { Init("", "") })
 	for in, want := range map[string]string{
-		"gh-work/acme/api": "github.com",
-		"gh-home/acme/api": "github.com",
-		"lab/team/web":     "git.example.org",
-		"github.com/a/b":   "github.com",
-		"unknown/team/web": "",
+		"gh-work/acme/api":         "github.com",
+		"gh-home/acme/api":         "github.com",
+		"gh-private/acme/api":      "",
+		"github.com-work/acme/api": "github.com",
+		"lab/team/web":             "git.example.org",
+		"work-lab/team/web":        "git.example.org",
+		"github.com/a/b":           "github.com", // never remapped (ssh.github.com is a port trick)
+		"unknown/team/web":         "",
 	} {
 		if host, _ := ParseRemote(in); host != want {
 			t.Errorf("%q → %q, want %q", in, host, want)

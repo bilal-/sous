@@ -85,7 +85,7 @@ func markers(home string, req Request) ([]string, error) {
 	}
 	inst, err := tracker.InstallID(home)
 	if err != nil {
-		return nil, err
+		return []string{markerComment(req.UID)}, nil // no old marker to look for
 	}
 	return []string{markerComment(req.UID), markerComment(fmt.Sprintf("%s:%d", inst, req.ID))}, nil
 }

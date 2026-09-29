@@ -9,7 +9,7 @@ import (
 	"github.com/bilal-/sous/internal/backend/backendtest"
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/testutil"
-	"github.com/bilal-/sous/internal/tracker"
+	"github.com/bilal-/sous/internal/tracker/trackertest"
 )
 
 func TestMarkdownConforms(t *testing.T) {
@@ -69,10 +69,8 @@ esac`
 
 // remoteFixture: a project on remote, and a stateful fake of tool in PATH.
 func remoteFixture(t *testing.T, tool, script, remote string) (home, project string) {
-	tracker.ResetCache()
-	t.Cleanup(tracker.ResetCache)
 	t.Setenv("STATE", t.TempDir())
-	testutil.FakeBin(t, tool, script)
+	trackertest.Fake(t, tool, script)
 	home = t.TempDir()
 	os.WriteFile(filepath.Join(home, "install-id"), []byte("abcd1234\n"), 0o644)
 	project = testutil.Repo(t, filepath.Join(t.TempDir(), "acme", "chime"), true, remote)

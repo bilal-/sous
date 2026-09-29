@@ -13,6 +13,7 @@ import (
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/testutil"
 	"github.com/bilal-/sous/internal/tracker"
+	"github.com/bilal-/sous/internal/tracker/trackertest"
 )
 
 func TestScanGitLab(t *testing.T) {
@@ -24,7 +25,7 @@ func TestScanGitLab(t *testing.T) {
 	gh := repo(t, filepath.Join(ws, "o/r"), true)
 	git(t, gh, "remote", "add", "origin", "git@github.com:o/r.git")
 	calls := filepath.Join(t.TempDir(), "calls")
-	testutil.FakeBin(t, "glab", `echo "$*" >> `+calls+`
+	trackertest.Fake(t, "glab", `echo "$*" >> `+calls+`
 case "$*" in
   *"auth status"*) echo "git.example.org"; exit 0;;
   *"--hostname git.example.org api user"*) printf '{"id":37,"username":"dev"}';;
@@ -62,11 +63,13 @@ esac`)
 	}
 }
 
-func TestScanGitLabNotApplicableWithoutHosts(t *testing.T) {
-	testutil.FakeBin(t, "glab", `echo "No hosts are configured" >&2; exit 1`)
-	var out, warn bytes.Buffer
-	if err := ScanGitLab(&config.Config{})([]string{t.TempDir()}, &out, &warn, time.Now()); err != nil || out.Len() != 0 || warn.Len() != 0 {
-		t.Fatalf("no gitlab at all must be silent success: %v %q %q", err, out.String(), warn.String())
+// No GitLab at all is "not set up": nothing is reported, and the board
+// stays quiet about it (see board's not-set-up rule).
+func TestScanGitLabWithoutHostsIsNotSetUp(t *testing.T) {
+	trackertest.Fake(t, "glab", `echo "No hosts are configured" >&2; exit 1`)
+	var out bytes.Buffer
+	if err := ScanGitLab(&config.Config{})([]string{t.TempDir()}, &out, io.Discard, time.Now()); !errors.Is(err, ErrNotSetUp) || out.Len() != 0 {
+		t.Fatalf("%v %q", err, out.String())
 	}
 }
 
@@ -76,7 +79,7 @@ func TestScanGitLabIgnoresStderrNotices(t *testing.T) {
 	ws := t.TempDir()
 	r := repo(t, filepath.Join(ws, "a/r"), true)
 	git(t, r, "remote", "add", "origin", "https://git.example.org/g/r.git")
-	testutil.FakeBin(t, "glab", `echo "DEPRECATION WARNING: something" >&2
+	trackertest.Fake(t, "glab", `echo "DEPRECATION WARNING: something" >&2
 case "$*" in
   *"auth status"*) echo "git.example.org";;
   *"api user"*) printf '{"username":"me"}';;
@@ -95,9 +98,7 @@ esac`)
 // Review: glab failing to say which hosts it knows is a failed scan, so the
 // runner keeps last findings stale instead of dropping them as resolved.
 func TestScanGitLabFailsWhenHostsUnknown(t *testing.T) {
-	tracker.ResetCache()
-	t.Cleanup(tracker.ResetCache)
-	testutil.FakeBin(t, "glab", `echo "could not reach keyring" >&2; exit 1`)
+	trackertest.Fake(t, "glab", `echo "could not reach keyring" >&2; exit 1`)
 	var out, warn bytes.Buffer
 	if err := ScanGitLab(&config.Config{})(nil, &out, &warn, time.Now()); err == nil || !strings.Contains(warn.String(), "keyring") {
 		t.Fatalf("err=%v warn=%q", err, warn.String())
@@ -116,7 +117,7 @@ func TestScanGitLabNotSetUp(t *testing.T) {
 		if glab == "" {
 			testutil.OnlyGit(t)
 		} else {
-			testutil.FakeBin(t, "glab", glab)
+			trackertest.Fake(t, "glab", glab)
 		}
 		if err := ScanGitLab(&config.Config{})(nil, io.Discard, io.Discard, time.Now()); !errors.Is(err, ErrNotSetUp) {
 			t.Errorf("%s: %v", name, err)

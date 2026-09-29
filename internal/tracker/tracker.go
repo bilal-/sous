@@ -158,7 +158,7 @@ func GitLabHosts(cfg *config.Config) ([]string, error) {
 // glabHosts parses `glab auth status`. It exits non-zero when any host is
 // logged out, so host lines in the output count as an answer either way.
 func glabHosts() ([]string, error) {
-	if _, err := exec.LookPath("glab"); err != nil {
+	if GLabInstalled() != nil {
 		return []string{}, nil
 	}
 	out, err := GLab("", "auth", "status").CombinedOutput()
@@ -218,68 +218,122 @@ func GLab(host string, args ...string) *exec.Cmd {
 
 // ParseRemote splits "host/path/to/repo" as produced by project.Remote.
 //
-// A host with no dot is taken as an alias from ~/.ssh/config (Host gh-work,
-// HostName github.com), so a remote like gh-work:acme/api counts as GitHub.
+// A host that ~/.ssh/config maps to another (Host gh-work, HostName
+// github.com) is read as that host, so gh-work:acme/api counts as GitHub.
 func ParseRemote(remote string) (host, path string) {
 	host, path, ok := strings.Cut(remote, "/")
-	if ok && !strings.Contains(host, ".") {
+	if !ok {
+		return "", ""
+	}
+	if host != GitHubHost { // never remap github.com (ssh.github.com is a port trick)
 		host = sshAlias(host)
 	}
-	if !ok || !strings.Contains(host, ".") {
+	if !strings.Contains(host, ".") {
 		return "", ""
 	}
 	return host, path
 }
 
+// GitHubHost is GitHub's host, the one tracker whose host is fixed.
+const GitHubHost = "github.com"
+
 var (
-	sshOnce    sync.Once
-	sshAliases map[string]string
+	envMu    sync.Mutex
+	userHome string // set by Init from cli; "" reads no ssh config
+	cacheDir string // for the gh token lock
+	sshOnce  sync.Once
+	sshHosts []sshBlock
 )
 
-func resetSSHAliases() { sshOnce = sync.Once{} }
+// Init tells tracker where the person's home and cache folders are. cli
+// calls it once; nothing in tracker reads the environment for them.
+func Init(home, cache string) {
+	envMu.Lock()
+	defer envMu.Unlock()
+	userHome, cacheDir = home, cache
+	sshOnce = sync.Once{}
+}
 
-// sshAlias looks an alias up in ~/.ssh/config: the HostName of the first
-// Host block whose pattern matches. The file is only read, never run (ssh
-// -G would run Match exec lines), and read once per process.
+func homeAndCache() (string, string) {
+	envMu.Lock()
+	defer envMu.Unlock()
+	return userHome, cacheDir
+}
+
+// sshBlock is one Host block that sets a HostName.
+type sshBlock struct {
+	patterns []string // "!pat" excludes
+	hostname string
+}
+
+func (b sshBlock) matches(alias string) bool {
+	matched := false
+	for _, p := range b.patterns {
+		neg := strings.HasPrefix(p, "!")
+		if ok, _ := filepath.Match(strings.TrimPrefix(p, "!"), alias); ok {
+			if neg {
+				return false
+			}
+			matched = true
+		}
+	}
+	return matched
+}
+
+// sshAlias is the HostName ssh would use for alias: from the first Host
+// block that matches it, as ssh takes the first value it finds. The config
+// is only read, never run (ssh -G would run Match exec lines), and read
+// once per Init.
 func sshAlias(alias string) string {
-	sshOnce.Do(func() { sshAliases = readSSHConfig() })
-	for _, pat := range sshAliasOrder {
-		if ok, _ := filepath.Match(pat, alias); ok {
-			return sshAliases[pat]
+	home, _ := homeAndCache()
+	sshOnce.Do(func() { sshHosts = readSSHConfig(filepath.Join(home, ".ssh", "config"), home, 0) })
+	alias = strings.ToLower(alias)
+	for _, b := range sshHosts {
+		if b.matches(alias) {
+			return strings.ReplaceAll(b.hostname, "%h", alias)
 		}
 	}
 	return alias
 }
 
-var sshAliasOrder []string
-
-func readSSHConfig() map[string]string {
-	sshAliasOrder = nil
-	out := map[string]string{}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return out
+// readSSHConfig reads the Host blocks that set a HostName, in order,
+// following Include (relative to ~/.ssh). Match blocks are skipped: their
+// conditions may run commands.
+func readSSHConfig(path, home string, depth int) []sshBlock {
+	if home == "" || depth > 8 {
+		return nil
 	}
-	b, err := os.ReadFile(filepath.Join(home, ".ssh", "config"))
+	b, err := os.ReadFile(path)
 	if err != nil {
-		return out
+		return nil
 	}
+	var out []sshBlock
 	var patterns []string
+	hostnameSet := false
 	for _, line := range strings.Split(string(b), "\n") {
-		fields := strings.Fields(strings.ReplaceAll(line, "=", " "))
-		if len(fields) < 2 || strings.HasPrefix(fields[0], "#") {
-			continue
-		}
-		switch strings.ToLower(fields[0]) {
+		key, args := sshLine(line)
+		switch key {
 		case "host":
-			patterns = fields[1:]
+			patterns, hostnameSet = args, false
+			for i := range patterns {
+				patterns[i] = strings.ToLower(patterns[i])
+			}
 		case "match":
-			patterns = nil // conditions sous does not evaluate
+			patterns = nil
 		case "hostname":
-			for _, p := range patterns {
-				if _, seen := out[p]; !seen && !strings.HasPrefix(p, "!") {
-					out[p] = strings.ToLower(fields[1])
-					sshAliasOrder = append(sshAliasOrder, p)
+			if len(patterns) > 0 && len(args) > 0 && !hostnameSet {
+				out = append(out, sshBlock{patterns: patterns, hostname: strings.ToLower(args[0])})
+				hostnameSet = true
+			}
+		case "include":
+			for _, inc := range args {
+				if !filepath.IsAbs(inc) && !strings.HasPrefix(inc, "~") {
+					inc = filepath.Join(home, ".ssh", inc)
+				}
+				inc = strings.Replace(inc, "~", home, 1)
+				files, _ := filepath.Glob(inc)
+				for _, f := range files {
+					out = append(out, readSSHConfig(f, home, depth+1)...)
 				}
 			}
 		}
@@ -287,16 +341,31 @@ func readSSHConfig() map[string]string {
 	return out
 }
 
+// sshLine splits one ssh config line into its lowercased keyword and its
+// arguments, with quotes removed. "Key=value" is allowed.
+func sshLine(line string) (string, []string) {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return "", nil
+	}
+	key, rest, _ := strings.Cut(strings.Replace(line, "=", " ", 1), " ")
+	var args []string
+	for _, f := range strings.Fields(rest) {
+		args = append(args, strings.Trim(f, `"`))
+	}
+	return strings.ToLower(key), args
+}
+
 // tokenLock takes a per-user lock around gh token reads, waiting at most a
 // minute (long enough to answer a keychain prompt). It lives in the user's
 // cache folder, not the shared temp folder. nil means no lock was taken,
 // and the read goes ahead anyway.
 func tokenLock() func() {
-	dir, err := os.UserCacheDir()
-	if err != nil {
+	_, cache := homeAndCache()
+	if cache == "" {
 		return nil
 	}
-	dir = filepath.Join(dir, "sous")
+	dir := filepath.Join(cache, "sous")
 	if os.MkdirAll(dir, 0o700) != nil {
 		return nil
 	}
@@ -313,4 +382,43 @@ func tokenLock() func() {
 			return nil
 		}
 	}
+}
+
+// GHReady says why gh cannot be used as account ("" for gh's active
+// account): not installed, or not logged in. nil when it can.
+func GHReady(account string) error {
+	if err := installed("gh"); err != nil {
+		return err
+	}
+	if _, err := GHRun(account, "auth", "status"); err != nil {
+		if account != "" {
+			return err // names the account and what to do
+		}
+		return errors.New("not logged in (run gh auth login)")
+	}
+	return nil
+}
+
+// GLabReady says why glab cannot be used for host: not installed, or not
+// logged in there. nil when it can.
+func GLabReady(host string) error {
+	if err := installed("glab"); err != nil {
+		return err
+	}
+	if _, err := GLabRun(host, "auth", "status"); err != nil {
+		return fmt.Errorf("not logged in to %s (run glab auth login --hostname %s)", host, host)
+	}
+	return nil
+}
+
+// GHInstalled and GLabInstalled: is the tool on PATH?
+func GHInstalled() error   { return installed("gh") }
+func GLabInstalled() error { return installed("glab") }
+
+// installed: is tool on PATH? The error says it is not.
+func installed(tool string) error {
+	if _, err := exec.LookPath(tool); err != nil {
+		return errors.New(tool + " not installed")
+	}
+	return nil
 }

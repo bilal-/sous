@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -63,8 +62,8 @@ func ScanGitLab(cfg *config.Config) Scanner {
 		Identities: hosts,
 		Configured: len(cfg.GitLabHosts) > 0,
 		Available: func() error {
-			if _, err := exec.LookPath("glab"); err != nil {
-				return errors.New("glab not installed")
+			if err := tracker.GLabInstalled(); err != nil {
+				return err
 			}
 			if hostsErr != nil {
 				return hostsErr

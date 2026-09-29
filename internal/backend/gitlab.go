@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os/exec"
 	"slices"
 	"strings"
 
@@ -36,7 +35,7 @@ func (g gitlabCLI) knownHost(host string) (bool, error) {
 
 func (g gitlabCLI) Locate(projectPath string, warn io.Writer) (Target, bool) {
 	host, path := tracker.ParseRemote(project.Remote(projectPath))
-	if host == "" || host == "github.com" {
+	if host == "" || host == tracker.GitHubHost {
 		return Target{}, false
 	}
 	known, err := g.knownHost(host)
@@ -73,12 +72,8 @@ func (gitlabCLI) api(t Target, args ...string) (string, error) {
 }
 
 func (g gitlabCLI) Available(t Target, warn io.Writer) bool {
-	if _, err := exec.LookPath("glab"); err != nil {
-		fmt.Fprintln(warn, "glab not installed")
-		return false
-	}
-	if _, err := tracker.GLabRun(t.Host, "auth", "status"); err != nil {
-		fmt.Fprintf(warn, "%s: %v\n", t.Host, err)
+	if err := tracker.GLabReady(t.Host); err != nil {
+		fmt.Fprintln(warn, err)
 		return false
 	}
 	return true
