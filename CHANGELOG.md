@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.2.3]
+
 ### Fixed
 * With `glab` installed but never logged in, sous took gitlab.com as a
   host you use, so every board showed GitLab as failed and `sous doctor`
