@@ -137,12 +137,45 @@ Do not edit the `<!-- sous:... -->` markers by hand. Tick a box to close one.
 
 ## Versions
 
-There are three kinds. The command's version comes from the git tag. The
+There are three kinds. The command's version comes from the git tag (see
+Releasing). The
 plugin contract has its own number (`v`) and freezes before 1.0. Data files
 have a `version` each and are always upgraded, never broken. 1.0 is a
 promise that the plugin contract is stable, not a measure of popularity.
 Add a line to `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) for every
 change a person would notice.
+
+## Releasing
+
+There is one branch, `main`, and it always works: every change lands there
+with `make ci` passing. There are no release branches.
+
+Every commit already has its own version. A build from source reports
+something like `v0.1.0-5-g21e7aa8`, meaning five commits after 0.1.0.
+Nobody bumps a number per commit.
+
+A release is a tag, made when there is something worth handing to people:
+
+1. In [CHANGELOG.md](CHANGELOG.md), rename `[Unreleased]` to the new
+   version and start a fresh, empty `[Unreleased]` above it.
+2. Commit that, then tag and push:
+
+       git tag v0.1.1
+       git push origin main v0.1.1
+
+3. The release workflow tests the tag, builds the downloads for macOS and
+   Linux, and publishes them on GitHub with checksums.
+
+Which number to raise, before 1.0:
+
+* **patch** (0.1.0 to 0.1.1): fixes and small improvements.
+* **minor** (0.1.x to 0.2.0): new features, or any change to how a command,
+  flag, output or the plugin contract behaves.
+* **1.0**: when the plugin contract is frozen. After 1.0, breaking changes
+  raise the major number.
+
+Only if people ever need fixes on an older line while newer work goes on do
+we create a branch such as `release/0.1` from its last tag, and only then.
 
 ## Commit messages
 
