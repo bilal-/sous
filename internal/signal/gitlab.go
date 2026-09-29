@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os/exec"
 	"strings"
 	"time"
@@ -62,23 +61,16 @@ func ScanGitLab(cfg *config.Config) Scanner {
 	return RemoteScanner{
 		Name:       "gitlab",
 		Identities: hosts,
-		Available: func(warn io.Writer) error {
-			// Could not tell which hosts: a failure, so last findings go stale
-			// rather than vanish.
+		Configured: len(cfg.GitLabHosts) > 0,
+		Available: func() error {
+			if _, err := exec.LookPath("glab"); err != nil {
+				return errors.New("glab not installed")
+			}
 			if hostsErr != nil {
-				fmt.Fprintln(warn, hostsErr)
-				if len(cfg.GitLabHosts) == 0 {
-					return ErrNotSetUp // glab present but never logged in
-				}
 				return hostsErr
 			}
-			// No GitLab in this person's life: nothing to check, nothing failed.
 			if len(hosts) == 0 {
-				return errNotApplicable
-			}
-			if _, err := exec.LookPath("glab"); err != nil {
-				fmt.Fprintln(warn, "glab not installed")
-				return errors.New("glab not installed")
+				return errors.New("not logged in to any GitLab host (run glab auth login)")
 			}
 			return nil
 		},

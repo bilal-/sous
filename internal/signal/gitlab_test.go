@@ -2,6 +2,8 @@ package signal
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,5 +101,30 @@ func TestScanGitLabFailsWhenHostsUnknown(t *testing.T) {
 	var out, warn bytes.Buffer
 	if err := ScanGitLab(&config.Config{})(nil, &out, &warn, time.Now()); err == nil || !strings.Contains(warn.String(), "keyring") {
 		t.Fatalf("err=%v warn=%q", err, warn.String())
+	}
+}
+
+// Review: glab logged out or missing, with nothing in config, is "not set
+// up" (rows seen before are kept stale), never a quiet empty success that
+// drops them.
+func TestScanGitLabNotSetUp(t *testing.T) {
+	for name, glab := range map[string]string{
+		"logged out": `echo "No hosts are configured on this machine." >&2; exit 1`,
+		"missing":    "",
+	} {
+		tracker.ResetCache()
+		if glab == "" {
+			testutil.OnlyGit(t)
+		} else {
+			testutil.FakeBin(t, "glab", glab)
+		}
+		if err := ScanGitLab(&config.Config{})(nil, io.Discard, io.Discard, time.Now()); !errors.Is(err, ErrNotSetUp) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	tracker.ResetCache()
+	testutil.OnlyGit(t)
+	if err := ScanGitLab(&config.Config{GitLabHosts: []string{"git.example.org"}})(nil, io.Discard, io.Discard, time.Now()); err == nil || errors.Is(err, ErrNotSetUp) {
+		t.Fatalf("a configured host without glab is a real failure: %v", err)
 	}
 }

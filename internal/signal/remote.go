@@ -43,24 +43,24 @@ var ErrNotSetUp = errors.New("not set up")
 // ExitNotSetUp is the exit code for ErrNotSetUp in the signal contract.
 const ExitNotSetUp = 3
 
-// errNotApplicable: the tracker is not part of this setup at all (no hosts
-// configured or logged in) — the scan succeeds with nothing to report.
-var errNotApplicable = errors.New("not applicable")
-
 type RemoteScanner struct {
-	Name       string                     // "github" / "gitlab": ref prefix and messages
-	Host       string                     // remote host to match, "" = any
-	Identities []string                   // "" = the tool's own default, plus configured ones
-	Available  func(warn io.Writer) error // tool installed and usable; reason on warn
+	Name       string       // "github" / "gitlab": ref prefix and messages
+	Host       string       // remote host to match, "" = any
+	Identities []string     // "" = the tool's own default, plus configured ones
+	Available  func() error // tool installed and usable; the error says why not
+	// Configured: the person asked for this tracker in config.toml. Then an
+	// unavailable tool is a failure; otherwise it is just not set up here.
+	Configured bool
 	Queries    []Query
 	MR         bool // hits are merge requests: refs use "!" (see tracker.Ref)
 }
 
 // Scan is the Scanner for this tracker.
 func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) error {
-	if err := rs.Available(warn); err != nil {
-		if errors.Is(err, errNotApplicable) {
-			return nil
+	if err := rs.Available(); err != nil {
+		fmt.Fprintf(warn, "%s: %v\n", rs.Name, err)
+		if !rs.Configured {
+			return fmt.Errorf("%w: %v", ErrNotSetUp, err)
 		}
 		return err
 	}
