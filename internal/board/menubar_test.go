@@ -23,7 +23,7 @@ func TestRenderMenubar(t *testing.T) {
 		Checked: 3, RenderedAt: now,
 	}
 	var b bytes.Buffer
-	RenderMenubar(&b, d, "/usr/local/bin/sous", "12m", false)
+	RenderMenubar(&b, d, "/usr/local/bin/sous", now.Add(12*time.Minute), time.Hour*24)
 	out := b.String()
 	if !strings.HasPrefix(out, "⚑ 2\n---\n") {
 		t.Fatalf("title:\n%s", out)
@@ -32,7 +32,7 @@ func TestRenderMenubar(t *testing.T) {
 		"chase / designer · studio/work · 6d | bash=/usr/local/bin/sous param1=go param2=studio/work terminal=true",
 		"review requested · PR #14 · oss/app-next · 2d | bash=/usr/local/bin/sous param1=go param2=oss/app-next terminal=true",
 		"\nunfinished\n-- 6 commits unpushed · acme/chime · 6d",
-		"3 checked · as of Sun 27 Sep 09:02 · cached 12m ago",
+		"3 checked · as of 09:02 · cached 12m ago",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
@@ -46,18 +46,18 @@ func TestRenderMenubar(t *testing.T) {
 	d.Unavailable = 1
 	d.Signals[0].Stale = true
 	b.Reset()
-	RenderMenubar(&b, d, "/s", "9h", true)
+	RenderMenubar(&b, d, "/s", now.Add(9*time.Hour), 0)
 	out = b.String()
 	if !strings.HasPrefix(out, "⚑ 2?\n---\n") || !strings.Contains(out, "github failed · 1 root unavailable · stale rows · cache 9h old | color=orange") || !strings.Contains(out, "2d (stale)") {
 		t.Fatalf("uncertain:\n%s", out)
 	}
 	b.Reset()
-	RenderMenubar(&b, &Data{Checked: 0, Unavailable: 2, RenderedAt: now}, "/s", "0m", false)
+	RenderMenubar(&b, &Data{Checked: 0, Unavailable: 2, RenderedAt: now}, "/s", now, time.Hour*24)
 	if !strings.HasPrefix(b.String(), "⚑ 0?\n") || !strings.Contains(b.String(), "nothing checked") {
 		t.Fatalf("nothing checked must not read as a clean zero:\n%s", b.String())
 	}
 	b.Reset()
-	RenderMenubar(&b, &Data{Checked: 5, RenderedAt: now, Plugins: []signal.PluginStatus{{Name: "git", Status: "ok"}}}, "/s", "0m", false)
+	RenderMenubar(&b, &Data{Checked: 5, RenderedAt: now, Plugins: []signal.PluginStatus{{Name: "git", Status: "ok"}}}, "/s", now, time.Hour*24)
 	if !strings.HasPrefix(b.String(), "⚑ 0\n") {
 		t.Fatalf("clean zero:\n%s", b.String())
 	}
@@ -68,7 +68,7 @@ func TestMenubarShowsUpstreamGaps(t *testing.T) {
 	ref := "github:acme/api#4"
 	d := &Data{Checked: 1, RenderedAt: now, Threads: []thread.View{{Thread: thread.Thread{ID: 1, Project: "/ws/acme/api", Kind: thread.Me, Text: "ship it", Since: now, Ref: &ref}, Upstream: "error", UpstreamErr: "github: HTTP 502"}}}
 	var b bytes.Buffer
-	RenderMenubar(&b, d, "/bin/sous", "1m", false)
+	RenderMenubar(&b, d, "/bin/sous", now.Add(1*time.Minute), time.Hour*24)
 	if !strings.Contains(b.String(), "ship it (status unavailable: github: HTTP 502)") {
 		t.Fatalf("%s", b.String())
 	}

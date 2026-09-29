@@ -131,16 +131,24 @@ func cmdCached(e *Env) int {
 		// detached, and exit 3 so the shell surface doesn't stamp this print.
 		fmt.Fprintln(e.Stdout, "sous: building your board now. It will show in your next shell.")
 		spawnRefresh(e)
-		return 3
+		return exitNoBoardYet
 	}
 	now := time.Now()
-	fmt.Fprint(e.Stdout, *c.Board)
+	if c.Data != nil {
+		board.RenderSaved(e.Stdout, c.Data, now)
+	} else {
+		fmt.Fprint(e.Stdout, *c.Board) // saved by a sous before cached data
+	}
 	fmt.Fprintf(e.Stdout, "  (cached · %s)\n", project.Ago(now, *c.RenderedAt))
 	if now.Sub(*c.RenderedAt) > e.Cfg.RefreshWindow() {
 		spawnRefresh(e)
 	}
 	return 0
 }
+
+// exitNoBoardYet: --cached or --ambient was asked for the board before
+// there was one; a first one is being built.
+const exitNoBoardYet = 3
 
 func spawnRefresh(e *Env) {
 	cmd := exec.Command(e.Exe, "--refresh")

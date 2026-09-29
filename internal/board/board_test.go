@@ -146,10 +146,10 @@ func TestEllipsizeTinyBudget(t *testing.T) {
 
 // "as of 09:02" is ambiguous on a board that is days old: show the date.
 func TestAsOfShowsTheDateWhenNotToday(t *testing.T) {
-	old := time.Now().Add(-72 * time.Hour)
+	old := time.Date(2026, 9, 24, 9, 2, 0, 0, time.Local)
 	var b bytes.Buffer
-	Render(&b, &Data{Checked: 1, RenderedAt: old})
-	if !strings.Contains(b.String(), "as of "+old.Local().Format("Mon 2 Jan 15:04")) {
+	RenderSaved(&b, &Data{Checked: 1, RenderedAt: old}, old.Add(72*time.Hour))
+	if !strings.Contains(b.String(), "as of Thu 24 Sep 09:02") {
 		t.Fatalf("%s", b.String())
 	}
 }
@@ -169,5 +169,14 @@ func TestNotSetUpIsOnlyAGapWhenItHadData(t *testing.T) {
 	Render(&b, &Data{Checked: 2, RenderedAt: now, Plugins: off, Signals: stale})
 	if head := strings.SplitN(b.String(), "\n", 2)[0]; !strings.Contains(head, "? on you (github not set up, stale rows)") {
 		t.Fatalf("%s", head)
+	}
+}
+
+func TestAsOfIsTimeOnlyForToday(t *testing.T) {
+	at := time.Date(2026, 9, 24, 9, 2, 0, 0, time.Local)
+	var b bytes.Buffer
+	RenderSaved(&b, &Data{Checked: 1, RenderedAt: at}, at.Add(3*time.Hour))
+	if !strings.Contains(b.String(), "as of 09:02 ·") {
+		t.Fatalf("%s", b.String())
 	}
 }

@@ -98,9 +98,9 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 
 // asOf is the time of day for a board made today, and the date too for an
 // older one, so a days old cache is never mistaken for this morning's.
-func asOf(t time.Time) string {
-	lt, now := t.Local(), time.Now()
-	if lt.Year() == now.Year() && lt.YearDay() == now.YearDay() {
+func asOf(t, now time.Time) string {
+	lt, ln := t.Local(), now.Local()
+	if lt.Year() == ln.Year() && lt.YearDay() == ln.YearDay() {
 		return lt.Format("15:04")
 	}
 	return lt.Format("Mon 2 Jan 15:04")
@@ -125,7 +125,11 @@ func (r Row) upstreamNote() string {
 // Render lays out the classified board. The headline is what the eye reads:
 // it must not say zero when an obligation source failed or nothing was
 // checked.
-func Render(w io.Writer, d *Data) {
+func Render(w io.Writer, d *Data) { RenderSaved(w, d, d.RenderedAt) }
+
+// RenderSaved draws a saved board as seen at now, so a board from another
+// day says which day.
+func RenderSaved(w io.Writer, d *Data, now time.Time) {
 	s := Classify(d)
 	switch {
 	case d.Checked == 0:
@@ -151,7 +155,7 @@ func Render(w io.Writer, d *Data) {
 	section("unfinished", s.Unfinished)
 
 	fmt.Fprintf(w, "\n  %d checked · %d unavailable%s · as of %s · sous snooze <id> to hide a row\n",
-		d.Checked, d.Unavailable, PluginFailures(d), asOf(d.RenderedAt))
+		d.Checked, d.Unavailable, PluginFailures(d), asOf(d.RenderedAt, now))
 }
 
 // Cache: the last rendered board, so the zsh surface can print in ~5 ms and

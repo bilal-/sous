@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/board"
-	"github.com/bilal-/sous/internal/project"
 )
 
 // cmdMenubar renders SwiftBar output from the cache and nothing else. It
@@ -21,7 +20,6 @@ func cmdMenubar(e *Env) int {
 		fmt.Fprintln(e.Stdout, "⚑ –\n---\nno board yet, open a terminal")
 		return 0
 	}
-	now := time.Now()
-	board.RenderMenubar(e.Stdout, c.Data, e.Exe, project.Age(now, *c.RenderedAt), now.Sub(*c.RenderedAt) > e.Cfg.RefreshWindow())
+	board.RenderMenubar(e.Stdout, c.Data, e.Exe, time.Now(), e.Cfg.RefreshWindow())
 	return 0
 }

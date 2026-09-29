@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/bilal-/sous/internal/project"
 )
@@ -20,7 +21,8 @@ func sanitize(s string) string {
 // RenderMenubar emits SwiftBar's line format from cached data. The title is
 // the on-you count; a trailing ? means some of the picture is missing and the
 // first dropdown line says which part.
-func RenderMenubar(w io.Writer, d *Data, exe, cacheAge string, cacheStale bool) {
+func RenderMenubar(w io.Writer, d *Data, exe string, now time.Time, window time.Duration) {
+	cacheAge, cacheStale := project.Age(now, d.RenderedAt), now.Sub(d.RenderedAt) > window
 	s := Classify(d)
 	why := s.Why
 	if cacheStale {
@@ -45,5 +47,5 @@ func RenderMenubar(w io.Writer, d *Data, exe, cacheAge string, cacheStale bool) 
 		}
 	}
 	fmt.Fprintln(w, "---")
-	fmt.Fprintf(w, "%d checked · as of %s · cached %s ago\n", d.Checked, asOf(d.RenderedAt), cacheAge)
+	fmt.Fprintf(w, "%d checked · as of %s · cached %s ago\n", d.Checked, asOf(d.RenderedAt, now), cacheAge)
 }
