@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"time"
 
@@ -86,36 +85,45 @@ func ReadLinesLenient(r io.Reader) ([]Signal, int) {
 // failed (partial output is still kept by the runner).
 type Scanner func(paths []string, w, warn io.Writer, now time.Time) error
 
-// builtins maps each built-in to its constructor. Construction is deferred
+// builtins are the built-in scanners, in order. Construction is deferred
 // until a scanner is actually run: building the gitlab scanner asks glab
 // which hosts it knows, and a local-only caller must never pay for that.
-var builtins = map[string]func(*config.Config) Scanner{
-	"git":    func(*config.Config) Scanner { return ScanGit },
-	"github": ScanGitHub,
-	"gitlab": ScanGitLab,
+// local: never touches the network, so the resume view (and so the
+// session hook and sous go) may run it; the board runs them all, and here
+// reads what the rest last found from observed.json.
+var builtins = []struct {
+	name  string
+	local bool
+	make  func(*config.Config) Scanner
+}{
+	{"git", true, func(*config.Config) Scanner { return ScanGit }},
+	{"github", false, ScanGitHub},
+	{"gitlab", false, ScanGitLab},
 }
 
 // Builtin constructs one built-in scanner.
 func Builtin(name string, cfg *config.Config) (Scanner, bool) {
-	newScanner, ok := builtins[name]
-	if !ok {
-		return nil, false
+	for _, b := range builtins {
+		if b.name == name {
+			return b.make(cfg), true
+		}
 	}
-	return newScanner(cfg), true
+	return nil, false
 }
 
-// LocalBuiltins are the built-ins that never touch the network. The resume
-// view (and so the session hook and `sous go`) runs only these; the board
-// runs everything and `here` reads the board's observations for the rest.
-func LocalBuiltins() []string { return []string{"git"} }
+// BuiltinNames, for the board's plugin list.
+func BuiltinNames() []string { return builtinNames(false) }
 
-// BuiltinNames, sorted, for the runner's plugin list.
-func BuiltinNames() []string {
-	names := make([]string, 0, len(builtins))
-	for n := range builtins {
-		names = append(names, n)
+// LocalBuiltins, for the resume view's plugin list.
+func LocalBuiltins() []string { return builtinNames(true) }
+
+func builtinNames(localOnly bool) []string {
+	var names []string
+	for _, b := range builtins {
+		if b.local || !localOnly {
+			names = append(names, b.name)
+		}
 	}
-	sort.Strings(names)
 	return names
 }
 

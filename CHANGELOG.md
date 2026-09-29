@@ -34,7 +34,6 @@ upgraded, never broken.
   those rows now follow the files' content.
 * A broken config.toml is reported by new shells instead of "building your
   board now" every time.
-
 * `here` clears git rows as soon as they are gone, instead of after the
   next full board.
 * A source that stopped working is named in the headline even when every
@@ -47,8 +46,18 @@ upgraded, never broken.
   is not its own.
 * ssh host aliases: tabs, `Include` and `!negation` are understood, and a
   real host (such as gitlab.com on port 443) is never renamed.
-* Which notes predate note ids is recorded when your notes file upgrades,
-  so a retried filing can never match someone else's old item.
+* Which notes predate note ids is recorded when your notes file upgrades
+  (`threads.json` becomes version 3, so an older sous will refuse it), so
+  a retried filing can never match someone else's old item.
+* A plugin whose output is partly unreadable, a search that may have been
+  cut short, and a project folder sous cannot read all count as missing
+  data: earlier rows are kept, marked stale, instead of disappearing.
+* A note closed in its tracker that could not be closed in sous stays on
+  the board with the reason, instead of disappearing.
+* FOLLOWUPS.md: checking a note only reads the file, a file sous cannot
+  read is an error rather than "ref missing", and filing and closing use
+  the same safe, locked write as everything else.
+* The report page is private to you, like the rest of `~/.sous`.
 * A failed `gh` or `glab` check shows the tool's own reason; "not logged
   in" only when that is the problem.
 

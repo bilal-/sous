@@ -87,7 +87,7 @@ five commands.
 | `file` | JSON on standard input | the new item's ref | `0` filed, `1` failed, `2` request not understood |
 | `status <project> <ref>` | | `open`, `closed` or `unknown` | `0` answered, `1` could not find out |
 | `close <project> <ref>` | | | `0` closed (closing twice is fine), `1` failed |
-| `url <project> <ref>` | | a web link | `0`, or `2` if you have no links |
+| `url <project> <ref>` | | a web link | `0`, or `2` if you have no links. Optional, and not used by sous yet |
 
 The `file` request looks like this:
 

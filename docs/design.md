@@ -114,7 +114,8 @@ standard output, and runs with a time limit.
   finding (`{v, id, project, kind, text, observed, ref, state}`).
 * **backend**: `detect <project>`, `file` (reads `{v, id, uid, project,
   text, kind}`, and filing the same note twice is safe), `status <project> <ref>`,
-  `close <project> <ref>`, and optionally `url <project> <ref>`.
+  `close <project> <ref>`, and optionally `url <project> <ref>` (reserved
+  for opening an item; sous does not call it yet).
 * **launcher**: `run <project>`, which takes over your terminal.
 
 Plugins from others run only when listed in `config.toml`. How to write one
