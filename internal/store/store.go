@@ -103,18 +103,30 @@ func (s *Store) writeNoLock(name string, raw []byte) error {
 	return os.Rename(tmp.Name(), s.path(name))
 }
 
-// Read returns the migrated document; if a migration ran it is persisted.
+// Read returns the migrated document. The common case (already current) is
+// read without the lock. An old file is upgraded only under the lock, from a
+// fresh read, so a write another process made meanwhile is never lost.
 func (s *Store) Read(name string, m Migrator) ([]byte, error) {
+	raw, err := os.ReadFile(s.path(name))
+	if os.IsNotExist(err) {
+		return m.Empty(), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if v, verr := version(raw); verr == nil && v == m.Current() {
+		return raw, nil
+	}
+	unlock, err := s.lock(name)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
 	raw, migrated, err := s.readNoLock(name, m)
 	if err != nil {
 		return nil, err
 	}
 	if migrated {
-		unlock, err := s.lock(name)
-		if err != nil {
-			return nil, err
-		}
-		defer unlock()
 		if err := s.writeNoLock(name, raw); err != nil {
 			return nil, err
 		}

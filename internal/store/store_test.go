@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -183,5 +184,42 @@ func TestPerDocumentVersions(t *testing.T) {
 	}
 	if _, err := Load[doc](s, "b", docMig{}); !errors.Is(err, ErrNewer) {
 		t.Fatalf("v2 document read by a v1 migrator is newer: %v", err)
+	}
+}
+
+// lockCheckMig records whether the store's lock was held when Migrate ran,
+// by trying to take it without waiting from a second file handle (flock
+// locks are per open file, so this conflicts exactly as another process
+// would).
+type lockCheckMig struct {
+	home     string
+	unlocked *bool
+}
+
+func (lockCheckMig) Empty() []byte { return []byte(`{"version":2,"items":[]}`) }
+func (lockCheckMig) Current() int  { return 2 }
+func (m lockCheckMig) Migrate(from int, raw []byte) ([]byte, error) {
+	f, err := os.OpenFile(filepath.Join(m.home, "doc.lock"), os.O_CREATE|os.O_RDWR, 0o644)
+	if err == nil {
+		defer f.Close()
+		if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) == nil {
+			*m.unlocked = true
+			syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		}
+	}
+	return []byte(`{"version":2,"items":[]}`), nil
+}
+
+// Review: an old file is upgraded only under the lock, from a fresh read,
+// so another process's write in between is never overwritten.
+func TestReadMigratesOnlyUnderTheLock(t *testing.T) {
+	s := &Store{Home: t.TempDir()}
+	os.WriteFile(filepath.Join(s.Home, "doc.json"), []byte(`{"version":1,"items":[]}`), 0o644)
+	unlocked := false
+	if _, err := s.Read("doc", lockCheckMig{home: s.Home, unlocked: &unlocked}); err != nil {
+		t.Fatal(err)
+	}
+	if unlocked {
+		t.Fatal("Migrate ran without the lock held")
 	}
 }
