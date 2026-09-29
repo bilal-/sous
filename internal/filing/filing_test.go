@@ -217,3 +217,17 @@ func TestCurrentPathFollowsRemote(t *testing.T) {
 		t.Fatal("no remote: stored path")
 	}
 }
+
+// Review: if closing the note here fails, it stays on the board with the
+// reason, instead of vanishing while still open on disk.
+func TestReconcileKeepsANoteItCouldNotClose(t *testing.T) {
+	st := &store.Store{Home: t.TempDir()}
+	ref := "fake:1"
+	now := time.Now()
+	views := []thread.View{{Thread: thread.Thread{ID: 99, Text: "x", Kind: thread.Me, Ref: &ref}}} // 99 is not in the store
+	f := &Filer{Store: st, Backends: []backend.Backend{{Name: "fake", Argv: []string{"/bin/sh", "-c", `echo closed`, "sh"}}}}
+	out := f.Reconcile(context.Background(), views, now)
+	if len(out) != 1 || out[0].Upstream != "error" || !strings.Contains(out[0].UpstreamErr, "could not be closed here") {
+		t.Fatalf("%+v", out)
+	}
+}

@@ -31,6 +31,9 @@ func cmdReport(e *Env, a argv) int {
 		return fail(e, 1, "%v", err)
 	}
 	r := report.Build(d, closed, sessions, since, now)
+	// The next report starts after everything this one gathered, including
+	// closes found while building the board, so nothing shows twice.
+	upTo := time.Now()
 	seen := true
 	switch {
 	case e.JSON:
@@ -43,7 +46,7 @@ func cmdReport(e *Env, a argv) int {
 		}
 	}
 	if code == 0 && seen {
-		if err := report.Take(e.store(), now, week); err != nil {
+		if err := report.Take(e.store(), upTo, week); err != nil {
 			return fail(e, 1, "%v", err)
 		}
 	}

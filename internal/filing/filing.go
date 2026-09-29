@@ -184,8 +184,12 @@ func (f *Filer) Reconcile(ctx context.Context, views []thread.View, now time.Tim
 	out := views[:0]
 	for _, v := range views {
 		if v.Upstream == "closed" {
-			thread.CloseUpstreamClosed(f.Store, v.ID, now)
-			continue
+			err := thread.CloseUpstreamClosed(f.Store, v.ID, now)
+			if err == nil {
+				continue
+			}
+			// Closed there but not recorded here: keep it, and say why.
+			v.Upstream, v.UpstreamErr = "error", "closed upstream, but could not be closed here: "+err.Error()
 		}
 		out = append(out, v)
 	}
