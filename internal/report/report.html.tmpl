@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>sous report · since {{when .Since}}</title>
+<style>
+/* Color roles, type scale and shape from Material Design 3
+   (m3.material.io, Apache License 2.0), baseline scheme. Plain CSS; the
+   font is the system UI font. */
+:root {
+  --md-primary: #6750a4; --md-on-primary: #ffffff;
+  --md-primary-container: #eaddff; --md-on-primary-container: #21005d;
+  --md-tertiary-container: #ffd8e4; --md-on-tertiary-container: #31111d;
+  --md-error: #b3261e; --md-error-container: #f9dedc; --md-on-error-container: #410e0b;
+  --md-surface: #fef7ff; --md-on-surface: #1d1b20; --md-on-surface-variant: #49454f;
+  --md-surface-container: #f3edf7; --md-surface-container-high: #ece6f0;
+  --md-outline-variant: #cac4d0;
+  --md-shape-medium: 12px; --md-shape-small: 8px; --md-shape-full: 999px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --md-primary: #d0bcff; --md-on-primary: #381e72;
+    --md-primary-container: #4f378b; --md-on-primary-container: #eaddff;
+    --md-tertiary-container: #633b48; --md-on-tertiary-container: #ffd8e4;
+    --md-error: #f2b8b5; --md-error-container: #8c1d18; --md-on-error-container: #f9dedc;
+    --md-surface: #141218; --md-on-surface: #e6e0e9; --md-on-surface-variant: #cac4d0;
+    --md-surface-container: #211f26; --md-surface-container-high: #2b2930;
+    --md-outline-variant: #49454f;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--md-surface); color: var(--md-on-surface);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+main { max-width: 880px; margin: 0 auto; padding: 40px 24px 64px; }
+/* M3 type scale */
+.headline-small { font-size: 24px; line-height: 32px; font-weight: 400; margin: 0; }
+.title-medium { font-size: 16px; line-height: 24px; font-weight: 500; letter-spacing: .15px; margin: 0; }
+.body-medium { font-size: 14px; line-height: 20px; letter-spacing: .25px; }
+.label-medium { font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: .5px; }
+.muted { color: var(--md-on-surface-variant); }
+header { margin-bottom: 24px; }
+header p { margin: 4px 0 0; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 24px 0 32px; }
+.stat { background: var(--md-surface-container); border-radius: var(--md-shape-medium); padding: 16px; }
+.stat .n { font-size: 32px; line-height: 40px; }
+.stat.primary { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+.stat.error { background: var(--md-error-container); color: var(--md-on-error-container); }
+section { margin-top: 28px; }
+section h2 { margin-bottom: 8px; }
+.card { background: var(--md-surface-container); border-radius: var(--md-shape-medium); overflow: hidden; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 12px 16px; border-top: 1px solid var(--md-outline-variant); }
+.row:first-child { border-top: 0; }
+.row .text { overflow-wrap: anywhere; }
+.row .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { display: inline-block; padding: 2px 10px; border-radius: var(--md-shape-small);
+  background: var(--md-surface-container-high); color: var(--md-on-surface-variant); }
+.chip.upstream { background: var(--md-tertiary-container); color: var(--md-on-tertiary-container); }
+code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+a { color: var(--md-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.attention { background: var(--md-error-container); color: var(--md-on-error-container);
+  border-radius: var(--md-shape-medium); padding: 12px 16px; }
+.empty { padding: 16px; }
+details.ideas { margin-bottom: 8px; }
+details.ideas > summary { cursor: pointer; list-style: none; }
+details.ideas > summary::-webkit-details-marker { display: none; }
+details.ideas > summary .text::before { content: "▸ "; color: var(--md-on-surface-variant); }
+details.ideas[open] > summary .text::before { content: "▾ "; }
+details.ideas .card { border-radius: 0; background: transparent; }
+footer { margin-top: 48px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1 class="headline-small">What changed</h1>
+  <p class="body-medium muted">since {{when .Since}} · as of {{when .Until}}</p>
+</header>
+
+<div class="stats">
+  <div class="stat primary"><div class="n">{{len .NewMe}}</div><div class="label-medium">new on you</div></div>
+  <div class="stat"><div class="n">{{len .Closed}}</div><div class="label-medium">closed</div></div>
+  <div class="stat"><div class="n">{{len .Worked}}</div><div class="label-medium">projects worked on</div></div>
+  <div class="stat"><div class="n">{{.OnYouNow}}</div><div class="label-medium">on you now</div></div>
+  {{if .Attention}}<div class="stat error"><div class="n">{{len .Attention}}</div><div class="label-medium">needs attention</div></div>{{end}}
+</div>
+
+{{if .Attention}}
+<section>
+  <h2 class="title-medium">Needs attention</h2>
+  <div class="attention body-medium">{{range $i, $a := .Attention}}{{if $i}} · {{end}}{{$a}}{{end}}</div>
+</section>
+{{end}}
+
+{{define "rows"}}
+<div class="card">
+{{range .}}
+  <div class="row body-medium">
+    <div class="text">{{with url .Ref}}<a href="{{.}}">{{end}}{{.Text}}{{with url .Ref}}</a>{{end}}</div>
+    <div class="muted">{{.Age}}</div>
+    <div class="meta label-medium muted">
+      <span class="chip">{{base .Project}}</span>
+      {{if eq .ClosedBy "upstream"}}<span class="chip upstream">closed upstream</span>{{end}}
+      {{if and (isThread .ID) (not .ClosedAt)}}<code>sous done {{.ID}}</code>{{end}}
+      {{if not (isThread .ID)}}<code>{{.ID}}</code>{{end}}
+    </div>
+  </div>
+{{end}}
+</div>
+{{end}}
+
+<section>
+  <h2 class="title-medium">New on you</h2>
+  {{if .NewMe}}{{template "rows" .NewMe}}{{else}}<div class="card empty body-medium muted">Nothing new is waiting on you.</div>{{end}}
+</section>
+{{if .NewThem}}<section><h2 class="title-medium">New on others</h2>{{template "rows" .NewThem}}</section>{{end}}
+{{with .IdeaGroups}}
+<section>
+  <h2 class="title-medium">New ideas</h2>
+  {{range .}}
+  <details class="card ideas">
+    <summary class="row body-medium"><span class="text">{{.Name}}</span><span class="muted">{{len .Rows}}</span></summary>
+    {{template "rows" .Rows}}
+  </details>
+  {{end}}
+</section>
+{{end}}
+{{if .Closed}}<section><h2 class="title-medium">Closed</h2>{{template "rows" .Closed}}</section>{{end}}
+
+{{if .Worked}}
+<section>
+  <h2 class="title-medium">Worked on</h2>
+  <div class="card">
+  {{range .Worked}}
+    <div class="row body-medium">
+      <div class="text">{{.Name}}{{with .Note}} <span class="muted">· “{{.}}”</span>{{end}}</div>
+      <div class="muted">{{.Age}}</div>
+      {{with .Agent}}<div class="meta label-medium muted"><span class="chip">{{.}}</span></div>{{end}}
+    </div>
+  {{end}}
+  </div>
+</section>
+{{end}}
+
+<footer class="label-medium muted">
+  Now: {{.OnYouNow}} on you · {{.OnOthersNow}} on others · {{.UnfinishedNow}} unfinished.
+  Generated by sous. Colors and type scale from Material Design 3 (Apache 2.0).
+</footer>
+</main>
+</body>
+</html>

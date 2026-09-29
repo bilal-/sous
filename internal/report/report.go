@@ -1,0 +1,216 @@
+package report
+
+import (
+	_ "embed"
+	"fmt"
+	"html/template"
+	"io"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/bilal-/sous/internal/board"
+	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/session"
+	"github.com/bilal-/sous/internal/thread"
+	"github.com/bilal-/sous/internal/tracker"
+)
+
+// A report is the board looked at over time: what arrived, what closed,
+// where work happened, and what needs attention — since a moment. Built
+// from data sous already keeps; nothing new is fetched for it.
+
+// Worked is one project with activity in the window.
+type Worked struct {
+	Name    string    `json:"name"`
+	Project string    `json:"project"`
+	Agent   string    `json:"agent,omitempty"` // last agent session, if any
+	When    time.Time `json:"when"`
+	Age     string    `json:"-"`              // display only; When is the data
+	Note    string    `json:"note,omitempty"` // last session's last message, capped
+}
+
+type Report struct {
+	Since     time.Time   `json:"since"`
+	Until     time.Time   `json:"until"`
+	NewMe     []board.Row `json:"new_me"`
+	NewThem   []board.Row `json:"new_them"`
+	NewIdeas  []board.Row `json:"new_ideas"`
+	Closed    []board.Row `json:"closed"`
+	Worked    []Worked    `json:"worked"`
+	Attention []string    `json:"attention"`
+
+	OnYouNow      int `json:"on_you_now"`
+	OnOthersNow   int `json:"on_others_now"`
+	UnfinishedNow int `json:"unfinished_now"`
+}
+
+// BuildReport slices board data by time. closed are threads closed in the
+// window (thread.ClosedSince); sessions are the session pointers.
+func Build(d *board.Data, closed []thread.View, sessions map[string]session.Session, since, now time.Time) Report {
+	s := board.Classify(d)
+	r := Report{Since: since, Until: now, Attention: s.Why, OnYouNow: len(s.Me), OnOthersNow: len(s.Them), UnfinishedNow: len(s.Unfinished)}
+	isNew := func(row board.Row) bool { return !row.Since.Before(since) }
+	for _, row := range s.Me {
+		if isNew(row) {
+			r.NewMe = append(r.NewMe, row)
+		}
+	}
+	for _, row := range s.Them {
+		if isNew(row) {
+			r.NewThem = append(r.NewThem, row)
+		}
+	}
+	for _, t := range d.Threads {
+		if t.Kind == thread.Idea && !t.Since.Before(since) {
+			r.NewIdeas = append(r.NewIdeas, board.ThreadRow(t, now))
+		}
+	}
+	for _, t := range closed {
+		if t.Closed != nil && !t.Closed.Before(since) {
+			r.Closed = append(r.Closed, board.ClosedRow(t, now))
+		}
+	}
+	sort.SliceStable(r.Closed, func(i, j int) bool { return r.Closed[i].ClosedAt.After(*r.Closed[j].ClosedAt) })
+	// Worked: an agent session ended in the window, or a commit landed.
+	byPath := map[string]*Worked{}
+	for path, sess := range sessions {
+		if sess.Ended.Before(since) {
+			continue
+		}
+		w := &Worked{Name: filepath.Base(path), Project: path, Agent: sess.Agent, When: sess.Ended}
+		if sess.LastMessage != nil {
+			w.Note = board.Ellipsize(*sess.LastMessage, 120)
+		}
+		byPath[path] = w
+	}
+	for _, p := range d.Projects {
+		if p.LastCommit == nil || p.LastCommit.Before(since) {
+			continue
+		}
+		if w, ok := byPath[p.Path]; ok {
+			if p.LastCommit.After(w.When) {
+				w.When = *p.LastCommit
+			}
+			continue
+		}
+		byPath[p.Path] = &Worked{Name: p.Name, Project: p.Path, When: *p.LastCommit}
+	}
+	for _, w := range byPath {
+		w.Age = project.Age(now, w.When)
+		r.Worked = append(r.Worked, *w)
+	}
+	sort.Slice(r.Worked, func(i, j int) bool { return r.Worked[i].When.After(r.Worked[j].When) })
+	return r
+}
+
+// IdeaGroup is new ideas for one project.
+type IdeaGroup struct {
+	Name string
+	Rows []board.Row
+}
+
+// IdeaGroups: new ideas by project, largest group first.
+func (r Report) IdeaGroups() []IdeaGroup {
+	by := map[string]*IdeaGroup{}
+	var order []string
+	for _, row := range r.NewIdeas {
+		name := filepath.Base(row.Project)
+		if by[name] == nil {
+			by[name] = &IdeaGroup{Name: name}
+			order = append(order, name)
+		}
+		by[name].Rows = append(by[name].Rows, row)
+	}
+	out := make([]IdeaGroup, 0, len(order))
+	for _, n := range order {
+		out = append(out, *by[n])
+	}
+	sort.SliceStable(out, func(i, j int) bool { return len(out[i].Rows) > len(out[j].Rows) })
+	return out
+}
+
+func (r Report) sinceLabel() string { return r.Since.Local().Format("Mon 2 Jan 15:04") }
+
+// RenderReport is the terminal layout.
+func Render(w io.Writer, r Report) {
+	head := fmt.Sprintf("sous report · since %s · %d new on you · %d closed", r.sinceLabel(), len(r.NewMe), len(r.Closed))
+	if len(r.Attention) > 0 {
+		head += fmt.Sprintf(" · %d needs attention", len(r.Attention))
+	}
+	fmt.Fprintln(w, head)
+	if len(r.Attention) > 0 {
+		fmt.Fprintf(w, "\n  needs attention\n  %s\n", strings.Join(r.Attention, " · "))
+	}
+	section := func(title string, rows []board.Row) {
+		if len(rows) == 0 {
+			return
+		}
+		fmt.Fprintf(w, "\n  %s\n", title)
+		for _, row := range rows {
+			fmt.Fprintf(w, "  %-14s  %-22.22s  %-58.58s  %s\n", row.ID, filepath.Base(row.Project), row.Text, row.Age)
+		}
+	}
+	section("new on you", r.NewMe)
+	section("new on others", r.NewThem)
+	// Ideas are low-urgency by design: counted per project, not listed.
+	if groups := r.IdeaGroups(); len(groups) > 0 {
+		fmt.Fprintln(w, "\n  new ideas")
+		for _, g := range groups {
+			fmt.Fprintf(w, "  %-22.22s  %d\n", g.Name, len(g.Rows))
+		}
+	}
+	if len(r.Closed) > 0 {
+		fmt.Fprintln(w, "\n  closed")
+		for _, row := range r.Closed {
+			by := ""
+			if row.ClosedBy == "upstream" {
+				by = " (upstream)"
+			}
+			fmt.Fprintf(w, "  ✓ %-12s  %-22.22s  %-58.58s  %s%s\n", row.ID, filepath.Base(row.Project), row.Text, row.Age, by)
+		}
+	}
+	if len(r.Worked) > 0 {
+		fmt.Fprintln(w, "\n  worked")
+		for _, wk := range r.Worked {
+			line := fmt.Sprintf("  %-22.22s  %s", wk.Name, wk.Age)
+			if wk.Agent != "" {
+				line += " · " + wk.Agent
+			}
+			if wk.Note != "" {
+				line += fmt.Sprintf(" · %q", wk.Note)
+			}
+			fmt.Fprintln(w, line)
+		}
+	}
+	fmt.Fprintf(w, "\n  now: %d on you · %d on others · %d unfinished · sous report --open for the page\n", r.OnYouNow, r.OnOthersNow, r.UnfinishedNow)
+}
+
+// WebURL turns a ref into a link, when the tracker has one.
+func WebURL(ref *string) string {
+	if ref == nil {
+		return ""
+	}
+	r, ok := tracker.ParseRef(*ref)
+	if !ok {
+		return ""
+	}
+	return r.WebURL()
+}
+
+//go:embed report.html.tmpl
+var reportHTML string
+
+var reportTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
+	"base": filepath.Base,
+	"url":  WebURL,
+	"isThread": func(id string) bool {
+		return id != "" && !strings.HasPrefix(id, "s:")
+	},
+	"when": func(t time.Time) string { return t.Local().Format("Mon 2 Jan 15:04") },
+}).Parse(reportHTML))
+
+// RenderReportHTML writes one self-contained page: inline CSS (Material
+// Design 3 color roles and type scale), no scripts, no external loads.
+func RenderHTML(w io.Writer, r Report) error { return reportTmpl.Execute(w, r) }

@@ -1,0 +1,105 @@
+package signal
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/bilal-/sous/internal/plugin"
+)
+
+type Plugin = plugin.Plugin
+
+// Plugins lists built-ins (re-exec'd through `sous signal <name> scan`) then
+// config-listed third-party executables. Built-ins get no special path.
+func Plugins(exe string, builtins, thirdParty []string) []Plugin {
+	ps := plugin.Discover(exe, "signal", builtins, thirdParty)
+	for i := range ps {
+		ps[i].Argv = append(ps[i].Argv, "scan")
+	}
+	return ps
+}
+
+type PluginStatus struct {
+	Name   string  `json:"name"`
+	Status string  `json:"status"` // ok | failed | timeout
+	Error  *string `json:"error"`
+}
+
+type Tagged struct {
+	Signal
+	Plugin string `json:"plugin"`
+}
+
+type Collected struct {
+	Signals []Tagged       `json:"signals"`
+	Plugins []PluginStatus `json:"plugins"`
+}
+
+// Collect runs every plugin concurrently with the same stdin, each under its
+// own timeout. Results keep plugin order.
+func Collect(ctx context.Context, plugins []Plugin, paths []string, timeout time.Duration) Collected {
+	stdin := strings.Join(paths, "\n") + "\n"
+	type result struct {
+		st   PluginStatus
+		sigs []Tagged
+	}
+	results := make([]result, len(plugins))
+	var wg sync.WaitGroup
+	for i, p := range plugins {
+		wg.Add(1)
+		go func(i int, p Plugin) {
+			defer wg.Done()
+			results[i] = runOne(ctx, p, stdin, timeout)
+		}(i, p)
+	}
+	wg.Wait()
+	var c Collected
+	for _, r := range results {
+		c.Plugins = append(c.Plugins, r.st)
+		c.Signals = append(c.Signals, r.sigs...)
+	}
+	return c
+}
+
+func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) (r struct {
+	st   PluginStatus
+	sigs []Tagged
+}) {
+	res := plugin.Exec(ctx, p.Argv, []byte(stdin), timeout)
+	r.st = PluginStatus{Name: p.Name, Status: "ok"}
+	switch {
+	case res.TimedOut:
+		r.st.Status = "timeout"
+		msg := "exceeded " + timeout.String()
+		r.st.Error = &msg
+	case res.Err != nil || res.Code != 0:
+		r.st.Status = "failed"
+		msg := strings.TrimSpace(res.Stderr)
+		if msg == "" && res.Err != nil {
+			msg = res.Err.Error()
+		}
+		if msg == "" {
+			msg = fmt.Sprintf("exit %d", res.Code)
+		}
+		if len(msg) > 200 {
+			msg = msg[:200]
+		}
+		r.st.Error = &msg
+	}
+	// Whatever the plugin managed to emit is kept, even on failure: a
+	// partially failing GitHub scan still knows about real review requests.
+	if !res.TimedOut {
+		sigs, bad := ReadLinesLenient(strings.NewReader(res.Stdout))
+		if bad > 0 && r.st.Status == "ok" {
+			msg := fmt.Sprintf("%d unreadable line(s) skipped", bad)
+			r.st.Error = &msg
+		}
+		for _, s := range sigs {
+			r.sigs = append(r.sigs, Tagged{Signal: s, Plugin: p.Name})
+		}
+	}
+	return r
+}

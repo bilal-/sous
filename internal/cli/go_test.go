@@ -1,0 +1,122 @@
+package cli
+
+import (
+	"bytes"
+	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"testing"
+)
+
+func sousCmd(f *fx, dir string, args ...string) *exec.Cmd {
+	exe, _ := os.Executable()
+	c := exec.Command(exe, args...)
+	c.Dir = dir
+	c.Env = append(os.Environ(), "SOUS_TEST_AS_BINARY=1")
+	return c
+}
+
+func TestGoExecsAgentInProject(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("a/ios-app", true)
+	real, _ := filepath.EvalSymlinks(p)
+	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\necho \"claude in $PWD\"; [ -n \"$SOUS_HERE_FILE\" ] && head -1 \"$SOUS_HERE_FILE\"\n"), 0o755)
+	os.WriteFile(filepath.Join(f.Home, "bin", "codex"), []byte("#!/bin/sh\necho \"codex in $PWD\"; exit 7\n"), 0o755)
+
+	out, err := sousCmd(f, f.Home, "go", "ios").CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "claude in "+real) || !strings.Contains(string(out), "→ claude") || !strings.Contains(string(out), "ios-app ·") {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	c := sousCmd(f, f.Home, "go", "ios", "-a", "codex")
+	out, err = c.CombinedOutput()
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) || ee.ExitCode() != 7 || !strings.HasSuffix(strings.TrimSpace(string(out)), "codex in "+real) {
+		t.Fatalf("exit passthrough / nothing after agent: %v\n%s", err, out)
+	}
+	f.writeConfig("roots = [\"" + f.WS + "\"]\nagent = \"codex\"\n")
+	if err := sousCmd(f, f.Home, "go", "ios").Run(); !errors.As(err, &ee) || ee.ExitCode() != 7 {
+		t.Fatal("config agent honoured")
+	}
+	if err := sousCmd(f, f.Home, "go", "ios", "-a", "nope").Run(); !errors.As(err, &ee) || ee.ExitCode() != 2 {
+		t.Fatal("unknown launcher exit 2")
+	}
+	os.Remove(filepath.Join(f.Home, "bin", "codex"))
+	out, err = sousCmd(f, f.Home, "go", "ios").CombinedOutput()
+	if !errors.As(err, &ee) || ee.ExitCode() != 1 || !strings.Contains(string(out), "codex") {
+		t.Fatalf("missing binary: %v %s", err, out)
+	}
+}
+
+func TestGoCtrlCReachesAgent(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("a/r", true)
+	started := filepath.Join(f.Home, "agent-started")
+	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\ntrap 'echo trapped' INT\ntouch "+started+"\nsleep 2\necho done\n"), 0o755)
+	c := sousCmd(f, f.Home, "go", "r")
+	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	var out bytes.Buffer
+	c.Stdout, c.Stderr = &out, &out
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	// Wait until the agent is actually running (sous has exec'd), then
+	// interrupt the whole group the way a terminal does.
+	waitFor(t, func() bool { _, err := os.Stat(started); return err == nil })
+	syscall.Kill(-c.Process.Pid, syscall.SIGINT)
+	err := c.Wait()
+	if err != nil || !strings.Contains(out.String(), "trapped") || !strings.Contains(out.String(), "done") {
+		t.Fatalf("agent must survive SIGINT: err=%v\n%s", err, out.String())
+	}
+}
+
+func TestProjectsPath(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("a/app-next", true)
+	f.mkrepo("a/app-mobile", true)
+	real, _ := filepath.EvalSymlinks(p)
+	out, _, code := f.run("projects", "--path", "app-n")
+	if code != 0 || strings.TrimSpace(out) != real {
+		t.Fatalf("%d %q", code, out)
+	}
+	if _, _, code := f.run("projects", "--path", "app-"); code != 2 {
+		t.Fatal("ambiguous → 2")
+	}
+}
+
+func TestGoAndLauncherUsageErrors(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("a/r", true)
+	for _, c := range [][]string{{"go"}, {"go", "r", "extra"}, {"go", "r", "-a"}, {"go", "r", "--bogus"}, {"launcher", "claude"}, {"launcher", "nope", "run", p}} {
+		if _, _, code := f.run(c...); code != 2 {
+			t.Errorf("%v should exit 2, got %d", c, code)
+		}
+	}
+	t.Setenv("PATH", filepath.Join(f.Home, "bin"))
+	if _, errs, code := f.run("launcher", "claude", "run", p); code != 1 || !strings.Contains(errs, "claude not found") {
+		t.Errorf("missing binary: %d %q", code, errs)
+	}
+	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\n"), 0o755)
+	if _, errs, code := f.run("launcher", "claude", "run", filepath.Join(f.Home, "nope")); code != 1 || errs == "" {
+		t.Errorf("bad dir must fail before exec: %d %q", code, errs)
+	}
+	if _, _, code := f.run("go", "r", "-a=nope"); code != 2 {
+		t.Error("-a=x form")
+	}
+}
+
+// Review: sous go started from inside an earlier sous go session must hand
+// the agent this project's context, not the inherited file.
+func TestGoReplacesInheritedHereFile(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("a/ios-app", true)
+	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\necho \"file=$SOUS_HERE_FILE\"\n"), 0o755)
+	c := sousCmd(f, f.Home, "go", "ios")
+	c.Env = append(c.Env, "SOUS_HERE_FILE=/stale/from-parent")
+	out, err := c.CombinedOutput()
+	if err != nil || strings.Contains(string(out), "/stale/from-parent") || !strings.Contains(string(out), "sous-here-") {
+		t.Fatalf("%v\n%s", err, out)
+	}
+}

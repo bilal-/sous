@@ -1,0 +1,108 @@
+package cli
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"syscall"
+	"time"
+
+	"github.com/bilal-/sous/internal/board"
+	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/signal"
+	"github.com/bilal-/sous/internal/thread"
+)
+
+func buildBoard(e *Env, roots []string) (*board.Data, int) {
+	cfg, code := e.config()
+	if code != 0 {
+		return nil, code
+	}
+	now := time.Now()
+	d, err := board.Build(e.ctx(), board.Inputs{
+		Store: e.store(), Cfg: cfg, Roots: roots, Exe: e.Exe, Builtins: signal.BuiltinNames(),
+		Timeout: e.pluginTimeout(), Warn: e.Stderr, Now: now,
+		Reconcile: func(ctx context.Context, v []thread.View) []thread.View { return reconcile(e, ctx, v, now, false) },
+	})
+	if err != nil {
+		return nil, fail(e, 1, "%v", err)
+	}
+	// Only the full configured board is cached; a scoped board must never
+	// become what the zsh surface prints as "the board".
+	if len(roots) == 0 {
+		if err := board.WriteCache(e.store(), d); err != nil {
+			return nil, fail(e, 1, "cache: %v", err)
+		}
+	}
+	return d, 0
+}
+
+func cmdBoard(e *Env, roots []string) int {
+	d, code := buildBoard(e, roots)
+	if code != 0 {
+		return code
+	}
+	if e.JSON {
+		return e.writeJSON(d)
+	}
+	board.Render(e.Stdout, d)
+	return 0
+}
+
+// cmdPath handles `sous <something>` that isn't a subcommand: a folder of
+// repos → scoped board; a repo path or project name → here.
+func cmdPath(e *Env, arg string) int {
+	// Relative to the invocation's cwd, not the process's.
+	candidate := arg
+	if !filepath.IsAbs(candidate) {
+		candidate = filepath.Join(e.Cwd, candidate)
+	}
+	if st, err := os.Stat(candidate); err == nil && st.IsDir() {
+		arg = candidate
+		if _, ok := project.ForPath(arg); ok {
+			return cmdHere(e, argv{pos: []string{arg}})
+		}
+		if ps, _ := project.Discover([]string{arg}, nil, io.Discard); len(ps) > 0 {
+			return cmdBoard(e, []string{arg})
+		}
+		return fail(e, 2, "%s is neither a repo nor a folder of repos", arg)
+	}
+	p, code := resolveProject(e, arg)
+	if code != 0 {
+		return code
+	}
+	return cmdHere(e, argv{pos: []string{p.Path}})
+}
+
+// cmdCached prints the last rendered board with its age (the zsh surface), and
+// kicks off a detached refresh if it is older than the configured window.
+func cmdCached(e *Env) int {
+	c, err := board.ReadCache(e.store())
+	if err != nil {
+		return fail(e, 1, "%v", err)
+	}
+	if c.Board == nil || c.RenderedAt == nil {
+		// The forgetting user must not be told to remember: build it now,
+		// detached, and exit 3 so the shell surface doesn't stamp this print.
+		fmt.Fprintln(e.Stdout, "sous: building your board now. It will show in your next shell.")
+		spawnRefresh(e)
+		return 3
+	}
+	now := time.Now()
+	fmt.Fprint(e.Stdout, *c.Board)
+	fmt.Fprintf(e.Stdout, "  (cached · %s ago)\n", project.Age(now, *c.RenderedAt))
+	if now.Sub(*c.RenderedAt) > e.Cfg.RefreshWindow() {
+		spawnRefresh(e)
+	}
+	return 0
+}
+
+func spawnRefresh(e *Env) {
+	cmd := exec.Command(e.Exe, "--refresh")
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Start() // detached; errors are irrelevant to the caller
+}

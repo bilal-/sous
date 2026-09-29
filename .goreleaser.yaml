@@ -1,0 +1,34 @@
+# Release binaries for darwin/linux on tag push. No Homebrew tap before 0.3
+# (spec: Versioning). Run `make release-dry` to build every target locally.
+version: 2
+
+project_name: sous
+
+builds:
+  - main: ./cmd/sous
+    binary: sous
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [arm64, amd64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/bilal-/sous/internal/cli.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files: [LICENSE, README.md, CHANGELOG.md]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude: ["^docs:", "^test:", "^chore:"]
+
+release:
+  draft: false
+  prerelease: auto

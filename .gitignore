@@ -1,0 +1,7 @@
+/sous
+/bin/
+/dist/
+/coverage.out
+.DS_Store
+.superpowers/
+.claude/worktrees/

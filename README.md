@@ -1,0 +1,360 @@
+# sous
+
+One list of what is waiting on you, across every project you work on.
+
+AI tools make it easy to keep ten or twenty projects moving at once. The hard
+part is keeping track of them. Which project has a review waiting for me?
+Where did I leave off in this one? What did I promise to come back to?
+
+`sous` answers those questions in one place. It shows up on its own when you
+open a terminal or start a Claude Code or Codex session, so it still works on
+the days you forget it exists.
+
+```
+sous · 2 on you · 1 on others · 3 unfinished
+
+  on you
+  s:0b4ac59dfd33  app-next           review requested · PR #14 json api            2d
+  1               billing            send the pricing copy to Sam             6d
+
+  on others
+  2               mobile-app         waiting on app store review                   4d
+
+  unfinished
+  s:fe9c4922caf6  chime              6 commits unpushed · main                     6d
+  s:4515743b9362  audio-app          11 files uncommitted · feat/history           3mo
+
+  26 checked · 0 unavailable · as of 09:02 · sous snooze <id> to hide a row
+```
+
+**On you** is what needs you: reviews people asked you for, and notes you
+marked as yours. **On others** is what you are waiting for. **Unfinished** is
+work you left behind in git: uncommitted files, unpushed commits, stashes.
+Every row says how long it has been waiting.
+
+## What sous is, and is not
+
+sous is an index, not a tracker. Your work stays where it already lives: in
+git, on GitHub or GitLab, or in a project's own `FOLLOWUPS.md`. sous keeps
+pointers and short notes of your own, and works everything else out again
+each time you look.
+
+It has no priorities, due dates, assignees or sprints. Age is the only order.
+It never runs agents or does work for you. It needs no API key and runs no
+background service. When you want an AI to help, the agent you already use
+calls `sous` like any other command.
+
+The full design is in [docs/design.md](docs/design.md).
+
+## What works today
+
+sous is young. Here is an honest list.
+
+| Works today | Not yet |
+|---|---|
+| macOS and Linux, on Intel and Apple silicon | Windows |
+| the board in new **zsh** shells | a ready made snippet for bash or fish (see below) |
+| session hooks and a skill for **Claude Code** and **Codex** | hooks for other agents (they can still use sous, see below) |
+| git: uncommitted files, unpushed commits, stashes, branches with no upstream | |
+| **GitHub**: reviews asked of you, changes asked on your pull requests; filing and closing issues | GitHub notifications, CI status |
+| **GitLab**: merge requests to review, yours awaiting review; filing and closing issues | GitLab to do items |
+| `FOLLOWUPS.md` in the project as a simple tracker | Jira, Linear, Gitea, Bitbucket (plugins welcome) |
+| a menu bar view through [SwiftBar](https://swiftbar.app) on macOS | a Linux tray icon |
+| plugins in any language | a stable plugin contract (it is a draft until 1.0) |
+| install from source | ready made downloads, Homebrew |
+
+## Install
+
+Ready made downloads and a one line installer will come with the first
+release. For now, install from source.
+
+With Go 1.27 or newer:
+
+    git clone https://github.com/bilal-/sous && cd sous
+    make install
+    sous setup
+
+You need `git`. For GitHub, install [`gh`](https://cli.github.com) and run
+`gh auth login`. For GitLab, install [`glab`](https://gitlab.com/gitlab-org/cli)
+and run `glab auth login`. Both are optional. sous uses your existing logins
+and never asks for a token.
+
+To remove sous, delete `~/.local/bin/sous` and `~/.sous`, the `sous` skill
+folders under `~/.claude/skills` and `~/.codex/skills`, the `sous hook` lines
+in `~/.claude/settings.json` and `~/.codex/hooks.json`, and the `sous.zsh`
+line in `~/.zshrc`.
+
+## Set up in two minutes
+
+1. Tell sous where your projects live. It looks two folders deep, so a root
+   like `~/code` finds `~/code/acme/api`.
+
+       mkdir -p ~/.sous
+       printf 'roots = ["~/code"]\n' > ~/.sous/config.toml
+
+2. Show the board in new shells. For zsh:
+
+       echo 'source "$HOME/.sous/sous.zsh"' >> ~/.zshrc
+
+   For bash or fish, add `sous --cached` to your shell's startup file. It
+   prints the saved board instantly and refreshes it in the background.
+
+3. Open a new terminal. The board is there.
+
+`sous setup` is safe to run again at any time. It installs:
+
+* session hooks for Claude Code and Codex, so an agent starting in a project
+  sees where you left off
+* the `sous` skill for both agents, so you can ask them to take notes for you
+* `~/.sous/sous.zsh`, which prints the board in new zsh shells and lets
+  `sous go` leave you inside the project
+* `~/.sous/sous.5m.sh`, a menu bar plugin for [SwiftBar](https://swiftbar.app)
+
+## Everyday workflows
+
+### Start your day
+
+Open a terminal. The board prints from a cache, so it appears instantly, and
+refreshes in the background when it gets old. Run `sous` to see it fresh.
+
+Pick something and go there:
+
+    sous go api
+
+This starts your agent in the project, with a short summary of where you
+left off already in its context. With the shell snippet installed, your
+terminal is in the project too when the agent exits. Use `-a codex` to pick
+a different agent.
+
+### Pick up where you left off
+
+    sous here
+
+In any project, this shows the branch, the last commit, how your last agent
+session ended, open notes and ideas for this project, and anything waiting on
+you. Agent sessions get the same summary when they start, without you asking.
+
+### Catch a thought before it slips away
+
+You are deep in one project and remember something about another. Write it
+down without leaving:
+
+    sous note -p billing -k me "send the pricing copy to Sam"
+
+`-p` finds the project by a rough name. If the name matches more than one
+project, sous lists them and asks you to be specific. It never guesses.
+
+`-k` says whose move it is. Use `me` for your job and `them` when you are
+waiting on someone. Leave it out for an idea, which stays off the main board
+and shows up when you next open that project.
+
+You can also just ask your agent: "sous, note for billing that I owe Sam the
+numbers." The skill tells it how.
+
+### Share a note with the team
+
+Notes are private to you until you choose otherwise. When a note should live
+in the project's tracker, file it:
+
+    sous file 3
+
+sous puts it where the project already keeps work: `FOLLOWUPS.md` if the
+project has one, then GitHub issues, then GitLab issues. From then on, sous
+checks that item each time it builds the board. Close it there, by ticking
+the box or closing the issue, and it closes in sous too.
+
+To close both at once from your side:
+
+    sous done 3 --close
+
+Plain `sous done 3` only closes your note. Nothing reaches a shared tracker
+unless you ask.
+
+### Quiet the noise
+
+A row you know about but cannot act on yet:
+
+    sous snooze 3 2              hide note 3 for two days
+    sous snooze s:fe9c4922caf6   hide a git or GitHub row until it changes
+
+### Look back on your week
+
+    sous report --week --open
+
+This opens a simple page in your browser: what is new on you, what got
+closed, which projects you worked in, and what needs a look. Plain
+`sous report` shows what changed since your last report, right in the
+terminal.
+
+## Use it with your AI agent
+
+sous is a plain command, so any agent that can run shell commands can use
+it. What differs is how much is set up for you.
+
+**Claude Code.** `sous setup` adds two hooks. When a session starts in a
+project, the agent is shown where you left off. When it ends, sous remembers
+the session's last message for next time. The `sous` skill teaches Claude
+the commands, so you can say things like:
+
+* "what is waiting on me?"
+* "note for billing that I owe Sam the pricing copy"
+* "where did I leave off here?"
+
+Claude asks before anything reaches a shared tracker.
+
+**Codex.** The same skill, and a hook when a session starts. Codex does not
+report when a session ends yet, so `sous here` cannot show how your last
+Codex session ended. It still shows the last commit and your notes. If your Codex version lists a SessionEnd hook, run
+`sous setup --codex-session-end`.
+
+**Kimi, Gemini, Cursor, Aider and others.** sous installs nothing for these
+yet, but two small steps get you most of the way:
+
+1. Give the agent the skill. Print it with `sous setup --print-skill`, then
+   put it where your agent reads skills or instructions: its skills folder if
+   it supports [Agent Skills](https://agentskills.io), or its instructions
+   file, such as `AGENTS.md`.
+2. Ask the agent to run `sous here --brief` when a session starts, in the
+   same instructions file. That gives it the same start of session context
+   the hooks give Claude Code.
+
+If you get sous working well with another agent, please share how in an
+issue, or send a pull request adding hooks for it.
+
+## All commands
+
+Every command that shows something also takes `--json`, and every command
+explains itself with `--help`.
+
+| Command | What it does |
+|---|---|
+| `sous` | the board for all your projects |
+| `sous <folder>` | the board for just the projects in that folder |
+| `sous <project>` | where you left off in that project |
+| `sous here` | where you left off in this project |
+| `sous projects [name]` | every project sous can see |
+| `sous note [-p project] [-k me\|them\|idea] [--file] "text"` | write a note |
+| `sous edit <n> "text"` | change a note |
+| `sous kind <n> me\|them\|idea` | change whose move it is |
+| `sous snooze <n\|s:id> [days]` | hide a row for a while |
+| `sous done <n> [--close]` | close a note, and with `--close` its tracker item too |
+| `sous file <n> [--force]` | send a note to the project's tracker |
+| `sous report [--week] [--open]` | what changed lately |
+| `sous go <project> [-a agent]` | start your agent in a project |
+| `sous setup [--print-skill]` | install hooks, skill and shell snippet, or just print the skill |
+
+To write a note that starts with a dash, put `--` before it:
+`sous note -- "-2 tests failing"`.
+
+Exit codes: `0` fine, `1` something failed, `2` the command was wrong or a
+name was ambiguous, `3` asked for the cached board before there was one.
+
+## How sous stays honest
+
+* **Missing data never looks like zero.** If GitHub could not be reached or
+  a folder is missing, the headline says `? on you (github failed)` instead of
+  a calm zero, and what sous knew before is kept and marked `(stale)`.
+* **Nothing is made up.** Apart from your notes, every row comes from git or
+  a tracker, checked again on each look. sous remembers only when it first saw
+  each row, so an age means "waiting since", not "noticed at".
+* **The tracker wins.** If an item you filed is closed where it lives, your
+  note closes too, marked as closed upstream. If sous cannot check, the row
+  says so.
+* **Starting a session is always fast.** `sous here`, the session hooks and
+  `sous go` never wait on the network.
+
+## Configuration
+
+`~/.sous/config.toml`:
+
+```toml
+roots = ["~/code"]             # where your projects live
+ignore = ["scratch/*"]         # folders to skip
+agent = "claude"               # the agent sous go starts
+refresh_hours = 4              # how old the shell's cached board may get
+gitlab_hosts = ["git.example.org"]   # GitLab servers, beyond the ones glab knows
+plugins = ["~/.sous/plugins/sous-backend-jira"]   # extra plugins; only listed ones run
+
+[projects."acme/*"]            # every project in the acme folder
+github_account = "work-account"
+
+[projects."acme/billing"]      # one project
+backend = "markdown"           # always file to FOLLOWUPS.md here
+```
+
+If you use more than one GitHub account, `github_account` picks the one
+`gh` should use for those projects.
+
+## Built for people and agents
+
+The same commands serve you in a terminal and an AI agent in a session. sous
+follows the [AXI](https://axi.md) guidelines for agent friendly command line
+tools where they help people too:
+
+* running `sous` with nothing else shows live data, not help
+* counts come first, and empty results say so plainly
+* output ends with the next command you are likely to want
+* errors are clear, nothing ever waits for input, and unknown flags fail
+* the agent sees your context when a session starts, and has a skill for more
+
+Output is plain text for people, with `--json` for programs.
+
+## Connectors and plugins
+
+sous grows through small plugins, and we would love your help writing them.
+There are three kinds:
+
+* **signals** find things that are waiting on you: pull requests, CI runs,
+  calendar holds, tickets
+* **backends** are where filed notes go: Jira, Linear, Gitea, Bitbucket,
+  plain text files
+* **launchers** start an agent or editor in a project
+
+A plugin is any program named `sous-signal-<name>`, `sous-backend-<name>` or
+`sous-launcher-<name>`. It reads arguments and standard input and writes
+standard output, so you can write one in any language. The built in GitHub,
+GitLab and git support go through exactly the same door, so they are good
+examples to read.
+
+[docs/plugins.md](docs/plugins.md) explains how to write one, and
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to send it in. Connectors we
+would especially like to see: Jira, Linear, Gitea, Bitbucket, Azure DevOps,
+Sentry, and CI status.
+
+## Contributing
+
+Bug reports, ideas and pull requests are all welcome. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md). The contributor guide for people and
+agents working on the code is [AGENTS.md](AGENTS.md).
+
+    make build          # build bin/sous
+    make test           # run every test with the race detector
+    make ci             # formatting, vet and tests, as CI runs them
+
+## Status
+
+sous is young: version 0.1, still before 1.0. Commands and flags may change
+between minor versions, and every change is noted in
+[CHANGELOG.md](CHANGELOG.md). Your data files are always carried forward: a
+new version upgrades them, and an older version refuses a newer file rather
+than damaging it. The plugin contract is still a draft and will be frozen
+before 1.0.
+
+## License
+
+sous is released under the [Apache License 2.0](LICENSE).
+Copyright 2026 Bilal.
+
+In plain words, you may use, copy, change and share sous, including in paid
+and commercial work, as long as you:
+
+* include a copy of the license with it
+* keep the copyright and license notices
+* say which files you changed, if you share a changed version
+
+The license also gives you a patent grant from everyone who contributes. sous
+comes with no warranty. If you send a contribution, you agree it is shared
+under the same license, as the license itself describes in section 5. There
+is no separate agreement to sign.
+
+This summary is only a guide. The [LICENSE](LICENSE) file is what counts.

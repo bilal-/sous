@@ -1,0 +1,150 @@
+# Working on sous
+
+This guide is for every person and agent changing sous. It is short on
+purpose. The design lives in [docs/design.md](docs/design.md), and when the
+two disagree, the design wins. Plugin authors read
+[docs/plugins.md](docs/plugins.md), so change it whenever the plugin
+contract changes.
+
+## What sous is
+
+A Go command that shows a person what is waiting on them across every
+project they work on. It is an index, not a store: it works out git, GitHub
+and GitLab state again on every look, and keeps only the person's own notes
+and a little history about what it has seen. It never runs agents or owns a
+workflow. Running `sous` with nothing else always shows the board.
+
+## Build and test
+
+    make test      # go vet, then every test with the race detector. Run it before every commit.
+    make ci        # formatting check plus make test, as CI runs it
+    make build     # bin/sous, with the version from git describe
+    make install   # link bin/sous into ~/.local/bin
+    go test ./internal/board -update   # only when you mean to change the board's layout
+
+Tests run inside the test process against a throwaway `HOME` and
+`SOUS_HOME` (see `internal/cli/testutil_test.go`). When a test needs a real
+`sous` process, the test binary plays that part (`SOUS_TEST_AS_BINARY=1`).
+**Never** run `sous setup` in a test, and never point a test at the real
+`~/.sous`, `~/.claude`, `~/.codex` or `~/.zshrc`. GitHub and GitLab are
+never called for real; tests use small fake `gh` and `glab` scripts.
+
+Write the test first, watch it fail, then make it pass. The files in
+`internal/board/testdata` pin the exact look of the board and of `here`.
+Changing them is a product decision, never a side effect.
+
+Examples, tests and docs use made up names only: `acme/api`, `Sam`,
+`git.example.org`. Never real projects, people, hosts or paths.
+
+## Layout
+
+    cmd/sous            main, which calls cli.Run
+    internal/cli        the list of commands (verbs.go), argument parsing, output, exit codes. One file per command. No decisions about the data.
+    internal/filing     filing a note, closing it upstream, and checking filed notes
+    internal/board      builds the board and the here view, sorts rows into sections, draws text and the menu bar, keeps the cache
+    internal/report     what changed since the last report, as text and as a page
+    internal/session    the last agent session in each project
+    internal/thread     the person's notes
+    internal/signal     the signal contract, the runner, what has been seen before, and the git, GitHub and GitLab signals
+    internal/backend    the backend contract, FOLLOWUPS.md, and GitHub and GitLab issues
+    internal/backend/backendtest   the rules every backend must pass
+    internal/tracker    gh and glab: which account or host a project uses, running them safely, and the ref format
+    internal/launcher   the launcher contract, and Claude Code and Codex
+    internal/plugin     the one way sous runs another program: find it by name, run it with a time limit
+    internal/project    finding projects, reading git facts, matching rough names
+    internal/store      saving data files safely: locked, written whole, upgraded in place
+    internal/config     config.toml
+    internal/hook       agent hook input, and installing hooks
+    internal/testutil   helpers shared by every package's tests
+
+Code only depends downward, in this order: `cli`, then `report`, then
+`board`, `filing`, `hook` and `launcher`, then `signal` and `backend`, then
+`tracker`, `plugin`, `thread`, `session` and `project`, then `store` and
+`config`. `board` never imports `filing` or `backend`; it is handed a
+function instead. `signal` never imports `backend`; both use `tracker`.
+Only `cli` reads the environment. If a function decides something or owns a
+data file, it does not belong in `cli`.
+
+**Adding a tracker** (Jira, say) usually means two small tables: one for
+filing in `internal/backend/<name>.go`, one for finding work in
+`internal/signal/<name>.go`, and a line in each list of built ins. The
+shared code should not need to change. If it does, that is the part to
+review closely. Every backend must pass `backendtest.Run` and
+`RunUnreachable` against a fake of its command line tool that keeps state
+(`internal/backend/conformance_test.go`), and `RunDoor` when run as a
+separate program.
+
+## Rules that are easy to break
+
+* **Missing data must never look like zero.** A failed plugin, an unreadable
+  repo or a missing folder must show in the headline, and what was known
+  before is kept and marked stale. When you add a source, write its failure
+  path first.
+* **Starting a session stays fast and offline.** `sous here`, the session
+  hooks and `sous go` run only the git signal, read everything else from
+  what the board saw last, and only check trackers that live in the project
+  (`FOLLOWUPS.md`). Never add a network call there.
+* **Every data file carries a `version`** and is upgraded when read. A file
+  from a newer sous is refused, never overwritten. Test every upgrade.
+* **Every write is locked and replaces the file whole** (`store.Modify`).
+  Several agents writing at once is normal; a test races eight processes.
+* **Built ins take the same door as plugins.** Signals, backends and
+  launchers are separate programs, and built ins are reached by running
+  `sous signal|backend|launcher <name> ...`. No shortcuts inside the process.
+* **Notes stay private until the person says otherwise.** Anything that
+  writes where others can see (`sous file`, `--file`, `--close`) must be
+  asked for explicitly.
+* **Exit codes:** `0` fine, `1` something failed, `2` wrong command or an
+  ambiguous name, `3` asked for the cached board before there was one. Each
+  command declares its flags and how many arguments it takes in `verbs.go`,
+  and anything else is refused with that command's usage.
+* **One dependency** (`github.com/BurntSushi/toml`). A new one needs a
+  reason in the commit message.
+* **Hooks never hold up a session.** `sous hook ...` always exits `0`, prints
+  nothing to stderr, and finishes within five seconds whatever git does.
+
+## AXI
+
+sous follows the [AXI](https://axi.md) guidelines for command line tools
+that agents use, as they read on 2026-09-28. `internal/cli/axi_test.go` has
+one test per principle, and most of them loop over every command, so a new
+command is checked without anyone adding a test. When one fails, fix the
+command, not the test.
+
+What the tests hold: bare `sous` shows the board; every command that shows
+something answers even when there is nothing to show, and its `--json` is
+never `null`; unknown flags fail with exit code `2`; nothing waits for
+input; the board and `here` suggest a next command; every command has
+`--help`; the skill can be printed for any agent. The session hooks and
+the short `here --brief` are covered in `hooks_test.go` and the board tests.
+
+Where sous chooses differently, for the person reading the terminal:
+
+* **Plain text, not TOON.** People read the board; `--json` is for programs.
+* **Errors go to stderr** as one clear line.
+* **No `--fields` or `--full`.** Output is already short, and `--json` has
+  everything.
+
+Changing one of these, or following a new AXI principle, is a design
+change: update this section and `docs/design.md` together. When axi.md
+changes, check it again and update the date above.
+
+## Follow-ups
+
+Known rough edges live in [FOLLOWUPS.md](FOLLOWUPS.md), tracked with sous
+itself (`sous note --file -p sous "..."`), so they show up in `sous here`.
+Do not edit the `<!-- sous:... -->` markers by hand. Tick a box to close one.
+
+## Versions
+
+There are three kinds. The command's version comes from the git tag. The
+plugin contract has its own number (`v`) and freezes before 1.0. Data files
+have a `version` each and are always upgraded, never broken. 1.0 is a
+promise that the plugin contract is stable, not a measure of popularity.
+Add a line to `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) for every
+change a person would notice.
+
+## Commit messages
+
+A short first line saying what changed, in plain words. Then, when it is
+not obvious, a few lines on why.

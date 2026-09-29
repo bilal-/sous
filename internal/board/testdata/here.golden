@@ -1,0 +1,13 @@
+ios-app · feature/home-widget · last commit 1mo ago
+  "Wire the home widget to the data service"
+  2 files uncommitted · feature/home-widget
+last session · claude · 2026-09-26 · ended: "tests pass, next is the widget layout for the home screen"
+on you: 3 · on others: 0 · ideas: 2
+  3  ask Sam about App Store cert  1d  → md:FOLLOWUPS.md:3:a1f3b2c4
+  4  marker was deleted  2d  → md:FOLLOWUPS.md:4:deadbeef (ref missing)
+  s:dddddddddddd  review requested · PR #3 widget  4d  → github:oss/ios-app#3
+  1  widget: home screen layout  1mo (snoozed)
+  2  consider offline image cache  2mo
+  ✓ 9  old one  (closed upstream 2d)
+
+  sous note "…" to add · sous done <n> to close · sous kind <n> me to escalate
