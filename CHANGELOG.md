@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.1.7]
+
 ### Fixed
 * Ticking a box in a FOLLOWUPS.md with Windows line endings ticks the right
   box. Before, with many items above it, it could tick the wrong one.
