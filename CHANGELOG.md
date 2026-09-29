@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.2.2]
+
 ### Added
 * `sous doctor` checks every part of the setup (config and project
   folders, agent hooks and skills, the shell line, `gh` and `glab` logins
