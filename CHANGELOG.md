@@ -7,7 +7,17 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.1.5]
+
 ### Added
+* `sous setup` puts the sous skill in the shared `~/.agents/skills` folder,
+  so Gemini CLI, Kimi, Cursor and other agents that read it know sous is
+  there, and in Antigravity's skills folder when Antigravity is installed.
+* The session start summary opens with one line telling the agent what
+  sous is and when to use it.
+* The skill names more moments to reach for sous (putting work off,
+  waiting on someone, an idea for another project) and tells agents to
+  offer a note, asking first.
 * docs/commands.md: a guide to every command, option, exit code,
   environment variable and setting. A test keeps it in step with the code.
 

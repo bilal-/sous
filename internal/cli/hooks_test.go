@@ -309,3 +309,40 @@ func TestSetupWithNoProjectsFoundSaysWhatToDo(t *testing.T) {
 		t.Fatalf("%d %q", code, out)
 	}
 }
+
+// The skill goes where every agent looks: Claude Code, Codex, the shared
+// ~/.agents/skills (Gemini CLI, Kimi, Cursor and others), and Antigravity
+// when it is installed. Setup says which agents it found.
+func TestSetupGivesEveryAgentTheSkill(t *testing.T) {
+	f := fixture(t)
+	os.MkdirAll(filepath.Join(f.Home, ".gemini", "antigravity"), 0o755)
+	out, _, code := f.run("setup", "--no-shell")
+	if code != 0 {
+		t.Fatal(code)
+	}
+	for _, dir := range []string{".claude/skills/sous", ".codex/skills/sous", ".agents/skills/sous", ".gemini/antigravity/skills/sous"} {
+		if b, err := os.ReadFile(filepath.Join(f.Home, dir, "SKILL.md")); err != nil || !strings.HasPrefix(string(b), "---\nname: sous") {
+			t.Errorf("%s: %v", dir, err)
+		}
+	}
+	if !strings.Contains(out, "Antigravity") || !strings.Contains(out, "Gemini CLI, Kimi, Cursor") {
+		t.Fatalf("%s", out)
+	}
+	g := fixture(t)
+	g.run("setup", "--no-shell")
+	if _, err := os.Stat(filepath.Join(g.Home, ".gemini")); err == nil {
+		t.Fatal("no Antigravity folder is created when Antigravity is not installed")
+	}
+}
+
+// An agent starting a session is told what sous is, not only shown its
+// output.
+func TestSessionStartIntroducesSous(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	out, _, _ := f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "startup"}), "hook", "session-start", "claude")
+	first := strings.SplitN(out, "\n", 2)[0]
+	if !strings.Contains(first, "sous") || !strings.Contains(first, "skill") || !strings.Contains(out, "api · main") {
+		t.Fatalf("%q", out)
+	}
+}

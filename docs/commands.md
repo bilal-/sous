@@ -251,8 +251,11 @@ it did.
   `~/dev`, `~/projects`, `~/workspace`, `~/repos`, `~/git`, `~/Developer`,
   `~/Projects`, `~/Documents/GitHub`) and uses those that hold git repos.
 * **Agents.** Adds session hooks for Claude Code (session start and end) and
-  Codex (session start), and the `sous` skill for both. A sous that moved
-  updates its hooks rather than adding a second set.
+  Codex (session start). Puts the `sous` skill where agents look for skills:
+  Claude Code's and Codex's folders, the shared `~/.agents/skills` folder
+  that Gemini CLI, Kimi, Cursor and others read, and Antigravity's folder
+  when Antigravity is installed. A sous that moved updates its hooks rather
+  than adding a second set.
 * **Shell.** Adds one line to your zsh, bash or fish startup file so new
   terminals show the board. It is only added once.
 * **Menu bar.** Writes `~/.sous/sous.5m.sh` for

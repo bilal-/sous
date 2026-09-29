@@ -136,7 +136,7 @@ sous is young. Here is an honest list.
 |---|---|
 | macOS and Linux, on Intel and Apple silicon | Windows |
 | the board in new **zsh**, **bash** and **fish** shells | other shells (run `sous --ambient` from their startup file) |
-| session hooks and a skill for **Claude Code** and **Codex** | hooks for other agents (they can still use sous, see below) |
+| session hooks for **Claude Code** and **Codex**; the sous skill for them and for **Gemini CLI, Kimi, Cursor, Antigravity** and other agents that read `~/.agents/skills` | session hooks for other agents (see below) |
 | git: uncommitted files, unpushed commits, stashes, branches with no upstream | |
 | **GitHub**: reviews asked of you, changes asked on your pull requests; filing and closing issues | GitHub notifications, CI status |
 | **GitLab**: merge requests to review, yours awaiting review; filing and closing issues | GitLab to do items |
@@ -184,7 +184,9 @@ There is nothing else to do: installing runs `sous setup`, which
 * finds your projects by looking in the usual places (`~/code`, `~/src`,
   `~/projects`, `~/workspace`, `~/Developer` and a few more). It looks two
   folders deep, so `~/code` finds `~/code/acme/api`.
-* adds session hooks and the `sous` skill for Claude Code and Codex
+* adds session hooks for Claude Code and Codex, and the `sous` skill for
+  them and for any agent that reads the shared `~/.agents/skills` folder
+  (Gemini CLI, Kimi, Cursor and others) or Antigravity's
 * adds one line to your shell's startup file (zsh, bash or fish), so new
   terminals show the board
 * writes a menu bar script for [SwiftBar](https://swiftbar.app)
@@ -296,16 +298,17 @@ report when a session ends yet, so `sous here` cannot show how your last
 Codex session ended. It still shows the last commit and your notes. If your Codex version lists a SessionEnd hook, run
 `sous setup --codex-session-end`.
 
-**Kimi, Gemini, Cursor, Aider and others.** sous installs nothing for these
-yet, but two small steps get you most of the way:
+**Gemini CLI, Kimi, Cursor, Antigravity and others.** Many agents now
+read skills from a shared folder, `~/.agents/skills`, and `sous setup` puts
+the sous skill there, and in Antigravity's own folder when Antigravity is
+installed. These agents then know sous is there and when to use it. What
+they do not get yet is the start of session summary, because sous only
+installs hooks for Claude Code and Codex. To get it, add a line to the
+agent's instructions file (such as `AGENTS.md` or `GEMINI.md`) asking it to
+run `sous here --brief` at the start of a session.
 
-1. Give the agent the skill. Print it with `sous setup --print-skill`, then
-   put it where your agent reads skills or instructions: its skills folder if
-   it supports [Agent Skills](https://agentskills.io), or its instructions
-   file, such as `AGENTS.md`.
-2. Ask the agent to run `sous here --brief` when a session starts, in the
-   same instructions file. That gives it the same start of session context
-   the hooks give Claude Code.
+For an agent that reads no skills folder, `sous setup --print-skill` prints
+the skill so you can paste it into its instructions.
 
 If you get sous working well with another agent, please share how in an
 issue, or send a pull request adding hooks for it.

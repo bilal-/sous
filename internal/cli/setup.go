@@ -51,12 +51,16 @@ func cmdSetup(e *Env, a argv) int {
 			return fail(e, 1, "%s: %v", i.file, err)
 		}
 	}
-	for _, dir := range []string{filepath.Join(home, ".claude", "skills", "sous"), filepath.Join(home, ".codex", "skills", "sous")} {
+	for _, sk := range skillHomes(home) {
+		dir := filepath.Join(sk.dir, "sous")
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fail(e, 1, "%v", err)
 		}
 		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(skillMD), 0o644); err != nil {
 			return fail(e, 1, "writing the skill: %v", err)
+		}
+		if sk.who != "" {
+			say("%s: %s", sk.who, sk.what)
 		}
 	}
 	say("Claude Code: sees where you left off when a session starts, and has the sous skill")
@@ -88,6 +92,25 @@ func cmdSetup(e *Env, a argv) int {
 	fmt.Fprintf(e.Stdout, "\nOpen a new terminal to see your board, or run sous now.\n")
 	fmt.Fprintf(e.Stdout, "Menu bar (optional, needs SwiftBar): link %s into SwiftBar's plugin folder.\n", tilde(home, swiftbar))
 	return 0
+}
+
+// skillHome is one place agents look for skills.
+type skillHome struct{ dir, who, what string }
+
+// skillHomes: where to put the sous skill. Claude Code and Codex are
+// reported with their hooks; ~/.agents/skills is the shared Agent Skills
+// folder that Gemini CLI, Kimi, Cursor and others read; Antigravity keeps
+// its own, used only when Antigravity is installed.
+func skillHomes(home string) []skillHome {
+	hs := []skillHome{
+		{dir: filepath.Join(home, ".claude", "skills")},
+		{dir: filepath.Join(home, ".codex", "skills")},
+		{dir: filepath.Join(home, ".agents", "skills"), who: "Gemini CLI, Kimi, Cursor and other agents", what: "have the sous skill (in ~/.agents/skills, the shared folder they read)"},
+	}
+	if st, err := os.Stat(filepath.Join(home, ".gemini", "antigravity")); err == nil && st.IsDir() {
+		hs = append(hs, skillHome{dir: filepath.Join(home, ".gemini", "antigravity", "skills"), who: "Antigravity", what: "has the sous skill"})
+	}
+	return hs
 }
 
 // likelyRoots are where people usually keep their repos.

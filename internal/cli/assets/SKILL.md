@@ -1,6 +1,6 @@
 ---
 name: sous
-description: Use when the user asks what is waiting on them across projects, wants to remember something for this or another project ("note this", "remind me", "file this"), asks where they left off, or says "sous". sous is a personal list of what is waiting on the user across every project. It never does work itself.
+description: Use when the user asks what is waiting on them or where they left off, says "note this", "remind me", "later", "follow up", "file this", or "sous", or when work is being put off (a TODO for another day, something to check with a person, an idea for another project). sous is the user's personal list of what is waiting on them across every project; it never does work itself.
 ---
 
 # sous
@@ -51,6 +51,18 @@ turn is not consent.
   work is done. Tell the user rather than closing anything.
 * A line starting with `✓` and `(closed upstream ...)` is a note that was
   closed in its tracker. It is shown so the user knows it happened.
+
+## When to offer a note
+
+Offer, in one short line, to note something with sous when:
+
+* the user decides to do something later ("let's do that tomorrow")
+* you stop with work unfinished, or leave a TODO
+* the user is waiting on a person (a review, an answer, a sign off)
+* an idea comes up that belongs to another project
+
+Ask first. Write it only when they say yes, or when they asked you to keep
+track of such things.
 
 ## Rules
 

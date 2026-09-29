@@ -2,12 +2,17 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/bilal-/sous/internal/hook"
 	"github.com/bilal-/sous/internal/session"
 )
+
+// sessionIntro opens what an agent sees at session start, so it knows what
+// sous is and when to reach for it, not only what sous printed.
+const sessionIntro = "[sous] The user's list of what is waiting on them across projects. Below: where they left off here. When they want to remember something for later, in this or another project, use the sous skill (sous note)."
 
 // cmdHook: `sous hook session-start|session-end <agent>`. Always exit 0, stderr silent.
 func cmdHook(e *Env, a argv) int {
@@ -43,6 +48,9 @@ func cmdHook(e *Env, a argv) int {
 		}()
 		select {
 		case <-done:
+			if buf.Len() > 0 {
+				fmt.Fprintln(e.Stdout, sessionIntro)
+			}
 			io.Copy(e.Stdout, &buf)
 		case <-time.After(5 * time.Second):
 			sub.close()
