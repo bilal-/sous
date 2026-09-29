@@ -62,6 +62,14 @@ var (
 // priority). Why gets failed plugins, then extra, then stale rows.
 func classify(v view, now time.Time, threads []thread.View, signals []signal.Observed, plugins []signal.PluginStatus, extra ...string) Sections {
 	var s Sections
+	s.routeThreads(v, now, threads)
+	stale := s.routeSignals(v, now, signals)
+	s.Why = why(plugins, stale, extra)
+	return s
+}
+
+// routeThreads puts each note under on you, on others, or ideas.
+func (s *Sections) routeThreads(v view, now time.Time, threads []thread.View) {
 	for _, t := range threads {
 		switch t.Kind {
 		case thread.Me:
@@ -74,13 +82,21 @@ func classify(v view, now time.Time, threads []thread.View, signals []signal.Obs
 			}
 		}
 	}
+}
+
+// routeSignals puts each signal under its section, hiding snoozed ones the
+// view hides, and returns which plugins left stale rows. Unfinished sorts
+// oldest first (age is the only priority).
+func (s *Sections) routeSignals(v view, now time.Time, signals []signal.Observed) map[string]bool {
+	stale := map[string]bool{}
 	var unf []signal.Observed
-	stale := false
 	for _, o := range signals {
 		if o.Snoozed && (o.Kind == signal.Unfinished || !v.snoozedPromises) {
 			continue
 		}
-		stale = stale || o.Stale
+		if o.Stale {
+			stale[o.Plugin] = true
+		}
 		switch o.Kind {
 		case signal.Me:
 			s.Me = append(s.Me, signalRow(o, now))
@@ -94,29 +110,27 @@ func classify(v view, now time.Time, threads []thread.View, signals []signal.Obs
 	for _, o := range unf {
 		s.Unfinished = append(s.Unfinished, signalRow(o, now))
 	}
-	staleFrom := map[string]bool{}
-	for _, o := range signals {
-		if o.Stale {
-			staleFrom[o.Plugin] = true
-		}
-	}
+	return stale
+}
+
+// why lists what makes the picture incomplete: failed plugins, then extra
+// (missing roots, nothing checked), then stale rows. A plugin that is not
+// set up is only a gap when it left stale rows behind.
+func why(plugins []signal.PluginStatus, stale map[string]bool, extra []string) []string {
+	var out []string
 	for _, p := range plugins {
 		switch {
-		case p.Status == signal.StatusOK:
-		case p.Status == signal.StatusOff:
-			// Never set up is not a gap; set up before and gone now is.
-			if staleFrom[p.Name] {
-				s.Why = append(s.Why, p.Name+" not set up")
-			}
-		default:
-			s.Why = append(s.Why, p.Name+" "+string(p.Status))
+		case p.Status == signal.StatusOff && stale[p.Name]:
+			out = append(out, p.Name+" not set up")
+		case p.Gap():
+			out = append(out, p.Name+" "+string(p.Status))
 		}
 	}
-	s.Why = append(s.Why, extra...)
-	if stale {
-		s.Why = append(s.Why, "stale rows")
+	out = append(out, extra...)
+	if len(stale) > 0 {
+		out = append(out, "stale rows")
 	}
-	return s
+	return out
 }
 
 // Classify turns board data into sections. Ideas stay off the board.

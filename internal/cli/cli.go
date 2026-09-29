@@ -195,11 +195,24 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 // run is Run with the working directory explicit, so tests never chdir the
 // process and can run in parallel.
 func run(args []string, cwd string, stdin io.Reader, stdout, stderr io.Writer) int {
-	exe, _ := os.Executable()
-	exe = stableExe(exe)
-	home := sousHome()
-	e := &Env{Home: home, Stdin: stdin, Stdout: stdout, Stderr: stderr, Exe: exe, Store: &store.Store{Home: home}, Cwd: cwd}
+	e := newEnv(cwd, stdin, stdout, stderr)
 	defer e.close()
+	args = e.takeReadFlags(args)
+	if len(args) > 0 && strings.HasPrefix(args[0], "-") {
+		return runMode(e, args[0])
+	}
+	if len(args) == 0 {
+		return cmdBoard(e, nil)
+	}
+	return dispatch(e, args[0], args[1:])
+}
+
+// newEnv reads the environment, once, for the whole invocation. Nothing
+// below cli reads it.
+func newEnv(cwd string, stdin io.Reader, stdout, stderr io.Writer) *Env {
+	exe, _ := os.Executable()
+	home := sousHome()
+	e := &Env{Home: home, Stdin: stdin, Stdout: stdout, Stderr: stderr, Exe: stableExe(exe), Store: &store.Store{Home: home}, Cwd: cwd}
 	e.Source = os.Getenv("SOUS_SOURCE")
 	e.UserHome, _ = os.UserHomeDir()
 	e.Shell, e.Zdotdir = os.Getenv("SHELL"), os.Getenv("ZDOTDIR")
@@ -207,16 +220,17 @@ func run(args []string, cwd string, stdin io.Reader, stdout, stderr io.Writer) i
 	if e.Cfg == nil {
 		e.Cfg = &config.Config{Agent: "claude", RefreshHours: 4}
 	}
+	return e
+}
 
-	// --json and --brief are accepted anywhere: `sous here --json` reads as
-	// naturally as `sous --json here`, and no subcommand uses those names.
+// takeReadFlags removes --json and --brief wherever they are (before any
+// --): `sous here --json` reads as naturally as `sous --json here`.
+func (e *Env) takeReadFlags(args []string) []string {
 	kept := args[:0:0]
 	for i, a := range args {
-		if a == "--" {
-			kept = append(kept, args[i:]...) // the rest is text
-			break
-		}
 		switch a {
+		case "--":
+			return append(kept, args[i:]...) // the rest is text
 		case "--json":
 			e.JSON = true
 		case "--brief":
@@ -225,39 +239,41 @@ func run(args []string, cwd string, stdin io.Reader, stdout, stderr io.Writer) i
 			kept = append(kept, a)
 		}
 	}
-	args = kept
+	return kept
+}
 
-	// Mode flags stand alone and must lead.
-	if len(args) > 0 && strings.HasPrefix(args[0], "-") {
-		switch args[0] {
-		case "--refresh":
-			_, code := buildBoard(e, nil)
-			return code
-		case "--cached":
-			return cmdCached(e)
-		case "--ambient":
-			return cmdAmbient(e)
-		case "--menubar":
-			return cmdMenubar(e)
-		case "--help", "-h":
-			usage(stdout)
-			return 0
-		}
-		return fail(e, 2, "unknown flag: %s (try: sous help)", args[0])
+// runMode handles the options that stand alone and come first: the shell
+// and menu bar surfaces, and help.
+func runMode(e *Env, flag string) int {
+	switch flag {
+	case "--refresh":
+		_, code := buildBoard(e, nil)
+		return code
+	case "--cached":
+		return cmdCached(e)
+	case "--ambient":
+		return cmdAmbient(e)
+	case "--menubar":
+		return cmdMenubar(e)
+	case "--help", "-h":
+		usage(e.Stdout)
+		return 0
 	}
-	if len(args) == 0 {
-		return cmdBoard(e, nil)
-	}
-	cmd, rest := args[0], args[1:]
+	return fail(e, 2, "unknown flag: %s (try: sous help)", flag)
+}
+
+// dispatch runs a verb, or treats an unknown word as a folder, repo or
+// project name to show.
+func dispatch(e *Env, cmd string, rest []string) int {
 	v, ok := findVerb(cmd)
 	if !ok {
 		if len(rest) == 0 {
-			return cmdPath(e, cmd) // a folder of repos, a repo path, or a project name
+			return cmdPath(e, cmd)
 		}
 		return fail(e, 2, "unknown subcommand: %s (try: sous help)", cmd)
 	}
-	// --json / --brief belong to read verbs only; a write verb given one is a
-	// caller mistake and must fail loud rather than silently succeed.
+	// --json / --brief belong to read verbs only; a write verb given one is
+	// a caller mistake and must fail loud rather than silently succeed.
 	if (e.JSON || e.Brief) && !v.read {
 		flagName := "--json"
 		if e.Brief && !e.JSON {
@@ -269,15 +285,19 @@ func run(args []string, cwd string, stdin io.Reader, stdout, stderr io.Writer) i
 		return v.run(e, argv{pos: rest})
 	}
 	if len(rest) > 0 && (rest[0] == "--help" || rest[0] == "-h") {
-		fmt.Fprintf(e.Stdout, "usage: %s\n", v.synopsis())
-		if _, about, ok := strings.Cut(v.usage, "  "); ok {
-			fmt.Fprintf(e.Stdout, "  %s\n", strings.TrimSpace(about))
-		}
-		return 0
+		return verbHelp(e, v)
 	}
 	a, err := parseArgs(*v.args, rest)
 	if err != nil {
 		return fail(e, 2, "%v\nusage: %s", err, v.synopsis())
 	}
 	return v.run(e, a)
+}
+
+func verbHelp(e *Env, v verb) int {
+	fmt.Fprintf(e.Stdout, "usage: %s\n", v.synopsis())
+	if _, about, ok := strings.Cut(v.usage, "  "); ok {
+		fmt.Fprintf(e.Stdout, "  %s\n", strings.TrimSpace(about))
+	}
+	return 0
 }
