@@ -17,7 +17,8 @@ upgraded, never broken.
   (`gh auth refresh -s notifications`).
 * `sous config` shows every setting and changes them, for everything or
   for one project (`-p api`, or `-p 'acme/*'`), checking values first and
-  keeping the file's comments and layout.
+  keeping the file's comments and layout. `--add` and `--remove` change a
+  list without replacing it.
 * The plugin contract is stable: version 0 only grows until 1.0, which
   freezes it. docs/plugins.md says what that promises.
 * An example plugin, `examples/sous-signal-todo`, in plain shell, and a

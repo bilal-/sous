@@ -53,7 +53,11 @@ func edit(s string, table []string, key string, value any) string {
 		}
 		return s[:start] + s[end:]
 	}
-	line := key + " = " + tomlValue(value)
+	name := key
+	if !isBareKey(key) {
+		name = tomlString(key)
+	}
+	line := name + " = " + tomlValue(value)
 	if found {
 		return s[:start] + line + s[end:]
 	}

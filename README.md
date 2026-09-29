@@ -138,7 +138,7 @@ sous is young. Here is an honest list.
 | the board in new **zsh**, **bash** and **fish** shells | other shells (run `sous --ambient` from their startup file) |
 | session hooks for **Claude Code** and **Codex**; the sous skill for them and for **Gemini CLI, Kimi, Cursor, Antigravity** and other agents that read `~/.agents/skills` | session hooks for other agents (see below) |
 | git: uncommitted files, unpushed commits, stashes, branches with no upstream | |
-| **GitHub**: reviews asked of you, changes asked on your pull requests; filing and closing issues | GitHub notifications, CI status |
+| **GitHub**: reviews asked of you, changes asked on your pull requests, failing checks on your pull requests, unread notifications that mention or assign you; filing and closing issues | CI on branches without a pull request |
 | **GitLab**: merge requests to review, yours awaiting review; filing and closing issues | GitLab to do items |
 | `FOLLOWUPS.md` in the project as a simple tracker | Jira, Linear, Gitea, Bitbucket (plugins welcome) |
 | a menu bar view through [SwiftBar](https://swiftbar.app) on macOS | a Linux tray icon |
@@ -167,7 +167,8 @@ your `PATH`, the script tells you. To install a particular version, run
     make install && sous setup
 
 You need `git`. For GitHub, install [`gh`](https://cli.github.com) and run
-`gh auth login`. For GitLab, install [`glab`](https://gitlab.com/gitlab-org/cli)
+`gh auth login` (for notifications, a classic token with the notifications
+scope: `gh auth refresh -s notifications`). For GitLab, install [`glab`](https://gitlab.com/gitlab-org/cli)
 and run `glab auth login`. Both are optional. sous uses your existing logins
 and never asks for a token.
 

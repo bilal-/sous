@@ -85,7 +85,7 @@ refused, never overwritten.
 | `sessions.json` | the last agent session in each project (a pointer, not the conversation) |
 | `cache.json` | the last board, so a new shell and the menu bar can show it instantly |
 | `report.json` | when the last report was seen, where the next one starts |
-| `config.toml` | your folders, what to skip, and settings per project. Written by you and `sous setup`; not versioned, and settings sous does not know are ignored. |
+| `config.toml` | your folders, what to skip, and settings per project. Written by you, `sous setup` and `sous config`; not versioned, and settings sous does not know are ignored. |
 
 sous never writes rows of its own. Apart from your notes, everything is
 worked out again on every full look.

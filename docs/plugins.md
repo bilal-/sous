@@ -35,7 +35,7 @@ shown to the person when something goes wrong, so make it a clear sentence.
 
 sous runs a plugin only when it is listed in its settings:
 
-    sous config plugins ~/.sous/plugins/sous-backend-jira
+    sous config plugins --add ~/.sous/plugins/sous-backend-jira
 
 (or `plugins = [...]` in `~/.sous/config.toml`).
 

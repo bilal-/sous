@@ -98,3 +98,33 @@ func TestConfigOnlyOrgStarPatterns(t *testing.T) {
 		t.Fatalf("%d %q", code, errs)
 	}
 }
+
+// Review: lists can be added to and taken from; roots cannot be unset;
+// -p alone shows that project; a change with --json answers in JSON.
+func TestConfigListsProjectsAndJSON(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("acme/api", true)
+	f.run("config", "ignore", "a/*")
+	f.run("config", "ignore", "--add", "b/*")
+	f.run("config", "ignore", "--add", "b/*") // once only
+	if out, _, _ := f.run("config", "--json"); !strings.Contains(out, `"a/*",`) || strings.Count(out, `"b/*"`) != 1 {
+		t.Fatalf("add: %s", out)
+	}
+	f.run("config", "ignore", "--remove", "a/*")
+	if out, _, _ := f.run("config", "--json"); strings.Contains(out, `"a/*"`) {
+		t.Fatalf("remove: %s", out)
+	}
+	if _, errs, code := f.run("config", "--unset", "roots"); code != 2 || !strings.Contains(errs, "sous setup") {
+		t.Fatalf("roots: %d %q", code, errs)
+	}
+	f.run("config", "-p", "api", "backend", "markdown")
+	if out, _, code := f.run("config", "-p", "api"); code != 0 || !strings.Contains(out, "backend = markdown") || strings.Contains(out, "refresh_hours") {
+		t.Fatalf("-p alone: %d %s", code, out)
+	}
+	if out, _, code := f.run("config", "--json", "agent", "codex"); code != 0 || !strings.Contains(out, `"key": "agent"`) {
+		t.Fatalf("json change: %d %s", code, out)
+	}
+	if _, errs, code := f.run("config", "-p", "api", "a b", "x"); code != 0 {
+		t.Fatalf("a key with a space is quoted: %d %q", code, errs)
+	}
+}

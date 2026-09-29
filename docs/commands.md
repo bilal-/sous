@@ -285,11 +285,14 @@ settings for particular projects.
 
     sous config                                   show everything
     sous config agent codex                       change a setting
-    sous config ignore scratch/* tmp/*            a list takes several values
+    sous config ignore 'scratch/*' 'tmp/*'        a list takes several values (this replaces it)
+    sous config plugins --add ~/bin/sous-signal-todo   add to a list, keeping what is there
+    sous config ignore --remove 'tmp/*'           take something out of a list
     sous config -p api backend markdown           one project (rough name)
     sous config -p 'acme/*' github_account work   every project in the acme folder
     sous config --unset agent                     back to the default
     sous config -p api --unset backend
+    sous config -p api                            one project's own settings
 
 The settings are described in [Configuration](#configuration). Values are
 checked before anything is written: an agent or backend must be one sous
@@ -301,7 +304,10 @@ Options:
 
 * `-p <project>`: work on one project's settings. The name can be rough, or
   `org/*` for every project in an org folder.
-* `--unset`: remove the setting.
+* `--unset`: remove the setting. `roots` cannot be removed; change it
+  instead.
+* `--add`, `--remove`: add to or take from a list setting (roots, ignore,
+  plugins, gitlab_hosts) instead of replacing it.
 * `--json`
 
 ### `sous version`

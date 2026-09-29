@@ -6,7 +6,7 @@
 # row per project that has any. Copy it to start your own plugin.
 #
 # Try it:   echo ~/code/acme/api | ./sous-signal-todo scan
-# Use it:   sous config plugins /path/to/sous-signal-todo
+# Use it:   sous config plugins --add /path/to/sous-signal-todo
 #
 # The contract, in short (docs/plugins.md has the rest):
 #   * called as: sous-signal-todo scan
@@ -45,7 +45,9 @@ status=0
 while IFS= read -r project; do
   [ -n "$project" ] || continue
   # git grep exits 1 when nothing matches: that is an answer, not a failure.
-  matches=$(git -C "$project" grep -n -F 'TODO(me)' 2>/dev/null)
+  # -I skips binary files; no line numbers, so editing above a TODO does
+  # not count as a change to it.
+  matches=$(git -C "$project" grep -I -h -F 'TODO(me)' 2>/dev/null)
   case $? in
     0) ;;
     1) continue ;;

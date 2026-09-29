@@ -20,10 +20,10 @@ func cmdConfig(e *Env, a argv) int {
 		return fail(e, 1, "%s could not be read (%v); fix it by hand", config.Path(e.Home), e.cfgErr)
 	}
 	switch {
-	case len(a.pos) == 0 && !a.has("unset"):
-		return showConfig(e)
 	case a.has("p"):
 		return setProjectConfig(e, a)
+	case len(a.pos) == 0 && !a.has("unset"):
+		return showConfig(e)
 	}
 	return setConfig(e, a)
 }
@@ -42,12 +42,21 @@ func setConfig(e *Env, a argv) int {
 		if err != nil {
 			return fail(e, 2, "%v", err)
 		}
+		if a.has("add") || a.has("remove") {
+			list, ok := v.([]string)
+			if !ok {
+				return fail(e, 2, "--add and --remove are for lists: %s is not one", k.Name)
+			}
+			v = changeList(k.Value(e.Cfg).([]string), list, a.has("add"))
+		}
 		if k.Name == "agent" && !slices.Contains(launcherNames(e), v.(string)) {
 			return fail(e, 2, "no agent %q; choose one of: %s", v, strings.Join(launcherNames(e), ", "))
 		}
 		value = v
 	} else if len(a.pos) != 1 {
 		return fail(e, 2, "--unset takes just the setting's name")
+	} else if k.Name == "roots" {
+		return fail(e, 2, "sous needs roots; change them with sous setup <folder> or sous config roots <folder...>")
 	}
 	if k.Name == "roots" && value != nil {
 		return setRoots(e, value.([]string))
@@ -81,6 +90,8 @@ func setProjectConfig(e *Env, a argv) int {
 	}
 	var value any
 	switch {
+	case len(a.pos) == 0 && !a.has("unset"):
+		return showProjectConfig(e, key)
 	case a.has("unset") && len(a.pos) == 1:
 	case !a.has("unset") && len(a.pos) == 2:
 		value = a.pos[1]
@@ -96,8 +107,25 @@ func setProjectConfig(e *Env, a argv) int {
 	return said(e, key, a.pos[0], value)
 }
 
-// said confirms a change in one line.
+// changeList adds items not already there, or removes them, keeping order.
+func changeList(have, items []string, add bool) []string {
+	out := slices.Clone(have)
+	for _, it := range items {
+		switch i := slices.Index(out, it); {
+		case add && i < 0:
+			out = append(out, it)
+		case !add && i >= 0:
+			out = slices.Delete(out, i, i+1)
+		}
+	}
+	return out
+}
+
+// said confirms a change in one line, or as JSON.
 func said(e *Env, project, key string, value any) int {
+	if e.JSON {
+		return e.writeJSON(map[string]any{"project": project, "key": key, "value": value})
+	}
 	if project != "" {
 		key = project + ": " + key
 	}
@@ -156,11 +184,12 @@ func showConfig(e *Env) int {
 	for _, k := range config.Keys() {
 		s := v.Settings[k.Name]
 		shown := fmt.Sprint(s.Value)
-		if list, ok := s.Value.([]string); ok {
+		if list, ok := s.Value.([]string); ok { // a copy: e.Cfg is not ours to change
+			tilded := make([]string, len(list))
 			for i := range list {
-				list[i] = config.Tilde(e.UserHome, list[i])
+				tilded[i] = config.Tilde(e.UserHome, list[i])
 			}
-			shown = strings.Join(list, ", ")
+			shown = strings.Join(tilded, ", ")
 		}
 		switch {
 		case shown == "" || shown == "0":
@@ -187,5 +216,33 @@ func showConfig(e *Env) int {
 		}
 	}
 	fmt.Fprintln(e.Stdout, "\n  sous config <key> <value> to change · sous config -p <project> <key> <value> for one project")
+	return 0
+}
+
+// showProjectConfig: one project's (or org/*'s) settings as written.
+func showProjectConfig(e *Env, key string) int {
+	_, projects, err := config.Written(e.Home)
+	if err != nil {
+		return fail(e, 1, "%v", err)
+	}
+	settings := projects[key]
+	if settings == nil {
+		settings = map[string]string{}
+	}
+	if e.JSON {
+		return e.writeJSON(map[string]any{"project": key, "settings": settings})
+	}
+	fmt.Fprintln(e.Stdout, key)
+	if len(settings) == 0 {
+		fmt.Fprintln(e.Stdout, "  no settings of its own")
+	}
+	names := make([]string, 0, len(settings))
+	for k := range settings {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	for _, k := range names {
+		fmt.Fprintf(e.Stdout, "  %s = %s\n", k, settings[k])
+	}
 	return 0
 }
