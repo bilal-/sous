@@ -165,7 +165,7 @@ var checksQuery = `query{search(query:"is:pr is:open author:@me archived:false",
 // ScanGitHub: obligations with a person on the other end, searched once per
 // configured account (the active one plus every github_account in config).
 func ScanGitHub(cfg *config.Config) Scanner {
-	accounts := cfg.Identities("github_account")
+	accounts := cfg.Identities(config.KeyGitHubAccount)
 	return RemoteScanner{
 		Name:       "github",
 		Host:       tracker.GitHubHost,

@@ -57,7 +57,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/plugin     the one way sous runs another program: find it by name, run it with a time limit
     internal/project    finding projects, reading git facts, matching rough names
     internal/store      saving data files safely: locked, written whole, upgraded in place
-    internal/config     config.toml
+    internal/config     config.toml: reading it, the list of settings (from Config's fields), and safe editing (Set), checked to change only what was asked
     internal/hook       agent hook input, the hook command format, and adding hooks to an agent's settings
     internal/install    setup's steps: agent hooks and skills, and the shell line
     internal/testutil   helpers shared by every package's tests

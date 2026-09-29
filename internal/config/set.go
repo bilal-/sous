@@ -22,6 +22,9 @@ import (
 func Set(sousHome string, table []string, key string, value any) error {
 	return store.EditFile(Path(sousHome), 0o644, func(b []byte) ([]byte, error) {
 		old := string(b)
+		if start, _, found := findKey(old, table, key); found && value != nil && valueHasComment(old, start) {
+			return nil, fmt.Errorf("%s has comments inside it that a new value would lose; edit %s by hand", key, Path(sousHome))
+		}
 		out := edit(old, table, key, value)
 		// Checked even when the text did not change: an unset that found no
 		// line while the setting is there (written some other way) must
@@ -40,18 +43,16 @@ func Set(sousHome string, table []string, key string, value any) error {
 // table is (the top level goes above the first table; a table that does not
 // exist is added at the end), or remove the key's line.
 func edit(s string, table []string, key string, value any) string {
+	nl := "\n"
+	if strings.Contains(s, "\r\n") { // write the line ending the file uses
+		nl = "\r\n"
+	}
 	start, end, found := findKey(s, table, key)
 	if value == nil {
 		if !found {
 			return s
 		}
-		if end < len(s) && s[end] == '\n' {
-			end++
-		}
-		for start > 0 && s[start-1] != '\n' {
-			start--
-		}
-		return s[:start] + s[end:]
+		return removeEmptyTable(removeLine(s, start, end), table)
 	}
 	name := key
 	if !isBareKey(key) {
@@ -64,17 +65,91 @@ func edit(s string, table []string, key string, value any) string {
 	at, ok := tableEnd(s, table)
 	if !ok { // a new table, at the end of the file
 		if s != "" && !strings.HasSuffix(s, "\n") {
-			s += "\n"
+			s += nl
 		}
 		if s != "" {
-			s += "\n"
+			s += nl
 		}
-		return s + tableHeader(table) + "\n" + line + "\n"
+		return s + tableHeader(table) + nl + line + nl
 	}
 	if at > 0 && s[at-1] != '\n' { // the last line had no newline
-		line = "\n" + line
+		line = nl + line
 	}
-	return s[:at] + line + "\n" + s[at:]
+	return s[:at] + line + nl + s[at:]
+}
+
+// removeLine removes the whole line holding the span start..end: the key,
+// its value, any comment after it, and its line ending.
+func removeLine(s string, start, end int) string {
+	for start > 0 && s[start-1] != '\n' {
+		start--
+	}
+	if nl := strings.IndexByte(s[end:], '\n'); nl >= 0 {
+		end += nl + 1
+	} else {
+		end = len(s)
+	}
+	return s[:start] + s[end:]
+}
+
+// removeEmptyTable drops table's header when nothing is left under it (no
+// keys, no comments; blank lines do not count), with the blank line before
+// it. The top level is never removed.
+func removeEmptyTable(s string, table []string) string {
+	if len(table) == 0 {
+		return s
+	}
+	start, bodyEnd, ok := tableSpan(s, table)
+	if !ok || strings.TrimSpace(s[bodyStart(s, start):bodyEnd]) != "" {
+		return s
+	}
+	for start >= 2 && strings.HasSuffix(s[:start], "\n\n") || start >= 4 && strings.HasSuffix(s[:start], "\r\n\r\n") {
+		if strings.HasSuffix(s[:start], "\r\n") {
+			start -= 2
+		} else {
+			start--
+		}
+	}
+	return s[:start] + s[bodyEnd:]
+}
+
+// bodyStart is where a table's body begins: the line after its header. A
+// comment on the header line counts as body, so the table is kept.
+func bodyStart(s string, header int) int {
+	nl := strings.IndexByte(s[header:], '\n')
+	if nl < 0 {
+		return len(s)
+	}
+	line := s[header : header+nl]
+	if i := strings.LastIndexByte(line, ']'); i >= 0 && strings.TrimSpace(line[i+1:]) != "" {
+		return header + i + 1 // "] # comment": keep the comment as body
+	}
+	return header + nl + 1
+}
+
+// tableSpan finds table's header and the end of its body (the next table,
+// or the end of the file).
+func tableSpan(s string, table []string) (header, end int, ok bool) {
+	sc := tomlScanner{s: s}
+	header = -1
+	for sc.i < len(s) {
+		sc.skipBlankKeepComments()
+		if sc.i >= len(s) {
+			break
+		}
+		if s[sc.i] == '[' {
+			if header >= 0 {
+				return header, sc.i, true
+			}
+			at := sc.i
+			if slices.Equal(sc.header(), table) {
+				header = at
+			}
+			continue
+		}
+		sc.skipLine()
+	}
+	return header, len(s), header >= 0
 }
 
 // sameButFor checks that out means exactly old with the one change made.
@@ -103,10 +178,26 @@ func sameButFor(old, out string, table []string, key string, value any) error {
 	} else {
 		m[key] = decoded(value)
 	}
+	// An empty table means nothing, so removing one (with its last key)
+	// changes no meaning.
+	dropEmpty(want)
+	dropEmpty(got)
 	if !reflect.DeepEqual(want, got) {
 		return errors.New("that setting is written in a way sous cannot change safely")
 	}
 	return nil
+}
+
+// dropEmpty removes tables left with nothing in them.
+func dropEmpty(m map[string]any) {
+	for k, v := range m {
+		if sub, ok := v.(map[string]any); ok {
+			dropEmpty(sub)
+			if len(sub) == 0 {
+				delete(m, k)
+			}
+		}
+	}
 }
 
 // decoded is value as the TOML decoder would give it back.

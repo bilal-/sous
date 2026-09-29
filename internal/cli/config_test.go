@@ -128,3 +128,17 @@ func TestConfigListsProjectsAndJSON(t *testing.T) {
 		t.Fatalf("a key with a space is quoted: %d %q", code, errs)
 	}
 }
+
+// A per-project key sous does not use is written, but sous says it does not
+// know it (a plugin may read it), so a typo does not pass unnoticed.
+func TestConfigWarnsAboutUnknownProjectKeys(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("acme/api", true)
+	_, errs, code := f.run("config", "-p", "api", "backnd", "markdown")
+	if code != 0 || !strings.Contains(errs, "backnd") || !strings.Contains(errs, "backend") {
+		t.Fatalf("%d %q", code, errs)
+	}
+	if _, errs, _ := f.run("config", "-p", "api", "backend", "markdown"); errs != "" {
+		t.Fatalf("a known key says nothing: %q", errs)
+	}
+}

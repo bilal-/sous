@@ -153,7 +153,6 @@ func boolInt(b bool) int {
 func TestSetRootsReadsTOMLStructure(t *testing.T) {
 	for name, in := range map[string]string{
 		"array of arrays":   "matrix = [\n  [1, 2],\n  [3, 4],\n]\nroots = [\"~/old\"]\n",
-		"comment in array":  "roots = [\n  \"~/old\", # the ] old one\n]\nagent = \"codex\"\n",
 		"multi-line string": "note = \"\"\"\nroots = [\"~/fake\"]\n\"\"\"\nroots = [\"~/old\"]\n",
 		"literal multi":     "note = '''\nroots = ['~/fake']\n'''\nagent = \"codex\"\n",
 	} {
@@ -192,5 +191,16 @@ func TestKeysComeFromConfigFields(t *testing.T) {
 	}
 	if v := k.Value(Default()); v != 4 {
 		t.Fatal(v)
+	}
+}
+
+// A comment inside roots would be lost by a new value, so sous refuses
+// rather than drop it (and reading the comment's "]" does not confuse it).
+func TestSetRootsRefusesACommentedArray(t *testing.T) {
+	home := t.TempDir()
+	in := "roots = [\n  \"~/old\", # the ] old one\n]\nagent = \"codex\"\n"
+	os.WriteFile(filepath.Join(home, "config.toml"), []byte(in), 0o644)
+	if err := SetRoots(home, "/h", []string{"~/code"}); err == nil || !strings.Contains(err.Error(), "comments") {
+		t.Fatal(err)
 	}
 }

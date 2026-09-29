@@ -95,7 +95,7 @@ func setProjectConfig(e *Env, a argv) int {
 	case a.has("unset") && len(a.pos) == 1:
 	case !a.has("unset") && len(a.pos) == 2:
 		value = a.pos[1]
-		if a.pos[0] == "backend" && !slices.Contains(backendNames(e), a.pos[1]) {
+		if a.pos[0] == config.KeyBackend && !slices.Contains(backendNames(e), a.pos[1]) {
 			return fail(e, 2, "no backend %q; choose one of: %s", a.pos[1], strings.Join(backendNames(e), ", "))
 		}
 	default:
@@ -103,6 +103,9 @@ func setProjectConfig(e *Env, a argv) int {
 	}
 	if err := config.Set(e.Home, []string{"projects", key}, a.pos[0], value); err != nil {
 		return fail(e, 1, "%v", err)
+	}
+	if value != nil && !slices.Contains(config.ProjectKeys, a.pos[0]) {
+		fmt.Fprintf(e.Stderr, "sous: note: sous itself does not read %q (it reads %s); a plugin may\n", a.pos[0], strings.Join(config.ProjectKeys, ", "))
 	}
 	return said(e, key, a.pos[0], value)
 }

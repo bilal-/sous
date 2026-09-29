@@ -7,6 +7,15 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+* `sous config` edits the file the way a person would: removing a setting
+  takes its trailing comment with it, removing a project's last setting
+  removes its empty table, and files with Windows line endings keep them.
+* Replacing a list that holds comments is refused instead of silently
+  dropping the comments.
+* A per-project setting sous does not read itself is written with a note,
+  so a typo such as `backnd` does not pass unnoticed.
+
 ## [0.2.0]
 
 ### Added

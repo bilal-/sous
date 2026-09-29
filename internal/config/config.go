@@ -26,6 +26,15 @@ type Config struct {
 
 // ProjectConfig is what config says about one project, typed. Raw keeps
 // every key so third-party plugins can read their own.
+// The per-project settings sous itself reads. Plugins may read others.
+const (
+	KeyBackend       = "backend"
+	KeyGitHubAccount = "github_account"
+)
+
+// ProjectKeys are the per-project settings sous reads.
+var ProjectKeys = []string{KeyBackend, KeyGitHubAccount}
+
 type ProjectConfig struct {
 	Backend       string
 	GitHubAccount string
@@ -44,7 +53,7 @@ func (c *Config) Project(orgName string) ProjectConfig {
 	for k, v := range c.Projects[orgName] {
 		raw[k] = v
 	}
-	return ProjectConfig{Backend: raw["backend"], GitHubAccount: raw["github_account"], Raw: raw}
+	return ProjectConfig{Backend: raw[KeyBackend], GitHubAccount: raw[KeyGitHubAccount], Raw: raw}
 }
 
 // Identities: every distinct value of key across projects, sorted — e.g.
@@ -138,8 +147,19 @@ func SetRoots(home, userHome string, roots []string) error {
 // tomlScanner walks TOML text just far enough to find where a top-level
 // value ends.
 type tomlScanner struct {
-	s string
-	i int
+	s       string
+	i       int
+	comment bool // value() passed a comment inside a value (a multi-line list)
+}
+
+// valueHasComment: does the value of the key at start hold a comment?
+func valueHasComment(s string, start int) bool {
+	sc := tomlScanner{s: s, i: start}
+	sc.keyName()
+	sc.skipSpaces()
+	sc.i++ // =
+	sc.value()
+	return sc.comment
 }
 
 // skipBlank skips blank lines, whitespace and comment lines.
@@ -153,6 +173,13 @@ func (sc *tomlScanner) skipBlank() {
 		default:
 			return
 		}
+	}
+}
+
+// skipBlankKeepComments skips blank lines only: comments are content.
+func (sc *tomlScanner) skipBlankKeepComments() {
+	for sc.i < len(sc.s) && strings.ContainsRune(" \t\r\n", rune(sc.s[sc.i])) {
+		sc.i++
 	}
 }
 
@@ -252,6 +279,7 @@ func (sc *tomlScanner) value() {
 			if depth == 0 {
 				return
 			}
+			sc.comment = true
 			sc.skipLine()
 			continue
 		case c == '\n' || c == '\r':

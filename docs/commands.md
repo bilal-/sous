@@ -296,9 +296,15 @@ settings for particular projects.
 
 The settings are described in [Configuration](#configuration). Values are
 checked before anything is written: an agent or backend must be one sous
-knows, and `refresh_hours` a whole number above 0. The file keeps its
-comments and layout, and sous refuses (and changes nothing) if a setting is
-written in a way it cannot change safely.
+knows, and `refresh_hours` a whole number above 0. A per-project setting
+sous does not read itself is written anyway (a plugin may read it), with a
+note, so a typo does not pass unnoticed.
+
+The file is edited the way a person would: comments and layout stay, a
+removed setting takes its comment with it, a table left empty goes too, and
+the file keeps its own line endings. sous refuses, and changes nothing, if
+a setting is written in a way it cannot change safely, or if a list holds
+comments that a new value would lose.
 
 Options:
 
