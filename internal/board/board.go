@@ -204,11 +204,16 @@ func (a Ambient) stamp() string { return filepath.Join(a.Home, ".ambient-stamp")
 // Run calls show when the window since the last showing has passed. When
 // show reports nothing was shown (no board yet), the window does not
 // restart, so the next shell tries again.
+//
+// Shells opened together take turns, so the board prints once.
 func (a Ambient) Run(now time.Time, window time.Duration, show func() bool) {
-	if st, err := os.Stat(a.stamp()); err == nil && now.Sub(st.ModTime()) < window {
-		return
-	}
-	if show() {
-		store.WriteFile(a.stamp(), nil, 0o644)
-	}
+	(&store.Store{Home: a.Home}).Locked("ambient", func() error {
+		if st, err := os.Stat(a.stamp()); err == nil && now.Sub(st.ModTime()) < window {
+			return nil
+		}
+		if show() {
+			store.WriteFile(a.stamp(), nil, 0o644)
+		}
+		return nil
+	})
 }

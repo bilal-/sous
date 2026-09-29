@@ -159,7 +159,29 @@ func (r Report) IdeaGroups() []IdeaGroup {
 func (r Report) sinceLabel() string { return r.Since.Local().Format("Mon 2 Jan 15:04") }
 
 // RenderReport is the terminal layout.
-func Render(w io.Writer, r Report) {
+func Render(w io.Writer, r Report) error {
+	ew := &errWriter{w: w}
+	render(ew, r)
+	return ew.err
+}
+
+// errWriter keeps the first write error, so a renderer that prints many
+// lines can report whether they all got out.
+type errWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (e *errWriter) Write(p []byte) (int, error) {
+	if e.err != nil {
+		return 0, e.err
+	}
+	n, err := e.w.Write(p)
+	e.err = err
+	return n, err
+}
+
+func render(w io.Writer, r Report) {
 	head := fmt.Sprintf("sous report · since %s · %d new on you · %d closed", r.sinceLabel(), len(r.NewMe), len(r.Closed))
 	if len(r.Attention) > 0 {
 		head += fmt.Sprintf(" · %d needs attention", len(r.Attention))

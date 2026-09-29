@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -184,5 +185,30 @@ func TestLostSourceIsNamedEvenWhenItsRowsAreSnoozed(t *testing.T) {
 	Render(&b, &Data{Checked: 2, RenderedAt: now, Plugins: []signal.PluginStatus{{Name: "github", Status: signal.StatusOff}}, Signals: stale})
 	if head := strings.SplitN(b.String(), "\n", 2)[0]; !strings.Contains(head, "github not set up") {
 		t.Fatalf("%s", head)
+	}
+}
+
+// Review: shells opened together print the board once, not once each.
+func TestAmbientShowsOnceAcrossConcurrentShells(t *testing.T) {
+	amb := Ambient{Home: t.TempDir()}
+	var mu sync.Mutex
+	shown := 0
+	var wg sync.WaitGroup
+	for range 10 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			amb.Run(time.Now(), time.Hour, func() bool {
+				mu.Lock()
+				shown++
+				mu.Unlock()
+				time.Sleep(20 * time.Millisecond)
+				return true
+			})
+		}()
+	}
+	wg.Wait()
+	if shown != 1 {
+		t.Fatalf("shown %d times", shown)
 	}
 }

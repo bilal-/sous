@@ -272,3 +272,15 @@ func EditFile(path string, perm os.FileMode, edit func(old []byte) ([]byte, erro
 	}
 	return WriteFile(path, out, perm)
 }
+
+// Locked runs fn holding the store's lock for name, the same lock the
+// document of that name is written under. For rules that must check and
+// act as one step across processes.
+func (s *Store) Locked(name string, fn func() error) error {
+	unlock, err := s.lock(name)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	return fn()
+}

@@ -39,3 +39,14 @@ func TestWritePage(t *testing.T) {
 		t.Fatalf("%s", b)
 	}
 }
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, os.ErrClosed }
+
+// Review: a report that could not be written says so, so it is not taken.
+func TestRenderReportsWriteErrors(t *testing.T) {
+	if err := Render(failingWriter{}, Report{}); err == nil {
+		t.Fatal("a failed write must be an error")
+	}
+}

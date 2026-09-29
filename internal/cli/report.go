@@ -38,7 +38,9 @@ func cmdReport(e *Env, a argv) int {
 	case a.has("open"):
 		code, seen = openReport(e, r)
 	default:
-		report.Render(e.Stdout, r)
+		if err := report.Render(e.Stdout, r); err != nil {
+			code = fail(e, 1, "%v", err)
+		}
 	}
 	if code == 0 && seen {
 		if err := report.Take(e.store(), now, week); err != nil {
