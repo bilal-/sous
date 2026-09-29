@@ -74,3 +74,23 @@ esac`)
 		t.Fatalf("%v %q", err, out.String())
 	}
 }
+
+// Review: gh exits 1 when GraphQL reports errors even with partial data (a
+// SAML-protected org); the rows it did return are kept, and the scan is
+// incomplete, not empty.
+func TestFailingChecksKeepsPartialDataOnError(t *testing.T) {
+	app := repo(t, filepath.Join(t.TempDir(), "acme/api"), true)
+	git(t, app, "remote", "add", "origin", "git@github.com:acme/api.git")
+	node := `{"number":1,"title":"x","updatedAt":"2026-09-25T10:00:00Z","repository":{"nameWithOwner":"acme/api"},"commits":{"nodes":[{"commit":{"oid":"aaa","statusCheckRollup":{"state":"FAILURE"}}}]}}`
+	trackertest.Fake(t, "gh", `case "$*" in
+  "auth status") exit 0;;
+  *graphql*) printf '%s' '{"data":{"search":{"nodes":[`+node+`]}},"errors":[{"message":"Resource protected by organization SAML enforcement"}]}'; echo "gh: Resource protected by organization SAML enforcement" >&2; exit 1;;
+  *notifications*) printf '[[]]';;
+  *) printf '[]';;
+esac`)
+	var out bytes.Buffer
+	err := ScanGitHub(&config.Config{})([]string{app}, &out, io.Discard, time.Now())
+	if err == nil || !strings.Contains(err.Error(), "SAML") || !strings.Contains(out.String(), "checks failing") {
+		t.Fatalf("%v %q", err, out.String())
+	}
+}

@@ -34,7 +34,7 @@ func TestScanGitHubNotifications(t *testing.T) {
 	}, ",") + `]`
 	trackertest.Fake(t, "gh", `case "$*" in
   "auth status") exit 0;;
-  *"--slurp"*notifications*) printf '%s' '[`+page1+`,`+page2+`]';;
+  *"--slurp"*notifications*participating=true*) printf '%s' '[`+page1+`,`+page2+`]';;
   *"graphql"*) printf '{"data":{"search":{"nodes":[]}}}';;
   *) printf '[]';;
 esac`)

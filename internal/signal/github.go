@@ -43,10 +43,7 @@ func ghSearch(account string, extra ...string) ([]Hit, error) {
 // ghFailingChecks: your open pull requests whose latest checks failed. One
 // GraphQL search; pending, passing or absent checks are not failing.
 func ghFailingChecks(account string) ([]Hit, error) {
-	out, err := tracker.GHRun(account, "api", "--hostname", tracker.GitHubHost, "graphql", "-f", "query="+checksQuery)
-	if err != nil {
-		return nil, err
-	}
+	out, runErr := tracker.GHRun(account, "api", "--hostname", tracker.GitHubHost, "graphql", "-f", "query="+checksQuery)
 	var resp struct {
 		Data *struct {
 			Search struct {
@@ -77,15 +74,14 @@ func ghFailingChecks(account string) ([]Hit, error) {
 			Message string `json:"message"`
 		} `json:"errors"`
 	}
-	if err := json.Unmarshal(out, &resp); err != nil {
-		return nil, err
-	}
-	if len(resp.Errors) > 0 || resp.Data == nil { // GraphQL reports errors with HTTP 200
-		msg := "no data"
-		if len(resp.Errors) > 0 {
-			msg = resp.Errors[0].Message
+	if err := json.Unmarshal(out, &resp); err != nil || resp.Data == nil {
+		if runErr != nil {
+			return nil, runErr
 		}
-		return nil, fmt.Errorf("checks: %s", msg)
+		if len(resp.Errors) > 0 {
+			return nil, fmt.Errorf("checks: %s", resp.Errors[0].Message)
+		}
+		return nil, fmt.Errorf("checks: no data (%v)", err)
 	}
 	var hits []Hit
 	for _, n := range resp.Data.Search.Nodes {
@@ -98,7 +94,10 @@ func ghFailingChecks(account string) ([]Hit, error) {
 		}
 		hits = append(hits, Hit{Repo: n.Repository.NameWithOwner, Number: strconv.Itoa(n.Number), Title: n.Title, Updated: n.UpdatedAt, State: c.OID})
 	}
-	if resp.Data.Search.PageInfo.HasNextPage { // more pull requests than one page
+	switch {
+	case len(resp.Errors) > 0: // partial data (an org behind single sign-on, say)
+		return hits, fmt.Errorf("checks: %s; %w", resp.Errors[0].Message, ErrIncomplete)
+	case resp.Data.Search.PageInfo.HasNextPage: // more pull requests than one page
 		return hits, incomplete(checksPage)
 	}
 	return hits, nil
@@ -109,10 +108,15 @@ func ghFailingChecks(account string) ([]Hit, error) {
 // Review requests are left to the review search. The state is the thread's
 // last update, so new activity ends a snooze.
 func ghNotifications(account string) ([]Hit, error) {
-	out, err := tracker.GHRun(account, "api", "--hostname", tracker.GitHubHost, "--method", "GET", "--paginate", "--slurp", "notifications", "-F", "per_page=100")
+	// participating: only threads you take part in, which covers mentions
+	// and assignments and keeps a busy account to a few pages.
+	out, err := tracker.GHRun(account, "api", "--hostname", tracker.GitHubHost, "--method", "GET", "--paginate", "--slurp", "notifications", "-F", "per_page=100", "-F", "participating=true")
 	if err != nil {
-		if strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "404") {
+		switch msg := err.Error(); {
+		case strings.Contains(msg, "403"), strings.Contains(msg, "404"):
 			return nil, fmt.Errorf("notifications: %v (they need a classic token with the notifications scope: gh auth refresh -s notifications)", err)
+		case strings.Contains(msg, "slurp"):
+			return nil, fmt.Errorf("notifications: %v (they need gh 2.48 or newer)", err)
 		}
 		return nil, fmt.Errorf("notifications: %w", err)
 	}
