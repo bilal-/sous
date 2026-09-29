@@ -215,3 +215,18 @@ func TestMarkdownUsesStableUIDAndKeepsOldMarkers(t *testing.T) {
 		t.Fatal("closing by uid touches only that item", err)
 	}
 }
+
+// Review: with CRLF line endings, the byte offset of the box must count the
+// \r of every earlier line, or the wrong box is ticked.
+func TestMarkdownCloseTicksTheRightBoxWithCRLF(t *testing.T) {
+	p := t.TempDir()
+	orig := "# F\r\n" + strings.Repeat("- [ ] x\r\n", 20) + "- [ ] target <!-- sous:0123456789ab -->\r\n"
+	os.WriteFile(filepath.Join(p, MarkdownFile), []byte(orig), 0o644)
+	if err := MarkdownClose(p, "md:FOLLOWUPS.md:0123456789ab"); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(filepath.Join(p, MarkdownFile))
+	if want := strings.Replace(orig, "- [ ] target", "- [x] target", 1); string(b) != want {
+		t.Fatalf("got %q", b)
+	}
+}

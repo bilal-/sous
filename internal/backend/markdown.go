@@ -226,18 +226,21 @@ func MarkdownClose(project, ref string) error {
 	// Tick the box by overwriting its one byte in place: nothing is
 	// truncated, so a crash cannot empty the file, and every other byte
 	// (line endings included) stays as the person wrote it.
-	off := 0
-	for _, l := range lines[:idx] {
-		off += len(l) + 1
-	}
-	raw := make([]byte, len(lines[idx])+1)
-	if _, err := f.ReadAt(raw, int64(off)); err != nil && !errors.Is(err, io.EOF) {
+	// The offset comes from the raw bytes, not from scanned lines, which
+	// have lost any \r and would count short.
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
-	box := bytes.Index(raw, []byte("[ ]"))
-	if box < 0 {
+	all, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+	at := bytes.Index(all, []byte(markerComment(key)))
+	lineStart := bytes.LastIndexByte(all[:max(at, 0)], '\n') + 1
+	box := bytes.Index(all[lineStart:at], []byte("[ ]"))
+	if at < 0 || box < 0 {
 		return fmt.Errorf("marker %s is not on a checkbox line", key)
 	}
-	_, err = f.WriteAt([]byte("x"), int64(off+box+1))
+	_, err = f.WriteAt([]byte("x"), int64(lineStart+box+1))
 	return err
 }
