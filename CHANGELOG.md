@@ -7,6 +7,16 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+* With `glab` installed but never logged in, sous took gitlab.com as a
+  host you use, so every board showed GitLab as failed and `sous doctor`
+  called it broken. glab lists gitlab.com with "No token found"; sous now
+  reads that as not set up.
+
+### Added
+* Every release is installed in a clean home on macOS and Linux, with zsh
+  and bash, and must pass `sous doctor` there.
+
 ## [0.2.2]
 
 ### Added

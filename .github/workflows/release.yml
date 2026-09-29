@@ -24,3 +24,20 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Install the release the way a person does, in a clean home, on both
+  # platforms and the shells setup knows: install.sh, sous setup twice,
+  # sous doctor with no problems.
+  install:
+    needs: goreleaser
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        shell: [zsh, bash]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - if: runner.os == 'Linux' && matrix.shell == 'zsh'
+        run: sudo apt-get install -y -qq zsh >/dev/null
+      - run: scripts/install-smoke.sh "${{ github.ref_name }}" "${{ matrix.shell }}"

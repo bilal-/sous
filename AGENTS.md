@@ -185,7 +185,13 @@ A release is a tag, made when there is something worth handing to people:
        git push origin main v0.1.1
 
 3. The release workflow tests the tag, builds the downloads for macOS and
-   Linux, and publishes them on GitHub with checksums.
+   Linux, and publishes them on GitHub with checksums. Then it installs
+   the release the way a person does, in a clean home on macOS and Linux
+   with zsh and bash (`scripts/install-smoke.sh`): `install.sh`,
+   `sous setup` twice (the second must change nothing), and `sous doctor`
+   with no problems. If that job fails, the release is broken for new
+   people: fix it and release again. You can run the same check by hand,
+   in a throwaway home: `scripts/install-smoke.sh v0.1.1 zsh`.
 4. When the release is published, update Homebrew:
 
        make tap VERSION=v0.1.1

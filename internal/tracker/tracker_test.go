@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -120,6 +121,21 @@ func TestGitLabHostsFailureIsAnErrorNotAnAnswer(t *testing.T) {
 	testutil.FakeBin(t, "glab", `echo "No hosts are configured on this machine." >&2; exit 1`)
 	if hs, err := GitLabHosts(&config.Config{}); err != nil || len(hs) != 0 {
 		t.Fatalf("no hosts logged in is an answer, not a failure: %v %v", hs, err)
+	}
+	// glab installed and never logged in names gitlab.com anyway, with no
+	// token: that is not a login.
+	ResetCache()
+	testutil.FakeBin(t, "glab", `printf 'gitlab.com\n  x gitlab.com: API call failed: 401\n  ! No token found (checked config file, keyring, and environment variables).\ngit.example.org\n  ✓ Logged in to git.example.org as dev\n'; exit 1`)
+	if hs, err := GitLabHosts(&config.Config{}); err != nil || strings.Join(hs, ",") != "git.example.org" {
+		t.Fatalf("a host with no token is not logged in: %v %v", hs, err)
+	}
+	ResetCache()
+	testutil.FakeBin(t, "glab", `printf 'gitlab.com\n  ! No token found (checked config file, keyring, and environment variables).\n' >&2; exit 1`)
+	if hs, err := GitLabHosts(&config.Config{}); err != nil || len(hs) != 0 {
+		t.Fatalf("only a host with no token is no hosts: %v %v", hs, err)
+	}
+	if err := GLabReady("gitlab.com"); !errors.Is(err, ErrNoLogin) {
+		t.Fatalf("no token found is not logged in: %v", err)
 	}
 	ResetCache()
 	t.Setenv("PATH", t.TempDir())

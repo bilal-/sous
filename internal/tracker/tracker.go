@@ -164,11 +164,20 @@ func glabHosts() ([]string, error) {
 	}
 	out, err := GLab("", "auth", "status").CombinedOutput()
 	found := []string{}
-	for _, m := range hostLine.FindAllStringSubmatch(string(out), -1) {
-		found = append(found, m[1])
+	lines := hostLine.FindAllStringSubmatchIndex(string(out), -1)
+	for i, m := range lines {
+		// A host's block runs to the next host. glab names gitlab.com even
+		// when never logged in, with no token: that is not a login.
+		end := len(out)
+		if i+1 < len(lines) {
+			end = lines[i+1][0]
+		}
+		if !noToken(string(out[m[1]:end])) {
+			found = append(found, string(out[m[2]:m[3]]))
+		}
 	}
 	// "No hosts are configured" is glab's (non-zero) way of saying none.
-	if err != nil && len(found) == 0 && !strings.Contains(string(out), "No hosts are configured") {
+	if err != nil && len(lines) == 0 && !strings.Contains(string(out), "No hosts are configured") {
 		if msg := strings.TrimSpace(string(out)); msg != "" {
 			return nil, fmt.Errorf("glab auth status: %s", msg)
 		}
@@ -492,8 +501,12 @@ func GLabReady(host string) error {
 func loggedOut(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "not logged in") || strings.Contains(msg, "not authenticated") ||
-		strings.Contains(msg, "has not been authenticated") || strings.Contains(msg, "no hosts are configured")
+		strings.Contains(msg, "has not been authenticated") || strings.Contains(msg, "no hosts are configured") ||
+		noToken(msg)
 }
+
+// noToken: glab's words for a host it knows with no login.
+func noToken(s string) bool { return strings.Contains(strings.ToLower(s), "no token found") }
 
 // GHInstalled and GLabInstalled: is the tool on PATH?
 func GHInstalled() error   { return installed("gh") }
