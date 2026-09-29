@@ -27,3 +27,4 @@ Tracked with `sous note --file`; tick a box to close it in sous too.
 - [x] SSH remotes with ports (ssh://git@github.com:22/…) or ~/.ssh/config host aliases read as not-github <!-- sous:25:ab7df92d -->
 - [x] concurrent gh probes can each trigger a macOS keychain prompt after a gh upgrade <!-- sous:26:2c50a1e0 -->
 - [x] refresh_hours has two sources of truth (config.toml vs SOUS_REFRESH_HOURS in sous.zsh) <!-- sous:27:2234550f -->
+- [ ] automate the Homebrew tap: once HOMEBREW_TAP_TOKEN exists, add a release.yml job that runs scripts/homebrew-formula.sh and pushes to bilal-/homebrew-tap (see AGENTS.md, How Homebrew publishing works) <!-- sous:78166128d8b6 -->

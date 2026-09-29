@@ -180,6 +180,39 @@ A release is a tag, made when there is something worth handing to people:
 
    This writes the formula from the release's checksums and pushes it to
    [bilal-/homebrew-tap](https://github.com/bilal-/homebrew-tap).
+5. Check that GitHub marked the new version as **Latest**
+   (`gh release list -R bilal-/sous`). When two tags are pushed together,
+   whichever finishes last wins; fix it with
+   `gh release edit vX.Y.Z -R bilal-/sous --latest`. The install script
+   downloads whatever is marked Latest.
+
+### How Homebrew publishing works
+
+sous is published through its own tap, not Homebrew's main catalogue.
+
+* **The tap** is the public repo
+  [bilal-/homebrew-tap](https://github.com/bilal-/homebrew-tap). It holds one
+  file, `Formula/sous.rb`. `brew install bilal-/tap/sous` means "the `sous`
+  formula in `bilal-/homebrew-tap`".
+* **The formula builds nothing.** It points at the release downloads for
+  each platform, with their SHA-256 checksums, and installs the `sous`
+  binary. Its test runs `sous version`.
+* **It is written by `scripts/homebrew-formula.sh`,** which reads the
+  release's `checksums.txt`. `make tap VERSION=vX.Y.Z` runs it and pushes the
+  result. Never edit `Formula/sous.rb` by hand; change the script.
+* **To check a formula before pushing:** `brew audit --tap=bilal-/tap`, then
+  `brew install bilal-/tap/sous` and `brew test bilal-/tap/sous`.
+
+Planned: let the release workflow update the tap itself, so step 4 cannot
+be forgotten. It needs a fine grained GitHub token limited to
+`bilal-/homebrew-tap` with Contents read and write, saved on `bilal-/sous`
+as the Actions secret `HOMEBREW_TAP_TOKEN`. Once that secret exists, add a
+job to `.github/workflows/release.yml` that runs the same script after
+GoReleaser and pushes with that token. Until then, `make tap` is the way.
+
+Homebrew's main catalogue (`brew install sous` with no tap) wants projects
+that are established and widely used, and builds them from source. Revisit
+it once sous has an audience.
 
 Which number to raise, before 1.0:
 
