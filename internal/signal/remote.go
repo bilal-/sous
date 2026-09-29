@@ -1,6 +1,7 @@
 package signal
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ type Hit struct {
 	Number  string
 	Title   string
 	Updated time.Time
+	State   string // optional fingerprint (a PR's head commit): a change ends a snooze
 }
 
 // Query is one search a tracker runs, per identity.
@@ -33,6 +35,9 @@ type Query struct {
 	Item  string // "PR #" or "MR !" — noun and sigil as the tracker writes them
 	Kind  Kind   // Me (waiting on me) or Them (mine, waiting on others); "" = Me
 	Fetch func(identity string) ([]Hit, error)
+	// Limit is how many results Fetch asks for; reaching it means the answer
+	// may be cut short. 0 means searchLimit.
+	Limit int
 }
 
 // ErrNotSetUp: the tool this plugin needs is missing or logged out and
@@ -80,10 +85,10 @@ func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) e
 	for _, identity := range rs.Identities {
 		for _, q := range rs.Queries {
 			hits, err := q.Fetch(identity)
-			if err == nil && len(hits) >= searchLimit {
+			if limit := cmp.Or(q.Limit, searchLimit); err == nil && len(hits) >= limit {
 				// A full page may have more behind it: show what came, and say
 				// the scan is incomplete, so earlier findings stay (stale).
-				err = fmt.Errorf("more than %d results; some may be missing", searchLimit)
+				err = fmt.Errorf("more than %d results; some may be missing", limit)
 			}
 			for _, h := range hits {
 				if sig, ok := rs.signal(q, h, byRepo); ok && !emitted[sig.ID] {
@@ -132,7 +137,7 @@ func (rs RemoteScanner) signal(q Query, h Hit, byRepo map[string]string) (Signal
 	}
 	ref := tracker.Ref{Tracker: rs.Name, Host: host, Repo: h.Repo, Number: h.Number, MR: rs.MR}.String()
 	return Signal{ID: ID(p, fmt.Sprintf("%s:%s:%s", rs.Name, q.Key, h.Number)), Project: p, Kind: kind,
-		Text: fmt.Sprintf("%s · %s%s %s", q.Label, q.Item, h.Number, h.Title), Observed: h.Updated, Ref: &ref}, true
+		Text: fmt.Sprintf("%s · %s%s %s", q.Label, q.Item, h.Number, h.Title), Observed: h.Updated, Ref: &ref, State: h.State}, true
 }
 
 func as(identity string) string {

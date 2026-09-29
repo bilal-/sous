@@ -47,6 +47,7 @@ func TestScanGitHub(t *testing.T) {
 case "$*" in
   "auth status") exit 0;;
   *--review-requested=@me*) printf '[{"repository":{"nameWithOwner":"oss/app-next"},"number":14,"title":"json api","updatedAt":"2026-09-25T10:00:00Z"},{"repository":{"nameWithOwner":"other/elsewhere"},"number":3,"title":"x","updatedAt":"2026-09-25T10:00:00Z"}]';;
+  "api graphql"*) printf '{"data":{"search":{"nodes":[]}}}';;
   *--review=changes_requested*) printf '[{"repository":{"nameWithOwner":"acme/chime"},"number":7,"title":"pairing flow","updatedAt":"2026-09-20T10:00:00Z"}]';;
   *--review=*) echo 'invalid argument for "--review" flag' >&2; exit 1;;
   *) echo "unexpected $*" >&2; exit 1;;
@@ -112,6 +113,7 @@ case "$*" in
   *--review-requested=@me*)
     if [ "$GH_TOKEN" = tok-m ]; then printf '[{"repository":{"nameWithOwner":"acme/chime"},"number":7,"title":"work pr","updatedAt":"2026-09-25T10:00:00Z"}]'
     else printf '[{"repository":{"nameWithOwner":"me/kit"},"number":3,"title":"personal pr","updatedAt":"2026-09-25T10:00:00Z"}]'; fi;;
+  "api graphql"*) printf '{"data":{"search":{"nodes":[]}}}';;
   *--review=changes_requested*) printf '[]';;
 esac`)
 	cfg := &config.Config{Projects: map[string]map[string]string{"acme/*": {"github_account": "work-account"}}}
