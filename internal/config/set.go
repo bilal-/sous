@@ -23,11 +23,14 @@ func Set(sousHome string, table []string, key string, value any) error {
 	return store.EditFile(Path(sousHome), 0o644, func(b []byte) ([]byte, error) {
 		old := string(b)
 		out := edit(old, table, key, value)
-		if out == old {
-			return nil, nil
-		}
+		// Checked even when the text did not change: an unset that found no
+		// line while the setting is there (written some other way) must
+		// fail, not report it removed.
 		if err := sameButFor(old, out, table, key, value); err != nil {
 			return nil, fmt.Errorf("%v; edit %s by hand", err, Path(sousHome))
+		}
+		if out == old {
+			return nil, nil
 		}
 		return []byte(out), nil
 	})
@@ -63,6 +66,9 @@ func edit(s string, table []string, key string, value any) string {
 			s += "\n"
 		}
 		return s + tableHeader(table) + "\n" + line + "\n"
+	}
+	if at > 0 && s[at-1] != '\n' { // the last line had no newline
+		line = "\n" + line
 	}
 	return s[:at] + line + "\n" + s[at:]
 }

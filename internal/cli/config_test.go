@@ -88,3 +88,13 @@ func TestConfigRefusesBadValues(t *testing.T) {
 		t.Fatal("a refused value was written")
 	}
 }
+
+// Review: only org/* is a pattern sous understands; anything else with a
+// star is refused rather than written where it would do nothing.
+func TestConfigOnlyOrgStarPatterns(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("acme/api", true)
+	if _, errs, code := f.run("config", "-p", "acme/ap*", "backend", "markdown"); code != 2 || !strings.Contains(errs, "org/*") {
+		t.Fatalf("%d %q", code, errs)
+	}
+}

@@ -68,7 +68,11 @@ func setRoots(e *Env, roots []string) int {
 func setProjectConfig(e *Env, a argv) int {
 	term := a.value("p")
 	key := term // an org/* pattern names every project in that org
-	if !strings.Contains(term, "*") {
+	if strings.Contains(term, "*") {
+		if org, rest, ok := strings.Cut(term, "/"); !ok || rest != "*" || org == "" || strings.Contains(org, "*") {
+			return fail(e, 2, "%q: the only pattern sous knows is org/*, for every project in one org folder", term)
+		}
+	} else {
 		p, code := resolveProject(e, term)
 		if code != 0 {
 			return code

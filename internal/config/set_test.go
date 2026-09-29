@@ -61,3 +61,30 @@ func TestSetRefusesWhatItCannotChangeSafely(t *testing.T) {
 		}
 	}
 }
+
+// Review: an unset that finds no line but the setting is there (written as
+// a dotted key or inline table) is refused, never reported as removed.
+func TestUnsetWrittenOddlyIsRefused(t *testing.T) {
+	in := "projects.\"acme/*\".backend = \"markdown\"\n"
+	got, err := setIn(t, in, projects("acme/*"), "backend", nil)
+	if err == nil || got != in {
+		t.Fatalf("%v\n%s", err, got)
+	}
+}
+
+// Review: a file without a final newline can still be added to.
+func TestSetAddsAfterALastLineWithoutNewline(t *testing.T) {
+	for _, c := range []struct {
+		in    string
+		table []string
+		want  string
+	}{
+		{"agent = \"claude\"", nil, "agent = \"claude\"\nrefresh_hours = 2\n"},
+		{"[projects.\"acme/*\"]\nbackend = \"markdown\"", projects("acme/*"), "[projects.\"acme/*\"]\nbackend = \"markdown\"\nrefresh_hours = 2\n"},
+	} {
+		got, err := setIn(t, c.in, c.table, "refresh_hours", 2)
+		if err != nil || got != c.want {
+			t.Errorf("%v\n%q", err, got)
+		}
+	}
+}
