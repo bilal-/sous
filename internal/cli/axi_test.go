@@ -233,3 +233,28 @@ func TestSkillIsBarebonesAndHelpCarriesTheRules(t *testing.T) {
 		}
 	}
 }
+
+// AXI 10: a command's --help names every option it takes.
+func TestAXI10HelpNamesEveryOption(t *testing.T) {
+	for _, v := range verbs {
+		if v.args == nil {
+			continue
+		}
+		for _, group := range [][]string{v.args.bools, v.args.values} {
+			for _, names := range group {
+				n := strings.Split(names, "|")[0]
+				flag := "--" + n
+				if len(n) == 1 {
+					flag = "-" + n
+				}
+				if !strings.Contains(v.usage, flag) {
+					t.Errorf("sous %s --help does not mention %s", v.name, flag)
+				}
+			}
+		}
+	}
+	f := fixture(t)
+	if out, _, _ := f.run("help"); !strings.Contains(out, "--ambient") {
+		t.Error("sous help does not mention --ambient")
+	}
+}

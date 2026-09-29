@@ -29,6 +29,9 @@ upgraded, never broken.
 * The session end hook has the same five second limit as session start,
   and reads a transcript from its end, so a huge one is quick.
 * `--cached` shows the date for a board from another day.
+* Hook commands are quoted when sous lives in a folder with spaces.
+* Upgrading ends a snooze on an "uncommitted files" row once, because
+  those rows now follow the files' content.
 * A broken config.toml is reported by new shells instead of "building your
   board now" every time.
 

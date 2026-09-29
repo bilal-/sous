@@ -65,6 +65,7 @@ Code only depends downward, in this order: `cli`, then `report` and
 `tracker`, `plugin`, `thread`, `session` and `project`, then `store` and
 `config`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.
+`thread` uses `project` for a project's path and remote; they share a tier.
 Only `cli` reads the environment. If a function decides something or owns a
 data file, it does not belong in `cli`.
 

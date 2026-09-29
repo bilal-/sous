@@ -260,8 +260,12 @@ it did.
   that Gemini CLI, Kimi, Cursor and others read, and Antigravity's folder
   when Antigravity is installed. A sous that moved updates its hooks rather
   than adding a second set.
-* **Shell.** Adds one line to your zsh, bash or fish startup file so new
-  terminals show the board. It is only added once.
+* **Shell.** Adds one line to your shell's startup file so new terminals
+  show the board: `~/.zshrc` for zsh (or the one in `$ZDOTDIR`),
+  `~/.bashrc` for bash, and on macOS also the login file bash reads there
+  (`~/.bash_profile`, `~/.bash_login` or `~/.profile`, whichever you have),
+  and `~/.config/fish/conf.d/sous.fish` for fish. An older sous line is
+  updated in place; nothing is ever added twice.
 * **Menu bar.** Writes `~/.sous/sous.5m.sh` for
   [SwiftBar](https://swiftbar.app), pointed at this copy of sous.
 
@@ -388,6 +392,11 @@ Everything lives in `~/.sous` (or `SOUS_HOME`).
 | `here/` | the files `sous go` hands to agents, one per project |
 | `report.html` | the last report page |
 | `sous.zsh`, `sous.5m.sh` | the zsh snippet and the menu bar script |
+| `.ambient-stamp` | when a new shell last printed the board |
+| `*.lock` | short lived locks so several sous processes can write safely |
+
+sous also keeps one lock file, `sous/gh-token.lock`, in your cache folder
+(`~/Library/Caches` on macOS, `~/.cache` on Linux).
 
 Each data file carries a version and is upgraded when a newer sous reads it.
 An older sous refuses a newer file rather than damaging it.

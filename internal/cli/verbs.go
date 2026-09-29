@@ -39,8 +39,8 @@ func init() {
 		{"snooze", cmdSnooze, false, &argSpec{min: 1, max: 2}, "sous snooze <n|s:id> [days]"},
 		{"done", cmdDone, false, exactly(1, []string{"close"}, nil), "sous done <n> [--close]"},
 		{"file", cmdFile, false, exactly(1, []string{"force"}, nil), "sous file <n> [--force]    file a note in the project's tracker"},
-		{"go", cmdGo, false, exactly(1, []string{"where"}, []string{"a|agent", "in"}), "sous go <project> [-a <launcher>]   start your agent in that project"},
-		{"setup", cmdSetup, false, &argSpec{bools: []string{"codex-session-end", "print-skill", "no-shell"}, max: -1}, "sous setup [folder...] [--no-shell]   set everything up; folders say where your projects are; --print-skill prints the skill for other agents"},
+		{"go", cmdGo, false, exactly(1, []string{"where"}, []string{"a|agent", "in"}), "sous go <project> [-a <launcher>] [--where] [--in <folder>]   start your agent in that project; --where only prints the folder"},
+		{"setup", cmdSetup, false, &argSpec{bools: []string{"codex-session-end", "print-skill", "no-shell"}, max: -1}, "sous setup [folder...] [--no-shell] [--print-skill] [--codex-session-end]   set everything up; folders say where your projects are"},
 		{"version", cmdVersion, false, exactly(0, nil, nil), "sous version"},
 		{"help", cmdHelp, false, exactly(0, nil, nil), "sous help"},
 		// Internal doors: how the runner re-execs built-ins, and hooks. Not in help.

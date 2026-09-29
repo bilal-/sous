@@ -72,7 +72,8 @@ on your machine and finish quickly: they never wait on the network.
 
 ## Data
 
-Everything sous keeps lives in `~/.sous/`. Each file has a version number,
+Everything sous keeps lives in `~/.sous/`. Each data file (the `.json`
+ones) has a version number,
 is saved whole under a lock so a crash never leaves half a file, and is
 upgraded when an older one is read. A file written by a newer sous is
 refused, never overwritten.
@@ -83,7 +84,7 @@ refused, never overwritten.
 | `observed.json` | what sous has seen before: when each row first and last appeared, and what you snoozed. Rows unseen for 30 days are dropped. |
 | `sessions.json` | the last agent session in each project (a pointer, not the conversation) |
 | `cache.json` | the last board, so a new shell and the menu bar can show it instantly |
-| `config.toml` | your folders, what to skip, and settings per project |
+| `config.toml` | your folders, what to skip, and settings per project. Written by you and `sous setup`; not versioned, and settings sous does not know are ignored. |
 
 sous never writes rows of its own. Apart from your notes, everything is
 worked out again on every full look.
@@ -92,7 +93,8 @@ worked out again on every full look.
 
 When the board is built, sous asks each filed note's tracker whether the
 item is still open. `here` asks only trackers that live in the project,
-such as `FOLLOWUPS.md`, and shows what the board learned last for the rest.
+such as `FOLLOWUPS.md`: a note filed on GitHub or GitLab shows there with
+its ref, and the board is where its status is checked.
 
 If the tracker says *closed*, the note closes in sous too, marked
 `closed_by: upstream`. The tracker wins, and the record of who closed it is

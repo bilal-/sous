@@ -178,8 +178,10 @@ To remove sous, delete:
   `~/.agents/skills` and `~/.gemini/antigravity/skills`
 * the `sous hook` entries in `~/.claude/settings.json` and
   `~/.codex/hooks.json`
-* the `# sous:` comment and the line under it in your shell's startup file
-  (for fish, the file `~/.config/fish/conf.d/sous.fish`)
+* the `# sous:` comment and the line under it in your shell's startup
+  files (for fish, the file `~/.config/fish/conf.d/sous.fish`)
+* the `sous` folder in your cache folder (`~/Library/Caches/sous` on macOS,
+  `~/.cache/sous` on Linux)
 
 ## Setting up
 
