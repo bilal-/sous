@@ -4,8 +4,6 @@ import (
 	"github.com/bilal-/sous/internal/backend"
 )
 
-func builtinBackendNames(e *Env) []string { return backend.BuiltinNames(e.Home, e.Cfg) }
-
 // cmdBackend: `sous backend <name> <op> [args]` — the debugging front door and
 // how the runner re-execs built-ins. Every built-in goes through backend.Ops,
 // exactly as a third-party executable would.
@@ -14,7 +12,7 @@ func cmdBackend(e *Env, a argv) int {
 	if len(args) < 2 {
 		return fail(e, 2, "usage: sous backend <name> detect|file|status|close|url [args]")
 	}
-	impl, ok := backend.Builtins(e.Home, e.Cfg)[args[0]]
+	impl, ok := backend.Builtin(args[0], e.Home, e.Cfg)
 	if !ok {
 		return fail(e, 2, "no built-in backend: %s", args[0])
 	}

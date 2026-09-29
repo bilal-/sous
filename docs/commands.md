@@ -230,8 +230,9 @@ Start your agent in that project, with a short summary of where you left
 off. The summary is also saved to a file named by `SOUS_HERE_FILE`, for
 agents that want to read it. `sous go .` means the project you are in.
 
-With the shell snippet from `sous setup`, your terminal stays in the
-project after the agent exits.
+In zsh, with the snippet from `sous setup`, your terminal stays in the
+project after the agent exits. (bash and fish show the board in new
+terminals, but have no `sous go` wrapper yet.)
 
 Options:
 
@@ -388,6 +389,7 @@ Everything lives in `~/.sous` (or `SOUS_HOME`).
 | `observed.json` | what sous has seen before: when each row first appeared, and what you snoozed |
 | `sessions.json` | the last agent session in each project |
 | `cache.json` | the saved board, for new shells and the menu bar |
+| `report.json` | when you last saw a report, where the next one starts |
 | `install-id` | a random id for this install, used in older filing markers. Do not delete it. |
 | `here/` | the files `sous go` hands to agents, one per project |
 | `report.html` | the last report page |

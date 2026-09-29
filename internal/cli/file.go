@@ -13,7 +13,7 @@ import (
 
 // filer builds the filing use-case layer for this invocation.
 func (e *Env) filer() *filing.Filer {
-	return &filing.Filer{Store: e.Store, Cfg: e.Cfg, Backends: backend.Backends(e.Exe, builtinBackendNames(e), e.Cfg.Plugins), Warn: e.Stderr}
+	return &filing.Filer{Store: e.Store, Cfg: e.Cfg, Backends: backend.Backends(e.Exe, backend.BuiltinNames(), e.Cfg.Plugins), Warn: e.Stderr}
 }
 
 // fileThread promotes a local thread into its project's tracker and prints

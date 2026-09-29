@@ -35,9 +35,26 @@ upgraded, never broken.
 * A broken config.toml is reported by new shells instead of "building your
   board now" every time.
 
+* `here` clears git rows as soon as they are gone, instead of after the
+  next full board.
+* A source that stopped working is named in the headline even when every
+  row it found was snoozed.
+* `sous report` counts as seen only once it was shown: a failed write, or
+  a page no browser could open, keeps its window.
+* Two terminals opened together print the board once.
+* sous's data files stay private to you, and setup keeps the permissions
+  and links of the startup files it edits, and never touches a line that
+  is not its own.
+* ssh host aliases: tabs, `Include` and `!negation` are understood, and a
+  real host (such as gitlab.com on port 443) is never renamed.
+* Which notes predate note ids is recorded when your notes file upgrades,
+  so a retried filing can never match someone else's old item.
+* A failed `gh` or `glab` check shows the tool's own reason; "not logged
+  in" only when that is the problem.
+
 ### Added
-* `sous go --where` prints the project folder only; the zsh wrapper uses
-  it instead of parsing arguments itself.
+* `sous go --where` prints the project folder only, and `sous go --in
+  <folder>` uses a folder already found; the zsh wrapper uses both.
 
 ## [0.1.6]
 

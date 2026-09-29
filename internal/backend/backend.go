@@ -112,27 +112,34 @@ func Ops(b Implementation) map[string]Op {
 	}
 }
 
-// BuiltinOrder is the detection order for built-ins: a project's own
-// follow-ups file before any remote host.
-var BuiltinOrder = []string{"markdown", "github", "gitlab"}
-
-// Builtins constructs every built-in for one invocation.
-func Builtins(home string, cfg *config.Config) map[string]Implementation {
-	return map[string]Implementation{
-		"markdown": Markdown{},
-		"github":   GitHub(home, cfg),
-		"gitlab":   GitLab(home, cfg),
-	}
+// builtins are the built-in backends, in detection order: a project's own
+// follow-ups file before any remote host. offline: its items live in the
+// project, so asking about them never leaves the machine.
+var builtins = []struct {
+	name    string
+	offline bool
+	make    func(home string, cfg *config.Config) Implementation
+}{
+	{"markdown", true, func(string, *config.Config) Implementation { return Markdown{} }},
+	{"github", false, func(home string, cfg *config.Config) Implementation { return GitHub(home, cfg) }},
+	{"gitlab", false, func(home string, cfg *config.Config) Implementation { return GitLab(home, cfg) }},
 }
 
-// BuiltinNames: the built-ins that exist, in detection order.
-func BuiltinNames(home string, cfg *config.Config) []string {
-	have := Builtins(home, cfg)
-	var names []string
-	for _, n := range BuiltinOrder {
-		if _, ok := have[n]; ok {
-			names = append(names, n)
+// Builtin constructs one built-in backend.
+func Builtin(name, home string, cfg *config.Config) (Implementation, bool) {
+	for _, b := range builtins {
+		if b.name == name {
+			return b.make(home, cfg), true
 		}
+	}
+	return nil, false
+}
+
+// BuiltinNames, in detection order.
+func BuiltinNames() []string {
+	names := make([]string, len(builtins))
+	for i, b := range builtins {
+		names[i] = b.name
 	}
 	return names
 }
@@ -144,11 +151,16 @@ type Backend struct {
 	Argv []string
 }
 
-// Offline: the backend's items live in the project itself (FOLLOWUPS.md),
+// Offline: a built-in whose items live in the project itself (FOLLOWUPS.md),
 // so asking about them never leaves the machine.
-func (b Backend) Offline() bool { return offline[b.Name] }
-
-var offline = map[string]bool{"markdown": true}
+func (b Backend) Offline() bool {
+	for _, bi := range builtins {
+		if bi.name == b.Name {
+			return bi.offline
+		}
+	}
+	return false
+}
 
 // Local is the sentinel for "no upstream": the note stays in threads.json.
 var Local = Backend{Name: "local"}

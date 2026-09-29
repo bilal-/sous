@@ -219,8 +219,8 @@ Pick something and go there:
     sous go api
 
 This starts your agent in the project, with a short summary of where you
-left off already in its context. With the shell snippet installed, your
-terminal is in the project too when the agent exits. Use `-a codex` to pick
+left off already in its context. In zsh, with the shell snippet
+installed, your terminal is in the project too when the agent exits. Use `-a codex` to pick
 a different agent.
 
 ### Pick up where you left off
