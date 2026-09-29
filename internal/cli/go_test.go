@@ -116,7 +116,38 @@ func TestGoReplacesInheritedHereFile(t *testing.T) {
 	c := sousCmd(f, f.Home, "go", "ios")
 	c.Env = append(c.Env, "SOUS_HERE_FILE=/stale/from-parent")
 	out, err := c.CombinedOutput()
-	if err != nil || strings.Contains(string(out), "/stale/from-parent") || !strings.Contains(string(out), "sous-here-") {
+	if err != nil || strings.Contains(string(out), "/stale/from-parent") || !strings.Contains(string(out), "/here/") {
+		t.Fatalf("%v\n%s", err, out)
+	}
+}
+
+// sous go keeps one resume file per project under SOUS_HOME, replaced each
+// time, instead of leaving a new temp file behind on every run.
+func TestGoReusesOneHereFilePerProject(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("a/ios-app", true)
+	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\necho \"file=$SOUS_HERE_FILE\"\n"), 0o755)
+	var files []string
+	for range 2 {
+		out, err := sousCmd(f, f.Home, "go", "ios").CombinedOutput()
+		if err != nil {
+			t.Fatalf("%v %s", err, out)
+		}
+		_, after, _ := strings.Cut(string(out), "file=")
+		files = append(files, strings.TrimSpace(after))
+	}
+	if files[0] != files[1] || !strings.HasPrefix(files[0], filepath.Join(f.SousHome, "here")) {
+		t.Fatalf("%q", files)
+	}
+}
+
+func TestGoDotMeansThisProject(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("a/ios-app", true)
+	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\necho \"claude in $PWD\"\n"), 0o755)
+	out, err := sousCmd(f, p, "go", ".").CombinedOutput()
+	real, _ := filepath.EvalSymlinks(p)
+	if err != nil || !strings.Contains(string(out), "claude in "+real) {
 		t.Fatalf("%v\n%s", err, out)
 	}
 }

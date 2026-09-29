@@ -216,3 +216,22 @@ esac
 		t.Fatal("here must not call gh")
 	}
 }
+
+// The shell prints the board at most once per refresh window, and the
+// window comes from config.toml alone.
+func TestAmbientPrintsOncePerWindow(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	f.runIn(p, "note", "-k", "me", "thing")
+	if out, _, code := f.run("--ambient"); code != 3 || !strings.Contains(out, "building") {
+		t.Fatalf("no board yet: %d %q", code, out)
+	}
+	waitFor(t, func() bool { _, err := os.Stat(filepath.Join(f.SousHome, "cache.json")); return err == nil })
+	f.run("--refresh")
+	if out, _, code := f.run("--ambient"); code != 0 || !strings.Contains(out, "thing") {
+		t.Fatalf("first: %d %q", code, out)
+	}
+	if out, _, code := f.run("--ambient"); code != 0 || out != "" {
+		t.Fatalf("second, inside the window: %d %q", code, out)
+	}
+}

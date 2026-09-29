@@ -201,6 +201,8 @@ func run(args []string, cwd string, stdin io.Reader, stdout, stderr io.Writer) i
 			return code
 		case "--cached":
 			return cmdCached(e)
+		case "--ambient":
+			return cmdAmbient(e)
 		case "--menubar":
 			return cmdMenubar(e)
 		case "--help", "-h":

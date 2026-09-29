@@ -77,6 +77,23 @@ func cmdPath(e *Env, arg string) int {
 	return cmdHere(e, argv{pos: []string{p.Path}})
 }
 
+// cmdAmbient is what a new shell runs: the cached board, at most once per
+// refresh window (refresh_hours in config.toml, the only setting for it).
+func cmdAmbient(e *Env) int {
+	stamp := filepath.Join(e.Home, ".ambient-stamp")
+	if st, err := os.Stat(stamp); err == nil && time.Since(st.ModTime()) < e.Cfg.RefreshWindow() {
+		return 0
+	}
+	code := cmdCached(e)
+	if code == 0 { // 3 means no board yet: leave the stamp so the next shell shows it
+		os.MkdirAll(e.Home, 0o755)
+		if f, err := os.Create(stamp); err == nil {
+			f.Close()
+		}
+	}
+	return code
+}
+
 // cmdCached prints the last rendered board with its age (the zsh surface), and
 // kicks off a detached refresh if it is older than the configured window.
 func cmdCached(e *Env) int {

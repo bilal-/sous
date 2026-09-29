@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -119,7 +120,7 @@ func TestSetupWritesEmbeddedShellSnippet(t *testing.T) {
 	}
 	snippet := filepath.Join(f.SousHome, "sous.zsh")
 	b, err := os.ReadFile(snippet)
-	if err != nil || !strings.Contains(string(b), "sous_ambient") {
+	if err != nil || !strings.Contains(string(b), "sous --ambient") {
 		t.Fatalf("snippet not written: %v", err)
 	}
 	if !strings.Contains(out, `source "`+snippet+`"`) {
@@ -213,5 +214,37 @@ func TestHereRunsNoTrackerCLI(t *testing.T) {
 	f.runStdin(p+"\n", "signal", "git", "scan")
 	if b, err := os.ReadFile(calls); err == nil {
 		t.Fatalf("here/hook/git scan must not call tracker CLIs:\n%s", b)
+	}
+}
+
+// setup knows where sous really is; the menu bar script uses that path.
+func TestSetupBakesTheRealPathIntoTheMenuBarScript(t *testing.T) {
+	f := fixture(t)
+	f.run("setup")
+	b, _ := os.ReadFile(filepath.Join(f.SousHome, "sous.5m.sh"))
+	exe, _ := os.Executable()
+	if !strings.Contains(string(b), exe) || strings.Contains(string(b), ".local/bin/sous") {
+		t.Fatalf("%s", b)
+	}
+}
+
+// The zsh wrapper leaves you in the project however go is written.
+func TestZshWrapperFindsTheProjectAnywhere(t *testing.T) {
+	if _, err := exec.LookPath("zsh"); err != nil {
+		t.Skip("no zsh")
+	}
+	dir := t.TempDir()
+	proj := filepath.Join(dir, "api")
+	os.MkdirAll(proj, 0o755)
+	bin := filepath.Join(dir, "bin")
+	os.MkdirAll(bin, 0o755)
+	os.WriteFile(filepath.Join(bin, "sous"), []byte("#!/bin/sh\n[ \"$1 $2\" = \"projects --path\" ] && [ \"$3\" = api ] && echo "+proj+"\nexit 0\n"), 0o755)
+	snippet := filepath.Join(dir, "sous.zsh")
+	os.WriteFile(snippet, []byte(shellSnippet), 0o644)
+	for _, args := range []string{"go api", "go -a codex api", "go --agent codex api", "go --agent=codex api", "go api -a codex"} {
+		out, err := exec.Command("zsh", "-f", "-c", "PATH="+bin+":$PATH; cd "+dir+"; source "+snippet+"; sous "+args+"; pwd").CombinedOutput()
+		if err != nil || filepath.Base(strings.TrimSpace(string(out))) != "api" {
+			t.Errorf("sous %s: %v %q", args, err, out)
+		}
 	}
 }

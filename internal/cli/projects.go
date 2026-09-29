@@ -61,6 +61,9 @@ func cmdProjects(e *Env, a argv) int {
 
 // resolveProject maps project.Resolve's errors to exit codes.
 func resolveProject(e *Env, term string) (project.Project, int) {
+	if term == "." {
+		term = "" // "." is the project you are in
+	}
 	// No term means "the repo I'm in" — capture must work even when
 	// config.toml is broken or absent. Only a term needs roots.
 	var roots, ignore []string

@@ -62,3 +62,14 @@ func TestRenderMenubar(t *testing.T) {
 		t.Fatalf("clean zero:\n%s", b.String())
 	}
 }
+
+func TestMenubarShowsUpstreamGaps(t *testing.T) {
+	now := time.Now()
+	ref := "github:acme/api#4"
+	d := &Data{Checked: 1, RenderedAt: now, Threads: []thread.View{{Thread: thread.Thread{ID: 1, Project: "/ws/acme/api", Kind: thread.Me, Text: "ship it", Since: now, Ref: &ref}, Upstream: "error", UpstreamErr: "github: HTTP 502"}}}
+	var b bytes.Buffer
+	RenderMenubar(&b, d, "/bin/sous", "1m", false)
+	if !strings.Contains(b.String(), "ship it (status unavailable: github: HTTP 502)") {
+		t.Fatalf("%s", b.String())
+	}
+}

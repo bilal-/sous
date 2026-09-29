@@ -42,6 +42,16 @@ Before running any of them, **ask the user, end your turn, and run it only
 after they say yes in their next message.** Asking and running in the same
 turn is not consent.
 
+## Reading `sous here`
+
+* A note with `→ github:acme/api#12` (or `md:`, `gitlab:`) was filed in that
+  tracker.
+* `(ref missing)` means the tracker no longer has the item.
+  `(status unavailable: ...)` means sous could not ask it. Neither means the
+  work is done. Tell the user rather than closing anything.
+* A line starting with `✓` and `(closed upstream ...)` is a note that was
+  closed in its tracker. It is shown so the user knows it happened.
+
 ## Rules
 
 1. Notes stay private to the user unless they ask you to file one.
@@ -49,14 +59,16 @@ turn is not consent.
    them. Show the list to the user and ask. Never pick one yourself.
 3. When you write a note on your own initiative, set `SOUS_SOURCE=agent` so
    the user can tell your notes from theirs.
-4. Never create `FOLLOWUPS.md`, change `~/.sous/config.toml`, or set up a
+4. Never edit the `<!-- sous:... -->` markers in `FOLLOWUPS.md` or in
+   issues by hand. To close an item, tick its box or use `sous done`.
+5. Never create `FOLLOWUPS.md`, change `~/.sous/config.toml`, or set up a
    tracker just to make `sous file` work. If sous says there is no tracker,
    tell the user and stop.
-5. `done` means the user's own task is finished. You finishing some code is
+6. `done` means the user's own task is finished. You finishing some code is
    not the same thing, so do not close their notes unless they say so.
-6. sous never does work. If the user asks sous to "go fix" something, that
+7. sous never does work. If the user asks sous to "go fix" something, that
    job is yours. Only record it with `sous note -k me` if the user wants it
    kept on their list.
-7. Some agents run commands in a sandbox where reading and writing
+8. Some agents run commands in a sandbox where reading and writing
    `~/.sous/` are separate permissions. If a write is refused, tell the user
    instead of trying again.

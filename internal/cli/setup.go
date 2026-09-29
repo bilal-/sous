@@ -43,7 +43,7 @@ func cmdSetup(e *Env, a argv) int {
 		return fail(e, 1, "writing %s: %v", snippet, err)
 	}
 	swiftbar := filepath.Join(e.Home, "sous.5m.sh")
-	if err := os.WriteFile(swiftbar, []byte(swiftbarPlugin), 0o755); err != nil {
+	if err := os.WriteFile(swiftbar, []byte(strings.Replace(swiftbarPlugin, "$HOME/.local/bin/sous", e.Exe, 1)), 0o755); err != nil {
 		return fail(e, 1, "writing %s: %v", swiftbar, err)
 	}
 	// The /sous skill, for both agents. The binary is the source of truth.

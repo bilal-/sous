@@ -25,23 +25,27 @@ func cmdHook(e *Env, a argv) int {
 		// guard: a hanging git must not hang the agent session.
 		done := make(chan struct{})
 		var buf bytes.Buffer
+		// Plugins and tracker probes together must finish inside the guard;
+		// if the guard fires first, cancelling kills their process groups
+		// instead of leaving them behind.
+		sub := e.child(&buf, io.Discard, true)
+		sub.PluginTimeout = 2 * time.Second
+		sub.Deadline = time.Now().Add(4 * time.Second)
+		sub.ctx()
+		defer sub.close()
 		go func() {
 			defer close(done)
 			root, ok := hook.StartRoot(in, e.Cwd)
 			if !ok {
 				return
 			}
-			// Plugins and tracker probes together must finish inside the guard.
-			sub := e.child(&buf, io.Discard, true)
-			defer sub.close()
-			sub.PluginTimeout = 2 * time.Second
-			sub.Deadline = time.Now().Add(4 * time.Second)
 			cmdHere(sub, argv{pos: []string{root}})
 		}()
 		select {
 		case <-done:
 			io.Copy(e.Stdout, &buf)
 		case <-time.After(5 * time.Second):
+			sub.close()
 		}
 	case "session-end":
 		root, ok := hook.Root(in, e.Cwd)
