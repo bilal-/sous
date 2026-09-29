@@ -1,8 +1,9 @@
 package cli
 
 import (
+	"errors"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -16,18 +17,15 @@ func cmdLauncher(e *Env, a argv) int {
 	if len(args) != 3 || args[1] != "run" {
 		return fail(e, 2, "usage: sous launcher <name> run <path>")
 	}
-	bin, ok := launcher.Builtins[args[0]]
-	if !ok {
-		return fail(e, 2, "no built-in launcher: %s", args[0])
+	path, err := launcher.BuiltinPath(args[0])
+	switch {
+	case errors.Is(err, launcher.ErrUnknown):
+		return fail(e, 2, "%v", err)
+	case err != nil:
+		return fail(e, 1, "%v", err)
 	}
-	path, err := exec.LookPath(bin)
-	if err != nil {
-		return fail(e, 1, "%s not found on PATH", bin)
-	}
-	return execIn(e, args[2], path, []string{bin})
+	return execIn(e, args[2], path, []string{filepath.Base(path)})
 }
-
-var lookPath = exec.LookPath
 
 // execIn replaces sous with argv in dir, setting env on our environment.
 // Returns only on failure.

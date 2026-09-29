@@ -8,6 +8,7 @@ package launcher
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"maps"
 	"os/exec"
@@ -64,4 +65,35 @@ func WriteContext(home, project string, body []byte) (string, error) {
 	sum := sha256.Sum256([]byte(project))
 	name := filepath.Join(home, "here", hex.EncodeToString(sum[:6])+".txt")
 	return name, store.WriteFile(name, body, 0o600)
+}
+
+// Prepare finds the launcher named agent (a built-in or a listed plugin)
+// and returns the program and arguments that start it in project. Anything
+// missing is an error now, so it reads as a sous message rather than a
+// failed exec.
+func Prepare(exe string, plugins []string, agent, project string) (string, []string, error) {
+	l, ok := Find(Launchers(exe, BuiltinNames(), plugins), agent)
+	if !ok {
+		return "", nil, fmt.Errorf("%w: %s", ErrUnknown, agent)
+	}
+	if _, err := BuiltinPath(l.Name); err != nil && !errors.Is(err, ErrUnknown) {
+		return "", nil, fmt.Errorf("launcher %s: %w", l.Name, err)
+	}
+	return ExecArgv(l, project)
+}
+
+// ErrUnknown: no launcher by that name.
+var ErrUnknown = errors.New("no launcher named")
+
+// BuiltinPath is where the program a built-in launcher starts is found.
+func BuiltinPath(name string) (string, error) {
+	bin, ok := Builtins[name]
+	if !ok {
+		return "", fmt.Errorf("%w: %s", ErrUnknown, name)
+	}
+	path, err := exec.LookPath(bin)
+	if err != nil {
+		return "", fmt.Errorf("%s not found on PATH", bin)
+	}
+	return path, nil
 }

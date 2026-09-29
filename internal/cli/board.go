@@ -91,23 +91,18 @@ func cmdPath(e *Env, arg string) int {
 // cmdAmbient is what a new shell runs: the cached board, at most once per
 // refresh window (refresh_hours in config.toml, the only setting for it).
 func cmdAmbient(e *Env) int {
-	amb := board.Ambient{Home: e.Home}
-	if !amb.Due(time.Now(), e.Cfg.RefreshWindow()) {
-		return 0
-	}
 	code := 0
-	switch {
-	case e.cfgErr != nil:
-		fmt.Fprintf(e.Stdout, "sous: %s could not be read: %v\n", config.Tilde(e.UserHome, config.Path(e.Home)), e.cfgErr)
-	case e.unconfigured():
-		// Nothing to build yet: say once what to do, then stay quiet.
-		fmt.Fprintln(e.Stdout, "sous · "+config.NoRootsHint)
-	default:
-		code = cmdCached(e)
-	}
-	if code == 0 { // no board yet: leave it due, so the next shell shows it
-		amb.Mark()
-	}
+	board.Ambient{Home: e.Home}.Run(time.Now(), e.Cfg.RefreshWindow(), func() bool {
+		switch {
+		case e.cfgErr != nil:
+			fmt.Fprintf(e.Stdout, "sous: %s could not be read: %v\n", config.Tilde(e.UserHome, config.Path(e.Home)), e.cfgErr)
+		case e.unconfigured():
+			fmt.Fprintln(e.Stdout, "sous · "+config.NoRootsHint)
+		default:
+			code = cmdCached(e)
+		}
+		return code != exitNoBoardYet
+	})
 	return code
 }
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	"github.com/bilal-/sous/internal/launcher"
@@ -33,20 +34,12 @@ func cmdGo(e *Env, a argv) int {
 	if agent == "" {
 		agent = cfg.Agent
 	}
-	l, ok := launcher.Find(launcher.Launchers(e.Exe, launcher.BuiltinNames(), cfg.Plugins), agent)
-	if !ok {
-		return fail(e, 2, "no launcher named %s", agent)
-	}
-	argv0, cmdline, err := launcher.ExecArgv(l, p.Path)
-	if err != nil {
+	argv0, cmdline, err := launcher.Prepare(e.Exe, cfg.Plugins, agent, p.Path)
+	switch {
+	case errors.Is(err, launcher.ErrUnknown):
+		return fail(e, 2, "%v", err)
+	case err != nil:
 		return fail(e, 1, "%v", err)
-	}
-	// Built-in adapters exec a binary that must exist; check before we
-	// replace ourselves so the failure is a sous message, not a dead exec.
-	if bin, isBuiltin := launcher.Builtins[l.Name]; isBuiltin {
-		if _, err := lookPath(bin); err != nil {
-			return fail(e, 1, "launcher %s: %s not found on PATH", l.Name, bin)
-		}
 	}
 	// Resume context: shown to the human, and handed to launchers via a file.
 	var here bytes.Buffer
@@ -57,7 +50,7 @@ func cmdGo(e *Env, a argv) int {
 	if name, err := launcher.WriteContext(e.Home, p.Path, here.Bytes()); err == nil {
 		env = append(env, "SOUS_HERE_FILE="+name)
 	}
-	fmt.Fprintf(e.Stderr, "→ %s in %s\n", l.Name, p.Path)
+	fmt.Fprintf(e.Stderr, "→ %s in %s\n", agent, p.Path)
 	e.Stdout.Write(here.Bytes())
 	return execIn(e, p.Path, argv0, cmdline, env...)
 }

@@ -196,17 +196,19 @@ func WriteCache(s *store.Store, d *Data) error {
 	return err
 }
 
-// Ambient is the at-most-once-per-window rule for new shells: Due says
-// whether the board should print again, Mark records that it did.
+// Ambient is the at-most-once-per-window rule for new shells.
 type Ambient struct{ Home string }
 
 func (a Ambient) stamp() string { return filepath.Join(a.Home, ".ambient-stamp") }
 
-func (a Ambient) Due(now time.Time, window time.Duration) bool {
-	st, err := os.Stat(a.stamp())
-	return err != nil || now.Sub(st.ModTime()) >= window
-}
-
-func (a Ambient) Mark() error {
-	return store.WriteFile(a.stamp(), nil, 0o644)
+// Run calls show when the window since the last showing has passed. When
+// show reports nothing was shown (no board yet), the window does not
+// restart, so the next shell tries again.
+func (a Ambient) Run(now time.Time, window time.Duration, show func() bool) {
+	if st, err := os.Stat(a.stamp()); err == nil && now.Sub(st.ModTime()) < window {
+		return
+	}
+	if show() {
+		store.WriteFile(a.stamp(), nil, 0o644)
+	}
 }
