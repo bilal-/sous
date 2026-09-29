@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.2.0]
+
 ### Added
 * Failing checks on your open pull requests are on you: "checks failing ·
   PR #14". A new push ends a snooze on the row.
