@@ -82,7 +82,7 @@ func (g gitlabCLI) Available(t Target, warn io.Writer) bool {
 func (gitlabCLI) enc(t Target) string { return url.PathEscape(t.Repo) }
 
 func (g gitlabCLI) ListMine(t Target) ([]Issue, error) {
-	out, err := g.api(t, fmt.Sprintf("projects/%s/issues?scope=created_by_me&state=all&per_page=100", g.enc(t)))
+	out, err := g.api(t, "--paginate", fmt.Sprintf("projects/%s/issues?scope=created_by_me&state=all&per_page=100", g.enc(t)))
 	if err != nil {
 		return nil, err
 	}

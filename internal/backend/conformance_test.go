@@ -46,6 +46,7 @@ s=$STATE
 [ "$1 $2" = "auth status" ] && { echo "git.example.org"; exit 0; }
 [ "$1" = api ] || { echo "unexpected: $*" >&2; exit 1; }
 shift
+[ "$1" = --paginate ] && shift
 method=GET; [ "$1" = -X ] && { method=$2; shift 2; }
 path=$1; shift
 while [ $# -gt 0 ]; do case "$2" in description=*) body=${2#description=};; esac; shift; done

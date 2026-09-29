@@ -90,6 +90,10 @@ func markers(home string, req Request) ([]string, error) {
 	return []string{markerComment(req.UID), markerComment(fmt.Sprintf("%s:%d", inst, req.ID))}, nil
 }
 
+// recoveryLimit is how many of your issues a retry looks through for an
+// earlier try; a list that long may be cut short, so filing refuses.
+const recoveryLimit = 1000
+
 func (r Remote) File(req Request) (string, error) {
 	name := r.CLI.Name()
 	t, ok := r.CLI.Locate(req.Project, io.Discard)
@@ -104,6 +108,9 @@ func (r Remote) File(req Request) (string, error) {
 	// lookup itself fails, fail closed — a retry later beats a duplicate on
 	// a shared tracker.
 	existing, err := r.CLI.ListMine(t)
+	if err == nil && len(existing) >= recoveryLimit {
+		err = fmt.Errorf("you have %d or more issues there; the list may be cut short", recoveryLimit)
+	}
 	if err != nil {
 		return "", fmt.Errorf("could not check for an existing issue: %w", err)
 	}

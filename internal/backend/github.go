@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
@@ -57,7 +58,7 @@ func (g githubCLI) Available(t Target, warn io.Writer) bool {
 func (g githubCLI) ListMine(t Target) ([]Issue, error) {
 	// The repository connection, not the search index: search lags after a
 	// create, which is exactly the window a crash retry hits.
-	out, err := g.run(t, "issue", "list", "-R", t.Repo, "--state", "all", "--author", "@me", "--limit", "100", "--json", "number,body")
+	out, err := g.run(t, "issue", "list", "-R", t.Repo, "--state", "all", "--author", "@me", "--limit", strconv.Itoa(recoveryLimit), "--json", "number,body")
 	if err != nil {
 		return nil, err
 	}
