@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.2.1]
+
 ### Fixed
 * `sous config` edits the file the way a person would: removing a setting
   takes its trailing comment with it, removing a project's last setting
