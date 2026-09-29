@@ -90,7 +90,7 @@ func cmdSetup(e *Env, a argv) int {
 		fmt.Fprintf(e.Stdout, "  ✓ %s\n", d)
 	}
 	fmt.Fprintf(e.Stdout, "\nOpen a new terminal to see your board, or run sous now.\n")
-	fmt.Fprintf(e.Stdout, "Menu bar (optional, needs SwiftBar): link %s into SwiftBar's plugin folder.\n", tilde(home, swiftbar))
+	fmt.Fprintf(e.Stdout, "Menu bar (optional, needs SwiftBar): link %s into SwiftBar's plugin folder.\n", config.Tilde(swiftbar))
 	return 0
 }
 
@@ -127,12 +127,12 @@ func setupRoots(e *Env, home string, given []string, say func(string, ...any)) i
 			if st, serr := os.Stat(abs); err != nil || serr != nil || !st.IsDir() {
 				return fail(e, 2, "%s is not a folder", g)
 			}
-			roots = append(roots, tilde(home, abs))
+			roots = append(roots, config.Tilde(abs))
 		}
 	case e.cfgErr == nil && len(e.Cfg.Roots) > 0:
 		shown := make([]string, len(e.Cfg.Roots))
 		for i, r := range e.Cfg.Roots {
-			shown[i] = tilde(home, r)
+			shown[i] = config.Tilde(r)
 		}
 		say("projects: looking in %s (change with sous setup <folder>)", strings.Join(shown, ", "))
 		return 0
@@ -167,7 +167,7 @@ func setupShell(home, sousHome string) (string, error) {
 	var rc, line string
 	switch shell {
 	case "zsh":
-		rc, line = filepath.Join(home, ".zshrc"), `source "`+tilde(home, filepath.Join(sousHome, "sous.zsh"))+`"`
+		rc, line = filepath.Join(home, ".zshrc"), `source "`+config.Tilde(filepath.Join(sousHome, "sous.zsh"))+`"`
 		line = strings.Replace(line, "~", "$HOME", 1)
 	case "bash":
 		rc, line = filepath.Join(home, ".bashrc"), "command -v sous >/dev/null && sous --ambient 2>/dev/null"
@@ -181,7 +181,7 @@ func setupShell(home, sousHome string) (string, error) {
 		return "", err
 	}
 	if strings.Contains(string(b), line) || strings.Contains(string(b), ".sous/sous.zsh") {
-		return fmt.Sprintf("shell: new %s shells show the board (already in %s)", shell, tilde(home, rc)), nil
+		return fmt.Sprintf("shell: new %s shells show the board (already in %s)", shell, config.Tilde(rc)), nil
 	}
 	if err := os.MkdirAll(filepath.Dir(rc), 0o755); err != nil {
 		return "", err
@@ -198,13 +198,5 @@ func setupShell(home, sousHome string) (string, error) {
 	if _, err := fmt.Fprintf(f, "%s\n# sous: show what is waiting on you in new shells\n%s\n", prefix, line); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("shell: new %s shells show the board (added one line to %s)", shell, tilde(home, rc)), nil
-}
-
-// tilde shows a path under home as ~/..., as people write it.
-func tilde(home, p string) string {
-	if rest, ok := strings.CutPrefix(p, home); ok && home != "" && (rest == "" || rest[0] == '/') {
-		return "~" + rest
-	}
-	return p
+	return fmt.Sprintf("shell: new %s shells show the board (added one line to %s)", shell, config.Tilde(rc)), nil
 }

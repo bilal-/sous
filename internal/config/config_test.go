@@ -106,3 +106,16 @@ func TestSetRootsKeepsTheRestOfTheFile(t *testing.T) {
 		t.Fatalf("roots must go above any table: %+v %v", c, err)
 	}
 }
+
+func TestTildeIsExpandsInverse(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, p := range []string{"~", "~/code", "~/code/acme"} {
+		if got := Tilde(Expand(p)); got != p {
+			t.Errorf("%q → %q", p, got)
+		}
+	}
+	if got := Tilde(home + "x/code"); got != home+"x/code" {
+		t.Fatalf("a sibling folder is not under home: %q", got)
+	}
+}

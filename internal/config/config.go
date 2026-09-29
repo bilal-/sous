@@ -94,6 +94,19 @@ func (c *Config) RefreshWindow() time.Duration {
 }
 
 // Expand turns a leading ~ into the user's home directory.
+// Tilde is the inverse of Expand: a path under the home folder written as
+// ~/..., the way people type it.
+func Tilde(p string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return p
+	}
+	if rest, ok := strings.CutPrefix(p, home); ok && (rest == "" || rest[0] == '/') {
+		return "~" + rest
+	}
+	return p
+}
+
 func Expand(p string) string {
 	if p == "~" || strings.HasPrefix(p, "~/") {
 		home, _ := os.UserHomeDir()

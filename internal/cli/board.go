@@ -7,11 +7,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/bilal-/sous/internal/board"
+	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/thread"
@@ -57,13 +57,7 @@ func cmdBoard(e *Env, roots []string) int {
 		if e.JSON {
 			return e.writeJSON(map[string]any{"projects": []any{}, "configured": false})
 		}
-		home := e.Home
-		if h, err := os.UserHomeDir(); err == nil {
-			if rest, ok := strings.CutPrefix(home, h); ok {
-				home = "~" + rest
-			}
-		}
-		fmt.Fprintf(e.Stdout, welcome, home)
+		fmt.Fprintf(e.Stdout, welcome, config.Tilde(e.Home))
 		return 0
 	}
 	d, code := buildBoard(e, roots)

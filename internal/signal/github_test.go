@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -76,14 +75,6 @@ esac`)
 	if c == nil || c.Project != shell || *c.Ref != "github:acme/chime#7" {
 		t.Fatalf("changes (case-insensitive owner): %+v", c)
 	}
-}
-
-func lookGit(t *testing.T) string {
-	p, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git not on PATH")
-	}
-	return p
 }
 
 // One query failing must not lose the other query's findings: the board
