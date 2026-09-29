@@ -42,6 +42,21 @@ const usageFooter = `
 Flags: --json (read verbs) · --brief (here) · --refresh · --cached · --menubar
 Exit:  0 ok · 1 failure · 2 usage or ambiguity · 3 --cached with no board yet
 Put -- before a note that starts with a dash.
+
+For agents:
+  Notes are the user's. Keep them private unless the user asks to share one.
+  sous file, note --file and done --close write where other people can see.
+    Before running one, ask the user, end your turn, and run it only after
+    they say yes in their next message.
+  When a project name matches more than one project, sous lists them. Show
+    the list and ask; never pick one yourself.
+  Set SOUS_SOURCE=agent when you write a note on your own initiative.
+  Never create FOLLOWUPS.md, edit ~/.sous/config.toml or the <!-- sous:... -->
+    markers to make filing work. If sous says there is no tracker, say so.
+  sous done means the user's task is finished, not that you wrote code.
+  (ref missing) and (status unavailable) mean sous could not confirm, not done.
+  When work is put off, the user waits on someone, or an idea belongs to
+    another project, offer to note it in one line. Write it only on a yes.
 `
 
 // Env carries everything a subcommand needs; nothing reads globals. Config

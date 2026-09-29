@@ -240,7 +240,7 @@ waiting on someone. Leave it out for an idea, which stays off the main board
 and shows up when you next open that project.
 
 You can also just ask your agent: "sous, note for billing that I owe Sam the
-numbers." The skill tells it how.
+numbers." The skill points it at sous, and sous itself shows it how.
 
 ### Share a note with the team
 
@@ -284,8 +284,9 @@ it. What differs is how much is set up for you.
 
 **Claude Code.** `sous setup` adds two hooks. When a session starts in a
 project, the agent is shown where you left off. When it ends, sous remembers
-the session's last message for next time. The `sous` skill teaches Claude
-the commands, so you can say things like:
+the session's last message for next time. The `sous` skill tells Claude
+that sous is there and when to use it, and `sous help` teaches it the rest,
+so you can say things like:
 
 * "what is waiting on me?"
 * "note for billing that I owe Sam the pricing copy"
@@ -389,7 +390,13 @@ tools where they help people too:
 * counts come first, and empty results say so plainly
 * output ends with the next command you are likely to want
 * errors are clear, nothing ever waits for input, and unknown flags fail
-* the agent sees your context when a session starts, and has a skill for more
+* the agent sees your context when a session starts, and a tiny skill tells
+  it sous is there
+
+The command line is the one source of truth. The skill only says when to
+reach for sous and to run `sous help`, which lists every command and the
+rules for agents (such as asking before anything reaches a shared tracker).
+So the skill never needs updating when sous changes.
 
 Output is plain text for people, with `--json` for programs.
 

@@ -102,6 +102,10 @@ separate program.
   and anything else is refused with that command's usage.
 * **One dependency** (`github.com/BurntSushi/toml`). A new one needs a
   reason in the commit message.
+* **The CLI is the one source of truth.** The skill says only when to use
+  sous and to run `sous help`. Commands and agent rules live in `sous help`
+  and each command's `--help`, never in the skill, so it never needs
+  updating. A test keeps the skill small.
 * **Hooks never hold up a session.** `sous hook ...` always exits `0`, prints
   nothing to stderr, and finishes within five seconds whatever git does.
 
@@ -127,7 +131,8 @@ What the tests hold: bare `sous` shows the board; every command that shows
 something answers even when there is nothing to show, and its `--json` is
 never `null`; unknown flags fail with exit code `2`; nothing waits for
 input; the board and `here` suggest a next command; every command has
-`--help`; the skill can be printed for any agent. The session hooks and
+`--help`; the skill can be printed for any agent and stays tiny, pointing
+at `sous help`. The session hooks and
 the short `here --brief` are covered in `hooks_test.go` and the board tests.
 
 Where sous chooses differently, for the person reading the terminal:

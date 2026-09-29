@@ -7,6 +7,12 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.1.6]
+
+### Changed
+* The skill is now a few lines pointing at `sous help`, which carries the
+  rules for agents. The CLI is the one source of truth.
+
 ## [0.1.5]
 
 ### Added

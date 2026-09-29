@@ -154,7 +154,7 @@ func TestSetupInstallsSkill(t *testing.T) {
 			t.Fatalf("%s: %v", p, err)
 		}
 		s := strings.ToLower(string(b))
-		for _, want := range []string{"name: sous", "sous note", "-p ", "sous file", "--file", "--close", "end your turn", "more than one project", "sous_source=agent", "never create `followups.md`", "sandbox", "prints its"} {
+		for _, want := range []string{"name: sous", "description:", "sous help"} {
 			if !strings.Contains(s, want) {
 				t.Errorf("%s missing %q", p, want)
 			}

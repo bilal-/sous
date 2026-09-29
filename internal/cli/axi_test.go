@@ -201,3 +201,21 @@ func TestAmbientWithNoRootsHintsOnce(t *testing.T) {
 		t.Fatalf("second shell: %q", out)
 	}
 }
+
+// The skill only says sous exists and when to use it; the CLI teaches the
+// rest. A skill that repeats commands drifts every release.
+func TestSkillIsBarebonesAndHelpCarriesTheRules(t *testing.T) {
+	if lines := strings.Count(skillMD, "\n"); lines > 15 {
+		t.Fatalf("the skill has %d lines; keep it to when to use sous, and point at sous help", lines)
+	}
+	if strings.Contains(skillMD, "sous note -p") || strings.Contains(skillMD, "--close") {
+		t.Fatal("commands belong in sous help, not the skill")
+	}
+	f := fixture(t)
+	out, _, _ := f.run("help")
+	for _, rule := range []string{"For agents", "ask the user", "sous file", "never pick", "SOUS_SOURCE=agent", "FOLLOWUPS.md"} {
+		if !strings.Contains(out, rule) {
+			t.Errorf("sous help is missing %q", rule)
+		}
+	}
+}
