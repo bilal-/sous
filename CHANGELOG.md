@@ -7,6 +7,9 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+* The README has status badges and says plainly that sous is a solo hobby project.
+
 ## [0.1.0]
 
 The first public release.

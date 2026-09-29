@@ -3,6 +3,11 @@
 Thank you for helping. Every kind of contribution is welcome: a bug report,
 an idea, a fix, a new connector, or a clearer sentence in the docs.
 
+A quick word on what to expect: sous is a solo hobby project, looked after
+in spare time. Every issue and pull request is read, but I cannot promise to
+answer or fix everything, or to do it quickly. Small, focused pull requests
+with a test are the easiest to say yes to.
+
 ## Good ways to start
 
 * **Write a connector.** sous gets more useful with every place it can see.

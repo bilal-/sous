@@ -1,5 +1,11 @@
 # sous
 
+[![CI](https://github.com/bilal-/sous/actions/workflows/ci.yml/badge.svg)](https://github.com/bilal-/sous/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/bilal-/sous)](https://github.com/bilal-/sous/releases/latest)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/github/go-mod/go-version/bilal-/sous)](go.mod)
+[![AXI](https://img.shields.io/badge/agent%20friendly-AXI-8a2be2)](https://axi.md)
+
 One list of what is waiting on you, across every project you work on.
 
 AI tools make it easy to keep ten or twenty projects moving at once. The hard
@@ -330,7 +336,9 @@ Sentry, and CI status.
 
 ## Contributing
 
-Bug reports, ideas and pull requests are all welcome. Start with
+sous is a solo hobby project, built in spare time. Bug reports, ideas and
+pull requests are all welcome and gladly read. I cannot promise to get to
+every one, or to get to it quickly, but I will when time allows. Start with
 [CONTRIBUTING.md](CONTRIBUTING.md). The contributor guide for people and
 agents working on the code is [AGENTS.md](AGENTS.md).
 
