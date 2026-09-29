@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -126,22 +127,22 @@ func SetRoots(home string, roots []string) error {
 		quoted[i] = strconv.Quote(r)
 	}
 	line := "roots = [" + strings.Join(quoted, ", ") + "]"
-	p := filepath.Join(home, "config.toml")
-	b, err := os.ReadFile(p)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	s := string(b)
-	if start, end, ok := topLevelKey(s, "roots"); ok {
-		s = s[:start] + line + s[end:]
-	} else {
-		s = line + "\n" + s // above everything, so never inside a [table]
-	}
-	var check Config
-	if _, err := toml.Decode(s, &check); err != nil {
-		return fmt.Errorf("config.toml would not parse after setting roots (%v); edit it by hand", err)
-	}
-	return store.WriteFile(p, []byte(s), 0o644)
+	return store.EditFile(filepath.Join(home, "config.toml"), 0o644, func(b []byte) ([]byte, error) {
+		s := string(b)
+		if start, end, ok := topLevelKey(s, "roots"); ok {
+			s = s[:start] + line + s[end:]
+		} else {
+			s = line + "\n" + s // above everything, so never inside a [table]
+		}
+		var check Config
+		if _, err := toml.Decode(s, &check); err != nil {
+			return nil, fmt.Errorf("config.toml would not parse after setting roots (%v); edit it by hand", err)
+		}
+		if !slices.Equal(check.Roots, roots) {
+			return nil, errors.New("config.toml has roots written in a way sous cannot safely change; edit it by hand")
+		}
+		return []byte(s), nil
+	})
 }
 
 // topLevelKey finds key = value before the first [table], and returns the

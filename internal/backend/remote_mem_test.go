@@ -145,7 +145,7 @@ func TestRemoteRecoveryFindsAPreUpgradeMarker(t *testing.T) {
 		issues:   map[string][]backend.Issue{"acme/api": {{Number: "40", Body: "x\n\n<!-- sous:abcd1234:3 -->"}}},
 		viewErrs: map[string]error{}}
 	r := backend.Remote{CLI: cli, Home: home}
-	ref, err := r.File(backend.Request{ID: 3, UID: "0123456789ab", Project: "/ws/acme/api", Text: "x", Kind: "me"})
+	ref, err := r.File(backend.Request{ID: 3, UID: "0123456789ab", Legacy: true, Project: "/ws/acme/api", Text: "x", Kind: "me"})
 	if err != nil || !strings.HasSuffix(ref, "#40") || cli.created != 0 {
 		t.Fatalf("%q %v created=%d", ref, err, cli.created)
 	}

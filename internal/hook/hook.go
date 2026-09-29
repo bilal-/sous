@@ -194,32 +194,28 @@ func Install(settingsPath, event, command string) (bool, error) {
 		return false, fmt.Errorf("not a hook command: %q", command)
 	}
 	role, agent := args[2], args[3]
-	doc := map[string]any{}
-	b, err := os.ReadFile(settingsPath)
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-	case err != nil:
-		return false, err
-	default:
-		if err := json.Unmarshal(b, &doc); err != nil {
-			return false, err
+	changed := false
+	err := store.EditFile(settingsPath, 0o644, func(b []byte) ([]byte, error) {
+		doc := map[string]any{}
+		if len(b) > 0 {
+			if err := json.Unmarshal(b, &doc); err != nil {
+				return nil, err
+			}
 		}
-	}
-	hooks, _ := doc["hooks"].(map[string]any)
-	if hooks == nil {
-		hooks = map[string]any{}
-		doc["hooks"] = hooks
-	}
-	kept, changed := placeHook(hooks[event], command, role, agent, args[0])
-	if !changed {
-		return false, nil
-	}
-	hooks[event] = kept
-	out, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return false, err
-	}
-	return true, store.WriteFile(settingsPath, out, 0o644)
+		hooks, _ := doc["hooks"].(map[string]any)
+		if hooks == nil {
+			hooks = map[string]any{}
+			doc["hooks"] = hooks
+		}
+		var kept []any
+		kept, changed = placeHook(hooks[event], command, role, agent, args[0])
+		if !changed {
+			return nil, nil
+		}
+		hooks[event] = kept
+		return json.MarshalIndent(doc, "", "  ")
+	})
+	return changed, err
 }
 
 // placeHook returns event's hook groups with command in them exactly once:

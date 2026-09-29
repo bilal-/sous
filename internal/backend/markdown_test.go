@@ -236,10 +236,16 @@ func TestMarkdownCloseTicksTheRightBoxWithCRLF(t *testing.T) {
 func TestMarkdownRecoveryFindsAPreUpgradeMarker(t *testing.T) {
 	p := t.TempDir()
 	os.WriteFile(filepath.Join(p, MarkdownFile), []byte("# F\n- [ ] ship it <!-- sous:7:abcd1234 -->\n"), 0o644)
-	ref, err := MarkdownFileNote(p, Request{ID: 7, UID: "0123456789ab", Project: p, Text: "ship it", Kind: "me"})
+	ref, err := MarkdownFileNote(p, Request{ID: 7, UID: "0123456789ab", Legacy: true, Project: p, Text: "ship it", Kind: "me"})
 	b, _ := os.ReadFile(filepath.Join(p, MarkdownFile))
 	if err != nil || ref != "md:FOLLOWUPS.md:7:abcd1234" || strings.Count(string(b), "sous:") != 1 {
 		t.Fatalf("%q %v\n%s", ref, err, b)
+	}
+	// Review: a note made after uids is never matched to an old marker,
+	// even with the same number and text (a teammate's old item).
+	ref, _ = MarkdownFileNote(p, Request{ID: 7, UID: "fedcba987654", Project: p, Text: "ship it", Kind: "me"})
+	if ref != "md:FOLLOWUPS.md:fedcba987654" {
+		t.Fatalf("a new note claimed an old item: %q", ref)
 	}
 }
 

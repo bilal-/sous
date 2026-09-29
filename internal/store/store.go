@@ -87,20 +87,7 @@ func (s *Store) writeNoLock(name string, raw []byte) error {
 	if !json.Valid(raw) {
 		return fmt.Errorf("refusing to write invalid JSON to %s.json", name)
 	}
-	tmp, err := os.CreateTemp(s.Home, "."+name+".*.tmp")
-	if err != nil {
-		return err
-	}
-	if _, err := tmp.Write(raw); err != nil {
-		tmp.Close()
-		os.Remove(tmp.Name())
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(tmp.Name())
-		return err
-	}
-	return os.Rename(tmp.Name(), s.path(name))
+	return replace(s.path(name), raw, 0o644)
 }
 
 // Read returns the migrated document. The common case (already current) is
@@ -190,13 +177,44 @@ func Modify[T any](s *Store, name string, m Migrator, fn func(*T) error) (*T, er
 // WriteFile replaces path whole: a uniquely named temp file beside it, then
 // a rename, so a reader never sees half a file and two writers never share
 // a temp file. For files that are not versioned documents (config.toml, an
-// agent's settings, resume files).
+// agent's settings, a shell startup file, resume files).
 //
-// A symlink is written through (a dotfiles repo's .zshrc stays a link).
+// A symlink is written through, even when its target does not exist yet (a
+// dotfiles repo's .zshrc stays a link). An existing file keeps its
+// permissions; perm is for a new one.
 func WriteFile(path string, data []byte, perm os.FileMode) error {
-	if real, err := filepath.EvalSymlinks(path); err == nil {
-		path = real
+	path, err := resolveLinks(path)
+	if err != nil {
+		return err
 	}
+	if fi, err := os.Stat(path); err == nil {
+		perm = fi.Mode().Perm()
+	}
+	return replace(path, data, perm)
+}
+
+// resolveLinks follows a chain of symlinks to the file it ends at, which
+// need not exist.
+func resolveLinks(path string) (string, error) {
+	for range 40 {
+		target, err := os.Readlink(path)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.EINVAL) {
+				return path, nil // not there yet, or not a link
+			}
+			return "", err
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
+		}
+		path = target
+	}
+	return "", fmt.Errorf("%s: too many levels of symlinks", path)
+}
+
+// replace writes data to a uniquely named temp file beside path, then
+// renames it over path. The temp file never survives a failure.
+func replace(path string, data []byte, perm os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -217,4 +235,36 @@ func WriteFile(path string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+// EditFile reads path (empty if missing), passes it to edit, and writes
+// what edit returns through WriteFile; nil means no change. The whole edit
+// holds a lock on the file's folder, so two sous processes editing the
+// same file never lose each other's change.
+func EditFile(path string, perm os.FileMode, edit func(old []byte) ([]byte, error)) error {
+	path, err := resolveLinks(path)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	dir, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	if err := syscall.Flock(int(dir.Fd()), syscall.LOCK_EX); err != nil {
+		return err
+	}
+	defer syscall.Flock(int(dir.Fd()), syscall.LOCK_UN)
+	old, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	out, err := edit(old)
+	if err != nil || out == nil {
+		return err
+	}
+	return WriteFile(path, out, perm)
 }

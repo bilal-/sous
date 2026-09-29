@@ -74,11 +74,14 @@ func title(text string) string {
 }
 
 // markers are what a retry looks for in issues already filed: the note's
-// uid, and the <install>:<id> marker a sous before uids wrote. The first is
-// the one new issues carry.
+// uid, and for a note older than uids the <install>:<id> marker a sous
+// before uids wrote. The first is the one new issues carry.
 func markers(home string, req Request) ([]string, error) {
 	if req.UID == "" {
 		return nil, errors.New("the request has no uid")
+	}
+	if !req.Legacy {
+		return []string{markerComment(req.UID)}, nil
 	}
 	inst, err := tracker.InstallID(home)
 	if err != nil {

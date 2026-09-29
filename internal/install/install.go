@@ -4,7 +4,6 @@
 package install
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -114,19 +113,19 @@ func Shell(home, sousHome, shell, goos, zdotdir string) (string, error) {
 // addLine appends line to file, with a comment saying why, unless an
 // uncommented copy is already there.
 func addLine(file, line string) (bool, error) {
-	b, err := os.ReadFile(file)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return false, err
-	}
-	for _, l := range strings.Split(string(b), "\n") {
-		if strings.TrimSpace(l) == line {
-			return false, nil
+	added := false
+	err := store.EditFile(file, 0o644, func(b []byte) ([]byte, error) {
+		for _, l := range strings.Split(string(b), "\n") {
+			if strings.TrimSpace(l) == line {
+				return nil, nil
+			}
 		}
-	}
-	prefix := ""
-	if len(b) > 0 && !strings.HasSuffix(string(b), "\n") {
-		prefix = "\n"
-	}
-	body := string(b) + prefix + "\n# sous: show what is waiting on you in new shells\n" + line + "\n"
-	return true, store.WriteFile(file, []byte(body), 0o644)
+		prefix := ""
+		if len(b) > 0 && !strings.HasSuffix(string(b), "\n") {
+			prefix = "\n"
+		}
+		added = true
+		return []byte(string(b) + prefix + "\n# sous: show what is waiting on you in new shells\n" + line + "\n"), nil
+	})
+	return added, err
 }

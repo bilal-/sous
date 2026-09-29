@@ -56,7 +56,7 @@ esac`)
 	if !strings.Contains(string(b), "issue create") || !strings.Contains(string(b), "-R acme/chime") || !strings.Contains(string(b), "sous:000000000007") || !strings.Contains(string(b), "auth token --user work-account") {
 		t.Fatalf("create call shape / account:\n%s", b)
 	}
-	ref8, err := g.File(Request{ID: 8, UID: "000000000008", Project: p, Text: "again", Kind: "idea"})
+	ref8, err := g.File(Request{ID: 8, UID: "000000000008", Legacy: true, Project: p, Text: "again", Kind: "idea"})
 	if err != nil || ref8 != "github:acme/chime#41" {
 		t.Fatal(ref8, err)
 	}
@@ -207,7 +207,7 @@ esac`)
 	if !strings.Contains(string(b), "--hostname git.example.org") || !strings.Contains(string(b), "projects/frontend%2Fapp-next/issues") || !strings.Contains(string(b), "sous:000000000007") || !strings.Contains(string(b), "-f title=json api for browse & search") {
 		t.Fatalf("create call shape:\n%s", b)
 	}
-	if ref8, _ := g.File(Request{ID: 8, UID: "000000000008", Project: p, Text: "again", Kind: "idea"}); ref8 != "gitlab:git.example.org/frontend/app-next#11" {
+	if ref8, _ := g.File(Request{ID: 8, UID: "000000000008", Legacy: true, Project: p, Text: "again", Kind: "idea"}); ref8 != "gitlab:git.example.org/frontend/app-next#11" {
 		t.Fatal("recovery via marker:", ref8)
 	}
 	if b, _ = os.ReadFile(calls); strings.Count(string(b), "-X POST") != 1 {

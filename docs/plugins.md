@@ -96,7 +96,9 @@ The `file` request looks like this:
 ```
 
 `id` is the short number the person types. `uid` never changes, is unique
-across installs, and is always sent: use it to recognize the note again.
+across installs, and is always sent: use it to recognize the note again. `legacy` is true only for notes made before
+sous 0.1.1: a built in backend then also looks for the older marker it may
+have left, which carried the note's number.
 
 Refuse a `v` you do not know with exit code `2`.
 

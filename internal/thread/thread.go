@@ -103,6 +103,13 @@ func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 	return nil, fmt.Errorf("unknown version %d", from)
 }
 
+// UIDSince is when notes began carrying a uid (sous 0.1.1). A note made
+// before it may have been filed with an older, number based marker.
+var UIDSince = time.Date(2026, 9, 29, 3, 25, 0, 0, time.UTC)
+
+// LegacyNote: was a note made at since old enough to have an old marker?
+func LegacyNote(since time.Time) bool { return since.Before(UIDSince) }
+
 // newUID: 12 random hex characters.
 func newUID() string {
 	var b [6]byte

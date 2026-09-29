@@ -98,6 +98,9 @@ func existingRef(all []byte, req Request) string {
 	if bytes.Contains(all, []byte(markerComment(req.UID))) {
 		return refFor(req.UID)
 	}
+	if !req.Legacy {
+		return ""
+	}
 	legacy := fmt.Sprintf("] %s <!-- sous:%d:", req.Text, req.ID)
 	if at := bytes.Index(all, []byte(legacy)); at >= 0 {
 		tag := all[at+len(legacy):]

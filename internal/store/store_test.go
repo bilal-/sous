@@ -3,6 +3,7 @@ package store
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -241,5 +242,51 @@ func TestWriteFileFollowsSymlinks(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(target); string(b) != "new\n" {
 		t.Fatalf("%q", b)
+	}
+}
+
+// Review: replacing an existing file keeps its permissions (a private
+// 0600 .zshrc stays private); perm only applies to a new file. A dangling
+// symlink is followed: the target is created and the link stays.
+func TestWriteFileKeepsModeAndFollowsDanglingLinks(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, ".zshrc")
+	os.WriteFile(p, []byte("old\n"), 0o600)
+	WriteFile(p, []byte("new\n"), 0o644)
+	if fi, _ := os.Stat(p); fi.Mode().Perm() != 0o600 {
+		t.Fatalf("mode %v", fi.Mode().Perm())
+	}
+	target := filepath.Join(dir, "dotfiles", "bashrc")
+	link := filepath.Join(dir, ".bashrc")
+	os.Symlink(target, link)
+	if err := WriteFile(link, []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Lstat(link); fi.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("a dangling link was replaced by a file")
+	}
+	if b, _ := os.ReadFile(target); string(b) != "x\n" {
+		t.Fatalf("%q", b)
+	}
+}
+
+// EditFile is read-modify-write under a lock: concurrent edits of one file
+// all survive.
+func TestEditFileSerializesEdits(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "rc")
+	var wg sync.WaitGroup
+	for i := range 20 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			EditFile(p, 0o644, func(old []byte) ([]byte, error) {
+				return append(old, []byte(fmt.Sprintf("line %d\n", i))...), nil
+			})
+		}()
+	}
+	wg.Wait()
+	b, _ := os.ReadFile(p)
+	if n := strings.Count(string(b), "line "); n != 20 {
+		t.Fatalf("%d of 20 edits survived:\n%s", n, b)
 	}
 }
