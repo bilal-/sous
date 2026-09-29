@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -213,19 +214,25 @@ func TestInstallCopesWithOddSettings(t *testing.T) {
 }
 
 // Review: one very long line (a big tool result) must not be copied again
-// for every chunk read before it; reading stays linear.
+// for every chunk read before it. Measured in bytes allocated, not time,
+// so a slow machine cannot make it flaky: linear is about twice the line,
+// quadratic would be many times more.
 func TestLastAssistantTextIsLinearOnALongLine(t *testing.T) {
+	const size = 32 << 20
 	p := filepath.Join(t.TempDir(), "t.jsonl")
 	f, _ := os.Create(p)
 	f.WriteString(`{"type":"assistant","message":{"content":[{"type":"text","text":"before the long line"}]}}` + "\n")
-	f.WriteString(`{"type":"user","message":{"content":"` + strings.Repeat("z", 120<<20) + `"}}` + "\n")
+	f.WriteString(`{"type":"user","message":{"content":"` + strings.Repeat("z", size) + `"}}` + "\n")
 	f.Close()
-	start := time.Now()
-	if got := LastAssistantText(p, 300); got != "before the long line" {
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	got := LastAssistantText(p, 300)
+	runtime.ReadMemStats(&after)
+	if got != "before the long line" {
 		t.Fatalf("%q", got)
 	}
-	if el := time.Since(start); el > 3*time.Second { // linear: well under a second (a little over with -race)
-		t.Fatalf("took %v", el)
+	if alloc := after.TotalAlloc - before.TotalAlloc; alloc > 4*size {
+		t.Fatalf("allocated %d MB for a %d MB line", alloc>>20, size>>20)
 	}
 }
 

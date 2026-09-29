@@ -126,7 +126,12 @@ func eachLineFromEnd(r io.ReaderAt, size int64, fn func([]byte) bool) {
 	flush := func(head []byte) bool {
 		line := head
 		if len(parts) > 0 { // join once, when the line's start is found
-			line = append([]byte{}, head...)
+			n := len(head)
+			for _, p := range parts {
+				n += len(p)
+			}
+			line = make([]byte, 0, n)
+			line = append(line, head...)
 			for i := len(parts) - 1; i >= 0; i-- {
 				line = append(line, parts[i]...)
 			}
