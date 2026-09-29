@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -205,15 +206,37 @@ func resolveLinks(path string) (string, error) {
 			return "", err
 		}
 		if !filepath.IsAbs(target) {
-			dir := filepath.Dir(path)
-			if real, err := filepath.EvalSymlinks(dir); err == nil {
-				dir = real // relative to where the link really is
-			}
-			target = filepath.Join(dir, target)
+			target = walkRelative(filepath.Dir(path), target)
 		}
 		path = target
 	}
 	return "", fmt.Errorf("%s: too many levels of symlinks", path)
+}
+
+// walkRelative joins a relative link target to dir the way the kernel
+// reads it: one name at a time, following links before a "..", so
+// "linked/../x" means beside where linked really points.
+func walkRelative(dir, rel string) string {
+	cur := dir
+	if real, err := filepath.EvalSymlinks(cur); err == nil {
+		cur = real
+	}
+	parts := strings.Split(rel, "/")
+	for i, part := range parts {
+		switch part {
+		case "", ".":
+		case "..":
+			cur = filepath.Dir(cur)
+		default:
+			cur = filepath.Join(cur, part)
+			if i < len(parts)-1 { // a folder on the way: follow it
+				if real, err := filepath.EvalSymlinks(cur); err == nil {
+					cur = real
+				}
+			}
+		}
+	}
+	return cur
 }
 
 // replace writes data to a uniquely named temp file beside path, then

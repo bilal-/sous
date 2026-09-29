@@ -50,3 +50,13 @@ func TestRenderReportsWriteErrors(t *testing.T) {
 		t.Fatal("a failed write must be an error")
 	}
 }
+
+// Review: the page holds note text; it is private, even if it existed.
+func TestPageIsPrivate(t *testing.T) {
+	home := t.TempDir()
+	os.WriteFile(filepath.Join(home, "report.html"), nil, 0o644)
+	p, _ := WritePage(home, Report{})
+	if fi, _ := os.Stat(p); fi.Mode().Perm() != 0o600 {
+		t.Fatalf("%v", fi.Mode().Perm())
+	}
+}

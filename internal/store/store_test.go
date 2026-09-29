@@ -321,3 +321,18 @@ func TestWriteFileFollowsRelativeLinksThroughLinkedFolders(t *testing.T) {
 		t.Fatalf("the real file was not written: %q", b)
 	}
 }
+
+// Review round 4: ".." in a link target is taken after following the
+// folder before it, as the kernel does, not cleaned away first.
+func TestResolveLinksDotDotAfterALinkedFolder(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "real", "inner"), 0o755)
+	os.WriteFile(filepath.Join(root, "real", "settings"), []byte("x"), 0o644)
+	os.Symlink(filepath.Join(root, "real", "inner"), filepath.Join(root, "linked-dir"))
+	os.Symlink("linked-dir/../settings", filepath.Join(root, "link"))
+	got, err := resolveLinks(filepath.Join(root, "link"))
+	want, _ := filepath.EvalSymlinks(filepath.Join(root, "real", "settings"))
+	if err != nil || got != want {
+		t.Fatalf("%q %v, want %q", got, err, want)
+	}
+}

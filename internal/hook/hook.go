@@ -208,7 +208,18 @@ func IsOurs(command, role, agent string, exe ...string) bool {
 // as older versions wrote it without quotes (so spaces are allowed, and
 // nothing that makes it a shell command: no prefix, no operators).
 func oldUnquotedPath(prog string) bool {
-	return strings.HasPrefix(prog, "/") && strings.HasSuffix(prog, "/sous") && !strings.ContainsAny(prog, "'\";&|$`<>(){}=\\")
+	if !strings.HasPrefix(prog, "/") || !strings.HasSuffix(prog, "/sous") || strings.ContainsAny(prog, "'\";&|$`<>(){}=\\") {
+		return false
+	}
+	// A space may sit inside one path ("/Users/Sam Smith/bin/sous"), where
+	// the word after it continues that path. A word that starts a new path,
+	// or is no path at all, means another program runs sous.
+	for _, w := range strings.Split(prog, " ")[1:] {
+		if strings.HasPrefix(w, "/") || !strings.Contains(w, "/") {
+			return false
+		}
+	}
+	return true
 }
 
 // Install puts command (from Command) into an agent's settings file for

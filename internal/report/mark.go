@@ -3,6 +3,7 @@ package report
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -62,5 +63,8 @@ func WritePage(home string, r Report) (string, error) {
 		return "", err
 	}
 	p := filepath.Join(home, "report.html")
-	return p, store.WriteFile(p, b.Bytes(), 0o644)
+	if err := store.WriteFile(p, b.Bytes(), 0o600); err != nil {
+		return "", err
+	}
+	return p, os.Chmod(p, 0o600) // it holds note text: private, even if it existed
 }

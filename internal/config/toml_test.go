@@ -22,3 +22,17 @@ func TestSetRootsSkipsEscapedQuotesInMultiLineStrings(t *testing.T) {
 		t.Fatalf("the string's text was changed instead of the setting:\n%s", b)
 	}
 }
+
+// Review round 4: roots are written as TOML strings, not Go strings, so
+// unusual characters still make a file that parses.
+func TestSetRootsQuotesForTOML(t *testing.T) {
+	home := t.TempDir()
+	odd := "/h/tab\there/del\x7fend"
+	if err := SetRoots(home, "/h", []string{odd}); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(home, "/h")
+	if err != nil || len(c.Roots) != 1 || c.Roots[0] != odd {
+		t.Fatalf("%v %v", c, err)
+	}
+}

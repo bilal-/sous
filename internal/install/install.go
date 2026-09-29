@@ -181,15 +181,16 @@ func bashLoginFile(home string) string {
 	return filepath.Join(home, ".bash_profile")
 }
 
-// sourcesBashrc: a line (not a comment) that runs ~/.bashrc.
-var sourcesBashrc = regexp.MustCompile(`(?m)^[^#\n]*(?:\bsource|(?:^|[\s;&|])\.)\s+"?(?:~|\$HOME|\$\{HOME\})/\.bashrc"?`)
+// sourcesBashrc: a command (at the start of a line, or after ;, &&, || or
+// then) that runs ~/.bashrc itself.
+var sourcesBashrc = regexp.MustCompile(`(?m)(?:^\s*|[;&|]\s*|\bthen\s+)(?:source|\.)\s+"?(?:~|\$HOME|\$\{HOME\})/\.bashrc"?(?:[\s;&|]|$)`)
 
 // shellComment marks the line sous adds.
 const shellComment = "# sous: show what is waiting on you in new shells"
 
-// sourcesSnippet is a line that sources ~/.sous/sous.zsh, however the
-// home folder is written.
-var sourcesSnippet = regexp.MustCompile(`^(?:source|\.)\s+"?(?:\$HOME|~|\$\{HOME\})/\.sous/sous\.zsh"?$`)
+// sourcesSnippet is a line that sources a sous.zsh, wherever SOUS_HOME was
+// and however the home folder is written.
+var sourcesSnippet = regexp.MustCompile(`^(?:source|\.)\s+"?(?:\$HOME|~|\$\{HOME\})?/[^"\s]*/sous\.zsh"?$`)
 
 // The lines setup adds for bash and fish. Both print only in interactive
 // shells, and bash's always succeeds (a startup file must not end failing).
