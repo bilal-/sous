@@ -177,6 +177,10 @@ func Command(exe, role, agent string) string {
 // it names? The program must be called sous (or be exe itself), and its
 // arguments exactly ours.
 func IsOurs(command, role, agent string, exe ...string) bool {
+	tail := " hook " + role + " " + agent
+	if prog, ok := strings.CutSuffix(command, tail); ok && !strings.ContainsAny(prog, "'\"") && (strings.HasSuffix(prog, "/sous") || prog == "sous") {
+		return true // an older, unquoted line, whose path may hold spaces
+	}
 	args := shellSplit(command)
 	if len(args) != 4 || args[1] != "hook" || args[2] != role || args[3] != agent {
 		return false
@@ -218,31 +222,37 @@ func Install(settingsPath, event, command string) (bool, error) {
 	return changed, err
 }
 
-// placeHook returns event's hook groups with command in them exactly once:
-// the first sous hook for role and agent is updated in place, any others
-// are removed, and every other hook is kept. changed says whether anything
-// moved.
+// placeHook returns event's hook groups with command in them once per
+// matcher: under each matcher (none counts as one), the first sous hook
+// for role and agent is updated in place and any others are removed.
+// Entries sous does not understand, and every other hook, are kept as they
+// are. changed says whether anything moved.
 func placeHook(event any, command, role, agent, exe string) (kept []any, changed bool) {
 	groups, _ := event.([]any)
-	placed := false
+	placed := map[string]bool{} // matcher → our hook is there
 	for _, g := range groups {
-		gm, _ := g.(map[string]any)
+		gm, ok := g.(map[string]any)
+		if !ok {
+			kept = append(kept, g)
+			continue
+		}
+		matcher, _ := gm["matcher"].(string)
 		inner, _ := gm["hooks"].([]any)
-		var keep []any
+		keep := []any{}
 		for _, h := range inner {
 			hm, _ := h.(map[string]any)
 			c, _ := hm["command"].(string)
 			switch {
-			case !IsOurs(c, role, agent, exe):
+			case hm == nil || !IsOurs(c, role, agent, exe):
 				keep = append(keep, h)
-			case !placed:
-				placed = true
+			case !placed[matcher]:
+				placed[matcher] = true
 				if c != command {
 					hm["command"], changed = command, true
 				}
 				keep = append(keep, h)
 			default:
-				changed = true // a second sous hook for the same thing
+				changed = true // a second sous hook under the same matcher
 			}
 		}
 		if len(keep) > 0 || len(inner) == 0 {
@@ -250,7 +260,7 @@ func placeHook(event any, command, role, agent, exe string) (kept []any, changed
 			kept = append(kept, gm)
 		}
 	}
-	if !placed {
+	if len(placed) == 0 {
 		kept = append(kept, map[string]any{"hooks": []any{map[string]any{"type": "command", "command": command, "timeout": 10}}})
 		changed = true
 	}

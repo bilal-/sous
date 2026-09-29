@@ -190,3 +190,24 @@ func TestRecordEndStoresTheLastMessage(t *testing.T) {
 		}
 	}
 }
+
+// Review: odd settings (a non-object entry, an empty group) must neither
+// crash setup nor be written back as null; an old unquoted hook whose path
+// has a space is still recognized; hooks under different matchers are kept.
+func TestInstallCopesWithOddSettings(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "settings.json")
+	os.WriteFile(p, []byte(`{"hooks":{"SessionStart":[null, "x", {"hooks":[]},
+{"matcher":"startup","hooks":[{"type":"command","command":"/Users/Sam Smith/bin/sous hook session-start claude"}]},
+{"matcher":"resume","hooks":[{"type":"command","command":"/opt/sous/bin/sous hook session-start claude"}]}]}}`), 0o644)
+	if _, err := Install(p, "SessionStart", Command("/opt/new/sous", "session-start", "claude")); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(p)
+	s := string(b)
+	if strings.Contains(s, `"hooks": null`) || !strings.Contains(s, `"x"`) {
+		t.Fatalf("an empty group must stay [] and odd entries must stay:\n%s", s)
+	}
+	if strings.Contains(s, "Sam Smith") || strings.Count(s, "/opt/new/sous hook session-start claude") != 2 {
+		t.Fatalf("old hooks replaced per matcher, spaced path recognized:\n%s", s)
+	}
+}

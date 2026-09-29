@@ -85,7 +85,9 @@ func Shell(home, sousHome, shell, goos, zdotdir string) (string, error) {
 	case "bash":
 		files = []string{filepath.Join(home, ".bashrc")}
 		if goos == "darwin" {
-			files = append(files, filepath.Join(home, ".bash_profile"))
+			if f := bashLoginFile(home); f != "" {
+				files = append(files, f)
+			}
 		}
 		line = `if [[ $- == *i* ]] && command -v sous >/dev/null; then sous --ambient 2>/dev/null; fi`
 	case "fish":
@@ -110,22 +112,58 @@ func Shell(home, sousHome, shell, goos, zdotdir string) (string, error) {
 	return fmt.Sprintf("shell: new %s shells show the board (added one line to %s)", shell, strings.Join(added, " and ")), nil
 }
 
-// addLine appends line to file, with a comment saying why, unless an
-// uncommented copy is already there.
+// bashLoginFile is where macOS Terminal's login bash will run the line:
+// the first of .bash_profile, .bash_login and .profile that exists (bash
+// reads only that one), or a new .bash_profile when none does. "" when that
+// file already sources .bashrc, which has the line.
+func bashLoginFile(home string) string {
+	for _, name := range []string{".bash_profile", ".bash_login", ".profile"} {
+		p := filepath.Join(home, name)
+		b, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		if strings.Contains(string(b), ".bashrc") {
+			return ""
+		}
+		return p
+	}
+	return filepath.Join(home, ".bash_profile")
+}
+
+// shellComment marks the line sous adds.
+const shellComment = "# sous: show what is waiting on you in new shells"
+
+// isSousLine: a line an earlier sous (or the person) added to show the
+// board: it runs sous --ambient or sources sous.zsh, and is not a comment.
+func isSousLine(l string) bool {
+	l = strings.TrimSpace(l)
+	return !strings.HasPrefix(l, "#") && (strings.Contains(l, "sous --ambient") || strings.Contains(l, "sous.zsh"))
+}
+
+// addLine puts line into file once: an earlier sous line is replaced in
+// place (so upgrades reach it); otherwise line is appended with a comment
+// saying why. It reports whether the file changed.
 func addLine(file, line string) (bool, error) {
-	added := false
+	changed := false
 	err := store.EditFile(file, 0o644, func(b []byte) ([]byte, error) {
-		for _, l := range strings.Split(string(b), "\n") {
+		lines := strings.Split(string(b), "\n")
+		for i, l := range lines {
+			if !isSousLine(l) {
+				continue
+			}
 			if strings.TrimSpace(l) == line {
 				return nil, nil
 			}
+			lines[i], changed = line, true
+			return []byte(strings.Join(lines, "\n")), nil
 		}
 		prefix := ""
 		if len(b) > 0 && !strings.HasSuffix(string(b), "\n") {
 			prefix = "\n"
 		}
-		added = true
-		return []byte(string(b) + prefix + "\n# sous: show what is waiting on you in new shells\n" + line + "\n"), nil
+		changed = true
+		return []byte(string(b) + prefix + "\n" + shellComment + "\n" + line + "\n"), nil
 	})
-	return added, err
+	return changed, err
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -286,34 +287,21 @@ func ReadFacts(root string) (Facts, error) {
 var likelyRootNames = []string{"code", "src", "dev", "projects", "workspace", "repos", "git", "Developer", "Projects", "Documents/GitHub"}
 
 // LikelyRoots are the usual project folders under home that hold at least
-// one git repo, two folders deep at most. Nothing is described or run;
-// it only looks for .git.
+// one project, as Discover sees it. On a disk that ignores letter case,
+// ~/projects and ~/Projects are one folder and count once.
 func LikelyRoots(home string) []string {
 	var roots []string
+	var seen []os.FileInfo
 	for _, name := range likelyRootNames {
 		dir := filepath.Join(home, name)
-		if hasRepo(dir, 2) {
+		fi, err := os.Stat(dir)
+		if err != nil || !fi.IsDir() || slices.ContainsFunc(seen, func(s os.FileInfo) bool { return os.SameFile(s, fi) }) {
+			continue
+		}
+		seen = append(seen, fi)
+		if ps, _ := Discover([]string{dir}, nil, io.Discard); len(ps) > 0 {
 			roots = append(roots, dir)
 		}
 	}
 	return roots
-}
-
-func hasRepo(dir string, depth int) bool {
-	if isRepo(dir) {
-		return true
-	}
-	if depth == 0 {
-		return false
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return false
-	}
-	for _, e := range entries {
-		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") && hasRepo(filepath.Join(dir, e.Name()), depth-1) {
-			return true
-		}
-	}
-	return false
 }

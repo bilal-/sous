@@ -18,3 +18,22 @@ func TestLikelyRoots(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 }
+
+// Review: on a case-insensitive disk ~/projects and ~/Projects are one
+// folder; it is a root once. Symlinked repos count, as in Discover.
+func TestLikelyRootsDedupesAndFollowsLinks(t *testing.T) {
+	home := t.TempDir()
+	testutil.Repo(t, filepath.Join(home, "projects", "api"), false, "")
+	if _, err := os.Stat(filepath.Join(home, "Projects")); err == nil { // case-insensitive disk
+		if got := LikelyRoots(home); len(got) != 1 {
+			t.Fatalf("%v", got)
+		}
+	}
+	h2 := t.TempDir()
+	elsewhere := testutil.Repo(t, filepath.Join(t.TempDir(), "web"), false, "")
+	os.MkdirAll(filepath.Join(h2, "code"), 0o755)
+	os.Symlink(elsewhere, filepath.Join(h2, "code", "web"))
+	if got := LikelyRoots(h2); len(got) != 1 {
+		t.Fatalf("a symlinked repo makes a root, as Discover sees it: %v", got)
+	}
+}

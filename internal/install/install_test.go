@@ -84,3 +84,42 @@ func TestSkillsGoWhereAgentsLook(t *testing.T) {
 		t.Fatalf("%v", done)
 	}
 }
+
+// Review: macOS bash reads the first of .bash_profile, .bash_login,
+// .profile. Creating .bash_profile when .profile exists would silently stop
+// .profile loading, so the line goes into the one bash really reads.
+func TestBashOnMacUsesTheLoginFileThatExists(t *testing.T) {
+	home := t.TempDir()
+	os.WriteFile(filepath.Join(home, ".profile"), []byte("export PATH=/x:$PATH\n"), 0o644)
+	Shell(home, filepath.Join(home, ".sous"), "bash", "darwin", "")
+	if _, err := os.Stat(filepath.Join(home, ".bash_profile")); err == nil {
+		t.Fatal(".bash_profile must not be created when .profile exists")
+	}
+	if b, _ := os.ReadFile(filepath.Join(home, ".profile")); !strings.Contains(string(b), "sous --ambient") {
+		t.Fatalf("%s", b)
+	}
+	// A login file that already sources .bashrc gets nothing more.
+	h2 := t.TempDir()
+	os.WriteFile(filepath.Join(h2, ".bash_profile"), []byte("[ -f ~/.bashrc ] && . ~/.bashrc\n"), 0o644)
+	Shell(h2, filepath.Join(h2, ".sous"), "bash", "darwin", "")
+	if b, _ := os.ReadFile(filepath.Join(h2, ".bash_profile")); strings.Contains(string(b), "sous") {
+		t.Fatalf("%s", b)
+	}
+}
+
+// Review: an older sous line (or a hand written one) is upgraded in place,
+// not left beside a second copy.
+func TestShellUpgradesAnOldLine(t *testing.T) {
+	home := t.TempDir()
+	os.WriteFile(filepath.Join(home, ".bashrc"), []byte("alias ll='ls -l'\n\n# sous: show what is waiting on you in new shells\ncommand -v sous >/dev/null && sous --ambient 2>/dev/null\n"), 0o644)
+	Shell(home, filepath.Join(home, ".sous"), "bash", "linux", "")
+	b, _ := os.ReadFile(filepath.Join(home, ".bashrc"))
+	if strings.Count(string(b), "sous --ambient") != 1 || !strings.Contains(string(b), "[[ $- == *i* ]]") || !strings.Contains(string(b), "alias ll") {
+		t.Fatalf("%s", b)
+	}
+	os.WriteFile(filepath.Join(home, ".zshrc"), []byte("source ~/.sous/sous.zsh\n"), 0o644)
+	Shell(home, filepath.Join(home, ".sous"), "zsh", "linux", "")
+	if b, _ := os.ReadFile(filepath.Join(home, ".zshrc")); strings.Count(string(b), "sous.zsh") != 1 {
+		t.Fatalf("%s", b)
+	}
+}
