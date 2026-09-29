@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/bilal-/sous/internal/store"
@@ -50,7 +51,15 @@ var ErrUnknownSignal = errors.New("no such signal (run sous first)")
 // the reason it stopped being seen (project gone, plugin removed, scope).
 const PruneAfter = 30 * 24 * time.Hour
 
-func hashOf(s Signal) string { return ID(s.Text, string(s.Kind)) } // content hash, distinct from ID
+// hashOf is the content hash a snooze is tied to, distinct from ID. With no
+// state it is exactly the hash earlier versions stored, so upgrading does
+// not end anyone's snoozes.
+func hashOf(s Signal) string {
+	if s.State == "" {
+		return ID(s.Text, string(s.Kind))
+	}
+	return ID(s.Text+"\t"+s.State, string(s.Kind))
+}
 
 // Observe merges a collection with observed.json for the projects that were
 // scanned this run: keeps first_seen for a known id (the condition began
@@ -151,12 +160,26 @@ func Known(s *store.Store, project string) ([]Observed, error) {
 }
 
 // Snooze hides a signal until its text changes.
+// A unique prefix of an id is enough ("s:0a70").
 func Snooze(s *store.Store, id string) error {
 	_, err := store.Modify[ObsDoc](s, "observed", ObsMigrator{}, func(d *ObsDoc) error {
-		e, ok := d.Signals[id]
-		if !ok {
-			return fmt.Errorf("%w: %s", ErrUnknownSignal, id)
+		if _, ok := d.Signals[id]; !ok {
+			var hits []string
+			for full := range d.Signals {
+				if strings.HasPrefix(full, id) {
+					hits = append(hits, full)
+				}
+			}
+			sort.Strings(hits)
+			switch {
+			case len(hits) == 0 || len(id) < len("s:")+3:
+				return fmt.Errorf("%w: %s", ErrUnknownSignal, id)
+			case len(hits) > 1:
+				return fmt.Errorf("%s matches %d rows: %s", id, len(hits), strings.Join(hits, ", "))
+			}
+			id = hits[0]
 		}
+		e := d.Signals[id]
 		h := e.Hash
 		e.SnoozedHash = &h
 		d.Signals[id] = e

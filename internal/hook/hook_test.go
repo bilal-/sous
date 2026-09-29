@@ -90,3 +90,16 @@ func TestStartRoot(t *testing.T) {
 		t.Fatalf("fallback to the caller's directory: %q %v", root, ok)
 	}
 }
+
+// A huge transcript line (a big tool result) must not stop the reader
+// early and leave an older message as "how the session ended".
+func TestLastAssistantTextSurvivesHugeLines(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "t.jsonl")
+	huge := `{"type":"user","message":{"content":"` + strings.Repeat("x", 17<<20) + `"}}`
+	body := `{"type":"assistant","message":{"content":[{"type":"text","text":"old"}]}}` + "\n" + huge + "\n" +
+		`{"type":"assistant","message":{"content":[{"type":"text","text":"the real last words"}]}}` + "\n"
+	os.WriteFile(p, []byte(body), 0o644)
+	if got := LastAssistantText(p, 300); got != "the real last words" {
+		t.Fatalf("%q", got)
+	}
+}

@@ -2,6 +2,7 @@ package signal
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -138,5 +139,33 @@ func TestCountLines(t *testing.T) {
 		if got := countLines(in); got != want {
 			t.Errorf("countLines(%q)=%d want %d", in, got, want)
 		}
+	}
+}
+
+// More edits to the same file change the dirty row's state, so a snooze on
+// it ends; the one line text stays "1 files uncommitted".
+func TestGitDirtyStateFollowsEdits(t *testing.T) {
+	r := repo(t, filepath.Join(t.TempDir(), "acme/api"), true)
+	os.WriteFile(filepath.Join(r, "a.txt"), []byte("one\n"), 0o644)
+	git(t, r, "add", "a.txt")
+	git(t, r, "commit", "-q", "-m", "a")
+	state := func() (string, string) {
+		var out bytes.Buffer
+		ScanGit([]string{r}, &out, io.Discard, time.Now())
+		sigs, _ := readLines(&out)
+		for _, s := range sigs {
+			if strings.Contains(s.Text, "uncommitted") {
+				return s.Text, s.State
+			}
+		}
+		t.Fatalf("no dirty row: %+v", sigs)
+		return "", ""
+	}
+	os.WriteFile(filepath.Join(r, "a.txt"), []byte("one\ntwo\n"), 0o644)
+	text1, s1 := state()
+	os.WriteFile(filepath.Join(r, "a.txt"), []byte("one\ntwo\nthree\n"), 0o644)
+	text2, s2 := state()
+	if text1 != text2 || s1 == "" || s1 == s2 {
+		t.Fatalf("%q %q / %q %q", text1, s1, text2, s2)
 	}
 }

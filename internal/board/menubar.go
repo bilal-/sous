@@ -45,5 +45,5 @@ func RenderMenubar(w io.Writer, d *Data, exe, cacheAge string, cacheStale bool) 
 		}
 	}
 	fmt.Fprintln(w, "---")
-	fmt.Fprintf(w, "%d checked · as of %s · cached %s ago\n", d.Checked, d.RenderedAt.Local().Format("15:04"), cacheAge)
+	fmt.Fprintf(w, "%d checked · as of %s · cached %s ago\n", d.Checked, asOf(d.RenderedAt), cacheAge)
 }

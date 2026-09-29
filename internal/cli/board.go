@@ -93,7 +93,7 @@ func cmdCached(e *Env) int {
 	}
 	now := time.Now()
 	fmt.Fprint(e.Stdout, *c.Board)
-	fmt.Fprintf(e.Stdout, "  (cached · %s ago)\n", project.Age(now, *c.RenderedAt))
+	fmt.Fprintf(e.Stdout, "  (cached · %s)\n", project.Ago(now, *c.RenderedAt))
 	if now.Sub(*c.RenderedAt) > e.Cfg.RefreshWindow() {
 		spawnRefresh(e)
 	}

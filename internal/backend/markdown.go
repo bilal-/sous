@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -206,14 +207,21 @@ func MarkdownClose(project, ref string) error {
 	case "unknown":
 		return fmt.Errorf("marker for thread %d is not on a checkbox line", id)
 	}
-	lines[idx] = strings.Replace(lines[idx], "[ ]", "[x]", 1)
-	body := strings.Join(lines, "\n") + "\n"
-	if err := f.Truncate(0); err != nil {
+	// Tick the box by overwriting its one byte in place: nothing is
+	// truncated, so a crash cannot empty the file, and every other byte
+	// (line endings included) stays as the person wrote it.
+	off := 0
+	for _, l := range lines[:idx] {
+		off += len(l) + 1
+	}
+	raw := make([]byte, len(lines[idx])+1)
+	if _, err := f.ReadAt(raw, int64(off)); err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		return err
+	box := bytes.Index(raw, []byte("[ ]"))
+	if box < 0 {
+		return fmt.Errorf("marker for thread %d is not on a checkbox line", id)
 	}
-	_, err = f.WriteString(body)
+	_, err = f.WriteAt([]byte("x"), int64(off+box+1))
 	return err
 }

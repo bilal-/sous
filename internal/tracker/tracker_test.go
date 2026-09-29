@@ -1,9 +1,11 @@
 package tracker
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/bilal-/sous/internal/config"
@@ -125,5 +127,46 @@ func TestGitLabHostsFailureIsAnErrorNotAnAnswer(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	if hs, err := GitLabHosts(&config.Config{GitLabHosts: []string{"gitlab.example.com"}}); err != nil || len(hs) != 1 {
 		t.Fatalf("no glab installed is config hosts only, not an error: %v %v", hs, err)
+	}
+}
+
+// A damaged install-id is an error, never silently replaced: every marker
+// sous left in a tracker carries it, and a new one would orphan them all.
+func TestInstallIDRefusesToReplaceADamagedFile(t *testing.T) {
+	home := t.TempDir()
+	os.WriteFile(filepath.Join(home, "install-id"), []byte("oops\n"), 0o644)
+	if _, err := InstallID(home); err == nil {
+		t.Fatal("damaged install-id must be an error")
+	}
+	if b, _ := os.ReadFile(filepath.Join(home, "install-id")); string(b) != "oops\n" {
+		t.Fatalf("must not overwrite: %q", b)
+	}
+	fresh := t.TempDir()
+	id, err := InstallID(fresh)
+	if err != nil || len(id) != 8 {
+		t.Fatal(id, err)
+	}
+	if again, _ := InstallID(fresh); again != id {
+		t.Fatal("stable")
+	}
+}
+
+// Reading tokens is one at a time across processes, so a gh upgrade asks
+// for keychain access once rather than once per parallel check.
+func TestTokenReadsNeverOverlap(t *testing.T) {
+	lock := filepath.Join(t.TempDir(), "busy")
+	fakeBin(t, "gh", `mkdir "`+lock+`" 2>/dev/null || { echo overlap >&2; exit 1; }; sleep 0.2; rmdir "`+lock+`"; echo tok`)
+	var wg sync.WaitGroup
+	errs := make(chan error, 4)
+	for i := range 4 {
+		wg.Add(1)
+		go func() { defer wg.Done(); _, err := readToken(fmt.Sprint("acct", i)); errs <- err }()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }

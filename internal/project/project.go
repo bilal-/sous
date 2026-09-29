@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -151,16 +152,73 @@ func normalizeRemote(url string) string {
 			url = url[i+1:]
 		}
 	}
-	return url
+	host, rest, _ := strings.Cut(url, "/")
+	host, _, _ = strings.Cut(host, ":") // a port is not part of the host's name
+	if !strings.Contains(host, ".") && host != "" && rest != "" {
+		host = sshHost(host) // an alias from ~/.ssh/config
+	}
+	if rest == "" {
+		return host
+	}
+	return host + "/" + rest
+}
+
+var (
+	sshMu    sync.Mutex
+	sshCache = map[string]string{}
+)
+
+// sshHost resolves an ~/.ssh/config alias ("gh-work") to its real host name
+// with `ssh -G`, which only reads config and never connects. Unknown or
+// failing aliases stay as they are.
+func sshHost(alias string) string {
+	sshMu.Lock()
+	defer sshMu.Unlock()
+	if h, ok := sshCache[alias]; ok {
+		return h
+	}
+	h := alias
+	if out, err := exec.Command("ssh", "-G", alias).Output(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			if v, ok := strings.CutPrefix(line, "hostname "); ok && strings.TrimSpace(v) != "" {
+				h = strings.ToLower(strings.TrimSpace(v))
+				break
+			}
+		}
+	}
+	sshCache[alias] = h
+	return h
 }
 
 // ForPath returns the repo root containing path.
+//
+// A repo whose root is the home folder (a dotfiles repo) is not a project:
+// otherwise every folder under home would belong to it.
 func ForPath(path string) (string, bool) {
 	out, err := git(path, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", false
 	}
-	return strings.TrimSpace(out), true
+	root := strings.TrimSpace(out)
+	if home, err := os.UserHomeDir(); err == nil && samePath(root, home) {
+		return "", false
+	}
+	return root, true
+}
+
+func samePath(a, b string) bool {
+	ra, err1 := filepath.EvalSymlinks(a)
+	rb, err2 := filepath.EvalSymlinks(b)
+	return err1 == nil && err2 == nil && ra == rb
+}
+
+// Ago is Age as a phrase: "3h ago", or "just now" (also for times a
+// little in the future, from clock skew).
+func Ago(now, t time.Time) string {
+	if now.Sub(t) < time.Minute {
+		return "just now"
+	}
+	return Age(now, t) + " ago"
 }
 
 // Age formats a duration since t the way the board does: 5m, 3h, 6d, 3mo, 1y.
@@ -191,10 +249,14 @@ func RenderTable(w io.Writer, ps []Project, now time.Time) {
 			nw = len(p.Name)
 		}
 	}
+	fmt.Fprintf(w, "%-*s   %-*s   %-8s   %s\n", ow, "org", nw, "name", "host", "last commit")
 	for _, p := range ps {
 		host, last := "local", "no commits"
 		if p.Remote != nil {
 			host = strings.TrimSuffix(strings.SplitN(*p.Remote, "/", 2)[0], ".com")
+			if host == "" {
+				host = "other" // a path or other non-URL remote
+			}
 		}
 		if p.LastCommit != nil {
 			last = Age(now, *p.LastCommit)

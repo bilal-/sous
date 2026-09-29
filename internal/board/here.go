@@ -111,7 +111,7 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 	// row with an id, which can be snoozed for intentional local branches.
 	title := d.Name + " · " + d.Facts.Branch
 	if d.Facts.LastCommit != nil {
-		title += " · last commit " + project.Age(now, *d.Facts.LastCommit) + " ago"
+		title += " · last commit " + project.Ago(now, *d.Facts.LastCommit)
 	}
 	fmt.Fprintln(w, title)
 	if d.Facts.LastSubject != "" {

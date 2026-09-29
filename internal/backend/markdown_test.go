@@ -172,3 +172,20 @@ func TestMarkdownDoesNotCollideOnForeignId(t *testing.T) {
 		t.Fatalf("id+text dedupe: %s vs %s", ref2, ref)
 	}
 }
+
+// Closing a box changes one byte in place: nothing is truncated (a crash
+// can't leave an empty file) and the rest of the file, CRLF endings and
+// all, is untouched.
+func TestMarkdownCloseChangesOnlyTheBox(t *testing.T) {
+	p := t.TempDir()
+	orig := "# Follow-ups\r\n\r\n- [ ] keep me\r\n- [ ] close me <!-- sous:7:abcd1234 -->\r\nno newline at end"
+	os.WriteFile(filepath.Join(p, MarkdownFile), []byte(orig), 0o644)
+	if err := MarkdownClose(p, "md:FOLLOWUPS.md:7:abcd1234"); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(filepath.Join(p, MarkdownFile))
+	want := strings.Replace(orig, "- [ ] close me", "- [x] close me", 1)
+	if string(b) != want {
+		t.Fatalf("got %q\nwant %q", b, want)
+	}
+}

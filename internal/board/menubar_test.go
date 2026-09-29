@@ -32,7 +32,7 @@ func TestRenderMenubar(t *testing.T) {
 		"chase / designer · studio/work · 6d | bash=/usr/local/bin/sous param1=go param2=studio/work terminal=true",
 		"review requested · PR #14 · oss/app-next · 2d | bash=/usr/local/bin/sous param1=go param2=oss/app-next terminal=true",
 		"\nunfinished\n-- 6 commits unpushed · acme/chime · 6d",
-		"3 checked · as of 09:02 · cached 12m ago",
+		"3 checked · as of Sun 27 Sep 09:02 · cached 12m ago",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)

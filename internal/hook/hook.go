@@ -64,17 +64,22 @@ func LastAssistantText(path string, max int) string {
 		return ""
 	}
 	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 1<<20), 16<<20)
+	// A bufio.Reader has no line limit: tool results can be tens of MB, and
+	// stopping at one would leave an older message as the last.
+	rd := bufio.NewReader(f)
 	last := ""
-	for sc.Scan() {
+	for {
+		raw, rerr := rd.ReadBytes('\n')
+		if len(raw) == 0 && rerr != nil {
+			break
+		}
 		var line struct {
 			Type    string `json:"type"`
 			Message struct {
 				Content json.RawMessage `json:"content"`
 			} `json:"message"`
 		}
-		if json.Unmarshal(sc.Bytes(), &line) != nil || line.Type != "assistant" {
+		if json.Unmarshal(raw, &line) != nil || line.Type != "assistant" {
 			continue
 		}
 		var parts []struct {

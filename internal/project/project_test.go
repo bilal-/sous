@@ -82,11 +82,13 @@ func TestForPath(t *testing.T) {
 
 func TestRemoteForms(t *testing.T) {
 	cases := map[string]string{
-		"git@github.com:Org/Repo.git":     "github.com/Org/Repo",
-		"https://github.com/org/repo":     "github.com/org/repo",
-		"https://user@gitlab.com/o/r.git": "gitlab.com/o/r",
-		"ssh://git@github.com/o/r.git":    "github.com/o/r",
-		"":                                "",
+		"git@github.com:Org/Repo.git":      "github.com/Org/Repo",
+		"https://github.com/org/repo":      "github.com/org/repo",
+		"https://user@gitlab.com/o/r.git":  "gitlab.com/o/r",
+		"ssh://git@github.com/o/r.git":     "github.com/o/r",
+		"ssh://git@github.com:22/o/r.git":  "github.com/o/r",
+		"https://git.example.org:8443/a/b": "git.example.org/a/b",
+		"":                                 "",
 	}
 	for in, want := range cases {
 		if got := normalizeRemote(in); got != want {
@@ -188,5 +190,50 @@ func TestFacts(t *testing.T) {
 	}
 	if _, err := ReadFacts(ws); err == nil {
 		t.Fatal("not a repo must error")
+	}
+}
+
+// An SSH host alias from ~/.ssh/config reads as the real host.
+func TestRemoteResolvesSSHHostAlias(t *testing.T) {
+	testutil.FakeBin(t, "ssh", `[ "$1 $2" = "-G gh-work" ] && printf 'user git\nhostname github.com\nport 22\n' || printf 'hostname %s\n' "$2"`)
+	if got := normalizeRemote("git@gh-work:acme/api.git"); got != "github.com/acme/api" {
+		t.Fatalf("%q", got)
+	}
+	if got := normalizeRemote("git@github.com:acme/api.git"); got != "github.com/acme/api" {
+		t.Fatalf("%q", got)
+	}
+}
+
+// A git repo at $HOME (dotfiles) must not swallow every folder under it.
+func TestForPathIgnoresARepoAtHome(t *testing.T) {
+	home := t.TempDir()
+	testutil.Repo(t, home, true, "")
+	t.Setenv("HOME", home)
+	sub := filepath.Join(home, "notes")
+	os.MkdirAll(sub, 0o755)
+	if root, ok := ForPath(sub); ok {
+		t.Fatalf("resolved to %q", root)
+	}
+	inner := filepath.Join(home, "code", "api")
+	testutil.Repo(t, inner, true, "")
+	if root, ok := ForPath(inner); !ok || filepath.Base(root) != "api" {
+		t.Fatalf("a real project under home still resolves: %q %v", root, ok)
+	}
+}
+
+func TestRenderTableHasHeaderAndNeverBlankHost(t *testing.T) {
+	odd := "/srv/mirrors/api"
+	var b bytes.Buffer
+	RenderTable(&b, []Project{{Org: "acme", Name: "api", Remote: &odd}}, time.Now())
+	lines := strings.Split(strings.TrimSpace(b.String()), "\n")
+	if len(lines) != 2 || !strings.HasPrefix(lines[0], "org") || !strings.Contains(lines[0], "host") || !strings.Contains(lines[1], "other") {
+		t.Fatalf("%q", b.String())
+	}
+}
+
+func TestAgo(t *testing.T) {
+	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
+	if Ago(now, now.Add(time.Minute)) != "just now" || Ago(now, now.Add(-3*time.Hour)) != "3h ago" {
+		t.Fatal(Ago(now, now.Add(time.Minute)), Ago(now, now.Add(-3*time.Hour)))
 	}
 }

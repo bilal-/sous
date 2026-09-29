@@ -33,6 +33,9 @@ type Signal struct {
 	Text     string    `json:"text"`
 	Observed time.Time `json:"observed"`
 	Ref      *string   `json:"ref"`
+	// State optionally fingerprints what the text summarizes, so a snooze
+	// ends when the thing changes even if its summary line does not.
+	State string `json:"state,omitempty"`
 }
 
 // ID is stable across runs and machines: "s:" + 12 hex of sha256(project\tkey).

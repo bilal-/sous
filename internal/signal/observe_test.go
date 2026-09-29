@@ -1,6 +1,7 @@
 package signal
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -165,5 +166,43 @@ func TestKnown(t *testing.T) {
 	known, err := Known(s, "/code/acme/chime")
 	if err != nil || len(known) != 1 || known[0].ID != "s:pr" || known[0].Plugin != "github" || !known[0].Snoozed || !known[0].FirstSeen.Equal(t0) {
 		t.Fatalf("%+v %v", known, err)
+	}
+}
+
+// A snooze ends when the thing changes, even if its one line summary does
+// not ("1 files uncommitted" before and after more edits).
+func TestSnoozeEndsWhenStateChanges(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	with := func(state string) Collected {
+		c := collected("1 files uncommitted", "git")
+		c.Signals[0].State = state
+		return c
+	}
+	Observe(s, with("a"), []string{"/p"}, t0)
+	Snooze(s, "s:x")
+	if obs, _ := Observe(s, with("a"), []string{"/p"}, t0); !obs[0].Snoozed {
+		t.Fatal("same state stays snoozed")
+	}
+	if obs, _ := Observe(s, with("b"), []string{"/p"}, t0); obs[0].Snoozed {
+		t.Fatal("new state ends the snooze")
+	}
+}
+
+func TestSnoozeByUniquePrefix(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	c := Collected{Plugins: []PluginStatus{{Name: "git", Status: "ok"}}, Signals: []Tagged{
+		{Signal: Signal{ID: "s:0a70aaaaaaaa", Project: "/p", Kind: Unfinished, Text: "a"}, Plugin: "git"},
+		{Signal: Signal{ID: "s:0a71bbbbbbbb", Project: "/p", Kind: Unfinished, Text: "b"}, Plugin: "git"},
+	}}
+	Observe(s, c, []string{"/p"}, time.Now())
+	if err := Snooze(s, "s:0a7"); err == nil || !strings.Contains(err.Error(), "s:0a70aaaaaaaa") {
+		t.Fatalf("ambiguous prefix must list matches: %v", err)
+	}
+	if err := Snooze(s, "s:0a70"); err != nil {
+		t.Fatal(err)
+	}
+	if obs, _ := Known(s, "/p"); !obs[0].Snoozed || obs[1].Snoozed {
+		t.Fatalf("%+v", obs)
 	}
 }

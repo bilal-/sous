@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/bilal-/sous/internal/config"
 )
@@ -24,8 +25,16 @@ import (
 // collide across machines or people.
 func InstallID(home string) (string, error) {
 	p := filepath.Join(home, "install-id")
-	if b, err := os.ReadFile(p); err == nil && len(strings.TrimSpace(string(b))) == 8 {
-		return strings.TrimSpace(string(b)), nil
+	if b, err := os.ReadFile(p); err == nil {
+		// Every marker sous left in a tracker carries this id; replacing a
+		// damaged one would orphan them all, so say so instead.
+		id := strings.TrimSpace(string(b))
+		if _, herr := hex.DecodeString(id); len(id) != 8 || herr != nil {
+			return "", fmt.Errorf("%s is damaged (want 8 hex characters); restore it from a backup rather than deleting it", p)
+		}
+		return id, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
 	}
 	var buf [4]byte
 	if _, err := rand.Read(buf[:]); err != nil {
@@ -87,12 +96,29 @@ func ghToken(account string) (string, error) {
 	if tok, ok := tokenCache[account]; ok {
 		return tok, nil
 	}
+	tok, err := readToken(account)
+	if err != nil {
+		return "", err
+	}
+	tokenCache[account] = tok
+	return tok, nil
+}
+
+// readToken asks gh for an account's token, one process at a time: after a
+// gh upgrade each read can raise a macOS keychain prompt, and parallel
+// status checks would stack them.
+func readToken(account string) (string, error) {
+	if f, err := os.OpenFile(filepath.Join(os.TempDir(), "sous-gh-token.lock"), os.O_CREATE|os.O_RDWR, 0o600); err == nil {
+		defer f.Close()
+		if syscall.Flock(int(f.Fd()), syscall.LOCK_EX) == nil {
+			defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		}
+	}
 	out, err := exec.Command("gh", "auth", "token", "--user", account).Output()
 	tok := strings.TrimSpace(string(out))
 	if err != nil || tok == "" {
 		return "", fmt.Errorf("no gh token for account %q (run: gh auth login, then gh auth status)", account)
 	}
-	tokenCache[account] = tok
 	return tok, nil
 }
 

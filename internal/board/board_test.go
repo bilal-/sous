@@ -143,3 +143,13 @@ func TestEllipsizeTinyBudget(t *testing.T) {
 		t.Fatal(Ellipsize("abc", 1))
 	}
 }
+
+// "as of 09:02" is ambiguous on a board that is days old: show the date.
+func TestAsOfShowsTheDateWhenNotToday(t *testing.T) {
+	old := time.Now().Add(-72 * time.Hour)
+	var b bytes.Buffer
+	Render(&b, &Data{Checked: 1, RenderedAt: old})
+	if !strings.Contains(b.String(), "as of "+old.Local().Format("Mon 2 Jan 15:04")) {
+		t.Fatalf("%s", b.String())
+	}
+}

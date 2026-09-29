@@ -138,3 +138,23 @@ esac`)
 		t.Fatalf("one search pair per account:\n%s", b)
 	}
 }
+
+// A broken default login must not hide what a configured account can see.
+func TestScanGitHubWorksWhenOnlyAConfiguredAccountWorks(t *testing.T) {
+	ws := t.TempDir()
+	app := repo(t, filepath.Join(ws, "acme/api"), true)
+	git(t, app, "remote", "add", "origin", "git@github.com:acme/api.git")
+	fakeGH(t, `case "$*" in
+  "auth status") echo "token for the active account is invalid" >&2; exit 1;;
+  "auth token --user work-account") echo tok-w;;
+  *--review-requested=@me*) [ "$GH_TOKEN" = tok-w ] || { echo "HTTP 401" >&2; exit 1; }
+    printf '[{"repository":{"nameWithOwner":"acme/api"},"number":5,"title":"review me","updatedAt":"2026-09-25T10:00:00Z"}]';;
+  *) [ "$GH_TOKEN" = tok-w ] || { echo "HTTP 401" >&2; exit 1; }; printf '[]';;
+esac`)
+	var out, warn bytes.Buffer
+	cfg := &config.Config{Projects: map[string]map[string]string{"acme/*": {"github_account": "work-account"}}}
+	ScanGitHub(cfg)([]string{app}, &out, &warn, time.Now())
+	if !strings.Contains(out.String(), "review me") {
+		t.Fatalf("out=%q warn=%q", out.String(), warn.String())
+	}
+}

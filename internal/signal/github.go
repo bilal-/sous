@@ -50,6 +50,12 @@ func ScanGitHub(cfg *config.Config) Scanner {
 				fmt.Fprintln(warn, "gh not installed")
 				return errors.New("gh not installed")
 			}
+			// With configured accounts, each is tried on its own and a failure
+			// is reported per account; a broken default login alone must not
+			// hide what they can see.
+			if len(cfg.Identities("github_account")) > 0 {
+				return nil
+			}
 			if err := exec.Command("gh", "auth", "status").Run(); err != nil {
 				fmt.Fprintln(warn, "gh: not logged in (run gh auth login)")
 				return errors.New("gh not logged in")

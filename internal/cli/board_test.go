@@ -74,7 +74,7 @@ func TestCachedAndRefresh(t *testing.T) {
 		t.Fatalf("refresh must be silent: %d %q", code, out)
 	}
 	out, _, _ = f.run("--cached")
-	if !strings.Contains(out, "1 found") || !strings.Contains(out, "(cached · 0m ago)") {
+	if !strings.Contains(out, "1 found") || !strings.Contains(out, "(cached · just now)") {
 		t.Fatalf("cached: %q", out)
 	}
 	// Stale cache: prints old board now, refreshes in background.

@@ -2,6 +2,8 @@ package signal
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -104,12 +106,16 @@ func scanOne(p string, w, warn io.Writer, now time.Time) bool {
 			def = "master"
 		}
 	}
-	emit := func(key string, kind Kind, text string, observed time.Time) {
-		WriteLine(w, Signal{ID: ID(p, "git:"+key), Project: p, Kind: kind, Text: text, Observed: observed})
+	emit := func(key string, kind Kind, text string, observed time.Time, state ...string) {
+		WriteLine(w, Signal{ID: ID(p, "git:"+key), Project: p, Kind: kind, Text: text, Observed: observed, State: strings.Join(state, "")})
 	}
 
 	if st := must("status", "--porcelain"); st != "" {
-		emit("dirty", Unfinished, fmt.Sprintf("%d files uncommitted · %s", countLines(st), branch), now)
+		// The summary counts files; the state follows their content, so more
+		// edits to the same file end a snooze.
+		stat, _ := gitOut(p, "diff", "HEAD", "--numstat")
+		sum := sha256.Sum256([]byte(st + "\x00" + stat))
+		emit("dirty", Unfinished, fmt.Sprintf("%d files uncommitted · %s", countLines(st), branch), now, hex.EncodeToString(sum[:8]))
 	}
 	if up, err := gitOut(p, "rev-parse", "--abbrev-ref", "-q", "@{u}"); err == nil && up != "" {
 		if n := must("rev-list", "--count", "@{u}..HEAD"); n != "" && n != "0" {
