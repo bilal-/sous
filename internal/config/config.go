@@ -156,53 +156,153 @@ func SetRoots(home string, roots []string) error {
 	})
 }
 
-// topLevelKey finds key = value before the first [table], and returns the
-// byte span from the key to the end of its value, following a [ ... ] array
-// across lines and ignoring brackets inside strings.
+// topLevelKey finds `key = value` among the top-level settings (before the
+// first [table]) and returns the byte span from the key to the end of its
+// value. It reads the file once, as TOML does: strings of every kind
+// (including multi-line ones), comments, and arrays across lines, so text
+// that only looks like the key is never taken for it.
 func topLevelKey(s, key string) (start, end int, ok bool) {
-	off := 0
-	for _, line := range strings.SplitAfter(s, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "[") {
-			return 0, 0, false // tables start: the rest is not top level
+	sc := tomlScanner{s: s}
+	for sc.i < len(s) {
+		sc.skipBlank()
+		if sc.i >= len(s) {
+			break
 		}
-		name, rest, isKV := strings.Cut(trimmed, "=")
-		if isKV && strings.TrimSpace(name) == key {
-			start = off + strings.Index(line, trimmed)
-			return start, start + valueLen(s[start:], len(trimmed)-len(rest)), true
+		if s[sc.i] == '[' {
+			return 0, 0, false // a table starts: the rest is not top level
 		}
-		off += len(line)
+		lineStart := sc.i
+		name := sc.keyName()
+		sc.skipSpaces()
+		if sc.i >= len(s) || s[sc.i] != '=' {
+			sc.skipLine()
+			continue
+		}
+		sc.i++
+		sc.value()
+		if name == key {
+			return lineStart, sc.i, true
+		}
+		sc.skipLine()
 	}
 	return 0, 0, false
 }
 
-// valueLen is how many bytes of s (starting at the key) the key and its
-// value take: to the closing bracket of an array, else to the end of line.
-func valueLen(s string, eq int) int {
-	depth, inStr := 0, byte(0)
-	for i := eq; i < len(s); i++ {
-		c := s[i]
-		switch {
-		case inStr != 0:
-			if c == '\\' && inStr == '"' {
-				i++
-			} else if c == inStr {
-				inStr = 0
-			}
-		case c == '"' || c == '\'':
-			inStr = c
-		case c == '[':
-			depth++
-		case c == ']':
-			depth--
-			if depth == 0 {
-				return i + 1
-			}
-		case c == '\n' && depth == 0:
-			return i
-		case c == '#' && depth == 0:
-			return i
+// tomlScanner walks TOML text just far enough to find where a top-level
+// value ends.
+type tomlScanner struct {
+	s string
+	i int
+}
+
+// skipBlank skips blank lines, whitespace and comment lines.
+func (sc *tomlScanner) skipBlank() {
+	for sc.i < len(sc.s) {
+		switch c := sc.s[sc.i]; {
+		case c == ' ' || c == '\t' || c == '\r' || c == '\n':
+			sc.i++
+		case c == '#':
+			sc.skipLine()
+		default:
+			return
 		}
 	}
-	return len(s)
+}
+
+func (sc *tomlScanner) skipSpaces() {
+	for sc.i < len(sc.s) && (sc.s[sc.i] == ' ' || sc.s[sc.i] == '\t') {
+		sc.i++
+	}
+}
+
+// skipLine moves past the end of the current line.
+func (sc *tomlScanner) skipLine() {
+	for sc.i < len(sc.s) && sc.s[sc.i] != '\n' {
+		sc.i++
+	}
+	if sc.i < len(sc.s) {
+		sc.i++
+	}
+}
+
+// keyName reads a bare or quoted key (dotted keys read whole).
+func (sc *tomlScanner) keyName() string {
+	start := sc.i
+	for sc.i < len(sc.s) {
+		c := sc.s[sc.i]
+		if c == '"' || c == '\'' {
+			sc.str()
+			continue
+		}
+		if c == '=' || c == '\n' || c == ' ' || c == '\t' {
+			break
+		}
+		sc.i++
+	}
+	return strings.Trim(sc.s[start:sc.i], `"'`)
+}
+
+// value reads one value: a string, an array (nested, across lines, with
+// comments), an inline table, or a bare word; it stops before any trailing
+// comment on its line.
+func (sc *tomlScanner) value() {
+	sc.skipSpaces()
+	depth := 0
+	for sc.i < len(sc.s) {
+		switch c := sc.s[sc.i]; {
+		case c == '"' || c == '\'':
+			sc.str()
+			if depth == 0 {
+				return
+			}
+			continue
+		case c == '[' || c == '{':
+			depth++
+		case c == ']' || c == '}':
+			depth--
+			if depth == 0 {
+				sc.i++
+				return
+			}
+		case c == '#':
+			if depth == 0 {
+				return
+			}
+			sc.skipLine()
+			continue
+		case c == '\n' || c == '\r':
+			if depth == 0 {
+				return
+			}
+		}
+		sc.i++
+	}
+}
+
+// str reads one string of any kind: "basic", 'literal', """multi-line"""
+// or '''multi-line literal'''.
+func (sc *tomlScanner) str() {
+	q := sc.s[sc.i]
+	if strings.HasPrefix(sc.s[sc.i:], strings.Repeat(string(q), 3)) {
+		end := strings.Index(sc.s[sc.i+3:], strings.Repeat(string(q), 3))
+		if end < 0 {
+			sc.i = len(sc.s)
+			return
+		}
+		sc.i += 3 + end + 3
+		return
+	}
+	for sc.i++; sc.i < len(sc.s); sc.i++ {
+		switch sc.s[sc.i] {
+		case '\\':
+			if q == '"' {
+				sc.i++
+			}
+		case q:
+			sc.i++
+			return
+		case '\n':
+			return
+		}
+	}
 }

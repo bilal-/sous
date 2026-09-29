@@ -146,3 +146,27 @@ func boolInt(b bool) int {
 	}
 	return 0
 }
+
+// Review: the roots value is found by reading the file as TOML does:
+// arrays of arrays, comments inside arrays, and multi-line strings holding
+// text that looks like a roots line.
+func TestSetRootsReadsTOMLStructure(t *testing.T) {
+	for name, in := range map[string]string{
+		"array of arrays":   "matrix = [\n  [1, 2],\n  [3, 4],\n]\nroots = [\"~/old\"]\n",
+		"comment in array":  "roots = [\n  \"~/old\", # the ] old one\n]\nagent = \"codex\"\n",
+		"multi-line string": "note = \"\"\"\nroots = [\"~/fake\"]\n\"\"\"\nroots = [\"~/old\"]\n",
+		"literal multi":     "note = '''\nroots = ['~/fake']\n'''\nagent = \"codex\"\n",
+	} {
+		home := t.TempDir()
+		os.WriteFile(filepath.Join(home, "config.toml"), []byte(in), 0o644)
+		if err := SetRoots(home, []string{"~/code"}); err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		c, err := Load(home, "/h")
+		if err != nil || len(c.Roots) != 1 || c.Roots[0] != "/h/code" {
+			b, _ := os.ReadFile(filepath.Join(home, "config.toml"))
+			t.Errorf("%s: %v %v\n%s", name, err, c, b)
+		}
+	}
+}
