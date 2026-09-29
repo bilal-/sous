@@ -67,11 +67,11 @@ func TestFileAndCloseFlow(t *testing.T) {
 		t.Fatalf("%d %s", code, errs)
 	}
 	lines := strings.Split(strings.TrimSpace(out), "\n")
-	if len(lines) != 2 || lines[0] != "1" || !strings.HasPrefix(lines[1], "md:FOLLOWUPS.md:1:") {
+	if len(lines) != 2 || lines[0] != "1" || !strings.HasPrefix(lines[1], "md:FOLLOWUPS.md:") || len(lines[1]) != len("md:FOLLOWUPS.md:")+12 {
 		t.Fatalf("expected id then ref:\n%s", out)
 	}
 	md, _ := os.ReadFile(filepath.Join(p, "FOLLOWUPS.md"))
-	if !strings.Contains(string(md), "- [ ] wire the export <!-- sous:1:") {
+	if !strings.Contains(string(md), "- [ ] wire the export <!-- sous:") {
 		t.Fatalf("%s", md)
 	}
 	if out2, _, _ := f.run("file", "1"); strings.TrimSpace(out2) != lines[1] {
@@ -145,7 +145,7 @@ func TestConcurrentFileIsIdempotent(t *testing.T) {
 	}
 	wg.Wait()
 	md, _ := os.ReadFile(filepath.Join(p, "FOLLOWUPS.md"))
-	if strings.Count(string(md), "<!-- sous:1:") != 1 {
+	if strings.Count(string(md), "<!-- sous:") != 1 {
 		t.Fatalf("concurrent file must produce one marker:\n%s", md)
 	}
 	for _, r := range refs {
@@ -162,7 +162,7 @@ func TestReconcileUpstreamState(t *testing.T) {
 	f.runIn(p, "note", "--file", "-k", "me", "tick me by hand")
 	f.runIn(p, "note", "--file", "-k", "me", "lose my marker")
 	out, _, _ := f.run("here", p)
-	if !strings.Contains(out, "tick me by hand") || !strings.Contains(out, "→ md:FOLLOWUPS.md:1:") {
+	if !strings.Contains(out, "tick me by hand") || !strings.Contains(out, "→ md:FOLLOWUPS.md:") {
 		t.Fatalf("here shows refs:\n%s", out)
 	}
 	md, _ := os.ReadFile(filepath.Join(p, "FOLLOWUPS.md"))
@@ -216,7 +216,7 @@ func TestReconcileDistinguishesBackendFailureFromMissing(t *testing.T) {
 	os.WriteFile(broken, []byte("#!/bin/sh\necho 'auth expired' >&2; exit 3\n"), 0o755)
 	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + broken + "\"]\n")
 	b, _ := os.ReadFile(filepath.Join(f.SousHome, "threads.json"))
-	os.WriteFile(filepath.Join(f.SousHome, "threads.json"), []byte(strings.Replace(string(b), `"ref": "md:FOLLOWUPS.md:1:`, `"ref": "jira:WAS-1`, 1)), 0o644)
+	os.WriteFile(filepath.Join(f.SousHome, "threads.json"), []byte(strings.Replace(string(b), `"ref": "md:FOLLOWUPS.md:`, `"ref": "jira:WAS-1`, 1)), 0o644)
 	out, _, _ := f.run()
 	if !strings.Contains(out, "status unavailable") || !strings.Contains(out, "auth expired") || strings.Contains(out, "ref missing") {
 		t.Fatalf("backend failure must be named, not shown as missing:\n%s", out)
@@ -246,16 +246,16 @@ func TestFileForceAndRefile(t *testing.T) {
 	if _, errs, code := f.run("file", "1", "--force"); code != 0 {
 		t.Fatalf("%d %q", code, errs)
 	}
-	// Lost marker → sous file re-files with a new ref.
+	// Lost marker → sous file writes it again (same ref: the note's uid).
 	f.runIn(p, "note", "-k", "me", "lose me")
 	out1, _, _ := f.run("file", "2")
 	os.WriteFile(filepath.Join(p, "FOLLOWUPS.md"), []byte("# F\n"), 0o644)
 	out2, _, code := f.run("file", "2")
-	if code != 0 || strings.TrimSpace(out2) == strings.TrimSpace(out1) {
+	if code != 0 || strings.TrimSpace(out2) != strings.TrimSpace(out1) {
 		t.Fatalf("must re-file a lost marker: %q vs %q", out1, out2)
 	}
 	md, _ := os.ReadFile(filepath.Join(p, "FOLLOWUPS.md"))
-	if !strings.Contains(string(md), "- [ ] lose me <!-- sous:2:") {
+	if !strings.Contains(string(md), "- [ ] lose me <!-- sous:") {
 		t.Fatalf("%s", md)
 	}
 }
@@ -268,7 +268,7 @@ func TestFiledThreadFollowsMovedRepo(t *testing.T) {
 	f.runIn(p, "note", "--file", "-k", "me", "moving")
 	np := filepath.Join(f.WS, "a", "new")
 	os.Rename(p, np)
-	if out, _, _ := f.run("here", np); !strings.Contains(out, "→ md:FOLLOWUPS.md:1:") {
+	if out, _, _ := f.run("here", np); !strings.Contains(out, "→ md:FOLLOWUPS.md:") {
 		t.Fatalf("here by remote:\n%s", out)
 	}
 	if _, errs, code := f.run("done", "1", "--close"); code != 0 {

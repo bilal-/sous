@@ -189,3 +189,29 @@ func TestMarkdownCloseChangesOnlyTheBox(t *testing.T) {
 		t.Fatalf("got %q\nwant %q", b, want)
 	}
 }
+
+// New filings mark items with the note's stable uid; markers written by
+// earlier versions (id:tag) keep working for status and close.
+func TestMarkdownUsesStableUIDAndKeepsOldMarkers(t *testing.T) {
+	p := t.TempDir()
+	os.WriteFile(filepath.Join(p, MarkdownFile), []byte("# Follow-ups\n- [ ] old one <!-- sous:7:abcd1234 -->\n"), 0o644)
+	ref, err := MarkdownFileNote(p, Request{ID: 7, UID: "0123456789ab", Project: p, Text: "new one", Kind: "me"})
+	if err != nil || ref != "md:FOLLOWUPS.md:0123456789ab" {
+		t.Fatal(ref, err)
+	}
+	b, _ := os.ReadFile(filepath.Join(p, MarkdownFile))
+	if !strings.Contains(string(b), "- [ ] new one <!-- sous:0123456789ab -->") {
+		t.Fatalf("%s", b)
+	}
+	// Same uid again (crash recovery): same ref, no second line, even if
+	// the text was edited meanwhile.
+	if again, _ := MarkdownFileNote(p, Request{ID: 7, UID: "0123456789ab", Project: p, Text: "new one, edited", Kind: "me"}); again != ref {
+		t.Fatal(again)
+	}
+	if st := MarkdownStatus(p, "md:FOLLOWUPS.md:7:abcd1234"); st != "open" {
+		t.Fatal("old marker still readable:", st)
+	}
+	if err := MarkdownClose(p, ref); err != nil || MarkdownStatus(p, ref) != "closed" || MarkdownStatus(p, "md:FOLLOWUPS.md:7:abcd1234") != "open" {
+		t.Fatal("closing by uid touches only that item", err)
+	}
+}

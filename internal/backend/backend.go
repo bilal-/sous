@@ -264,6 +264,7 @@ func Detect(ctx context.Context, bs []Backend, project, override string, warn io
 type Request struct {
 	V       int    `json:"v"`
 	ID      int    `json:"id"`
+	UID     string `json:"uid,omitempty"` // the note's stable id: mark filed items with it
 	Project string `json:"project"`
 	Text    string `json:"text"`
 	Kind    string `json:"kind"`

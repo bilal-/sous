@@ -74,7 +74,13 @@ func title(text string) string {
 }
 
 // marker is the crash-recovery comment written into the issue body.
-func marker(home string, id int) (string, error) {
+// With a uid (every note since 0.1.1) the marker is just the uid; without
+// one it is the older install id plus note number.
+func marker(home string, req Request) (string, error) {
+	if req.UID != "" {
+		return markerComment(req.UID), nil
+	}
+	id := req.ID
 	inst, err := tracker.InstallID(home)
 	if err != nil {
 		return "", err
@@ -88,7 +94,7 @@ func (r Remote) File(req Request) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("not a %s remote", name)
 	}
-	m, err := marker(r.Home, req.ID)
+	m, err := marker(r.Home, req)
 	if err != nil {
 		return "", err
 	}

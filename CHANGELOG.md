@@ -7,7 +7,37 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+* Ticking a box in FOLLOWUPS.md changes one character in place, so a crash
+  can never empty the file, and Windows line endings survive.
+* A damaged install id is reported instead of silently replaced.
+* A git repo at your home folder (dotfiles) no longer claims every folder.
+* SSH remotes with a port, and host aliases from `~/.ssh/config`, are
+  recognized as GitHub or GitLab.
+* A very long line in an agent transcript no longer hides how the session
+  ended.
+* A broken default GitHub login no longer hides what your configured
+  accounts can see, and gh is asked for tokens one at a time, so a gh
+  upgrade asks for keychain access only once.
+* `sous go` keeps one resume file per project instead of leaving temp files.
+* The menu bar script uses the real path to sous, and its rows show when a
+  filed note's status could not be checked.
+* The session hook cleans up after itself when it runs out of time.
+
 ### Changed
+* Every note now has a stable random id, and new filings mark items with it
+  (`<!-- sous:0123456789ab -->`), so notes from two installs can never
+  collide in a shared FOLLOWUPS.md. Your notes file upgrades itself; older
+  markers keep working.
+* A snooze on "files uncommitted" ends when you keep editing, not only when
+  the file count changes. Signals may send a `state` fingerprint for this.
+* A unique start of a row's id is enough to snooze it (`sous snooze s:0a70`).
+* `sous go .` starts your agent in the project you are in, and the zsh
+  wrapper finds the project wherever it is on the line.
+* New shells run `sous --ambient`, so how often the board prints is set in
+  one place: `refresh_hours` in config.toml. Run `sous setup` to update the
+  snippet.
+* `sous projects` has a header. A board from another day shows the date.
 * The README has status badges and says plainly that sous is a solo hobby project.
 
 ## [0.1.0]

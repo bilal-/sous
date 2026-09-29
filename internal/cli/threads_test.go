@@ -96,14 +96,14 @@ func TestHereCLI(t *testing.T) {
 func TestStoreFailureExitsOne(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("a/one", true)
-	os.WriteFile(filepath.Join(f.SousHome, "threads.json"), []byte(`{"version":2,"threads":[]}`), 0o644)
+	os.WriteFile(filepath.Join(f.SousHome, "threads.json"), []byte(`{"version":99,"threads":[]}`), 0o644)
 	for _, c := range [][]string{{"note", "x"}, {"done", "1"}, {"edit", "1", "y"}, {"kind", "1", "me"}, {"snooze", "1"}} {
-		if _, errs, code := f.runIn(p, c...); code != 1 || !strings.Contains(errs, "version 2") {
+		if _, errs, code := f.runIn(p, c...); code != 1 || !strings.Contains(errs, "version 99") {
 			t.Errorf("%v: code=%d err=%q", c, code, errs)
 		}
 	}
 	b, _ := os.ReadFile(filepath.Join(f.SousHome, "threads.json"))
-	if string(b) != `{"version":2,"threads":[]}` {
+	if string(b) != `{"version":99,"threads":[]}` {
 		t.Fatal("file must be untouched")
 	}
 }

@@ -55,30 +55,33 @@ func openLocked(project string, create bool) (*os.File, error) {
 	return f, nil
 }
 
-func markerFor(id int) string { return fmt.Sprintf("<!-- sous:%d:", id) }
-
-func parseRef(ref string) (id int, tag string, ok bool) {
-	rest, found := strings.CutPrefix(ref, "md:"+MarkdownFile+":")
-	if !found {
-		return 0, "", false
+// refKey is the marker key a markdown ref points at: the note's uid
+// ("md:FOLLOWUPS.md:0123456789ab"), or, for refs written before uids,
+// "<id>:<tag>" ("md:FOLLOWUPS.md:7:abcd1234").
+func refKey(ref string) (string, bool) {
+	key, found := strings.CutPrefix(ref, "md:"+MarkdownFile+":")
+	if !found || key == "" {
+		return "", false
 	}
-	idStr, tag, found := strings.Cut(rest, ":")
-	if !found {
-		return 0, "", false
+	if id, tag, old := strings.Cut(key, ":"); old {
+		if _, err := strconv.Atoi(id); err != nil || tag == "" {
+			return "", false
+		}
 	}
-	id, err := strconv.Atoi(idStr)
-	return id, tag, err == nil
+	return key, true
 }
+
+func refFor(key string) string { return "md:" + MarkdownFile + ":" + key }
 
 // findMarker returns the lines, the index of the first line holding the
 // exact marker (-1 if none), and how many lines held it. Thread ids are
 // per-installation, so a marker is only ours if the tag matches too.
-func findMarker(r io.Reader, id int, tag string) ([]string, int, int, error) {
+func findMarker(r io.Reader, key string) ([]string, int, int, error) {
 	var lines []string
 	idx, count := -1, 0
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-	m := markerFor(id) + tag + " -->"
+	m := markerComment(key)
 	for sc.Scan() {
 		if strings.Contains(sc.Text(), m) {
 			count++
@@ -94,10 +97,20 @@ func findMarker(r io.Reader, id int, tag string) ([]string, int, int, error) {
 // existingRef finds a marker for this id whose line carries exactly this
 // text — the crash-recovery case (created upstream, ref not recorded). A
 // teammate's marker with the same id but other text is not ours.
-func existingRef(r io.Reader, id int, text string) (string, error) {
+func existingRef(r io.Reader, req Request) (string, error) {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-	m := markerFor(id)
+	if req.UID != "" {
+		m := markerComment(req.UID)
+		for sc.Scan() {
+			if strings.Contains(sc.Text(), m) {
+				return refFor(req.UID), nil
+			}
+		}
+		return "", sc.Err()
+	}
+	id, text := req.ID, req.Text
+	m := fmt.Sprintf("<!-- sous:%d:", id)
 	want := "] " + text + " " + m
 	for sc.Scan() {
 		line := sc.Text()
@@ -109,7 +122,7 @@ func existingRef(r io.Reader, id int, text string) (string, error) {
 		if end < 0 {
 			continue
 		}
-		return "md:" + MarkdownFile + ":" + strconv.Itoa(id) + ":" + line[i+len(m):i+len(m)+end], nil
+		return refFor(strconv.Itoa(id) + ":" + line[i+len(m):i+len(m)+end]), nil
 	}
 	return "", sc.Err()
 }
@@ -120,13 +133,16 @@ func MarkdownFileNote(project string, req Request) (string, error) {
 		return "", err
 	}
 	defer f.Close()
-	if ref, err := existingRef(f, req.ID, req.Text); err != nil {
+	if ref, err := existingRef(f, req); err != nil {
 		return "", err
 	} else if ref != "" {
 		return ref, nil // already filed (crash between create and record)
 	}
-	sum := sha256.Sum256([]byte(req.Text + "\n" + time.Now().Format(time.RFC3339Nano)))
-	tag := hex.EncodeToString(sum[:])[:8]
+	key := req.UID
+	if key == "" { // a caller that sends no uid: the older id:tag marker
+		sum := sha256.Sum256([]byte(req.Text + "\n" + time.Now().Format(time.RFC3339Nano)))
+		key = strconv.Itoa(req.ID) + ":" + hex.EncodeToString(sum[:])[:8]
+	}
 	var prefix string
 	st, _ := f.Stat()
 	switch {
@@ -142,10 +158,10 @@ func MarkdownFileNote(project string, req Request) (string, error) {
 	if _, err := f.Seek(0, io.SeekEnd); err != nil {
 		return "", err
 	}
-	if _, err := fmt.Fprintf(f, "%s- [ ] %s %s\n", prefix, req.Text, markerComment(fmt.Sprintf("%d:%s", req.ID, tag))); err != nil {
+	if _, err := fmt.Fprintf(f, "%s- [ ] %s %s\n", prefix, req.Text, markerComment(key)); err != nil {
 		return "", err
 	}
-	return "md:" + MarkdownFile + ":" + strconv.Itoa(req.ID) + ":" + tag, nil
+	return refFor(key), nil
 }
 
 func boxState(line string) string {
@@ -162,7 +178,7 @@ func boxState(line string) string {
 }
 
 func MarkdownStatus(project, ref string) string {
-	id, tag, ok := parseRef(ref)
+	key, ok := refKey(ref)
 	if !ok {
 		return "unknown"
 	}
@@ -171,7 +187,7 @@ func MarkdownStatus(project, ref string) string {
 		return "unknown"
 	}
 	defer f.Close()
-	lines, idx, count, err := findMarker(f, id, tag)
+	lines, idx, count, err := findMarker(f, key)
 	if err != nil || count != 1 {
 		return "unknown"
 	}
@@ -182,7 +198,7 @@ func MarkdownStatus(project, ref string) string {
 // in place under the lock — no rename, so a symlinked FOLLOWUPS.md and its
 // mode survive and no temp file can be left behind.
 func MarkdownClose(project, ref string) error {
-	id, tag, ok := parseRef(ref)
+	key, ok := refKey(ref)
 	if !ok {
 		return errors.New("not a markdown ref")
 	}
@@ -191,21 +207,21 @@ func MarkdownClose(project, ref string) error {
 		return err
 	}
 	defer f.Close()
-	lines, idx, count, err := findMarker(f, id, tag)
+	lines, idx, count, err := findMarker(f, key)
 	if err != nil {
 		return err
 	}
 	switch {
 	case count == 0:
-		return fmt.Errorf("marker for thread %d not found in %s", id, MarkdownFile)
+		return fmt.Errorf("marker %s not found in %s", key, MarkdownFile)
 	case count > 1:
-		return fmt.Errorf("thread %d has %d markers in %s; fix the file by hand", id, count, MarkdownFile)
+		return fmt.Errorf("marker %s appears %d times in %s; fix the file by hand", key, count, MarkdownFile)
 	}
 	switch boxState(lines[idx]) {
 	case "closed":
 		return nil
 	case "unknown":
-		return fmt.Errorf("marker for thread %d is not on a checkbox line", id)
+		return fmt.Errorf("marker %s is not on a checkbox line", key)
 	}
 	// Tick the box by overwriting its one byte in place: nothing is
 	// truncated, so a crash cannot empty the file, and every other byte
@@ -220,7 +236,7 @@ func MarkdownClose(project, ref string) error {
 	}
 	box := bytes.Index(raw, []byte("[ ]"))
 	if box < 0 {
-		return fmt.Errorf("marker for thread %d is not on a checkbox line", id)
+		return fmt.Errorf("marker %s is not on a checkbox line", key)
 	}
 	_, err = f.WriteAt([]byte("x"), int64(off+box+1))
 	return err

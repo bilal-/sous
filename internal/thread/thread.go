@@ -3,6 +3,8 @@
 package thread
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,7 +27,10 @@ const (
 func (k Kind) Valid() bool { return k == Me || k == Them || k == Idea }
 
 type Thread struct {
-	ID           int        `json:"id"`
+	ID int `json:"id"` // short, for typing: sous done 3
+	// UID is random and never changes. Filing markers use it, so notes from
+	// two installs can never collide in a shared tracker.
+	UID          string     `json:"uid"`
 	Project      string     `json:"project"`
 	Remote       *string    `json:"remote"`
 	Text         string     `json:"text"`
@@ -73,15 +78,41 @@ func (v ValidationError) Error() string { return string(v) }
 const name = "threads"
 
 // Migrator: v0 was the pre-release shape without version/next_id and without
-// remote/source/ref/snoozed_until/closed.
+// remote/source/ref/snoozed_until/closed. v2 gave every note a uid.
 type Migrator struct{}
 
-func (Migrator) Empty() []byte { return []byte(`{"version":1,"next_id":1,"threads":[]}`) }
-func (Migrator) Current() int  { return 1 }
+func (Migrator) Empty() []byte { return []byte(`{"version":2,"next_id":1,"threads":[]}`) }
+func (Migrator) Current() int  { return 2 }
 func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
-	if from != 0 {
-		return nil, fmt.Errorf("unknown version %d", from)
+	switch from {
+	case 0:
+		return migrateV0(raw)
+	case 1:
+		var d Doc
+		if err := json.Unmarshal(raw, &d); err != nil {
+			return nil, err
+		}
+		d.Version = 2
+		for i := range d.Threads {
+			if d.Threads[i].UID == "" {
+				d.Threads[i].UID = newUID()
+			}
+		}
+		return json.Marshal(d)
 	}
+	return nil, fmt.Errorf("unknown version %d", from)
+}
+
+// newUID: 12 random hex characters.
+func newUID() string {
+	var b [6]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(err) // crypto/rand does not fail on supported systems
+	}
+	return hex.EncodeToString(b[:])
+}
+
+func migrateV0(raw []byte) ([]byte, error) {
 	var d Doc
 	if err := json.Unmarshal(raw, &d); err != nil {
 		return nil, err
@@ -115,7 +146,7 @@ func Note(s *store.Store, p project.Project, kind Kind, text, source string, now
 	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
 		id = d.NextID
 		d.NextID++
-		d.Threads = append(d.Threads, Thread{ID: id, Project: p.Path, Remote: p.Remote, Text: text, Kind: kind, Since: now.UTC(), Source: source})
+		d.Threads = append(d.Threads, Thread{ID: id, UID: newUID(), Project: p.Path, Remote: p.Remote, Text: text, Kind: kind, Since: now.UTC(), Source: source})
 		return nil
 	})
 	return id, err

@@ -79,7 +79,7 @@ refused, never overwritten.
 
 | File | Holds |
 |---|---|
-| `threads.json` | your notes: text, kind (`me`, `them` or `idea`), project, when, where it was filed, and when and by whom it was closed |
+| `threads.json` | your notes: a short number and a stable random id, text, kind (`me`, `them` or `idea`), project, when, where it was filed, and when and by whom it was closed |
 | `observed.json` | what sous has seen before: when each row first and last appeared, and what you snoozed. Rows unseen for 30 days are dropped. |
 | `sessions.json` | the last agent session in each project (a pointer, not the conversation) |
 | `cache.json` | the last board, so a new shell and the menu bar can show it instantly |
@@ -108,9 +108,9 @@ same way a plugin from someone else is: a program named
 standard output, and runs with a time limit.
 
 * **signal**: `scan` reads project folders and writes one JSON line per
-  finding (`{v, id, project, kind, text, observed, ref}`).
-* **backend**: `detect <project>`, `file` (reads `{v, id, project, text,
-  kind}`, and filing the same id twice is safe), `status <project> <ref>`,
+  finding (`{v, id, project, kind, text, observed, ref, state}`).
+* **backend**: `detect <project>`, `file` (reads `{v, id, uid, project,
+  text, kind}`, and filing the same note twice is safe), `status <project> <ref>`,
   `close <project> <ref>`, and optionally `url <project> <ref>`.
 * **launcher**: `run <project>`, which takes over your terminal.
 

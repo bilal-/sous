@@ -1,7 +1,7 @@
 # Follow-ups
 
 Tracked with `sous note --file`; tick a box to close it in sous too.
-- [ ] pre-0.3: thread ids → stable random ids (schema v2 + migration) so FOLLOWUPS.md markers cannot collide across installs; today's dedupe is id+text <!-- sous:1:6c032f0b -->
+- [x] pre-0.3: thread ids → stable random ids (schema v2 + migration) so FOLLOWUPS.md markers cannot collide across installs; today's dedupe is id+text <!-- sous:1:6c032f0b -->
 - [x] here calls signal.ScanGit in-process, bypassing the plugin door the board uses; route through the same runner <!-- sous:2:c76ca420 -->
 - [x] observed.json: prune entries not seen in 30 days; entries for vanished projects and removed plugins stay forever <!-- sous:3:d912e193 -->
 - [x] SOUS_HERE_FILE temp files leak one per `sous go`; write under $SOUS_HOME/here/ and prune, or skip for built-ins <!-- sous:4:bed3f3c4 -->

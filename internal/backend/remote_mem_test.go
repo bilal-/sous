@@ -123,3 +123,15 @@ func TestRemoteConforms(t *testing.T) {
 	cli := &memCLI{located: map[string]backend.Target{"/ws/acme/chime": {Host: "mem", Repo: "acme/chime", Identity: "acct"}}, issues: map[string][]backend.Issue{}, viewErrs: map[string]error{}}
 	backendtest.Run(t, backend.Remote{CLI: cli, Home: home}, "/ws/acme/chime")
 }
+
+// Remote markers carry the note's uid when there is one.
+func TestRemoteMarkerUsesUID(t *testing.T) {
+	cli := &memCLI{located: map[string]backend.Target{"/ws/acme/api": {Host: "mem", Repo: "acme/api"}}, issues: map[string][]backend.Issue{}, viewErrs: map[string]error{}}
+	r := backend.Remote{CLI: cli, Home: t.TempDir()}
+	if _, err := r.File(backend.Request{ID: 3, UID: "0123456789ab", Project: "/ws/acme/api", Text: "x", Kind: "me"}); err != nil {
+		t.Fatal(err)
+	}
+	if body := cli.issues["acme/api"][0].Body; !strings.Contains(body, "<!-- sous:0123456789ab -->") {
+		t.Fatalf("%q", body)
+	}
+}

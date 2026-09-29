@@ -56,6 +56,7 @@ you find:
 | `text` | one short line, as the person should read it |
 | `observed` | when it began waiting, if you know; sous uses this for its age |
 | `ref` | optional pointer to the item, like `github:owner/repo#14` |
+| `state` | optional fingerprint of the thing itself; when it changes, a snooze ends even if `text` stayed the same |
 
 A few rules keep the board trustworthy:
 
@@ -88,8 +89,11 @@ five commands.
 The `file` request looks like this:
 
 ```json
-{"v":0,"id":7,"project":"/home/sam/code/acme/api","text":"search index rebuilt on every launch","kind":"me"}
+{"v":0,"id":7,"uid":"0123456789ab","project":"/home/sam/code/acme/api","text":"search index rebuilt on every launch","kind":"me"}
 ```
+
+`id` is the short number the person types. `uid` never changes and is
+unique across installs, so use it to recognize the note again.
 
 Refuse a `v` you do not know with exit code `2`.
 
@@ -97,8 +101,8 @@ Rules that matter:
 
 * **Filing must be safe to repeat.** sous may send the same `id` again after
   a crash. Return the same ref and do not create a second item. The built in
-  backends leave a small marker such as `<!-- sous:ab12cd34:7 -->` in the
-  item, then look for it before creating anything.
+  backends leave a small marker such as `<!-- sous:0123456789ab -->` (the
+  `uid`) in the item, then look for it before creating anything.
 * **Never guess a state.** `unknown` means the item is gone. If you could not
   reach the tracker, exit `1` with the reason instead. sous shows the person
   "status unavailable" and keeps the note open. Answering `closed` would close

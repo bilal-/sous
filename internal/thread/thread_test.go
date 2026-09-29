@@ -117,7 +117,7 @@ func TestMigrateV0(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Version != 1 || d.NextID != 8 || d.Threads[0].Source != "human" || d.Threads[1].Source != "agent" {
+	if d.Version != 2 || d.NextID != 8 || d.Threads[0].UID == "" || d.Threads[0].Source != "human" || d.Threads[1].Source != "agent" {
 		t.Fatalf("%+v", d)
 	}
 	if d.Threads[0].Remote != nil || d.Threads[0].Closed != nil || d.Threads[0].SnoozedUntil != nil || d.Threads[0].Ref != nil {
@@ -182,5 +182,26 @@ func TestFileAtomicallyAndUpstreamClose(t *testing.T) {
 	}
 	if err := CloseUpstreamClosed(s, id, now); !errors.Is(err, ErrNotFound) {
 		t.Fatal("closing twice is not found")
+	}
+}
+
+// v1 to v2: every note gets a stable random uid, used in filing markers so
+// two installs' note 7 can never collide in a shared FOLLOWUPS.md.
+func TestMigrateV1GivesEveryNoteAUID(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	v1 := `{"version":1,"next_id":3,"threads":[{"id":1,"project":"/p","text":"a","kind":"me","since":"2026-01-01T00:00:00Z","source":"human"},{"id":2,"project":"/p","text":"b","kind":"idea","since":"2026-01-01T00:00:00Z","source":"human"}]}`
+	os.WriteFile(filepath.Join(s.Home, "threads.json"), []byte(v1), 0o644)
+	d, err := store.Load[Doc](s, "threads", Migrator{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b := d.Threads[0].UID, d.Threads[1].UID
+	if d.Version != 2 || len(a) != 12 || len(b) != 12 || a == b || d.Threads[0].ID != 1 {
+		t.Fatalf("%+v", d)
+	}
+	id, _ := Note(s, project.Project{Path: "/p"}, Me, "c", "", time.Now())
+	th, _ := Get(s, id)
+	if len(th.UID) != 12 || th.UID == a {
+		t.Fatalf("new notes get their own uid: %+v", th)
 	}
 }
