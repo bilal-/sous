@@ -180,3 +180,16 @@ func TestShellTouchesOnlyItsOwnLines(t *testing.T) {
 		t.Fatalf("a comment about .bashrc does not source it:\n%s", b)
 	}
 }
+
+// Review: with SOUS_HOME somewhere else, the line setup wrote is still its
+// own: a second run adds nothing.
+func TestShellCustomSousHomeIsAddedOnce(t *testing.T) {
+	home := t.TempDir()
+	sousHome := filepath.Join(home, ".config", "sous")
+	Shell(home, sousHome, "zsh", "linux", "")
+	Shell(home, sousHome, "zsh", "linux", "")
+	b, _ := os.ReadFile(filepath.Join(home, ".zshrc"))
+	if strings.Count(string(b), "sous.zsh") != 1 {
+		t.Fatalf("%s", b)
+	}
+}

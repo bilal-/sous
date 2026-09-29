@@ -84,7 +84,7 @@ func TestProjectTypedAndIdentities(t *testing.T) {
 func TestSetRootsKeepsTheRestOfTheFile(t *testing.T) {
 	home := t.TempDir()
 	os.WriteFile(filepath.Join(home, "config.toml"), []byte("# mine\nagent = \"codex\"\nroots = [\"~/old\"]\n\n[projects.\"acme/*\"]\nbackend = \"markdown\"\n"), 0o644)
-	if err := SetRoots(home, []string{"~/code", "~/work"}); err != nil {
+	if err := SetRoots(home, "/h", []string{"~/code", "~/work"}); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(filepath.Join(home, "config.toml"))
@@ -93,14 +93,14 @@ func TestSetRootsKeepsTheRestOfTheFile(t *testing.T) {
 		t.Fatalf("%q", b)
 	}
 	fresh := t.TempDir()
-	SetRoots(fresh, []string{"~/code"})
+	SetRoots(fresh, "/h", []string{"~/code"})
 	c, err := Load(fresh, "/h")
 	if err != nil || len(c.Roots) != 1 {
 		t.Fatal(c, err)
 	}
 	withTable := t.TempDir()
 	os.WriteFile(filepath.Join(withTable, "config.toml"), []byte("[projects.\"acme/*\"]\nbackend = \"markdown\"\n"), 0o644)
-	SetRoots(withTable, []string{"~/code"})
+	SetRoots(withTable, "/h", []string{"~/code"})
 	if c, err := Load(withTable, "/h"); err != nil || len(c.Roots) != 1 || c.Project("acme/x").Backend != "markdown" {
 		t.Fatalf("roots must go above any table: %+v %v", c, err)
 	}
@@ -129,7 +129,7 @@ func TestSetRootsHandlesRealTOML(t *testing.T) {
 	} {
 		home := t.TempDir()
 		os.WriteFile(filepath.Join(home, "config.toml"), []byte(in), 0o644)
-		if err := SetRoots(home, []string{"~/code"}); err != nil {
+		if err := SetRoots(home, "/h", []string{"~/code"}); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		c, err := Load(home, "/h")
@@ -159,7 +159,7 @@ func TestSetRootsReadsTOMLStructure(t *testing.T) {
 	} {
 		home := t.TempDir()
 		os.WriteFile(filepath.Join(home, "config.toml"), []byte(in), 0o644)
-		if err := SetRoots(home, []string{"~/code"}); err != nil {
+		if err := SetRoots(home, "/h", []string{"~/code"}); err != nil {
 			t.Errorf("%s: %v", name, err)
 			continue
 		}
@@ -168,5 +168,16 @@ func TestSetRootsReadsTOMLStructure(t *testing.T) {
 			b, _ := os.ReadFile(filepath.Join(home, "config.toml"))
 			t.Errorf("%s: %v %v\n%s", name, err, c, b)
 		}
+	}
+}
+
+// Roots are stored as people write them (~/code), whatever form they come in.
+func TestSetRootsStoresTildeForm(t *testing.T) {
+	home := t.TempDir()
+	if err := SetRoots(home, "/h", []string{"/h/code", "/elsewhere"}); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(home, "config.toml")); !strings.Contains(string(b), `roots = ["~/code", "/elsewhere"]`) {
+		t.Fatalf("%s", b)
 	}
 }

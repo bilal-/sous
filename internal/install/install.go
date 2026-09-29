@@ -221,7 +221,7 @@ func addLine(file, line string) (bool, error) {
 	err := store.EditFile(file, 0o644, func(b []byte) ([]byte, error) {
 		lines := strings.Split(string(b), "\n")
 		for i, l := range lines {
-			if !isSousLine(l) {
+			if strings.TrimSpace(l) != line && !isSousLine(l) {
 				continue
 			}
 			if strings.TrimSpace(l) == line {

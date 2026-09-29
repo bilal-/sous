@@ -132,10 +132,13 @@ func Expand(home, p string) string {
 // top-level roots value changes, however it was written (one line, several
 // lines, indented); comments, tables and every other setting stay as they
 // were. The result is checked to parse before it is saved.
-func SetRoots(home string, roots []string) error {
+//
+// Roots are stored as people write them: under userHome as ~/..., others as
+// given.
+func SetRoots(home, userHome string, roots []string) error {
 	quoted := make([]string, len(roots))
 	for i, r := range roots {
-		quoted[i] = strconv.Quote(r)
+		quoted[i] = strconv.Quote(Tilde(userHome, r))
 	}
 	line := "roots = [" + strings.Join(quoted, ", ") + "]"
 	return store.EditFile(Path(home), 0o644, func(b []byte) ([]byte, error) {
@@ -149,7 +152,11 @@ func SetRoots(home string, roots []string) error {
 		if _, err := toml.Decode(s, &check); err != nil {
 			return nil, fmt.Errorf("config.toml would not parse after setting roots (%v); edit it by hand", err)
 		}
-		if !slices.Equal(check.Roots, roots) {
+		want := make([]string, len(roots))
+		for i, r := range roots {
+			want[i] = Tilde(userHome, r)
+		}
+		if !slices.Equal(check.Roots, want) {
 			return nil, errors.New("config.toml has roots written in a way sous cannot safely change; edit it by hand")
 		}
 		return []byte(s), nil
@@ -283,13 +290,20 @@ func (sc *tomlScanner) value() {
 // or ”'multi-line literal”'.
 func (sc *tomlScanner) str() {
 	q := sc.s[sc.i]
-	if strings.HasPrefix(sc.s[sc.i:], strings.Repeat(string(q), 3)) {
-		end := strings.Index(sc.s[sc.i+3:], strings.Repeat(string(q), 3))
-		if end < 0 {
-			sc.i = len(sc.s)
-			return
+	if delim := strings.Repeat(string(q), 3); strings.HasPrefix(sc.s[sc.i:], delim) {
+		// Multi-line: ends at the first unescaped run of three quotes (a
+		// longer run ends at its last three). Only basic strings escape.
+		for sc.i += 3; sc.i < len(sc.s); sc.i++ {
+			if q == '"' && sc.s[sc.i] == '\\' {
+				sc.i++
+				continue
+			}
+			if strings.HasPrefix(sc.s[sc.i:], delim) {
+				for sc.i += 3; sc.i < len(sc.s) && sc.s[sc.i] == q; sc.i++ {
+				}
+				return
+			}
 		}
-		sc.i += 3 + end + 3
 		return
 	}
 	for sc.i++; sc.i < len(sc.s); sc.i++ {

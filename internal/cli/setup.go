@@ -68,14 +68,14 @@ func setupRoots(e *Env, given []string) (string, int) {
 	case len(roots) == 0:
 		return "projects: " + config.NoRootsHint, 0
 	}
+	if !kept {
+		if err := config.SetRoots(e.Home, e.UserHome, roots); err != nil {
+			return "", fail(e, 1, "%v", err)
+		}
+	}
 	shown := make([]string, len(roots))
 	for i, r := range roots {
 		shown[i] = config.Tilde(e.UserHome, r)
-	}
-	if !kept {
-		if err := config.SetRoots(e.Home, shown); err != nil {
-			return "", fail(e, 1, "%v", err)
-		}
 	}
 	return "projects: looking in " + strings.Join(shown, ", ") + " (change with sous setup <folder>)", 0
 }
