@@ -64,26 +64,35 @@ func Roots(userHome string, given, configured []string) (roots []string, kept bo
 	return project.LikelyRoots(userHome), false, nil
 }
 
-// Hooks adds the session hooks for Claude Code (start and end) and Codex
-// (start; end too when codexEnd), for the sous at exe.
-func Hooks(home, exe string, codexEnd bool) ([]string, error) {
+// hookSpec is one agent hook sous installs.
+type hookSpec struct{ Agent, File, Event, Role, name string }
+
+// hookSpecs are the agent hooks: Claude Code (start and end) and Codex
+// (start; end too when codexEnd). Setup installs them; doctor checks them.
+func hookSpecs(home string, codexEnd bool) []hookSpec {
 	claude := filepath.Join(home, ".claude", "settings.json")
 	codex := filepath.Join(home, ".codex", "hooks.json")
-	type h struct{ file, event, role, agent string }
-	hs := []h{
-		{claude, "SessionStart", hook.RoleStart, "claude"},
-		{claude, "SessionEnd", hook.RoleEnd, "claude"},
-		{codex, "SessionStart", hook.RoleStart, "codex"},
+	hs := []hookSpec{
+		{"Claude Code", claude, "SessionStart", hook.RoleStart, "claude"},
+		{"Claude Code", claude, "SessionEnd", hook.RoleEnd, "claude"},
+		{"Codex", codex, "SessionStart", hook.RoleStart, "codex"},
+	}
+	if codexEnd {
+		hs = append(hs, hookSpec{"Codex", codex, "SessionEnd", hook.RoleEnd, "codex"})
+	}
+	return hs
+}
+
+// Hooks adds the session hooks for the sous at exe.
+func Hooks(home, exe string, codexEnd bool) ([]string, error) {
+	for _, x := range hookSpecs(home, codexEnd) {
+		if _, err := hook.Install(x.File, x.Event, hook.Command(exe, x.Role, x.name)); err != nil {
+			return nil, fmt.Errorf("%s: %w", x.File, err)
+		}
 	}
 	codexNote := ""
 	if codexEnd {
-		hs = append(hs, h{codex, "SessionEnd", hook.RoleEnd, "codex"})
 		codexNote = " and when it ends"
-	}
-	for _, x := range hs {
-		if _, err := hook.Install(x.file, x.event, hook.Command(exe, x.role, x.agent)); err != nil {
-			return nil, fmt.Errorf("%s: %w", x.file, err)
-		}
 	}
 	return []string{
 		"Claude Code: sees where you left off when a session starts, and has the sous skill",
@@ -91,23 +100,32 @@ func Hooks(home, exe string, codexEnd bool) ([]string, error) {
 	}, nil
 }
 
-// Skills writes the sous skill where agents look for skills: Claude
-// Code's and Codex's folders, the shared ~/.agents/skills that Gemini CLI,
-// Kimi, Cursor and others read, and Antigravity's folder when Antigravity
-// is installed. It reports the agents not already covered by Hooks.
-func Skills(home string, skill []byte) ([]string, error) {
-	type place struct{ dir, report string }
-	places := []place{
-		{dir: filepath.Join(home, ".claude", "skills")},
-		{dir: filepath.Join(home, ".codex", "skills")},
-		{filepath.Join(home, ".agents", "skills"), "Gemini CLI, Kimi, Cursor and other agents: have the sous skill (in ~/.agents/skills, the shared folder they read)"},
+// skillPlace is one folder agents read skills from.
+type skillPlace struct{ Who, Dir, report string }
+
+// skillPlaces: Claude Code's and Codex's folders, the shared
+// ~/.agents/skills that Gemini CLI, Kimi, Cursor and others read, and
+// Antigravity's folder when Antigravity is installed.
+func skillPlaces(home string) []skillPlace {
+	places := []skillPlace{
+		{Who: "Claude Code", Dir: filepath.Join(home, ".claude", "skills")},
+		{Who: "Codex", Dir: filepath.Join(home, ".codex", "skills")},
+		{"Gemini CLI, Kimi, Cursor and other agents", filepath.Join(home, ".agents", "skills"), "Gemini CLI, Kimi, Cursor and other agents: have the sous skill (in ~/.agents/skills, the shared folder they read)"},
 	}
 	if st, err := os.Stat(filepath.Join(home, ".gemini", "antigravity")); err == nil && st.IsDir() {
-		places = append(places, place{filepath.Join(home, ".gemini", "antigravity", "skills"), "Antigravity: has the sous skill"})
+		places = append(places, skillPlace{"Antigravity", filepath.Join(home, ".gemini", "antigravity", "skills"), "Antigravity: has the sous skill"})
 	}
+	return places
+}
+
+func (p skillPlace) file() string { return filepath.Join(p.Dir, "sous", "SKILL.md") }
+
+// Skills writes the sous skill in every skill folder, and reports the agents
+// not already covered by Hooks.
+func Skills(home string, skill []byte) ([]string, error) {
 	var done []string
-	for _, p := range places {
-		if err := store.WriteFile(filepath.Join(p.dir, "sous", "SKILL.md"), skill, 0o644); err != nil {
+	for _, p := range skillPlaces(home) {
+		if err := store.WriteFile(p.file(), skill, 0o644); err != nil {
 			return nil, fmt.Errorf("writing the skill: %w", err)
 		}
 		if p.report != "" {
@@ -122,28 +140,8 @@ func Skills(home string, skill []byte) ([]string, error) {
 // file (macOS Terminal opens login shells, which read .bash_profile);
 // zdotdir is $ZDOTDIR, where zsh keeps its files when set.
 func Shell(home, sousHome, shell, goos, zdotdir string) (string, error) {
-	var files []string
-	var line string
-	switch shell {
-	case "zsh":
-		dir := home
-		if zdotdir != "" {
-			dir = zdotdir
-		}
-		files = []string{filepath.Join(dir, ".zshrc")}
-		line = `source "` + strings.Replace(config.Tilde(home, filepath.Join(sousHome, "sous.zsh")), "~", "$HOME", 1) + `"`
-	case "bash":
-		files = []string{filepath.Join(home, ".bashrc")}
-		if goos == "darwin" {
-			if f := bashLoginFile(home); f != "" {
-				files = append(files, f)
-			}
-		}
-		line = bashLine
-	case "fish":
-		files = []string{filepath.Join(home, ".config", "fish", "conf.d", "sous.fish")}
-		line = fishLine
-	default:
+	files, line, ok := shellTarget(home, sousHome, shell, goos, zdotdir)
+	if !ok {
 		return fmt.Sprintf("shell: %s is not one sous knows. To show the board in new shells, run sous --ambient from its startup file", shell), nil
 	}
 	var added []string
@@ -160,6 +158,31 @@ func Shell(home, sousHome, shell, goos, zdotdir string) (string, error) {
 		return fmt.Sprintf("shell: new %s shells show the board (already set up)", shell), nil
 	}
 	return fmt.Sprintf("shell: new %s shells show the board (added one line to %s)", shell, strings.Join(added, " and ")), nil
+}
+
+// shellTarget is where a shell's line goes and what it says; false for a
+// shell sous does not know. Setup writes it; doctor checks it.
+func shellTarget(home, sousHome, shell, goos, zdotdir string) (files []string, line string, ok bool) {
+	switch shell {
+	case "zsh":
+		dir := home
+		if zdotdir != "" {
+			dir = zdotdir
+		}
+		line = `source "` + strings.Replace(config.Tilde(home, filepath.Join(sousHome, "sous.zsh")), "~", "$HOME", 1) + `"`
+		return []string{filepath.Join(dir, ".zshrc")}, line, true
+	case "bash":
+		files = []string{filepath.Join(home, ".bashrc")}
+		if goos == "darwin" {
+			if f := bashLoginFile(home); f != "" {
+				files = append(files, f)
+			}
+		}
+		return files, bashLine, true
+	case "fish":
+		return []string{filepath.Join(home, ".config", "fish", "conf.d", "sous.fish")}, fishLine, true
+	}
+	return nil, "", false
 }
 
 // bashLoginFile is where macOS Terminal's login bash will run the line:
