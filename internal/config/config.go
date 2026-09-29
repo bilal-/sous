@@ -4,15 +4,16 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/bilal-/sous/internal/store"
 )
 
 type Config struct {
@@ -115,10 +116,10 @@ func Expand(p string) string {
 	return p
 }
 
-var rootsLine = regexp.MustCompile(`(?m)^roots\s*=.*$`)
-
 // SetRoots writes roots into config.toml, creating it if needed. Only the
-// roots line changes; comments and every other setting stay as written.
+// top-level roots value changes, however it was written (one line, several
+// lines, indented); comments, tables and every other setting stay as they
+// were. The result is checked to parse before it is saved.
 func SetRoots(home string, roots []string) error {
 	quoted := make([]string, len(roots))
 	for i, r := range roots {
@@ -131,19 +132,65 @@ func SetRoots(home string, roots []string) error {
 		return err
 	}
 	s := string(b)
-	switch {
-	case rootsLine.MatchString(s):
-		s = rootsLine.ReplaceAllLiteralString(s, line)
-	default:
-		// Above everything, so it can never land inside a [table].
-		s = line + "\n" + s
+	if start, end, ok := topLevelKey(s, "roots"); ok {
+		s = s[:start] + line + s[end:]
+	} else {
+		s = line + "\n" + s // above everything, so never inside a [table]
 	}
-	if err := os.MkdirAll(home, 0o755); err != nil {
-		return err
+	var check Config
+	if _, err := toml.Decode(s, &check); err != nil {
+		return fmt.Errorf("config.toml would not parse after setting roots (%v); edit it by hand", err)
 	}
-	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, []byte(s), 0o644); err != nil {
-		return err
+	return store.WriteFile(p, []byte(s), 0o644)
+}
+
+// topLevelKey finds key = value before the first [table], and returns the
+// byte span from the key to the end of its value, following a [ ... ] array
+// across lines and ignoring brackets inside strings.
+func topLevelKey(s, key string) (start, end int, ok bool) {
+	off := 0
+	for _, line := range strings.SplitAfter(s, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") {
+			return 0, 0, false // tables start: the rest is not top level
+		}
+		name, rest, isKV := strings.Cut(trimmed, "=")
+		if isKV && strings.TrimSpace(name) == key {
+			start = off + strings.Index(line, trimmed)
+			return start, start + valueLen(s[start:], len(trimmed)-len(rest)), true
+		}
+		off += len(line)
 	}
-	return os.Rename(tmp, p)
+	return 0, 0, false
+}
+
+// valueLen is how many bytes of s (starting at the key) the key and its
+// value take: to the closing bracket of an array, else to the end of line.
+func valueLen(s string, eq int) int {
+	depth, inStr := 0, byte(0)
+	for i := eq; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case inStr != 0:
+			if c == '\\' && inStr == '"' {
+				i++
+			} else if c == inStr {
+				inStr = 0
+			}
+		case c == '"' || c == '\'':
+			inStr = c
+		case c == '[':
+			depth++
+		case c == ']':
+			depth--
+			if depth == 0 {
+				return i + 1
+			}
+		case c == '\n' && depth == 0:
+			return i
+		case c == '#' && depth == 0:
+			return i
+		}
+	}
+	return len(s)
 }

@@ -186,3 +186,30 @@ func Modify[T any](s *Store, name string, m Migrator, fn func(*T) error) (*T, er
 	}
 	return &result, nil
 }
+
+// WriteFile replaces path whole: a uniquely named temp file beside it, then
+// a rename, so a reader never sees half a file and two writers never share
+// a temp file. For files that are not versioned documents (config.toml, an
+// agent's settings, resume files).
+func WriteFile(path string, data []byte, perm os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
+}

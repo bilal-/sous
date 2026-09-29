@@ -119,3 +119,32 @@ func TestTildeIsExpandsInverse(t *testing.T) {
 		t.Fatalf("a sibling folder is not under home: %q", got)
 	}
 }
+
+// Review: roots written as a multi-line array, or indented, are replaced
+// whole; a roots key inside a table is not ours to touch; the result must
+// still parse.
+func TestSetRootsHandlesRealTOML(t *testing.T) {
+	for name, in := range map[string]string{
+		"multi-line": "roots = [\n  \"~/old\",\n  \"~/older\",\n]\nagent = \"codex\"\n",
+		"indented":   "  roots = [\"~/old\"]\nagent = \"codex\"\n",
+		"in a table": "agent = \"codex\"\n[projects.\"acme/*\"]\nroots = \"not ours\"\n",
+	} {
+		home := t.TempDir()
+		os.WriteFile(filepath.Join(home, "config.toml"), []byte(in), 0o644)
+		if err := SetRoots(home, []string{"~/code"}); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		c, err := Load(home)
+		b, _ := os.ReadFile(filepath.Join(home, "config.toml"))
+		if err != nil || len(c.Roots) != 1 || c.Agent != "codex" || strings.Count(string(b), "roots") != strings.Count(in, "roots")+boolInt(!strings.Contains(strings.SplitN(in, "[projects", 2)[0], "roots")) {
+			t.Fatalf("%s: %v %+v\n%s", name, err, c, b)
+		}
+	}
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}

@@ -8,10 +8,10 @@ import (
 	"errors"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/store"
 )
 
 // Input is the subset of hook JSON both Claude Code and Codex send.
@@ -158,12 +158,5 @@ func Install(settingsPath, event, command string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
-		return false, err
-	}
-	tmp := settingsPath + ".sous.tmp"
-	if err := os.WriteFile(tmp, out, 0o644); err != nil {
-		return false, err
-	}
-	return true, os.Rename(tmp, settingsPath)
+	return true, store.WriteFile(settingsPath, out, 0o644)
 }
