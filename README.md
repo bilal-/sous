@@ -171,11 +171,15 @@ You need `git`. For GitHub, install [`gh`](https://cli.github.com) and run
 and run `glab auth login`. Both are optional. sous uses your existing logins
 and never asks for a token.
 
-To remove sous, delete `~/.local/bin/sous` and `~/.sous`, the `sous` skill
-folders under `~/.claude/skills` and `~/.codex/skills`, the `sous hook` lines
-in `~/.claude/settings.json` and `~/.codex/hooks.json`, and the two lines
-starting with `# sous:` in your shell's startup file (or
-`~/.config/fish/conf.d/sous.fish` for fish).
+To remove sous, delete:
+
+* `~/.local/bin/sous` (or `brew uninstall sous`) and `~/.sous`
+* the `sous` skill folders in `~/.claude/skills`, `~/.codex/skills`,
+  `~/.agents/skills` and `~/.gemini/antigravity/skills`
+* the `sous hook` entries in `~/.claude/settings.json` and
+  `~/.codex/hooks.json`
+* the `# sous:` comment and the line under it in your shell's startup file
+  (for fish, the file `~/.config/fish/conf.d/sous.fish`)
 
 ## Setting up
 

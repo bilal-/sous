@@ -1,4 +1,5 @@
-# Release binaries for darwin/linux on tag push. No Homebrew tap before 0.3
+# Release binaries for darwin/linux on tag push. The Homebrew formula is
+# written from these archives by scripts/homebrew-formula.sh (make tap).
 # (spec: Versioning). Run `make release-dry` to build every target locally.
 version: 2
 

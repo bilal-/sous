@@ -10,11 +10,12 @@ import (
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/testutil"
 	"github.com/bilal-/sous/internal/tracker"
+	"github.com/bilal-/sous/internal/tracker/trackertest"
 )
 
+// fakeGH logs each call's arguments to calls, then runs body.
 func fakeGH(t *testing.T, calls string, body string) {
-	tracker.ResetCache()
-	testutil.FakeBin(t, "gh", "echo \"$*\" >> "+calls+"\n"+body)
+	trackertest.Fake(t, "gh", "echo \"$*\" >> "+calls+"\n"+body)
 }
 
 // repoWithRemote creates <tmp>/<org>/<name> with the given origin.

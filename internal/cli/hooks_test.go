@@ -348,7 +348,7 @@ func TestSessionStartIntroducesSous(t *testing.T) {
 	p := f.mkrepo("acme/api", true)
 	out, _, _ := f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "startup"}), "hook", "session-start", "claude")
 	first := strings.SplitN(out, "\n", 2)[0]
-	if !strings.Contains(first, "sous") || !strings.Contains(first, "skill") || !strings.Contains(out, "api · main") {
+	if !strings.Contains(first, "sous") || !strings.Contains(first, "sous help") || !strings.Contains(out, "api · main") {
 		t.Fatalf("%q", out)
 	}
 }

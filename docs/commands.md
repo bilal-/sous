@@ -327,7 +327,7 @@ code `2`. It never guesses.
 | `0` | Fine. |
 | `1` | Something failed: a data file, a tracker, a missing tool. The message says what. |
 | `2` | The command was wrong (unknown option, wrong arguments, bad value), or a name matched more than one project. |
-| `3` | `--cached` or `--ambient` was asked for the board before there was one. A first board is being built. |
+| `3` | `--cached` or `--ambient` was asked for the board before there was one. A first board is being built. (For a signal plugin, exit `3` means "not set up here"; see [plugins.md](plugins.md).) |
 
 ## Environment variables
 

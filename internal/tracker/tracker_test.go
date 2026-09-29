@@ -12,8 +12,6 @@ import (
 	"github.com/bilal-/sous/internal/testutil"
 )
 
-func fakeBin(t *testing.T, name, body string) string { return testutil.FakeBin(t, name, body) }
-
 func TestInstallIDIsStable(t *testing.T) {
 	home := t.TempDir()
 	a, err := InstallID(home)
@@ -47,7 +45,7 @@ func TestGitHubAccountFromOrgGlob(t *testing.T) {
 }
 
 func TestGHUsesAccountToken(t *testing.T) {
-	fakeBin(t, "gh", `case "$*" in "auth token --user work-account") echo tok-acme;; "auth token --user nobody") echo "no oauth token found" >&2; exit 1;; *) echo "TOKEN=$GH_TOKEN PROMPT=$GH_PROMPT_DISABLED args=$*";; esac`)
+	testutil.FakeBin(t, "gh", `case "$*" in "auth token --user work-account") echo tok-acme;; "auth token --user nobody") echo "no oauth token found" >&2; exit 1;; *) echo "TOKEN=$GH_TOKEN PROMPT=$GH_PROMPT_DISABLED args=$*";; esac`)
 	cmd, err := GH("work-account", "api", "user")
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +69,7 @@ func TestGitLabHostsUnion(t *testing.T) {
 	ResetCache()
 	t.Cleanup(ResetCache)
 	calls := filepath.Join(t.TempDir(), "calls")
-	fakeBin(t, "glab", `echo x >> `+calls+`; echo "git.example.org"; echo "  ✓ Logged in to git.example.org as dev"; echo "  x git.other.dev: not logged in"`)
+	testutil.FakeBin(t, "glab", `echo x >> `+calls+`; echo "git.example.org"; echo "  ✓ Logged in to git.example.org as dev"; echo "  x git.other.dev: not logged in"`)
 	cfg := &config.Config{GitLabHosts: []string{"gitlab.example.com"}}
 	for range 2 {
 		hs, err := GitLabHosts(cfg)
@@ -110,16 +108,16 @@ func TestParseRemote(t *testing.T) {
 func TestGitLabHostsFailureIsAnErrorNotAnAnswer(t *testing.T) {
 	ResetCache()
 	t.Cleanup(ResetCache)
-	fakeBin(t, "glab", `echo "could not reach keyring" >&2; exit 1`)
+	testutil.FakeBin(t, "glab", `echo "could not reach keyring" >&2; exit 1`)
 	if hs, err := GitLabHosts(&config.Config{}); err == nil || !strings.Contains(err.Error(), "keyring") {
 		t.Fatalf("%v %v", hs, err)
 	}
-	fakeBin(t, "glab", `echo "git.example.org"; echo "  ✓ Logged in to git.example.org as dev"`)
+	testutil.FakeBin(t, "glab", `echo "git.example.org"; echo "  ✓ Logged in to git.example.org as dev"`)
 	if hs, err := GitLabHosts(&config.Config{}); err != nil || len(hs) != 1 {
 		t.Fatalf("recovery: %v %v", hs, err)
 	}
 	ResetCache()
-	fakeBin(t, "glab", `echo "No hosts are configured on this machine." >&2; exit 1`)
+	testutil.FakeBin(t, "glab", `echo "No hosts are configured on this machine." >&2; exit 1`)
 	if hs, err := GitLabHosts(&config.Config{}); err != nil || len(hs) != 0 {
 		t.Fatalf("no hosts logged in is an answer, not a failure: %v %v", hs, err)
 	}
@@ -157,7 +155,7 @@ func TestTokenReadsNeverOverlap(t *testing.T) {
 	t.Setenv("HOME", t.TempDir()) // the lock lives in the user cache folder
 	t.Setenv("XDG_CACHE_HOME", "")
 	lock := filepath.Join(t.TempDir(), "busy")
-	fakeBin(t, "gh", `mkdir "`+lock+`" 2>/dev/null || { echo overlap >&2; exit 1; }; sleep 0.2; rmdir "`+lock+`"; echo tok`)
+	testutil.FakeBin(t, "gh", `mkdir "`+lock+`" 2>/dev/null || { echo overlap >&2; exit 1; }; sleep 0.2; rmdir "`+lock+`"; echo tok`)
 	var wg sync.WaitGroup
 	errs := make(chan error, 4)
 	for i := range 4 {

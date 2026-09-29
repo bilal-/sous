@@ -11,7 +11,7 @@ import (
 
 // sessionIntro opens what an agent sees at session start, so it knows what
 // sous is and when to reach for it, not only what sous printed.
-const sessionIntro = "[sous] The user's list of what is waiting on them across projects. Below: where they left off here. When they want to remember something for later, in this or another project, use the sous skill (sous note)."
+const sessionIntro = "[sous] The user's list of what is waiting on them across projects. Below: where they left off here. Run sous help for how to use it."
 
 // cmdHook: `sous hook session-start|session-end <agent>`. Always exit 0, stderr silent.
 func cmdHook(e *Env, a argv) int {

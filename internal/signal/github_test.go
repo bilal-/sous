@@ -12,13 +12,10 @@ import (
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/testutil"
-	"github.com/bilal-/sous/internal/tracker"
+	"github.com/bilal-/sous/internal/tracker/trackertest"
 )
 
-func fakeGH(t *testing.T, body string) {
-	tracker.ResetCache()
-	testutil.FakeBin(t, "gh", body)
-}
+func fakeGH(t *testing.T, body string) { trackertest.Fake(t, "gh", body) }
 
 func TestScanGitHub(t *testing.T) {
 	ws := t.TempDir()
