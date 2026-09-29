@@ -84,20 +84,26 @@ func TestHooksCLI(t *testing.T) {
 	}
 }
 
-func TestResolveExeFollowsSymlink(t *testing.T) {
+// Review: Homebrew's sous is a link into a versioned folder that brew
+// upgrade deletes. Hooks must name the stable path on PATH when it is this
+// same program.
+func TestStableExePrefersThePathOnPATH(t *testing.T) {
 	dir := t.TempDir()
-	real := filepath.Join(dir, "checkout", "bin", "sous")
+	real := filepath.Join(dir, "Cellar", "sous", "0.1.6", "bin", "sous")
 	os.MkdirAll(filepath.Dir(real), 0o755)
 	os.WriteFile(real, []byte("#!/bin/sh\n"), 0o755)
-	link := filepath.Join(dir, "local", "bin", "sous")
-	os.MkdirAll(filepath.Dir(link), 0o755)
-	os.Symlink(real, link)
-	want, _ := filepath.EvalSymlinks(real)
-	if got := resolveExe(link); got != want {
-		t.Fatalf("resolveExe(%s) = %s, want %s", link, got, want)
+	bin := filepath.Join(dir, "bin")
+	os.MkdirAll(bin, 0o755)
+	os.Symlink(real, filepath.Join(bin, "sous"))
+	t.Setenv("PATH", bin)
+	if got := stableExe(real); got != filepath.Join(bin, "sous") {
+		t.Fatalf("got %s", got)
 	}
-	if got := resolveExe(filepath.Join(dir, "missing")); got != filepath.Join(dir, "missing") {
-		t.Fatalf("unresolvable path must pass through, got %s", got)
+	other := filepath.Join(dir, "elsewhere", "sous")
+	os.MkdirAll(filepath.Dir(other), 0o755)
+	os.WriteFile(other, []byte("#!/bin/sh\n"), 0o755)
+	if got := stableExe(other); got != other {
+		t.Fatalf("a different sous on PATH must not be used: %s", got)
 	}
 }
 

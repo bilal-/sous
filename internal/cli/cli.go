@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -155,13 +156,23 @@ func usage(w io.Writer) {
 func cmdVersion(e *Env, _ argv) int { fmt.Fprintf(e.Stdout, "sous %s\n", Version); return 0 }
 func cmdHelp(e *Env, _ argv) int    { usage(e.Stdout); return 0 }
 
-// resolveExe follows symlinks so an `ln -s <checkout>/bin/sous ~/.local/bin/sous`
-// install still yields the checkout path (hooks, shell/sous.zsh).
-func resolveExe(p string) string {
-	if real, err := filepath.EvalSymlinks(p); err == nil {
-		return real
+// stableExe is the path hooks and scripts should name for this sous: the
+// sous found on PATH when it is this same program (Homebrew's
+// /opt/homebrew/bin/sous survives upgrades; the versioned folder it links
+// to does not), else exe as given.
+func stableExe(exe string) string {
+	onPath, err := exec.LookPath("sous")
+	if err != nil {
+		return exe
 	}
-	return p
+	a, err1 := filepath.EvalSymlinks(onPath)
+	b, err2 := filepath.EvalSymlinks(exe)
+	if err1 == nil && err2 == nil && a == b {
+		if abs, err := filepath.Abs(onPath); err == nil {
+			return abs
+		}
+	}
+	return exe
 }
 
 func fail(e *Env, code int, format string, a ...any) int {
@@ -179,7 +190,7 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 // process and can run in parallel.
 func run(args []string, cwd string, stdin io.Reader, stdout, stderr io.Writer) int {
 	exe, _ := os.Executable()
-	exe = resolveExe(exe)
+	exe = stableExe(exe)
 	home := sousHome()
 	e := &Env{Home: home, Stdin: stdin, Stdout: stdout, Stderr: stderr, Exe: exe, Store: &store.Store{Home: home}, Cwd: cwd}
 	defer e.close()
