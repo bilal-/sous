@@ -427,10 +427,10 @@ func GHReady(account string) error {
 		return err
 	}
 	if _, err := GHRun(account, "auth", "status"); err != nil {
-		if account != "" {
-			return err // names the account and what to do
+		if account == "" && loggedOut(err) {
+			return errors.New("not logged in (run gh auth login)")
 		}
-		return errors.New("not logged in (run gh auth login)")
+		return err // the tool's own words: a keyring or network problem, or which account
 	}
 	return nil
 }
@@ -442,9 +442,20 @@ func GLabReady(host string) error {
 		return err
 	}
 	if _, err := GLabRun(host, "auth", "status"); err != nil {
-		return fmt.Errorf("not logged in to %s (run glab auth login --hostname %s)", host, host)
+		if loggedOut(err) {
+			return fmt.Errorf("not logged in to %s (run glab auth login --hostname %s)", host, host)
+		}
+		return fmt.Errorf("%s: %w", host, err)
 	}
 	return nil
+}
+
+// loggedOut: the tool's error says there is no login, as opposed to any
+// other failure worth showing as it is.
+func loggedOut(err error) bool {
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "not logged in") || strings.Contains(msg, "not authenticated") ||
+		strings.Contains(msg, "has not been authenticated") || strings.Contains(msg, "no hosts are configured")
 }
 
 // GHInstalled and GLabInstalled: is the tool on PATH?
