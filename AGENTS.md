@@ -106,7 +106,17 @@ separate program.
 ## AXI
 
 sous follows the [AXI](https://axi.md) guidelines for command line tools
-that agents use, as they read on 2026-09-28. `internal/cli/axi_test.go` has
+that agents use, as they read at this exact version:
+
+* page: https://axi.md, built from `docs/index.html` in
+  [kunchenguid/axi](https://github.com/kunchenguid/axi)
+* commit: [`e15f82d`](https://github.com/kunchenguid/axi/blob/e15f82dd8e75ff640aaefd5c76c49471c5bcbbea/docs/index.html)
+  (2026-09-27), the ten principles
+* checked against sous: 2026-09-28
+
+We do not follow axi.md automatically. To move to a newer version, read
+what changed since that commit, update sous and its tests, then update the
+commit above. `internal/cli/axi_test.go` has
 one test per principle, and most of them loop over every command, so a new
 command is checked without anyone adding a test. When one fails, fix the
 command, not the test.
@@ -126,8 +136,7 @@ Where sous chooses differently, for the person reading the terminal:
   everything.
 
 Changing one of these, or following a new AXI principle, is a design
-change: update this section and `docs/design.md` together. When axi.md
-changes, check it again and update the date above.
+change: update this section and `docs/design.md` together.
 
 ## Follow-ups
 

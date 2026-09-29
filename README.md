@@ -301,7 +301,8 @@ If you use more than one GitHub account, `github_account` picks the one
 ## Built for people and agents
 
 The same commands serve you in a terminal and an AI agent in a session. sous
-follows the [AXI](https://axi.md) guidelines for agent friendly command line
+follows the [AXI](https://axi.md) guidelines (as of
+[this version](https://github.com/kunchenguid/axi/blob/e15f82dd8e75ff640aaefd5c76c49471c5bcbbea/docs/index.html)) for agent friendly command line
 tools where they help people too:
 
 * running `sous` with nothing else shows live data, not help
