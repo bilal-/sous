@@ -16,6 +16,15 @@ func collected(text string, okPlugins ...string) Collected {
 	return c
 }
 
+// ran is what a plugin that ran fine and found sigs reports.
+func ran(plugin string, sigs ...Signal) Collected {
+	c := Collected{Plugins: []PluginStatus{{Name: plugin, Status: StatusOK}}}
+	for _, sg := range sigs {
+		c.Signals = append(c.Signals, Tagged{Signal: sg, Plugin: plugin})
+	}
+	return c
+}
+
 func TestObserveLifecycle(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
@@ -60,13 +69,10 @@ func TestObserveLifecycle(t *testing.T) {
 func TestObserveScopedScanPreservesUnscanned(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
-	full := Collected{
-		Signals: []Tagged{
-			{Signal: Signal{ID: "s:a", Project: "/ws/a", Kind: Unfinished, Text: "1 files uncommitted"}, Plugin: "git"},
-			{Signal: Signal{ID: "s:b", Project: "/ws/b", Kind: Unfinished, Text: "2 stashes"}, Plugin: "git"},
-		},
-		Plugins: []PluginStatus{{Name: "git", Status: "ok"}},
-	}
+	full := ran("git",
+		Signal{ID: "s:a", Project: "/ws/a", Kind: Unfinished, Text: "1 files uncommitted"},
+		Signal{ID: "s:b", Project: "/ws/b", Kind: Unfinished, Text: "2 stashes"},
+	)
 	Observe(s, full, []string{"/ws/a", "/ws/b"}, t0)
 	Snooze(s, "s:a")
 
@@ -154,13 +160,10 @@ func TestObservePrunesStaleEntries(t *testing.T) {
 func TestKnown(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
-	c := Collected{
-		Signals: []Tagged{
-			{Signal: Signal{ID: "s:pr", Project: "/code/acme/chime", Kind: Me, Text: "review requested"}, Plugin: "github"},
-			{Signal: Signal{ID: "s:other", Project: "/code/acme/api", Kind: Me, Text: "review requested"}, Plugin: "github"},
-		},
-		Plugins: []PluginStatus{{Name: "github", Status: "ok"}},
-	}
+	c := ran("github",
+		Signal{ID: "s:pr", Project: "/code/acme/chime", Kind: Me, Text: "review requested"},
+		Signal{ID: "s:other", Project: "/code/acme/api", Kind: Me, Text: "review requested"},
+	)
 	Observe(s, c, nil, t0)
 	Snooze(s, "s:pr")
 	known, err := Known(s, "/code/acme/chime")

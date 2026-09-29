@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/testutil"
+	"github.com/bilal-/sous/internal/thread"
 )
 
 type fx struct {
@@ -94,4 +96,14 @@ func (f *fx) brokenGH(githubRepos ...string) {
 		f.git(r, "remote", "add", "origin", "git@github.com:acme/"+filepath.Base(r)+".git")
 	}
 	os.WriteFile(filepath.Join(f.Home, "bin", "gh"), []byte("#!/bin/sh\n[ \"$1 $2\" = \"auth status\" ] && exit 0\necho 'HTTP 502: bad gateway' >&2; exit 1\n"), 0o755)
+}
+
+// fileAs records note id as filed at ref, through the thread API, as if a
+// backend had filed it there.
+func (f *fx) fileAs(id int, ref string) {
+	f.t.Helper()
+	st := &store.Store{Home: f.SousHome}
+	if _, err := thread.FileAtomically(st, id, true, func(thread.Thread) (string, error) { return ref, nil }); err != nil {
+		f.t.Fatal(err)
+	}
 }

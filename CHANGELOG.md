@@ -7,6 +7,35 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+* Ticking a box in a FOLLOWUPS.md with Windows line endings ticks the right
+  box. Before, with many items above it, it could tick the wrong one.
+* Two sous processes reading an old data file at once can no longer lose
+  a note that was saved in between.
+* Remotes like `host:org/repo` keep their org again. SSH host aliases are
+  read from `~/.ssh/config` without running `ssh`, so nothing runs and
+  nothing reaches the network.
+* A note filed just before upgrading to 0.1.1 and retried after is not
+  filed twice.
+* GitLab that is logged out or missing is "not set up" (earlier rows are
+  kept, marked stale), not a quiet empty result that drops them.
+* Hooks name the stable `sous` on your PATH, so `brew upgrade` no longer
+  breaks them, and only real sous hooks are ever replaced.
+* bash startup lines only run in interactive shells (so `scp` and `rsync`
+  keep working), macOS bash gets `.bash_profile` too, zsh respects
+  `ZDOTDIR`, and symlinked startup files stay links.
+* `sous setup` keeps multi-line or indented `roots` intact and never
+  writes a config.toml that does not parse.
+* The session end hook has the same five second limit as session start,
+  and reads a transcript from its end, so a huge one is quick.
+* `--cached` shows the date for a board from another day.
+* A broken config.toml is reported by new shells instead of "building your
+  board now" every time.
+
+### Added
+* `sous go --where` prints the project folder only; the zsh wrapper uses
+  it instead of parsing arguments itself.
+
 ## [0.1.6]
 
 ### Changed

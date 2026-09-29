@@ -215,8 +215,7 @@ func TestReconcileDistinguishesBackendFailureFromMissing(t *testing.T) {
 	broken := filepath.Join(f.Home, "bin", "sous-backend-jira")
 	os.WriteFile(broken, []byte("#!/bin/sh\necho 'auth expired' >&2; exit 3\n"), 0o755)
 	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + broken + "\"]\n")
-	b, _ := os.ReadFile(filepath.Join(f.SousHome, "threads.json"))
-	os.WriteFile(filepath.Join(f.SousHome, "threads.json"), []byte(strings.Replace(string(b), `"ref": "md:FOLLOWUPS.md:`, `"ref": "jira:WAS-1`, 1)), 0o644)
+	f.fileAs(1, "jira:WAS-1")
 	out, _, _ := f.run()
 	if !strings.Contains(out, "status unavailable") || !strings.Contains(out, "auth expired") || strings.Contains(out, "ref missing") {
 		t.Fatalf("backend failure must be named, not shown as missing:\n%s", out)

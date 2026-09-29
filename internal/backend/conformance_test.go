@@ -79,18 +79,26 @@ func remoteFixture(t *testing.T, tool, script, remote string) (home, project str
 	return home, project
 }
 
-func TestGitHubConforms(t *testing.T) {
-	home, p := remoteFixture(t, "gh", ghFake, "git@github.com:acme/chime.git")
-	b := backend.GitHub(home, &config.Config{})
-	backendtest.Run(t, b, p)
-	testutil.FakeBin(t, "gh", `echo "error connecting to api.github.com" >&2; exit 1`)
-	backendtest.RunUnreachable(t, b, p, "github:acme/chime#1")
-}
-
-func TestGitLabConforms(t *testing.T) {
-	home, p := remoteFixture(t, "glab", glabFake, "https://git.example.org/acme/chime.git")
-	b := backend.GitLab(home, &config.Config{})
-	backendtest.Run(t, b, p)
-	testutil.FakeBin(t, "glab", `[ "$2 $3" = "auth status" ] && { echo git.example.org; exit 0; }; echo "dial tcp: lookup git.example.org: no such host" >&2; exit 1`)
-	backendtest.RunUnreachable(t, b, p, "gitlab:git.example.org/acme/chime#1")
+// The real GitHub and GitLab tables, against stateful fakes of their CLIs,
+// then with the CLI unreachable.
+func TestRemoteTrackersConform(t *testing.T) {
+	for _, c := range []struct {
+		tool, fake, remote, down, ref string
+		make                          func(home string) backend.Implementation
+	}{
+		{"gh", ghFake, "git@github.com:acme/chime.git",
+			`echo "error connecting to api.github.com" >&2; exit 1`, "github:acme/chime#1",
+			func(home string) backend.Implementation { return backend.GitHub(home, &config.Config{}) }},
+		{"glab", glabFake, "https://git.example.org/acme/chime.git",
+			`[ "$2 $3" = "auth status" ] && { echo git.example.org; exit 0; }; echo "dial tcp: lookup git.example.org: no such host" >&2; exit 1`, "gitlab:git.example.org/acme/chime#1",
+			func(home string) backend.Implementation { return backend.GitLab(home, &config.Config{}) }},
+	} {
+		t.Run(c.tool, func(t *testing.T) {
+			home, p := remoteFixture(t, c.tool, c.fake, c.remote)
+			b := c.make(home)
+			backendtest.Run(t, b, p)
+			testutil.FakeBin(t, c.tool, c.down)
+			backendtest.RunUnreachable(t, b, p, c.ref)
+		})
+	}
 }

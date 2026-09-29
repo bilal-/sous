@@ -8,9 +8,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/bilal-/sous/internal/store"
-	"github.com/bilal-/sous/internal/thread"
 )
 
 func hookJSON(m map[string]any) string { b, _ := json.Marshal(m); return string(b) }
@@ -177,8 +174,7 @@ func TestHereIsLocalEvenWhenTrackersHang(t *testing.T) {
 	os.WriteFile(filepath.Join(p, "FOLLOWUPS.md"), []byte("# F\n"), 0o644)
 	f.runIn(p, "note", "-k", "me", "local note")
 	// A filed-to-github thread, so reconcile has a reason to call gh.
-	b, _ := os.ReadFile(filepath.Join(f.SousHome, "threads.json"))
-	os.WriteFile(filepath.Join(f.SousHome, "threads.json"), []byte(strings.Replace(string(b), `"ref": null`, `"ref": "github:o/r#1"`, 1)), 0o644)
+	f.fileAs(1, "github:o/r#1")
 	os.WriteFile(filepath.Join(f.Home, "bin", "gh"), []byte("#!/bin/sh\nsleep 30\n"), 0o755)
 
 	start := time.Now()
@@ -210,10 +206,7 @@ func TestHereRunsNoTrackerCLI(t *testing.T) {
 	// A note filed on GitHub: here must not ask GitHub about it (review:
 	// reconciliation is the board's job; here is local).
 	f.runIn(p, "note", "-k", "me", "filed elsewhere")
-	st := &store.Store{Home: f.SousHome}
-	if _, err := thread.FileAtomically(st, 1, false, func(thread.Thread) (string, error) { return "github:acme/api#4", nil }); err != nil {
-		t.Fatal(err)
-	}
+	f.fileAs(1, "github:acme/api#4")
 	f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "startup"}), "hook", "session-start", "claude")
 	if out, errs, code := f.run("here", p); code != 0 || !strings.Contains(out, "filed elsewhere") {
 		t.Fatalf("here must still show the filed note: %d %q %q", code, out, errs)

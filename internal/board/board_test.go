@@ -144,16 +144,6 @@ func TestEllipsizeTinyBudget(t *testing.T) {
 	}
 }
 
-// "as of 09:02" is ambiguous on a board that is days old: show the date.
-func TestAsOfShowsTheDateWhenNotToday(t *testing.T) {
-	old := time.Date(2026, 9, 24, 9, 2, 0, 0, time.Local)
-	var b bytes.Buffer
-	RenderSaved(&b, &Data{Checked: 1, RenderedAt: old}, old.Add(72*time.Hour))
-	if !strings.Contains(b.String(), "as of Thu 24 Sep 09:02") {
-		t.Fatalf("%s", b.String())
-	}
-}
-
 // A source that was never set up is not a gap. One that found things
 // before and now is not set up is: its old rows are stale, and it is named.
 func TestNotSetUpIsOnlyAGapWhenItHadData(t *testing.T) {
@@ -172,11 +162,15 @@ func TestNotSetUpIsOnlyAGapWhenItHadData(t *testing.T) {
 	}
 }
 
-func TestAsOfIsTimeOnlyForToday(t *testing.T) {
+// "as of 09:02" is ambiguous on a board that is days old: it shows the day
+// unless the board is from today.
+func TestAsOf(t *testing.T) {
 	at := time.Date(2026, 9, 24, 9, 2, 0, 0, time.Local)
-	var b bytes.Buffer
-	RenderSaved(&b, &Data{Checked: 1, RenderedAt: at}, at.Add(3*time.Hour))
-	if !strings.Contains(b.String(), "as of 09:02 ·") {
-		t.Fatalf("%s", b.String())
+	for seen, want := range map[time.Duration]string{3 * time.Hour: "as of 09:02 ·", 72 * time.Hour: "as of Thu 24 Sep 09:02 ·"} {
+		var b bytes.Buffer
+		RenderSaved(&b, &Data{Checked: 1, RenderedAt: at}, at.Add(seen))
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("seen after %v: %s", seen, b.String())
+		}
 	}
 }

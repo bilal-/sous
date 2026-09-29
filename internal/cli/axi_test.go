@@ -161,11 +161,23 @@ func TestCommandGuideCoversEveryCommandAndOption(t *testing.T) {
 	}
 	guide := string(b)
 	for _, v := range verbs {
-		if !strings.Contains(guide, "sous "+v.name) {
-			t.Errorf("docs/commands.md does not cover sous %s", v.name)
-		}
+		// The command's own section: from its "### `sous <name>" heading to
+		// the next heading. Internal doors are covered in one table.
+		heading := "### `sous " + v.name
+		at := strings.Index(guide, heading)
 		if v.args == nil {
+			if !strings.Contains(guide, "`sous "+v.name) {
+				t.Errorf("docs/commands.md does not cover sous %s", v.name)
+			}
 			continue
+		}
+		if at < 0 {
+			t.Errorf("docs/commands.md has no section for sous %s", v.name)
+			continue
+		}
+		section := guide[at:]
+		if next := strings.Index(section[len(heading):], "\n##"); next >= 0 {
+			section = section[:len(heading)+next]
 		}
 		for _, group := range [][]string{v.args.bools, v.args.values} {
 			for _, names := range group {
@@ -174,15 +186,15 @@ func TestCommandGuideCoversEveryCommandAndOption(t *testing.T) {
 					if len(n) == 1 {
 						flag = "-" + n
 					}
-					if !strings.Contains(guide, "`"+flag) {
-						t.Errorf("docs/commands.md does not cover %s %s", v.name, flag)
+					if !strings.Contains(section, "`"+flag) {
+						t.Errorf("the sous %s section of docs/commands.md does not cover %s", v.name, flag)
 					}
 				}
 			}
 		}
 	}
 	for _, mode := range []string{"--ambient", "--cached", "--refresh", "--menubar", "--json", "--brief"} {
-		if !strings.Contains(guide, mode) {
+		if !strings.Contains(guide, "`sous "+mode+"`") && !strings.Contains(guide, "**`"+mode+"`**") {
 			t.Errorf("docs/commands.md does not cover %s", mode)
 		}
 	}
