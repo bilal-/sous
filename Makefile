@@ -17,6 +17,7 @@ cover:
 lint:
 	@test -z "$$(gofmt -l .)" || { echo "gofmt:"; gofmt -l .; exit 1; }
 	go vet ./...
+	@if command -v staticcheck >/dev/null || [ -x "$(HOME)/go/bin/staticcheck" ]; then PATH="$$PATH:$(HOME)/go/bin" staticcheck ./...; fi
 
 ci: lint test
 

@@ -326,19 +326,26 @@ func readSSHConfig(path, home string, depth int) []sshBlock {
 				hostnameSet = true
 			}
 		case "include":
-			for _, inc := range args {
-				if !filepath.IsAbs(inc) && !strings.HasPrefix(inc, "~") {
-					inc = filepath.Join(home, ".ssh", inc)
-				}
-				inc = strings.Replace(inc, "~", home, 1)
-				files, _ := filepath.Glob(inc)
-				for _, f := range files {
-					out = append(out, readSSHConfig(f, home, depth+1)...)
-				}
+			for _, f := range sshIncludes(args, home) {
+				out = append(out, readSSHConfig(f, home, depth+1)...)
 			}
 		}
 	}
 	return out
+}
+
+// sshIncludes are the files an Include line names: globs, relative to
+// ~/.ssh unless absolute or under ~.
+func sshIncludes(args []string, home string) []string {
+	var files []string
+	for _, inc := range args {
+		if !filepath.IsAbs(inc) && !strings.HasPrefix(inc, "~") {
+			inc = filepath.Join(home, ".ssh", inc)
+		}
+		matches, _ := filepath.Glob(strings.Replace(inc, "~", home, 1))
+		files = append(files, matches...)
+	}
+	return files
 }
 
 // sshLine splits one ssh config line into its lowercased keyword and its

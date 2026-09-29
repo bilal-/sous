@@ -50,30 +50,54 @@ type Report struct {
 // window (thread.ClosedSince); sessions are the session pointers.
 func Build(d *board.Data, closed []thread.View, sessions map[string]session.Session, since, now time.Time) Report {
 	s := board.Classify(d)
-	r := Report{Since: since, Until: now, Attention: s.Why, OnYouNow: len(s.Me), OnOthersNow: len(s.Them), UnfinishedNow: len(s.Unfinished)}
-	isNew := func(row board.Row) bool { return !row.Since.Before(since) }
-	for _, row := range s.Me {
-		if isNew(row) {
-			r.NewMe = append(r.NewMe, row)
+	return Report{
+		Since: since, Until: now, Attention: s.Why,
+		OnYouNow: len(s.Me), OnOthersNow: len(s.Them), UnfinishedNow: len(s.Unfinished),
+		NewMe:    newSince(s.Me, since),
+		NewThem:  newSince(s.Them, since),
+		NewIdeas: ideasSince(d.Threads, since, now),
+		Closed:   closedSince(closed, since, now),
+		Worked:   worked(sessions, d.Projects, since, now),
+	}
+}
+
+// newSince: the rows that began waiting in the window.
+func newSince(rows []board.Row, since time.Time) []board.Row {
+	var out []board.Row
+	for _, r := range rows {
+		if !r.Since.Before(since) {
+			out = append(out, r)
 		}
 	}
-	for _, row := range s.Them {
-		if isNew(row) {
-			r.NewThem = append(r.NewThem, row)
-		}
-	}
-	for _, t := range d.Threads {
+	return out
+}
+
+func ideasSince(threads []thread.View, since, now time.Time) []board.Row {
+	var out []board.Row
+	for _, t := range threads {
 		if t.Kind == thread.Idea && !t.Since.Before(since) {
-			r.NewIdeas = append(r.NewIdeas, board.ThreadRow(t, now))
+			out = append(out, board.ThreadRow(t, now))
 		}
 	}
+	return out
+}
+
+// closedSince: notes closed in the window, newest first.
+func closedSince(closed []thread.View, since, now time.Time) []board.Row {
+	var out []board.Row
 	for _, t := range closed {
 		if t.Closed != nil && !t.Closed.Before(since) {
-			r.Closed = append(r.Closed, board.ClosedRow(t, now))
+			out = append(out, board.ClosedRow(t, now))
 		}
 	}
-	sort.SliceStable(r.Closed, func(i, j int) bool { return r.Closed[i].ClosedAt.After(*r.Closed[j].ClosedAt) })
-	// Worked: an agent session ended in the window, or a commit landed.
+	sort.SliceStable(out, func(i, j int) bool { return out[i].ClosedAt.After(*out[j].ClosedAt) })
+	return out
+}
+
+// worked: projects where an agent session ended or a commit landed in the
+// window, most recent first, with the session's last words when there are
+// some.
+func worked(sessions map[string]session.Session, projects []project.Project, since, now time.Time) []Worked {
 	byPath := map[string]*Worked{}
 	for path, sess := range sessions {
 		if sess.Ended.Before(since) {
@@ -85,7 +109,7 @@ func Build(d *board.Data, closed []thread.View, sessions map[string]session.Sess
 		}
 		byPath[path] = w
 	}
-	for _, p := range d.Projects {
+	for _, p := range projects {
 		if p.LastCommit == nil || p.LastCommit.Before(since) {
 			continue
 		}
@@ -97,12 +121,13 @@ func Build(d *board.Data, closed []thread.View, sessions map[string]session.Sess
 		}
 		byPath[p.Path] = &Worked{Name: p.Name, Project: p.Path, When: *p.LastCommit}
 	}
+	var out []Worked
 	for _, w := range byPath {
 		w.Age = project.Age(now, w.When)
-		r.Worked = append(r.Worked, *w)
+		out = append(out, *w)
 	}
-	sort.Slice(r.Worked, func(i, j int) bool { return r.Worked[i].When.After(r.Worked[j].When) })
-	return r
+	sort.Slice(out, func(i, j int) bool { return out[i].When.After(out[j].When) })
+	return out
 }
 
 // IdeaGroup is new ideas for one project.

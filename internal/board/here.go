@@ -46,28 +46,9 @@ func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 	}
 	d.Facts = facts
 	col := signal.Collect(ctx, signal.Plugins(in.Exe, in.Builtins, nil), []string{root}, in.Timeout)
-	obs, err := signal.Observe(in.Store, col, nil, in.Now) // scope nil: touch no other plugin's observations
-	if err != nil {
+	if d.Signals, err = hereSignals(in, col, root); err != nil {
 		return nil, err
 	}
-	seen := map[string]bool{}
-	for _, o := range obs {
-		if o.Project == root && o.Kind != signal.Info {
-			d.Signals = append(d.Signals, o)
-			seen[o.ID] = true
-		}
-	}
-	// What the board already learned from remote trackers for this project.
-	known, err := signal.Known(in.Store, root)
-	if err != nil {
-		return nil, err
-	}
-	for _, o := range known {
-		if !seen[o.ID] && o.Kind != signal.Info {
-			d.Signals = append(d.Signals, o)
-		}
-	}
-	sort.Slice(d.Signals, func(i, j int) bool { return d.Signals[i].ID < d.Signals[j].ID })
 	d.Plugins = col.Plugins
 	sessions, err := session.All(in.Store)
 	if err != nil {
@@ -92,6 +73,30 @@ func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 	return d, nil
 }
 
+// hereSignals: what the plugins run here found for root, joined with what
+// the board learned last from the others (remote trackers), minus git's
+// informational rows. Nothing but root's observations is touched.
+func hereSignals(in Inputs, col signal.Collected, root string) ([]signal.Observed, error) {
+	obs, err := signal.Observe(in.Store, col, nil, in.Now)
+	if err != nil {
+		return nil, err
+	}
+	known, err := signal.Known(in.Store, root)
+	if err != nil {
+		return nil, err
+	}
+	var out []signal.Observed
+	seen := map[string]bool{}
+	for _, o := range append(obs, known...) {
+		if o.Project == root && o.Kind != signal.Info && !seen[o.ID] {
+			seen[o.ID] = true
+			out = append(out, o)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+
 // Ellipsize shortens s to at most n runes, ending in "…" when cut. Counting
 // runes, not bytes, keeps a cut from splitting a character.
 func Ellipsize(s string, n int) string {
@@ -107,68 +112,21 @@ func Ellipsize(s string, n int) string {
 
 // RenderHere lays out the resume view: facts, session, then sections.
 func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
-	// Upstream state is not in the title: the git signal reports it as a
-	// row with an id, which can be snoozed for intentional local branches.
-	title := d.Name + " · " + d.Facts.Branch
-	if d.Facts.LastCommit != nil {
-		title += " · last commit " + project.Ago(now, *d.Facts.LastCommit)
-	}
-	fmt.Fprintln(w, title)
-	if d.Facts.LastSubject != "" {
-		fmt.Fprintf(w, "  %q\n", d.Facts.LastSubject)
-	}
 	s := ClassifyHere(d)
-	if len(s.Unfinished) > 0 {
-		var parts []string
-		for _, r := range s.Unfinished {
-			if r.Stale {
-				parts = append(parts, r.Text+" (stale)")
-			} else {
-				parts = append(parts, r.Text)
-			}
-		}
-		fmt.Fprintf(w, "  %s\n", strings.Join(parts, " · "))
-	}
-	if d.Session == nil {
-		fmt.Fprintln(w, "last session · none recorded")
-	} else {
-		line := fmt.Sprintf("last session · %s · %s", d.Session.Agent, d.Session.Ended.Format("2006-01-02"))
-		if d.Session.LastMessage != nil && *d.Session.LastMessage != "" {
-			msg := *d.Session.LastMessage
-			if brief {
-				msg = Ellipsize(msg, session.LastMessageRunes)
-			}
-			line += fmt.Sprintf(" · ended: %q", msg)
-		}
-		fmt.Fprintln(w, line)
-	}
-	if len(s.Why) > 0 {
-		fmt.Fprintf(w, "  (%s)\n", strings.Join(s.Why, " · "))
-	}
+	renderHereHeader(w, d, s, now, brief)
 	fmt.Fprintf(w, "on you: %d · on others: %d · ideas: %d\n", len(s.Me), len(s.Them), len(s.Ideas))
-	line := func(r Row, suffix string) {
-		l := fmt.Sprintf("  %s  %s  %s", r.ID, r.Text, r.Age)
-		if r.Snoozed {
-			l += " (snoozed)"
-		}
-		if r.Ref != nil {
-			l += "  → " + *r.Ref
-		}
-		l += r.upstreamNote()
-		fmt.Fprintln(w, l+suffix)
-	}
 	for _, r := range s.Me {
-		line(r, "")
+		fmt.Fprintln(w, r.hereLine())
 	}
 	for _, r := range s.Them {
-		line(r, "  (them)")
+		fmt.Fprintln(w, r.hereLine()+"  (them)")
 	}
 	shown := s.Ideas
 	if brief && len(s.Ideas) > 5 {
 		shown = s.Ideas[:5]
 	}
 	for _, r := range shown {
-		line(r, "")
+		fmt.Fprintln(w, r.hereLine())
 	}
 	if len(shown) < len(s.Ideas) {
 		fmt.Fprintf(w, "  … and %d more (sous %s)\n", len(s.Ideas)-len(shown), filepath.Base(d.Project))
@@ -177,4 +135,61 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 		fmt.Fprintf(w, "  ✓ %s  %s  (closed upstream %s)\n", r.ID, r.Text, r.Age)
 	}
 	fmt.Fprintln(w, "\n  sous note \"…\" to add · sous done <n> to close · sous kind <n> me to escalate")
+}
+
+// renderHereHeader: the project, branch and last commit, work left in git,
+// how the last agent session ended, and anything that makes the picture
+// incomplete. Upstream state is not in the title: the git signal reports
+// it as a row with an id, which can be snoozed.
+func renderHereHeader(w io.Writer, d *HereData, s Sections, now time.Time, brief bool) {
+	title := d.Name + " · " + d.Facts.Branch
+	if d.Facts.LastCommit != nil {
+		title += " · last commit " + project.Ago(now, *d.Facts.LastCommit)
+	}
+	fmt.Fprintln(w, title)
+	if d.Facts.LastSubject != "" {
+		fmt.Fprintf(w, "  %q\n", d.Facts.LastSubject)
+	}
+	if len(s.Unfinished) > 0 {
+		parts := make([]string, len(s.Unfinished))
+		for i, r := range s.Unfinished {
+			parts[i] = r.Text
+			if r.Stale {
+				parts[i] += " (stale)"
+			}
+		}
+		fmt.Fprintf(w, "  %s\n", strings.Join(parts, " · "))
+	}
+	fmt.Fprintln(w, sessionLine(d.Session, brief))
+	if len(s.Why) > 0 {
+		fmt.Fprintf(w, "  (%s)\n", strings.Join(s.Why, " · "))
+	}
+}
+
+func sessionLine(sess *session.Session, brief bool) string {
+	if sess == nil {
+		return "last session · none recorded"
+	}
+	line := fmt.Sprintf("last session · %s · %s", sess.Agent, sess.Ended.Format("2006-01-02"))
+	if sess.LastMessage != nil && *sess.LastMessage != "" {
+		msg := *sess.LastMessage
+		if brief {
+			msg = Ellipsize(msg, session.LastMessageRunes)
+		}
+		line += fmt.Sprintf(" · ended: %q", msg)
+	}
+	return line
+}
+
+// hereLine is a row as here lists it: id, text, age, then what is known
+// about it (snoozed, filed where, upstream trouble).
+func (r Row) hereLine() string {
+	l := fmt.Sprintf("  %s  %s  %s", r.ID, r.Text, r.Age)
+	if r.Snoozed {
+		l += " (snoozed)"
+	}
+	if r.Ref != nil {
+		l += "  → " + *r.Ref
+	}
+	return l + r.upstreamNote()
 }
