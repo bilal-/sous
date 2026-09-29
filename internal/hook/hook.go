@@ -131,17 +131,28 @@ func Install(settingsPath, event, command string) (bool, error) {
 		doc["hooks"] = hooks
 	}
 	groups, _ := hooks[event].([]any)
+	// Our hook is recognized by what follows the binary (" hook session-start
+	// claude"), so a sous that moved updates its entry instead of adding one.
+	_, role, _ := strings.Cut(command, " hook ")
+	found := false
 	for _, g := range groups {
 		gm, _ := g.(map[string]any)
 		inner, _ := gm["hooks"].([]any)
 		for _, h := range inner {
 			hm, _ := h.(map[string]any)
-			if hm["command"] == command {
+			c, _ := hm["command"].(string)
+			if c == command {
 				return false, nil
+			}
+			if role != "" && strings.HasSuffix(c, " hook "+role) && strings.Contains(c, "sous") {
+				hm["command"] = command
+				found = true
 			}
 		}
 	}
-	groups = append(groups, map[string]any{"hooks": []any{map[string]any{"type": "command", "command": command, "timeout": 10}}})
+	if !found {
+		groups = append(groups, map[string]any{"hooks": []any{map[string]any{"type": "command", "command": command, "timeout": 10}}})
+	}
 	hooks[event] = groups
 	out, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {

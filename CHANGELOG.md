@@ -7,6 +7,12 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.1.2]
+
+### Fixed
+* Running `sous setup` after moving sous (for example from a source build to
+  Homebrew) updates its agent hooks instead of adding a second set.
+
 ## [0.1.1]
 
 ### Fixed

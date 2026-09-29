@@ -103,3 +103,21 @@ func TestLastAssistantTextSurvivesHugeLines(t *testing.T) {
 		t.Fatalf("%q", got)
 	}
 }
+
+// Moving sous (source build to Homebrew, say) must update its hook, not add
+// a second one that runs sous twice per session.
+func TestInstallReplacesAHookFromAnotherPath(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "settings.json")
+	os.WriteFile(p, []byte(`{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"other-tool start"}]},{"hooks":[{"type":"command","command":"/old/bin/sous hook session-start claude","timeout":10}]}]}}`), 0o644)
+	changed, err := Install(p, "SessionStart", "/new/bin/sous hook session-start claude")
+	if err != nil || !changed {
+		t.Fatal(changed, err)
+	}
+	b, _ := os.ReadFile(p)
+	if strings.Count(string(b), "hook session-start claude") != 1 || !strings.Contains(string(b), "/new/bin/sous") || !strings.Contains(string(b), "other-tool start") {
+		t.Fatalf("%s", b)
+	}
+	if changed, _ := Install(p, "SessionStart", "/new/bin/sous hook session-start claude"); changed {
+		t.Fatal("second install changes nothing")
+	}
+}
