@@ -224,7 +224,7 @@ func TestLastAssistantTextIsLinearOnALongLine(t *testing.T) {
 	if got := LastAssistantText(p, 300); got != "before the long line" {
 		t.Fatalf("%q", got)
 	}
-	if el := time.Since(start); el > time.Second {
+	if el := time.Since(start); el > 3*time.Second { // linear: well under a second (a little over with -race)
 		t.Fatalf("took %v", el)
 	}
 }
