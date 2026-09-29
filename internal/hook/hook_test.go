@@ -67,7 +67,7 @@ func TestInstallIdempotent(t *testing.T) {
 		t.Fatalf("timeout or existing hook lost:\n%s", b)
 	}
 	missing := filepath.Join(t.TempDir(), "new", "hooks.json")
-	if added, err := Install(missing, "SessionStart", "x"); err != nil || !added {
+	if added, err := Install(missing, "SessionStart", "/bin/sous hook session-start claude"); err != nil || !added {
 		t.Fatal("must create the file and parents", err)
 	}
 }
@@ -119,5 +119,31 @@ func TestInstallReplacesAHookFromAnotherPath(t *testing.T) {
 	}
 	if changed, _ := Install(p, "SessionStart", "/new/bin/sous hook session-start claude"); changed {
 		t.Fatal("second install changes nothing")
+	}
+}
+
+// Review: only a sous hook is replaced: the program must be sous and the
+// arguments exactly ours. Duplicates collapse to one; paths with spaces are
+// quoted.
+func TestInstallMatchesOnlyRealSousHooks(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "settings.json")
+	os.WriteFile(p, []byte(`{"hooks":{"SessionStart":[
+{"hooks":[{"type":"command","command":"/home/dev/code/sous-tools/wrap hook session-start claude"}]},
+{"hooks":[{"type":"command","command":"/old/bin/sous hook session-start claude"}]},
+{"hooks":[{"type":"command","command":"/older/bin/sous hook session-start claude"}]}]}}`), 0o644)
+	exe := "/Applications/My Tools/sous"
+	if _, err := Install(p, "SessionStart", Command(exe, "session-start", "claude")); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(p)
+	s := string(b)
+	if !strings.Contains(s, "sous-tools/wrap hook session-start claude") {
+		t.Fatalf("someone else's hook must be left alone:\n%s", s)
+	}
+	if strings.Count(s, "bin/sous hook") != 0 || strings.Count(s, `My Tools/sous'`) != 1 {
+		t.Fatalf("old sous hooks become one, quoted:\n%s", s)
+	}
+	if !IsOurs(Command(exe, "session-start", "claude"), "session-start", "claude") || IsOurs("/x/sous-tools/wrap hook session-start claude", "session-start", "claude") {
+		t.Fatal("IsOurs")
 	}
 }

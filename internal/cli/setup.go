@@ -37,13 +37,13 @@ func cmdSetup(e *Env, a argv) int {
 	codex := filepath.Join(home, ".codex", "hooks.json")
 	type inst struct{ file, event, cmd string }
 	installs := []inst{
-		{claude, "SessionStart", e.Exe + " hook session-start claude"},
-		{claude, "SessionEnd", e.Exe + " hook session-end claude"},
-		{codex, "SessionStart", e.Exe + " hook session-start codex"},
+		{claude, "SessionStart", hook.Command(e.Exe, "session-start", "claude")},
+		{claude, "SessionEnd", hook.Command(e.Exe, "session-end", "claude")},
+		{codex, "SessionStart", hook.Command(e.Exe, "session-start", "codex")},
 	}
 	codexNote := ""
 	if a.has("codex-session-end") {
-		installs = append(installs, inst{codex, "SessionEnd", e.Exe + " hook session-end codex"})
+		installs = append(installs, inst{codex, "SessionEnd", hook.Command(e.Exe, "session-end", "codex")})
 		codexNote = " and when it ends"
 	}
 	for _, i := range installs {
