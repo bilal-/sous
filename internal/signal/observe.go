@@ -72,7 +72,7 @@ func Observe(s *store.Store, c Collected, scanned []string, now time.Time) ([]Ob
 	now = now.UTC()
 	okPlugins := map[string]bool{}
 	for _, p := range c.Plugins {
-		if p.Status == "ok" {
+		if p.Status == StatusOK {
 			okPlugins[p.Name] = true
 		}
 	}

@@ -22,11 +22,25 @@ func Plugins(exe string, builtins, thirdParty []string) []Plugin {
 	return ps
 }
 
+// Status is how a plugin's run went. The values are part of --json.
+type Status string
+
+const (
+	StatusOK      Status = "ok"
+	StatusFailed  Status = "failed"
+	StatusTimeout Status = "timeout"
+	StatusOff     Status = "off" // not set up on this machine
+)
+
 type PluginStatus struct {
 	Name   string  `json:"name"`
-	Status string  `json:"status"` // ok | failed | timeout | off (not set up here)
+	Status Status  `json:"status"`
 	Error  *string `json:"error"`
 }
+
+// Gap: the run left the picture incomplete. Off is not a gap by itself;
+// the board decides whether earlier findings make it one.
+func (p PluginStatus) Gap() bool { return p.Status != StatusOK && p.Status != StatusOff }
 
 type Tagged struct {
 	Signal
@@ -69,16 +83,16 @@ func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) 
 	sigs []Tagged
 }) {
 	res := plugin.Exec(ctx, p.Argv, []byte(stdin), timeout)
-	r.st = PluginStatus{Name: p.Name, Status: "ok"}
+	r.st = PluginStatus{Name: p.Name, Status: StatusOK}
 	switch {
 	case res.TimedOut:
-		r.st.Status = "timeout"
+		r.st.Status = StatusTimeout
 		msg := "exceeded " + timeout.String()
 		r.st.Error = &msg
 	case res.Err != nil || res.Code != 0:
-		r.st.Status = "failed"
+		r.st.Status = StatusFailed
 		if res.Code == ExitNotSetUp {
-			r.st.Status = "off"
+			r.st.Status = StatusOff
 		}
 		msg := strings.Join(strings.Fields(res.Stderr), " ")
 		if msg == "" && res.Err != nil {
@@ -96,7 +110,7 @@ func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) 
 	// partially failing GitHub scan still knows about real review requests.
 	if !res.TimedOut {
 		sigs, bad := ReadLinesLenient(strings.NewReader(res.Stdout))
-		if bad > 0 && r.st.Status == "ok" {
+		if bad > 0 && r.st.Status == StatusOK {
 			msg := fmt.Sprintf("%d unreadable line(s) skipped", bad)
 			r.st.Error = &msg
 		}
