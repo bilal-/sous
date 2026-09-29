@@ -116,7 +116,7 @@ func (f *Filer) File(ctx context.Context, id int, explicit bool) (string, error)
 		}
 	}
 	ref, err := thread.FileAtomically(f.Store, id, refile, func(t thread.Thread) (string, error) {
-		return backend.File(ctx, b, backend.Request{ID: t.ID, UID: t.UID, Legacy: thread.LegacyNote(t.Since), Project: path, Text: t.Text, Kind: string(t.Kind)})
+		return backend.File(ctx, b, backend.Request{ID: t.ID, UID: t.UID, Legacy: t.Legacy, Project: path, Text: t.Text, Kind: string(t.Kind)})
 	})
 	if err != nil {
 		if errors.Is(err, thread.ErrNotFound) {

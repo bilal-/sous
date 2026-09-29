@@ -117,7 +117,7 @@ func TestMigrateV0(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Version != 2 || d.NextID != 8 || d.Threads[0].UID == "" || d.Threads[0].Source != "human" || d.Threads[1].Source != "agent" {
+	if d.Version != 3 || d.NextID != 8 || d.Threads[0].UID == "" || d.Threads[0].Source != "human" || d.Threads[1].Source != "agent" {
 		t.Fatalf("%+v", d)
 	}
 	if d.Threads[0].Remote != nil || d.Threads[0].Closed != nil || d.Threads[0].SnoozedUntil != nil || d.Threads[0].Ref != nil {
@@ -196,7 +196,7 @@ func TestMigrateV1GivesEveryNoteAUID(t *testing.T) {
 		t.Fatal(err)
 	}
 	a, b := d.Threads[0].UID, d.Threads[1].UID
-	if d.Version != 2 || len(a) != 12 || len(b) != 12 || a == b || d.Threads[0].ID != 1 {
+	if d.Version != 3 || len(a) != 12 || len(b) != 12 || a == b || d.Threads[0].ID != 1 {
 		t.Fatalf("%+v", d)
 	}
 	id, _ := Note(s, project.Project{Path: "/p"}, Me, "c", "", time.Now())
@@ -216,5 +216,22 @@ func TestMigratedUIDIsTheSameOnEveryRead(t *testing.T) {
 	b, _ := store.Load[Doc](s, "threads", Migrator{})
 	if a.Threads[0].UID == "" || a.Threads[0].UID != b.Threads[0].UID {
 		t.Fatalf("%q vs %q", a.Threads[0].UID, b.Threads[0].UID)
+	}
+}
+
+// Review: which notes predate uids is recorded by the upgrade that gave
+// them one, not guessed from the date.
+func TestLegacyIsRecordedByTheUpgrade(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	late := UIDSince.Add(48 * time.Hour).Format(time.RFC3339) // an old binary, used after 0.1.1 came out
+	v1 := `{"version":1,"next_id":2,"threads":[{"id":1,"project":"/p","text":"a","kind":"me","since":"` + late + `","source":"human"}]}`
+	os.WriteFile(filepath.Join(s.Home, "threads.json"), []byte(v1), 0o644)
+	d, _ := store.Load[Doc](s, "threads", Migrator{})
+	if !d.Threads[0].Legacy {
+		t.Fatal("a note upgraded from v1 had no uid, so it is legacy whatever its date")
+	}
+	id, _ := Note(s, project.Project{Path: "/p"}, Me, "new", "", UIDSince.Add(-time.Hour))
+	if th, _ := Get(s, id); th.Legacy {
+		t.Fatal("a note made with a uid is never legacy")
 	}
 }

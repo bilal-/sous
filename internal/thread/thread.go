@@ -30,7 +30,10 @@ type Thread struct {
 	ID int `json:"id"` // short, for typing: sous done 3
 	// UID is random and never changes. Filing markers use it, so notes from
 	// two installs can never collide in a shared tracker.
-	UID          string     `json:"uid"`
+	UID string `json:"uid"`
+	// Legacy: the note was made before notes had a uid, so it may have been
+	// filed with an older, number based marker. Set by the upgrade.
+	Legacy       bool       `json:"legacy,omitempty"`
 	Project      string     `json:"project"`
 	Remote       *string    `json:"remote"`
 	Text         string     `json:"text"`
@@ -78,37 +81,40 @@ func (v ValidationError) Error() string { return string(v) }
 const name = "threads"
 
 // Migrator: v0 was the pre-release shape without version/next_id and without
-// remote/source/ref/snoozed_until/closed. v2 gave every note a uid.
+// remote/source/ref/snoozed_until/closed. v2 gave every note a uid. v3
+// records which notes predate uids (Legacy).
 type Migrator struct{}
 
-func (Migrator) Empty() []byte { return []byte(`{"version":2,"next_id":1,"threads":[]}`) }
-func (Migrator) Current() int  { return 2 }
+func (Migrator) Empty() []byte { return []byte(`{"version":3,"next_id":1,"threads":[]}`) }
+func (Migrator) Current() int  { return 3 }
 func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 	switch from {
 	case 0:
 		return migrateV0(raw)
-	case 1:
-		var d Doc
-		if err := json.Unmarshal(raw, &d); err != nil {
-			return nil, err
-		}
-		d.Version = 2
-		for i := range d.Threads {
-			if d.Threads[i].UID == "" {
-				d.Threads[i].UID = newUID()
-			}
-		}
-		return json.Marshal(d)
+	case 1: // no note had a uid yet: every one is legacy
+		return edit(raw, 2, func(t *Thread) { t.UID, t.Legacy = newUID(), true })
+	case 2: // upgraded by 0.1.1 to 0.1.6, which gave uids without saying which were new
+		return edit(raw, 3, func(t *Thread) { t.Legacy = t.Legacy || t.Since.Before(UIDSince) })
 	}
 	return nil, fmt.Errorf("unknown version %d", from)
 }
 
-// UIDSince is when notes began carrying a uid (sous 0.1.1). A note made
-// before it may have been filed with an older, number based marker.
-var UIDSince = time.Date(2026, 9, 29, 3, 25, 0, 0, time.UTC)
+// edit applies fn to every note and sets the document's version.
+func edit(raw []byte, version int, fn func(*Thread)) ([]byte, error) {
+	var d Doc
+	if err := json.Unmarshal(raw, &d); err != nil {
+		return nil, err
+	}
+	d.Version = version
+	for i := range d.Threads {
+		fn(&d.Threads[i])
+	}
+	return json.Marshal(d)
+}
 
-// LegacyNote: was a note made at since old enough to have an old marker?
-func LegacyNote(since time.Time) bool { return since.Before(UIDSince) }
+// UIDSince is when notes began carrying a uid (sous 0.1.1). It is used only
+// to upgrade files that 0.1.1 to 0.1.6 upgraded without recording Legacy.
+var UIDSince = time.Date(2026, 9, 29, 3, 25, 0, 0, time.UTC)
 
 // newUID: 12 random hex characters.
 func newUID() string {

@@ -217,10 +217,3 @@ func TestCurrentPathFollowsRemote(t *testing.T) {
 		t.Fatal("no remote: stored path")
 	}
 }
-
-// Only notes made before stable ids may be matched to an old-style marker.
-func TestLegacyRecoveryIsOnlyForOldNotes(t *testing.T) {
-	if !thread.LegacyNote(thread.UIDSince.Add(-time.Hour)) || thread.LegacyNote(thread.UIDSince) {
-		t.Fatal("LegacyNote")
-	}
-}
