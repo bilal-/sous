@@ -29,8 +29,7 @@ func TestScanGitHub(t *testing.T) {
 	paths := []string{app, shell, local}
 
 	// No gh on PATH (git must stay reachable for project.Remote).
-	gitDir := filepath.Dir(lookGit(t))
-	t.Setenv("PATH", gitDir)
+	testutil.OnlyGit(t)
 	var out, warn bytes.Buffer
 	if err := ScanGitHub(&config.Config{})(paths, &out, &warn, time.Now()); err == nil || !strings.Contains(warn.String(), "gh not installed") {
 		t.Fatalf("no gh: err=%v warn=%q", err, warn.String())

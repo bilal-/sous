@@ -3,7 +3,6 @@ package backend
 import (
 	"bytes"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -100,8 +99,7 @@ func TestGitHubDetectRefusals(t *testing.T) {
 	if GitHub(home, cfg).Detect(repoWithRemote(t, "o", "r", "git@github.com:o/r.git"), &warn) || !strings.Contains(warn.String(), "not logged in") {
 		t.Fatalf("unauth must not detect, and must say why: %q", warn.String())
 	}
-	gitPath, _ := exec.LookPath("git")
-	t.Setenv("PATH", filepath.Dir(gitPath))
+	testutil.OnlyGit(t)
 	warn.Reset()
 	if GitHub(home, cfg).Detect(repoWithRemote(t, "o", "r2", "git@github.com:o/r2.git"), &warn) || !strings.Contains(warn.String(), "gh not installed") {
 		t.Fatalf("%q", warn.String())

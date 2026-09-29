@@ -52,8 +52,7 @@ esac`)
 		t.Fatalf("one call per query per host:\n%s", b)
 	}
 	// glab missing: reported, not fatal to the board.
-	gitDir := filepath.Dir(lookGit(t))
-	t.Setenv("PATH", gitDir)
+	testutil.OnlyGit(t)
 	out.Reset()
 	warn.Reset()
 	if err := ScanGitLab(cfg)([]string{app}, &out, &warn, time.Now()); err == nil || !strings.Contains(warn.String(), "glab not installed") {

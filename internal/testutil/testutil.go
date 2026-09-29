@@ -52,3 +52,18 @@ func FakeBin(t *testing.T, name, body string) string {
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	return p
 }
+
+// OnlyGit leaves git as the only program on PATH, in a folder of its own:
+// git's real folder often holds gh or glab too (Homebrew, CI runners).
+func OnlyGit(t *testing.T) {
+	t.Helper()
+	git, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.Symlink(git, filepath.Join(dir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+}
