@@ -1,0 +1,40 @@
+name: Something is wrong
+description: sous showed something wrong, missed something, or broke.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. sous is a solo hobby project, so replies may take a while, but every report is read.
+        Please replace real project names, people and paths with made up ones before posting.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, and what sous showed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: If it helps, the output of the command with `--json`, with names made up.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: sous version
+      description: The output of `sous version`.
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: For example "macOS 16, zsh, Claude Code" or "Ubuntu 26.04, bash, Codex".

@@ -67,7 +67,7 @@ sous is young. Here is an honest list.
 | `FOLLOWUPS.md` in the project as a simple tracker | Jira, Linear, Gitea, Bitbucket (plugins welcome) |
 | a menu bar view through [SwiftBar](https://swiftbar.app) on macOS | a Linux tray icon |
 | plugins in any language | a stable plugin contract (it is a draft until 1.0) |
-| install by script or from source | Homebrew |
+| install by script, Homebrew or from source | Windows, other package managers |
 
 ## Install
 
@@ -80,6 +80,11 @@ That downloads the latest release, checks it against its checksum, puts
 your `PATH`, the script tells you. To install a particular version, run
 `curl ... | SOUS_VERSION=v0.1.0 sh`. To put `sous` somewhere else, set
 `SOUS_BIN` the same way.
+
+**With Homebrew** (macOS or Linux):
+
+    brew install bilal-/tap/sous
+    sous setup
 
 **From source**, with Go 1.27 or newer:
 

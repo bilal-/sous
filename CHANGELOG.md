@@ -24,6 +24,10 @@ upgraded, never broken.
   filed note's status could not be checked.
 * The session hook cleans up after itself when it runs out of time.
 
+### Added
+* Install with Homebrew: `brew install bilal-/tap/sous`.
+* Issue templates, a security policy, and private security reports.
+
 ### Changed
 * Every note now has a stable random id, and new filings mark items with it
   (`<!-- sous:0123456789ab -->`), so notes from two installs can never

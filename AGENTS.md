@@ -174,6 +174,12 @@ A release is a tag, made when there is something worth handing to people:
 
 3. The release workflow tests the tag, builds the downloads for macOS and
    Linux, and publishes them on GitHub with checksums.
+4. When the release is published, update Homebrew:
+
+       make tap VERSION=v0.1.1
+
+   This writes the formula from the release's checksums and pushes it to
+   [bilal-/homebrew-tap](https://github.com/bilal-/homebrew-tap).
 
 Which number to raise, before 1.0:
 

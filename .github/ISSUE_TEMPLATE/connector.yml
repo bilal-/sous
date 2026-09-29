@@ -1,0 +1,29 @@
+name: A new connector or idea
+description: Ask for sous to see a new place (Jira, Linear, CI...), file somewhere new, or do something else.
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Connectors are plugins, and anyone can write one in any language: see [docs/plugins.md](https://github.com/bilal-/sous/blob/main/docs/plugins.md).
+        If you plan to write it yourself, say so. That is the fastest way to get it.
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like sous to do
+      description: For example "show Linear issues assigned to me" or "file notes as Jira tickets".
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters to you
+      description: How it would change your day. This helps decide what to build first.
+  - type: dropdown
+    id: help
+    attributes:
+      label: Would you like to build it?
+      options:
+        - Yes, I would like to write it
+        - Maybe, with some pointers
+        - No, just asking
