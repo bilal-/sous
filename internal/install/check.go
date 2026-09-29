@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -18,19 +19,27 @@ type Result struct {
 	OK     bool
 	Detail string // what was found
 	Fix    string // the command that puts it right; "" when OK
+	// Optional: a part a person may have turned down (sous setup
+	// --no-shell, or no --codex-session-end), so missing is not broken.
+	Optional bool
 }
 
 // Check looks at everything setup installs, for the sous at exe, without
 // changing anything: each agent hook, each skill folder, and the shell line.
 func Check(home, sousHome, exe, shell, goos, zdotdir string) []Result {
 	var out []Result
-	for _, h := range hookSpecs(home, false) {
-		out = append(out, checkHook(h, exe))
+	always := len(hookSpecs(home, false))
+	for i, h := range hookSpecs(home, true) {
+		r := checkHook(h, exe)
+		if i >= always && r.Detail == "not installed" { // asked for with a flag
+			r = Result{Name: r.Name, OK: true, Detail: "not installed (optional)"}
+		}
+		out = append(out, r)
 	}
 	for _, p := range skillPlaces(home) {
 		out = append(out, checkSkill(home, p))
 	}
-	return append(out, checkShell(home, sousHome, shell, goos, zdotdir))
+	return append(out, checkShell(home, sousHome, exe, shell, goos, zdotdir))
 }
 
 func checkHook(h hookSpec, exe string) Result {
@@ -96,9 +105,13 @@ func hasLine(text, line string) (has, older bool) {
 	return false, older
 }
 
-func checkShell(home, sousHome, shell, goos, zdotdir string) Result {
+func checkShell(home, sousHome, exe, shell, goos, zdotdir string) Result {
 	files, line, ok := shellTarget(home, sousHome, shell, goos, zdotdir)
 	r := Result{Name: "shell (" + shell + ")"}
+	if shell == "" {
+		r.Name, r.OK, r.Detail = "shell", true, "$SHELL is not set, so there is no startup file to look at"
+		return r
+	}
 	if !ok {
 		r.OK, r.Detail = true, fmt.Sprintf("%s is not a shell sous sets up; run sous --ambient from its startup file to see the board in new shells", shell)
 		return r
@@ -111,6 +124,7 @@ func checkShell(home, sousHome, shell, goos, zdotdir string) Result {
 			return r
 		case !has:
 			r.Detail, r.Fix = "new shells do not show the board ("+config.Tilde(home, f)+" has no sous line)", "sous setup"
+			r.Optional = true
 			return r
 		}
 	}
@@ -119,6 +133,11 @@ func checkShell(home, sousHome, shell, goos, zdotdir string) Result {
 			r.Detail, r.Fix = config.Tilde(home, filepath.Join(sousHome, "sous.zsh"))+" is missing, so the line does nothing", "sous setup"
 			return r
 		}
+	}
+	// The line runs the sous it finds on PATH.
+	if _, err := exec.LookPath("sous"); err != nil {
+		r.Detail, r.Fix = "sous is not on your PATH, so the line does nothing", "add "+filepath.Dir(exe)+" to PATH"
+		return r
 	}
 	r.OK, r.Detail = true, "new shells show the board"
 	return r

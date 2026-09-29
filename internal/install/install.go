@@ -4,6 +4,7 @@
 package install
 
 import (
+	"cmp"
 	_ "embed"
 	"fmt"
 	"os"
@@ -142,7 +143,7 @@ func Skills(home string, skill []byte) ([]string, error) {
 func Shell(home, sousHome, shell, goos, zdotdir string) (string, error) {
 	files, line, ok := shellTarget(home, sousHome, shell, goos, zdotdir)
 	if !ok {
-		return fmt.Sprintf("shell: %s is not one sous knows. To show the board in new shells, run sous --ambient from its startup file", shell), nil
+		return fmt.Sprintf("shell: %s is not one sous knows. To show the board in new shells, run sous --ambient from its startup file", cmp.Or(shell, "your shell")), nil
 	}
 	var added []string
 	for _, f := range files {

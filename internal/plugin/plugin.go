@@ -20,6 +20,20 @@ type Plugin struct {
 	Argv []string
 }
 
+// Axes are the kinds of plugin, each named sous-<axis>-<name>.
+var Axes = []string{"signal", "backend", "launcher"}
+
+// Named reports whether path's file name is sous-<axis>-<name> for a known
+// axis; Discover skips any other.
+func Named(path string) bool {
+	for _, a := range Axes {
+		if name, ok := strings.CutPrefix(filepath.Base(path), "sous-"+a+"-"); ok && name != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // Discover lists built-ins (as [exe, axis, name]) then third-party
 // executables named sous-<axis>-<name>.
 func Discover(exe, axis string, builtins, thirdParty []string) []Plugin {

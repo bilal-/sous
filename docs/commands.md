@@ -319,34 +319,40 @@ Options:
 ### `sous doctor`
 
 Checks that sous is set up and working, and for anything that is not, says
-the command that fixes it. It changes nothing. It looks at:
+the command that fixes it. It only looks: it changes none of your files or
+settings. It checks:
 
 * config.toml and your project folders (and how many projects are in them)
 * the agent hooks for Claude Code and Codex, and that they run this sous
 * the sous skill in every folder agents read, and that it is current
-* the line in your shell's startup file
+* the line in your shell's startup file, and that `sous` is on your PATH
 * `gh` and `glab`: installed, logged in, each configured account or host,
   and whether each GitHub login can read notifications
-* each plugin you listed
+* each plugin you listed, and that its name is one sous will use
 * your notes, sessions and observations files
-* how old the saved board is
+* how old the saved board is, and each source its last refresh could not
+  read, with the reason (this is what a `?` on the board means)
 
 ```
-sous doctor · 15 checks · 0 problems · 1 to look at
+sous doctor · 16 checks · 0 problems · 1 to look at
 
   ✓ config: ~/.sous/config.toml reads
   ✓ project folders: 26 projects in ~/code
   ...
-  ! GitHub notifications: HTTP 403
-      fix: gh auth refresh -s notifications
+  ! shell (zsh): new shells do not show the board (~/.zshrc has no sous line)
+      fix: sous setup
 ```
 
-`✗` is broken, `!` is worth a look (such as an optional tracker not logged
-in). An account or host your config.toml names is not optional, so its
-failing is broken. It exits `1` when something is broken, else `0`. This is
-the one command that asks GitHub and GitLab directly, so it can take a few
-seconds; a `gh` or `glab` that has not answered in 30 seconds is reported
-as such.
+`✗` is broken: the board is missing something because of it. `!` is worth a
+look but may be your choice, such as no shell line after
+`sous setup --no-shell`, or a tracker you never set up. It exits `1` when
+something is broken, else `0`. With `--json` it prints `problems`,
+`warnings` and every check with its `name`, `status` (`ok`, `warn` or
+`bad`), `detail` and `fix`.
+
+This is the one command that asks GitHub and GitLab directly, so it can
+take a few seconds. A `gh` or `glab` that has not answered in 30 seconds is
+reported as broken.
 
 Options: `--json`.
 

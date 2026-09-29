@@ -3,17 +3,20 @@
 package doctor
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/install"
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
@@ -54,23 +57,23 @@ type Inputs struct {
 func Run(in Inputs) []Check {
 	out := configChecks(in)
 	for _, r := range install.Check(in.UserHome, in.SousHome, in.Exe, in.Shell, in.GOOS, in.Zdotdir) {
-		out = append(out, fromResult(r.Name, r.OK, r.Detail, r.Fix, Bad))
+		out = append(out, fromResult(r.Name, r.OK, r.Detail, r.Fix, severity(r.Optional)))
 	}
 	if in.Cfg != nil {
 		out = append(out, trackerChecks(in.Cfg)...)
 		out = append(out, pluginChecks(in.Cfg.Plugins)...)
 	}
 	out = append(out, dataChecks(in.SousHome, in.Now)...)
-	return append(out, boardCheck(in))
+	return append(out, boardChecks(in)...)
 }
 
 // trackerTimeout bounds each tracker's checks: a gh or glab that hangs is
 // reported, not waited on.
 var trackerTimeout = 30 * time.Second
 
-// trackerChecks asks gh and glab at once, each within trackerTimeout. What
-// config.toml names is needed, so its failing is a problem; the rest is a
-// note.
+// trackerChecks asks gh and glab at once, within trackerTimeout. A failure
+// the board would show as a failed source is a problem; a tracker that is
+// simply not set up here is a note.
 func trackerChecks(cfg *config.Config) []Check {
 	runs := []struct {
 		tool  string
@@ -92,28 +95,33 @@ func trackerChecks(cfg *config.Config) []Check {
 		select {
 		case results = <-answers[i]:
 		case <-ctx.Done():
-			results = []tracker.Result{{Name: r.tool, Detail: fmt.Sprintf("did not answer within %s", trackerTimeout), Fix: r.tool + " auth status"}}
+			results = []tracker.Result{{Name: r.tool, Detail: fmt.Sprintf("did not answer within %s", trackerTimeout), Fix: "try " + r.tool + " auth status"}}
 		}
 		for _, t := range results {
-			notOK := Warn
-			if t.Needed {
-				notOK = Bad
-			}
-			out = append(out, fromResult(t.Name, t.OK, t.Detail, t.Fix, notOK))
+			out = append(out, fromResult(t.Name, t.OK, t.Detail, t.Fix, severity(t.Optional)))
 		}
 	}
 	return out
 }
 
-// Problems counts the checks that are broken (not the warnings).
-func Problems(cs []Check) int {
+// Count is how many checks have status st.
+func Count(cs []Check, st Status) int {
 	n := 0
 	for _, c := range cs {
-		if c.Status == Bad {
+		if c.Status == st {
 			n++
 		}
 	}
 	return n
+}
+
+// severity of a failed check: a part a person may do without is worth a
+// look; anything else is broken.
+func severity(optional bool) Status {
+	if optional {
+		return Warn
+	}
+	return Bad
 }
 
 func fromResult(name string, ok bool, detail, fix string, notOK Status) Check {
@@ -126,32 +134,39 @@ func fromResult(name string, ok bool, detail, fix string, notOK Status) Check {
 func configChecks(in Inputs) []Check {
 	path := config.Tilde(in.UserHome, config.Path(in.SousHome))
 	if in.CfgErr != nil {
-		return []Check{{Name: "config", Status: Bad, Detail: path + " does not parse: " + in.CfgErr.Error(), Fix: "fix " + path + " by hand"}}
+		return []Check{{Name: "config", Status: Bad, Detail: path + " cannot be read: " + in.CfgErr.Error(), Fix: "fix " + path + " by hand"}}
 	}
 	out := []Check{{Name: "config", Status: OK, Detail: path + " reads"}}
+	if _, err := os.Stat(config.Path(in.SousHome)); err != nil {
+		out[0].Detail = path + " is not written yet, so sous uses its defaults"
+	}
 	if len(in.Cfg.Roots) == 0 {
 		return append(out, Check{Name: "project folders", Status: Bad, Detail: "none set", Fix: "sous setup, or sous setup ~/path/to/your/projects"})
 	}
 	ps, unavailable := project.Discover(in.Cfg.Roots, in.Cfg.Ignore, io.Discard)
-	noun := "projects"
-	if len(ps) == 1 {
-		noun = "project"
-	}
-	c := Check{Name: "project folders", Status: OK, Detail: fmt.Sprintf("%d %s in %s", len(ps), noun, shown(in, in.Cfg.Roots))}
+	c := Check{Name: "project folders", Status: OK, Detail: Plural(len(ps), "project") + " in " + shown(in, in.Cfg.Roots)}
 	switch {
 	case unavailable > 0:
-		var missing []string
+		var unreadable []string
 		for _, r := range in.Cfg.Roots {
-			if _, err := os.Stat(r); err != nil {
-				missing = append(missing, config.Tilde(in.UserHome, r))
+			if _, err := os.ReadDir(r); err != nil {
+				unreadable = append(unreadable, config.Tilde(in.UserHome, r))
 			}
 		}
-		c.Status, c.Detail = Bad, fmt.Sprintf("%d folders cannot be read: %v", unavailable, missing)
+		c.Status, c.Detail = Bad, "cannot read "+strings.Join(unreadable, ", ")
 		c.Fix = "sous config roots <folders that exist>, or sous setup <folder>"
 	case len(ps) == 0:
 		c.Status, c.Fix = Warn, "sous setup ~/path/to/your/projects"
 	}
 	return append(out, c)
+}
+
+// Plural: "1 project", "2 projects".
+func Plural(n int, noun string) string {
+	if n != 1 {
+		noun += "s"
+	}
+	return fmt.Sprintf("%d %s", n, noun)
 }
 
 func shown(in Inputs, roots []string) string {
@@ -171,6 +186,9 @@ func pluginChecks(plugins []string) []Check {
 		c := Check{Name: "plugin " + filepath.Base(p), Status: OK, Detail: "can run"}
 		if _, err := exec.LookPath(p); err != nil {
 			c.Status, c.Detail, c.Fix = Bad, p+" is missing or cannot run", "sous config plugins --remove "+p
+		} else if !plugin.Named(p) {
+			c.Status, c.Detail = Bad, "sous skips it: a plugin's name must be sous-signal-, sous-backend- or sous-launcher- and then its own name"
+			c.Fix = "rename it, then sous config plugins --remove " + p + " and --add the new path"
 		}
 		out = append(out, c)
 	}
@@ -200,15 +218,16 @@ func dataChecks(sousHome string, now time.Time) []Check {
 	return out
 }
 
-// boardCheck: new shells print the saved board; an old one means the
-// background refresh is not running.
-func boardCheck(in Inputs) Check {
+// boardChecks: new shells print the saved board; an old one means the
+// background refresh is not running. Each source its last refresh could not
+// read is listed with the reason, which is what a ? on the board means.
+func boardChecks(in Inputs) []Check {
 	c, err := board.ReadCache(&store.Store{Home: in.SousHome, ReadOnly: true})
 	switch {
 	case err != nil:
-		return Check{Name: "saved board", Status: Bad, Detail: err.Error(), Fix: "sous --refresh"}
+		return []Check{{Name: "saved board", Status: Bad, Detail: err.Error(), Fix: "sous --refresh"}}
 	case c.RenderedAt == nil:
-		return Check{Name: "saved board", Status: Warn, Detail: "not built yet", Fix: "sous --refresh"}
+		return []Check{{Name: "saved board", Status: Warn, Detail: "not built yet", Fix: "sous --refresh"}}
 	}
 	age := in.Now.Sub(*c.RenderedAt)
 	window := config.Default().RefreshWindow()
@@ -216,8 +235,25 @@ func boardCheck(in Inputs) Check {
 		window = in.Cfg.RefreshWindow()
 	}
 	detail := "built " + project.Ago(in.Now, *c.RenderedAt)
+	board := Check{Name: "saved board", Status: OK, Detail: detail}
 	if age > 2*window {
-		return Check{Name: "saved board", Status: Warn, Detail: detail + ", longer ago than it should be", Fix: "sous --refresh"}
+		board = Check{Name: "saved board", Status: Warn, Detail: detail + ", longer ago than it should be", Fix: "sous --refresh"}
 	}
-	return Check{Name: "saved board", Status: OK, Detail: detail}
+	out := []Check{board}
+	// What the board marked ?, and why, from its last refresh.
+	if c.Data != nil {
+		for _, p := range c.Data.Plugins {
+			if p.Gap() {
+				out = append(out, Check{Name: "last refresh: " + p.Name, Status: Warn, Detail: string(p.Status) + ": " + cmp.Or(deref(p.Error), "no reason given"), Fix: "fix what the checks above name, then sous --refresh"})
+			}
+		}
+	}
+	return out
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

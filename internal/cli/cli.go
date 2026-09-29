@@ -206,7 +206,10 @@ func newEnv(cwd string, stdin io.Reader, stdout, stderr io.Writer) *Env {
 	e := &Env{Home: home, Stdin: stdin, Stdout: stdout, Stderr: stderr, Exe: stableExe(exe), Store: &store.Store{Home: home}, Cwd: cwd}
 	e.Source = os.Getenv("SOUS_SOURCE")
 	e.UserHome, _ = os.UserHomeDir()
-	e.Shell, e.Zdotdir = filepath.Base(os.Getenv("SHELL")), os.Getenv("ZDOTDIR")
+	e.Zdotdir = os.Getenv("ZDOTDIR")
+	if sh := os.Getenv("SHELL"); sh != "" {
+		e.Shell = filepath.Base(sh)
+	}
 	cache, _ := os.UserCacheDir()
 	tracker.Init(e.UserHome, cache, os.Environ())
 	e.Cfg, e.cfgErr = config.Load(home, e.UserHome)

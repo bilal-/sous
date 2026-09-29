@@ -177,6 +177,27 @@ func glabHosts() ([]string, error) {
 	return found, nil
 }
 
+// GHNotifications reads the unread notifications of threads the account
+// takes part in (which covers mentions and assignments and keeps a busy
+// account to a few pages), as one JSON array of pages. Errors say what to
+// do about the usual causes.
+func GHNotifications(account string) ([]byte, error) {
+	out, err := GHRun(account, "api", "--hostname", GitHubHost, "--method", "GET", "--paginate", "--slurp", "notifications", "-F", "per_page=100", "-F", "participating=true")
+	if err != nil {
+		switch msg := err.Error(); {
+		case strings.Contains(msg, "403"), strings.Contains(msg, "404"):
+			return nil, fmt.Errorf("notifications: %v (they need a classic token with the notifications scope: %s)", err, NotificationsFix)
+		case strings.Contains(msg, "slurp"):
+			return nil, fmt.Errorf("notifications: %v (they need gh 2.48 or newer)", err)
+		}
+		return nil, fmt.Errorf("notifications: %w", err)
+	}
+	return out, nil
+}
+
+// NotificationsFix gives gh's token the scope notifications need.
+const NotificationsFix = "gh auth refresh -s notifications"
+
 // GHRun runs gh as account and returns stdout only; see Output.
 func GHRun(account string, args ...string) ([]byte, error) {
 	cmd, err := GH(account, args...)

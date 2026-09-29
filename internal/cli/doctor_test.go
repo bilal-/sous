@@ -29,12 +29,13 @@ func TestDoctor(t *testing.T) {
 	}
 	out, _, _ = f.run("doctor", "--json")
 	var js struct {
-		Problems int `json:"problems"`
+		Problems int  `json:"problems"`
+		Warnings *int `json:"warnings"`
 		Checks   []struct {
 			Name, Status, Detail, Fix string
 		} `json:"checks"`
 	}
-	if err := json.Unmarshal([]byte(out), &js); err != nil || js.Problems == 0 || len(js.Checks) < 8 {
+	if err := json.Unmarshal([]byte(out), &js); err != nil || js.Problems == 0 || js.Warnings == nil || len(js.Checks) < 8 {
 		t.Fatalf("json: %v %s", err, out)
 	}
 }

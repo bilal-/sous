@@ -108,17 +108,9 @@ func ghFailingChecks(account string) ([]Hit, error) {
 // Review requests are left to the review search. The state is the thread's
 // last update, so new activity ends a snooze.
 func ghNotifications(account string) ([]Hit, error) {
-	// participating: only threads you take part in, which covers mentions
-	// and assignments and keeps a busy account to a few pages.
-	out, err := tracker.GHRun(account, "api", "--hostname", tracker.GitHubHost, "--method", "GET", "--paginate", "--slurp", "notifications", "-F", "per_page=100", "-F", "participating=true")
+	out, err := tracker.GHNotifications(account)
 	if err != nil {
-		switch msg := err.Error(); {
-		case strings.Contains(msg, "403"), strings.Contains(msg, "404"):
-			return nil, fmt.Errorf("notifications: %v (they need a classic token with the notifications scope: gh auth refresh -s notifications)", err)
-		case strings.Contains(msg, "slurp"):
-			return nil, fmt.Errorf("notifications: %v (they need gh 2.48 or newer)", err)
-		}
-		return nil, fmt.Errorf("notifications: %w", err)
+		return nil, err
 	}
 	var pages [][]struct {
 		Reason    string    `json:"reason"`
