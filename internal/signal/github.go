@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bilal-/sous/internal/config"
@@ -103,6 +104,55 @@ func ghFailingChecks(account string) ([]Hit, error) {
 	return hits, nil
 }
 
+// ghNotifications: unread notifications addressed to you, one per thread:
+// mentions, team mentions and assignments on issues and pull requests.
+// Review requests are left to the review search. The state is the thread's
+// last update, so new activity ends a snooze.
+func ghNotifications(account string) ([]Hit, error) {
+	out, err := tracker.GHRun(account, "api", "--hostname", tracker.GitHubHost, "--method", "GET", "--paginate", "--slurp", "notifications", "-F", "per_page=100")
+	if err != nil {
+		if strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "404") {
+			return nil, fmt.Errorf("notifications: %v (they need a classic token with the notifications scope: gh auth refresh -s notifications)", err)
+		}
+		return nil, fmt.Errorf("notifications: %w", err)
+	}
+	var pages [][]struct {
+		Reason    string    `json:"reason"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Repo      struct {
+			FullName string `json:"full_name"`
+		} `json:"repository"`
+		Subject struct {
+			Type  string  `json:"type"`
+			URL   *string `json:"url"`
+			Title string  `json:"title"`
+		} `json:"subject"`
+	}
+	if err := json.Unmarshal(out, &pages); err != nil {
+		return nil, fmt.Errorf("notifications: %w", err)
+	}
+	var hits []Hit
+	for _, page := range pages {
+		for _, n := range page {
+			label, ok := noticeLabels[n.Reason]
+			item, isItem := noticeItems[n.Subject.Type]
+			if !ok || !isItem || n.Subject.URL == nil {
+				continue
+			}
+			num := (*n.Subject.URL)[strings.LastIndex(*n.Subject.URL, "/")+1:]
+			hits = append(hits, Hit{Repo: n.Repo.FullName, Number: num, Title: n.Subject.Title, Updated: n.UpdatedAt,
+				State: n.UpdatedAt.UTC().Format(time.RFC3339), Label: label, Item: item})
+		}
+	}
+	return hits, nil
+}
+
+// noticeLabels: the notification reasons that are addressed to you.
+var noticeLabels = map[string]string{"mention": "mentioned", "team_mention": "team mentioned", "assign": "assigned"}
+
+// noticeItems: the notification subjects sous shows, and how it names them.
+var noticeItems = map[string]string{"Issue": "issue #", "PullRequest": "PR #"}
+
 // checksPage is how many of your open pull requests one checks search reads.
 const checksPage = 100
 
@@ -129,6 +179,7 @@ func ScanGitHub(cfg *config.Config) Scanner {
 			{Key: "review", Label: "review requested", Item: "PR #", Fetch: func(a string) ([]Hit, error) { return ghSearch(a, "--review-requested=@me") }},
 			{Key: "changes", Label: "changes requested", Item: "PR #", Fetch: func(a string) ([]Hit, error) { return ghSearch(a, "--author=@me", "--review=changes_requested") }},
 			{Key: "checks", Label: "checks failing", Item: "PR #", Fetch: ghFailingChecks},
+			{Key: "notice", Fetch: ghNotifications},
 		},
 	}.Scan
 }

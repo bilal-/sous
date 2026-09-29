@@ -1,6 +1,7 @@
 package signal
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -25,6 +26,9 @@ type Hit struct {
 	Title   string
 	Updated time.Time
 	State   string // optional fingerprint (a PR's head commit): a change ends a snooze
+	// Label and Item override the query's, for a query whose results say
+	// different things ("mentioned", "assigned"; "issue #", "PR #").
+	Label, Item string
 }
 
 // Query is one search a tracker runs, per identity.
@@ -137,7 +141,7 @@ func (rs RemoteScanner) signal(q Query, h Hit, byRepo map[string]string) (Signal
 	}
 	ref := tracker.Ref{Tracker: rs.Name, Host: host, Repo: h.Repo, Number: h.Number, MR: rs.MR}.String()
 	return Signal{ID: ID(p, fmt.Sprintf("%s:%s:%s", rs.Name, q.Key, h.Number)), Project: p, Kind: kind,
-		Text: fmt.Sprintf("%s · %s%s %s", q.Label, q.Item, h.Number, h.Title), Observed: h.Updated, Ref: &ref, State: h.State}, true
+		Text: fmt.Sprintf("%s · %s%s %s", cmp.Or(h.Label, q.Label), cmp.Or(h.Item, q.Item), h.Number, h.Title), Observed: h.Updated, Ref: &ref, State: h.State}, true
 }
 
 func as(identity string) string {
