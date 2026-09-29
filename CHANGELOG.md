@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.1.1]
+
 ### Fixed
 * Ticking a box in FOLLOWUPS.md changes one character in place, so a crash
   can never empty the file, and Windows line endings survive.
@@ -42,7 +44,7 @@ upgraded, never broken.
   one place: `refresh_hours` in config.toml. Run `sous setup` to update the
   snippet.
 * `sous projects` has a header. A board from another day shows the date.
-* The README has status badges and says plainly that sous is a solo hobby project.
+* The README explains why sous matters, with use cases and diagrams, has status badges, and says plainly that sous is a solo hobby project.
 
 ## [0.1.0]
 

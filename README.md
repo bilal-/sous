@@ -21,7 +21,7 @@ sous · 2 on you · 1 on others · 3 unfinished
 
   on you
   s:0b4ac59dfd33  app-next           review requested · PR #14 json api            2d
-  1               billing            send the pricing copy to Sam             6d
+  1               billing            send the pricing copy to Sam                  6d
 
   on others
   2               mobile-app         waiting on app store review                   4d
@@ -37,6 +37,82 @@ sous · 2 on you · 1 on others · 3 unfinished
 marked as yours. **On others** is what you are waiting for. **Unfinished** is
 work you left behind in git: uncommitted files, unpushed commits, stashes.
 Every row says how long it has been waiting.
+
+## Why it matters
+
+You already have places that track work: GitHub, GitLab, issue trackers, a
+notes app, your own memory. Each one knows a slice, and each one has to be
+opened to be useful. The work that slips is the work nobody reminds you
+about: the review someone asked for on Tuesday, the branch you never
+pushed, the "I'll fix that later" from a project you have not opened in two
+weeks.
+
+sous pulls those slices into one list and puts it where you already look:
+your terminal and your AI agent. You do not have to remember to check it.
+
+```mermaid
+flowchart LR
+    git[git in every project] --> sous
+    gh[GitHub reviews] --> sous
+    gl[GitLab merge requests] --> sous
+    notes[your own notes] --> sous
+    sous[(sous board)] --> shell[new terminal]
+    sous --> agent[agent session starts]
+    sous --> menu[menu bar]
+    shell --> pick{you pick one}
+    agent --> pick
+    menu --> pick
+    pick -->|sous go api| work[agent starts in that project,<br/>already knowing where you left off]
+```
+
+### A few days with sous
+
+**Monday morning.** You open a terminal and the board is already there:
+two reviews waiting on you, a note you left on Friday, and a branch in a
+project you forgot about with six unpushed commits. You pick the review,
+type `sous go app-next`, and your agent starts in that project with a
+summary of where things stand.
+
+**In the middle of something else.** You are deep in the API and remember
+the billing page needs new copy. Instead of switching, you type
+`sous note -p billing -k me "update the pricing copy"` and keep going. It
+will be on the board tomorrow.
+
+**Waiting on someone.** You sent a design to Sam for sign off. You note it
+with `-k them`. It sits under "on others" with a growing age, so you notice
+when it has been a week and it is time to nudge.
+
+**Coming back after two weeks.** You open a project you have not touched
+in a while and run `sous here`: the branch, the last commit, how your last
+agent session ended, and the ideas you left for later. Five seconds instead
+of twenty minutes of digging.
+
+**Your agent keeps notes for you.** In Claude Code you say "remind me to
+write the migration test for billing". The agent runs `sous note` for you.
+It never files anything where others can see without asking first.
+
+**Friday.** `sous report --week --open` shows what you closed, where you
+spent your time, and what is still waiting.
+
+### Notes stay yours until you share them
+
+```mermaid
+flowchart LR
+    note[sous note] --> private[private note<br/>only you see it]
+    private -->|sous file| tracker[project tracker<br/>FOLLOWUPS.md, GitHub or GitLab]
+    tracker -->|closed there| closed[closes in sous too]
+    private -->|sous done| done[closed]
+```
+
+### Who it is for
+
+* You work across many projects, often with AI agents, and lose track of
+  what is waiting where.
+* You live in the terminal, or at least start your agents from one.
+* You want a nudge, not another tool to manage.
+
+It is probably not for you if you mostly work in one project, or if your
+team already runs everything through one tracker that you check every day.
 
 ## What sous is, and is not
 
