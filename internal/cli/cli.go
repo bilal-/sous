@@ -107,7 +107,9 @@ func (e *Env) close() {
 func (e *Env) writeJSON(v any) int {
 	enc := json.NewEncoder(e.Stdout)
 	enc.SetIndent("", "  ")
-	enc.Encode(v)
+	if err := enc.Encode(v); err != nil {
+		return fail(e, 1, "%v", err)
+	}
 	return 0
 }
 

@@ -2,9 +2,7 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 
 	"github.com/bilal-/sous/internal/report"
@@ -12,21 +10,13 @@ import (
 	"github.com/bilal-/sous/internal/thread"
 )
 
-// cmdReport: sous report [--week] [--open]. Default window is since the
-// last report (24 h on the first run); --week is the last 7 days and does
-// not move the marker.
+// cmdReport: sous report [--week] [--open]. A report counts as seen, and
+// the next starts from it, only once it was actually shown.
 func cmdReport(e *Env, a argv) int {
-	week, open := a.has("week"), a.has("open")
-	now := time.Now()
-	since := now.Add(-24 * time.Hour)
-	last, ok, err := report.LastTaken(e.store())
+	week, now := a.has("week"), time.Now()
+	since, err := report.Window(e.store(), now, week)
 	if err != nil {
 		return fail(e, 1, "%v", err)
-	}
-	if week {
-		since = now.Add(-7 * 24 * time.Hour)
-	} else if ok {
-		since = last
 	}
 	d, code := buildBoard(e, nil)
 	if code != 0 {
@@ -41,45 +31,39 @@ func cmdReport(e *Env, a argv) int {
 		return fail(e, 1, "%v", err)
 	}
 	r := report.Build(d, closed, sessions, since, now)
-	code = 0
+	seen := true
 	switch {
 	case e.JSON:
 		code = e.writeJSON(r)
-	case open:
-		code = openReport(e, r)
+	case a.has("open"):
+		code, seen = openReport(e, r)
 	default:
 		report.Render(e.Stdout, r)
 	}
-	// Only a report that was shown has been taken; --week never moves it.
-	if code == 0 && !week {
-		if err := report.MarkTaken(e.store(), now); err != nil {
+	if code == 0 && seen {
+		if err := report.Take(e.store(), now, week); err != nil {
 			return fail(e, 1, "%v", err)
 		}
 	}
 	return code
 }
 
-// openReport writes the page to $SOUS_HOME/report.html and opens it with
-// the platform opener. The page is a static file: no server is started.
-func openReport(e *Env, r report.Report) int {
-	page := filepath.Join(e.Home, "report.html")
-	f, err := os.Create(page)
+// openReport writes the page and opens it with the platform opener. When
+// no opener works the path is printed, and the report does not count as
+// seen yet.
+func openReport(e *Env, r report.Report) (code int, seen bool) {
+	page, err := report.WritePage(e.Home, r)
 	if err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, 1, "%v", err), false
 	}
-	if err := report.RenderHTML(f, r); err != nil {
-		f.Close()
-		return fail(e, 1, "%v", err)
-	}
-	f.Close()
 	opener := "open" // macOS
 	if _, err := exec.LookPath(opener); err != nil {
 		opener = "xdg-open"
 	}
 	if err := exec.Command(opener, page).Run(); err != nil {
 		fmt.Fprintf(e.Stdout, "report written to %s\n", page)
-		return 0
+		return 0, false
 	}
 	fmt.Fprintf(e.Stderr, "→ %s\n", page)
-	return 0
+	return 0, true
 }
