@@ -205,3 +205,16 @@ func TestMigrateV1GivesEveryNoteAUID(t *testing.T) {
 		t.Fatalf("new notes get their own uid: %+v", th)
 	}
 }
+
+// Upgrading is done in memory on every read until the next write, so the
+// uid given to an existing note must be the same every time.
+func TestMigratedUIDIsTheSameOnEveryRead(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	v1 := `{"version":1,"next_id":2,"threads":[{"id":1,"project":"/p","text":"a","kind":"me","since":"2026-01-01T00:00:00Z","source":"human"}]}`
+	os.WriteFile(filepath.Join(s.Home, "threads.json"), []byte(v1), 0o644)
+	a, _ := store.Load[Doc](s, "threads", Migrator{})
+	b, _ := store.Load[Doc](s, "threads", Migrator{})
+	if a.Threads[0].UID == "" || a.Threads[0].UID != b.Threads[0].UID {
+		t.Fatalf("%q vs %q", a.Threads[0].UID, b.Threads[0].UID)
+	}
+}
