@@ -44,6 +44,8 @@ type runMeta struct {
 	Session  string        `json:"session,omitempty"`
 	Answer   string        `json:"answer,omitempty"` // the reply the next watcher passes on
 	Limit    time.Duration `json:"limit"`
+	// GitDirs: the folders outside the worktree that a commit writes to.
+	GitDirs []string `json:"git_dirs,omitempty"`
 }
 
 func (a *Agent) dir(uid string) string { return filepath.Join(a.Home, "runs", uid) }
@@ -99,6 +101,7 @@ func (a *Agent) Start(req Request) (string, error) {
 		os.RemoveAll(dir)
 		return "", fmt.Errorf("making the worktree: %s", strings.TrimSpace(string(out)))
 	}
+	m.GitDirs = commitDirs(m.Worktree)
 	if err := writeJSON(dir, "run.json", m); err != nil {
 		return "", err
 	}
@@ -107,6 +110,18 @@ func (a *Agent) Start(req Request) (string, error) {
 		return "", err
 	}
 	return ref, a.launch(dir, false, lock)
+}
+
+// commitDirs: where a commit in worktree writes, outside it: the shared
+// objects, refs and logs, and the worktree's own git folder.
+func commitDirs(worktree string) []string {
+	common, err1 := exec.Command("git", "-C", worktree, "rev-parse", "--path-format=absolute", "--git-common-dir").Output()
+	own, err2 := exec.Command("git", "-C", worktree, "rev-parse", "--absolute-git-dir").Output()
+	if err1 != nil || err2 != nil {
+		return nil
+	}
+	c := strings.TrimSpace(string(common))
+	return []string{filepath.Join(c, "objects"), filepath.Join(c, "refs"), filepath.Join(c, "logs"), strings.TrimSpace(string(own))}
 }
 
 // uncommitted: the worktree has changes git has not recorded, the agent's

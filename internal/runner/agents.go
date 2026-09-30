@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -27,10 +28,10 @@ var clis = map[string]cli{
 	"claude": {
 		bin: "claude",
 		start: func(m runMeta) []string {
-			return []string{"-p", "--output-format", "json", "--permission-mode", "acceptEdits", "--", m.Prompt}
+			return append(claudeArgs(), "--", m.Prompt)
 		},
 		resume: func(m runMeta) []string {
-			return []string{"-p", "--output-format", "json", "--permission-mode", "acceptEdits", "--resume", m.Session, "--", m.Answer}
+			return append(claudeArgs(), "--resume", m.Session, "--", m.Answer)
 		},
 		session: func(log []byte) string { return claudeResult(log).SessionID },
 		last:    func(_ string, log []byte) string { return claudeResult(log).Result },
@@ -38,10 +39,10 @@ var clis = map[string]cli{
 	"codex": {
 		bin: "codex",
 		start: func(m runMeta) []string {
-			return []string{"exec", "--json", "--sandbox", "workspace-write", "-o", lastFile(m.Worktree), "--", m.Prompt}
+			return append([]string{"exec"}, append(codexArgs(m), "--", m.Prompt)...)
 		},
 		resume: func(m runMeta) []string {
-			return []string{"exec", "resume", "--json", "-c", `sandbox_mode="workspace-write"`, "-o", lastFile(m.Worktree), "--", m.Session, m.Answer}
+			return append([]string{"exec", "resume"}, append(codexArgs(m), "--", m.Session, m.Answer)...)
 		},
 		session: func(log []byte) string {
 			if m := codexThread.FindSubmatch(log); m != nil {
@@ -56,6 +57,29 @@ var clis = map[string]cli{
 // lastFile is where Codex writes its last message: the run folder, beside
 // the worktree, so the agent never sees or commits it.
 func lastFile(worktree string) string { return filepath.Join(filepath.Dir(worktree), "last.txt") }
+
+// claudeArgs: headless, file edits accepted, and the git commands that
+// commit on the run's branch allowed (a reply cannot grant a permission, so
+// without them a run could never commit). Everything else follows the
+// person's own Claude settings.
+func claudeArgs() []string {
+	return []string{"-p", "--output-format", "json", "--permission-mode", "acceptEdits",
+		"--allowedTools", "Bash(git add:*)", "Bash(git commit:*)", "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)"}
+}
+
+// codexArgs: the workspace-write sandbox, plus git's objects, refs and logs
+// and this worktree's own git folder, which committing writes to and which
+// live in the project, outside the worktree. Never the repo's hooks or
+// config, which would reach the person's own commits.
+func codexArgs(m runMeta) []string {
+	var roots []string
+	for _, d := range m.GitDirs {
+		roots = append(roots, strconv.Quote(d))
+	}
+	return []string{"--json", "-c", `sandbox_mode="workspace-write"`,
+		"-c", "sandbox_workspace_write.writable_roots=[" + strings.Join(roots, ",") + "]",
+		"-o", lastFile(m.Worktree)}
+}
 
 var codexThread = regexp.MustCompile(`"(?:thread_id|session_id)"\s*:\s*"([^"]+)"`)
 

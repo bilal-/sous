@@ -335,3 +335,34 @@ func TestConcurrentStartsOfOneRun(t *testing.T) {
 		t.Fatalf("watchers: %s", b)
 	}
 }
+
+// Real runs showed a reply cannot grant permissions, so each agent is given
+// exactly what committing on its own branch needs, and no more: Claude the
+// git commands that commit, Codex git's objects, refs and logs and this
+// worktree's own folder (never the repo's hooks or config).
+func TestAgentsMayCommitAndNoMore(t *testing.T) {
+	for _, name := range BuiltinNames() {
+		a, ref, dir := startedRun(t, name, time.Minute)
+		testutil.FakeBin(t, name, `for x in "$@"; do echo "$x"; done > args; printf '{"result":"SOUS: needs you q","session_id":"s"}\n'; echo '{"thread_id":"s"}'`)
+		var m runMeta
+		readJSON(dir, "run.json", &m)
+		for _, resume := range []bool{false, true} {
+			if resume {
+				a.Reply("", ref, "go on")
+			}
+			a.Watch(dir, resume)
+			args := readString(m.Worktree, "args")
+			common := filepath.Join(m.Project, ".git")
+			switch name {
+			case "claude":
+				if !strings.Contains(args, "Bash(git commit:*)") || strings.Contains(args, "Bash(git push") || strings.Contains(args, "Bash(git:*)") {
+					t.Errorf("claude resume=%v: %s", resume, args)
+				}
+			case "codex":
+				if !strings.Contains(args, "sandbox_workspace_write.writable_roots") || !strings.Contains(args, common+"/objects") || strings.Contains(args, common+"/hooks") || strings.Contains(args, `"`+common+`"`) {
+					t.Errorf("codex resume=%v: %s", resume, args)
+				}
+			}
+		}
+	}
+}

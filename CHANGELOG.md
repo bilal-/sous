@@ -19,7 +19,8 @@ upgraded, never broken.
 * `sous done <n> --clean`: for a run, also remove its worktree.
 * The built in `claude` and `codex` runners: each starts one agent in a new
   git worktree on a branch `sous/run-<n>`, with the permissions you already
-  gave it, never pushes, and stops after `run_minutes` (60 by default).
+  gave it plus what committing on that branch needs, never pushes, and
+  stops after `run_minutes` (60 by default).
 * The runner contract, a fourth kind of plugin (`sous-runner-<name>`), and
   `runnertest`, its conformance suite.
 * `sous doctor` checks the agent each built in runner needs.

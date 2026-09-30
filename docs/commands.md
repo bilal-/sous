@@ -292,11 +292,13 @@ run's number, and the command to check on it:
 
 The built in runners work in a new git worktree, on a branch named
 `sous/run-7`, so your own checkout is never touched. They never push: the
-branch waits for you. An agent that cannot commit (Codex's sandbox keeps
-git's own files read only) leaves its changes in the worktree, and the
-run's status says "changes not committed". The agent gets the permissions you already gave it
-(Claude accepts file edits and the tools your Claude settings allow; Codex
-works in its workspace sandbox), and asks you for anything more. A run may
+branch waits for you. An agent that could not commit leaves its changes in
+the worktree, and the run's status says "changes not committed". The agent gets the permissions you already gave it,
+plus what committing on its own branch needs: Claude accepts file edits,
+may run `git add`, `git commit`, `git status`, `git diff` and `git log`,
+and otherwise follows your Claude settings; Codex works in its workspace
+sandbox, which may also write git's objects, refs and logs, but never your
+repo's hooks or settings. For anything more, the agent asks you. A run may
 take `run_minutes` (60 by default) before it is stopped. A run going when
 your computer restarts shows as failed, "stopped without a result": the
 built in runners do one thing, and never resume. For work that must
