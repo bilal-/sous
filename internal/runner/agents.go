@@ -2,6 +2,7 @@ package runner
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -36,10 +37,10 @@ var clis = map[string]cli{
 	"codex": {
 		bin: "codex",
 		start: func(m runMeta) []string {
-			return []string{"exec", "--json", "--sandbox", "workspace-write", "-o", "last.txt", m.Prompt}
+			return []string{"exec", "--json", "--sandbox", "workspace-write", "-o", lastFile(m.Worktree), m.Prompt}
 		},
 		resume: func(m runMeta) []string {
-			return []string{"exec", "resume", "--json", "-c", `sandbox_mode="workspace-write"`, "-o", "last.txt", m.Session, m.Answer}
+			return []string{"exec", "resume", "--json", "-c", `sandbox_mode="workspace-write"`, "-o", lastFile(m.Worktree), m.Session, m.Answer}
 		},
 		session: func(log []byte) string {
 			if m := codexThread.FindSubmatch(log); m != nil {
@@ -47,9 +48,13 @@ var clis = map[string]cli{
 			}
 			return ""
 		},
-		last: func(worktree string, _ []byte) string { return readString(worktree, "last.txt") },
+		last: func(worktree string, _ []byte) string { return readString(filepath.Dir(worktree), "last.txt") },
 	},
 }
+
+// lastFile is where Codex writes its last message: the run folder, beside
+// the worktree, so the agent never sees or commits it.
+func lastFile(worktree string) string { return filepath.Join(filepath.Dir(worktree), "last.txt") }
 
 var codexThread = regexp.MustCompile(`"(?:thread_id|session_id)"\s*:\s*"([^"]+)"`)
 

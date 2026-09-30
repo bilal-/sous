@@ -1,0 +1,150 @@
+package runner
+
+import (
+	"cmp"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+)
+
+// result is result.json: how the agent ended.
+type result struct {
+	Exit    int       `json:"exit"`
+	Message string    `json:"message,omitempty"`
+	Session string    `json:"session,omitempty"`
+	Reason  string    `json:"reason,omitempty"` // why it ended without the agent saying: out of time
+	Stopped bool      `json:"stopped,omitempty"`
+	Ended   time.Time `json:"ended"`
+}
+
+// Watch runs the agent for one run (or, with resume, carries on after a
+// reply) and records how it ended. It is the only process that waits on
+// the agent, and it exits when the agent does.
+func (a *Agent) Watch(dir string, resume bool) error {
+	var m runMeta
+	if err := readJSON(dir, "run.json", &m); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "watcher.pid"), []byte(strconv.Itoa(os.Getpid())), 0o600); err != nil {
+		return err
+	}
+	logf, err := os.OpenFile(filepath.Join(dir, "log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return err
+	}
+	defer logf.Close()
+	start, _ := logf.Seek(0, io.SeekEnd)
+	args := a.cli.start(m)
+	if resume {
+		args = a.cli.resume(m)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), m.Limit)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, a.cli.bin, args...)
+	cmd.Dir = m.Worktree
+	cmd.Env = append(os.Environ(), pushBlock()...)
+	cmd.Stdout, cmd.Stderr = logf, logf
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	cmd.WaitDelay = 2 * time.Second
+	runErr := cmd.Run()
+	r := result{Ended: time.Now().UTC()}
+	var ee *exec.ExitError
+	switch {
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
+		r.Exit, r.Reason = -1, fmt.Sprintf("ran out of time (%s)", m.Limit)
+	case errors.As(runErr, &ee):
+		r.Exit = ee.ExitCode()
+	case runErr != nil:
+		r.Exit, r.Reason = -1, runErr.Error()
+	}
+	out, _ := os.ReadFile(filepath.Join(dir, "log"))
+	out = out[min(int(start), len(out)):] // this attempt's output only
+	r.Session = a.cli.session(out)
+	r.Message = a.cli.last(m.Worktree, out)
+	if r.Session != "" {
+		m.Session, m.Answer = r.Session, ""
+		if err := writeJSON(dir, "run.json", m); err != nil {
+			return err
+		}
+	}
+	return writeJSON(dir, "result.json", r)
+}
+
+// Status reads the run folder; it never asks the agent anything.
+func (a *Agent) Status(_, ref string) (Status, error) {
+	dir, m, err := a.meta(ref)
+	if err != nil {
+		return Status{}, err
+	}
+	st := Status{Branch: m.Branch, Worktree: m.Worktree, Log: filepath.Join(dir, "log")}
+	var r result
+	if readJSON(dir, "result.json", &r) != nil {
+		if watcherAlive(dir) {
+			st.State = Running
+		} else {
+			st.State, st.Text = Failed, "stopped without a result"
+		}
+		return st, nil
+	}
+	state, text := parseMarker(r.Message)
+	switch {
+	case r.Stopped:
+		st.State, st.Text = Failed, "stopped"
+	case r.Reason != "":
+		st.State, st.Text = Failed, r.Reason
+	case state != "":
+		st.State, st.Text = state, text
+	case r.Exit == 0:
+		st.State, st.Text = Done, lastLine(r.Message)
+	default: // the agent's own last words, else the log's
+		st.State, st.Text = Failed, fmt.Sprintf("exit %d: %s", r.Exit, lastLine(cmp.Or(r.Message, tail(filepath.Join(dir, "log")))))
+	}
+	return st, nil
+}
+
+// parseMarker reads the last "SOUS:" line of the agent's last message.
+func parseMarker(msg string) (State, string) {
+	lines := strings.Split(msg, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		rest, ok := strings.CutPrefix(strings.TrimSpace(lines[i]), "SOUS:")
+		if !ok {
+			continue
+		}
+		rest = strings.TrimSpace(rest)
+		if t, ok := strings.CutPrefix(rest, "needs you"); ok {
+			return NeedsYou, strings.TrimSpace(t)
+		}
+		if t, ok := strings.CutPrefix(rest, "done"); ok {
+			return Done, strings.TrimSpace(t)
+		}
+	}
+	return "", ""
+}
+
+func watcherAlive(dir string) bool {
+	pid, err := strconv.Atoi(readString(dir, "watcher.pid"))
+	return err == nil && pid > 0 && syscall.Kill(pid, 0) == nil
+}
+
+func lastLine(s string) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	return strings.TrimSpace(lines[len(lines)-1])
+}
+
+// tail is the end of a file, for a failure's last words.
+func tail(path string) string {
+	b, _ := os.ReadFile(path)
+	if len(b) > 4096 {
+		b = b[len(b)-4096:]
+	}
+	return string(b)
+}

@@ -133,13 +133,34 @@ func writeJSON(dir, name string, v any) error {
 	return os.Rename(tmp, filepath.Join(dir, name))
 }
 
+func readJSON(dir, name string, v any) error {
+	b, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, v)
+}
+
+// meta reads a run this runner made, by its ref.
+func (a *Agent) meta(ref string) (string, runMeta, error) {
+	var m runMeta
+	uid, err := a.uidOf(ref)
+	if err != nil {
+		return "", m, err
+	}
+	dir := a.dir(uid)
+	if err := readJSON(dir, "run.json", &m); err != nil {
+		return "", m, fmt.Errorf("no run %s here", ref)
+	}
+	return dir, m, nil
+}
+
 func readString(dir, name string) string {
 	b, _ := os.ReadFile(filepath.Join(dir, name))
 	return strings.TrimSpace(string(b))
 }
 
 // Filled in by the watcher's task and the next.
-func (a *Agent) Status(project, ref string) (Status, error) { return Status{}, errors.New("not yet") }
-func (a *Agent) Reply(project, ref, answer string) error    { return errors.New("not yet") }
-func (a *Agent) Stop(project, ref string) error             { return errors.New("not yet") }
-func (a *Agent) Clean(project, ref string) error            { return errors.New("not yet") }
+func (a *Agent) Reply(project, ref, answer string) error { return errors.New("not yet") }
+func (a *Agent) Stop(project, ref string) error          { return errors.New("not yet") }
+func (a *Agent) Clean(project, ref string) error         { return errors.New("not yet") }
