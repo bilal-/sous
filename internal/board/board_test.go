@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -233,5 +234,15 @@ func TestRunsAreRoutedByState(t *testing.T) {
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("missing %q in\n%s", want, b.String())
 		}
+	}
+}
+
+// Review fix: a run whose state could not be read makes the headline say ?.
+func TestRunStatusUnavailableIsAGap(t *testing.T) {
+	now := time.Now()
+	v := thread.View{Thread: thread.Thread{ID: 1, Project: "/code/acme/billing", Text: "t", Kind: thread.Them, Since: now, Run: &thread.Run{Runner: "orchid", State: "running"}}, RunErr: "orchid: timed out"}
+	s := Classify(&Data{Checked: 1, RenderedAt: now, Threads: []thread.View{v}})
+	if !slices.Contains(s.Why, "run status unavailable") {
+		t.Fatalf("%q", s.Why)
 	}
 }

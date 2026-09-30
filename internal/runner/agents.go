@@ -19,17 +19,18 @@ type cli struct {
 	last    func(worktree string, log []byte) string
 }
 
-// The permissions are the person's own (spec: what the agent may do):
+// Every prompt follows "--", so text that starts with a dash is never
+// read as a flag. The permissions are the person's own (spec: what the agent may do):
 // Claude accepts file edits and the tools its settings allow; Codex runs in
 // its workspace-write sandbox. Neither skips permission checks.
 var clis = map[string]cli{
 	"claude": {
 		bin: "claude",
 		start: func(m runMeta) []string {
-			return []string{"-p", "--output-format", "json", "--permission-mode", "acceptEdits", m.Prompt}
+			return []string{"-p", "--output-format", "json", "--permission-mode", "acceptEdits", "--", m.Prompt}
 		},
 		resume: func(m runMeta) []string {
-			return []string{"-p", "--output-format", "json", "--permission-mode", "acceptEdits", "--resume", m.Session, m.Answer}
+			return []string{"-p", "--output-format", "json", "--permission-mode", "acceptEdits", "--resume", m.Session, "--", m.Answer}
 		},
 		session: func(log []byte) string { return claudeResult(log).SessionID },
 		last:    func(_ string, log []byte) string { return claudeResult(log).Result },
@@ -37,10 +38,10 @@ var clis = map[string]cli{
 	"codex": {
 		bin: "codex",
 		start: func(m runMeta) []string {
-			return []string{"exec", "--json", "--sandbox", "workspace-write", "-o", lastFile(m.Worktree), m.Prompt}
+			return []string{"exec", "--json", "--sandbox", "workspace-write", "-o", lastFile(m.Worktree), "--", m.Prompt}
 		},
 		resume: func(m runMeta) []string {
-			return []string{"exec", "resume", "--json", "-c", `sandbox_mode="workspace-write"`, "-o", lastFile(m.Worktree), m.Session, m.Answer}
+			return []string{"exec", "resume", "--json", "-c", `sandbox_mode="workspace-write"`, "-o", lastFile(m.Worktree), "--", m.Session, m.Answer}
 		},
 		session: func(log []byte) string {
 			if m := codexThread.FindSubmatch(log); m != nil {

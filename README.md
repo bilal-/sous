@@ -313,7 +313,8 @@ Later, when you open a new session, your agent hears it first:
 
 You answer in plain words, your agent runs `sous reply 7 "…"`, and the run
 carries on. When it is done, the board says `run done, review it` with the
-branch to look at. The run never pushes. When you are finished with it,
+branch to look at, or says the changes are waiting, not yet committed, in
+its worktree. The run never pushes. When you are finished with it,
 `sous done 7 --clean`.
 
 ## Use it with your AI agent

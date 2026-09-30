@@ -277,6 +277,12 @@ func TestNoteRunIsIdempotentByKey(t *testing.T) {
 	if len(rs) != 2 {
 		t.Fatalf("open runs: %d", len(rs))
 	}
+	// A run that never started does not hold its key: a retry retries.
+	failed, _, _ := NoteRun(s, p, "x", "retry", "claude", "", now)
+	SetRun(s, failed, func(r *Run) { r.State, r.Text = "failed", "did not start: no claude" })
+	if again, existed, _ := NoteRun(s, p, "x", "retry", "claude", "", now); existed || again == failed {
+		t.Fatalf("a failed start kept its key: %d %v", again, existed)
+	}
 	if _, _, err := NoteRun(s, p, "  \n ", "", "claude", "", now); err == nil {
 		t.Fatal("an empty brief is refused")
 	}

@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 	"io"
+	"slices"
 	"time"
 )
 
@@ -19,7 +20,9 @@ func Door(home, exe string, limit time.Duration, args []string, stdin io.Reader,
 		return 2
 	}
 	if args[1] == "watch" && len(args) >= 3 {
-		if err := a.Watch(args[2], len(args) == 4 && args[3] == "--resume"); err != nil {
+		// The run's lock arrives as fd 3 (launch hands it over). The agent
+		// inherits it too, so the run reads as working while either lives.
+		if err := a.Watch(args[2], slices.Contains(args, "--resume")); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}

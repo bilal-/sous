@@ -199,7 +199,8 @@ For a run, `done` also stops the agent if it is still working. Its branch
 and worktree stay, for you to look at or merge.
 
 * `--clean`: for a run, also remove its worktree. Its branch stays when it
-  has commits, so no work is lost.
+  has commits, and a worktree with changes not yet committed is never
+  removed: `done` says so and leaves the note open, so no work is lost.
 
 ## Sharing a note
 
@@ -291,7 +292,9 @@ run's number, and the command to check on it:
 
 The built in runners work in a new git worktree, on a branch named
 `sous/run-7`, so your own checkout is never touched. They never push: the
-branch waits for you. The agent gets the permissions you already gave it
+branch waits for you. An agent that cannot commit (Codex's sandbox keeps
+git's own files read only) leaves its changes in the worktree, and the
+run's status says "changes not committed". The agent gets the permissions you already gave it
 (Claude accepts file edits and the tools your Claude settings allow; Codex
 works in its workspace sandbox), and asks you for anything more. A run may
 take `run_minutes` (60 by default) before it is stopped. A run going when
@@ -317,7 +320,8 @@ brief.
 ### `sous done <n> --clean` for a run
 
 Stops the run if it is still working, closes it, and removes its worktree.
-Its branch stays when it has commits.
+Its branch stays when it has commits. A worktree with changes not yet
+committed is kept, and the note stays open, until you commit or copy them.
 
 ## Setting up
 

@@ -58,7 +58,8 @@ func (a *Agent) uidOf(ref string) (string, error) {
 }
 
 const preamble = `You are working alone, in a git worktree made for this task, on branch %s.
-Commit your work on this branch. Never push.
+Commit your work on this branch if you can; if you cannot, leave it in
+the worktree and say so. Never push.
 If you need to do something you are not allowed to do, stop and ask for it.
 End your last message with one line:
 SOUS: done <one line summary of what you did>
@@ -84,7 +85,12 @@ func (a *Agent) Start(req Request) (string, error) {
 	if out, err := exec.Command("git", "-C", req.Project, "rev-parse", "--show-toplevel").CombinedOutput(); err != nil {
 		return "", fmt.Errorf("%s is not a git repository, so there is nowhere safe to work: %s", req.Project, strings.TrimSpace(string(out)))
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
+		return "", err
+	}
+	if err := os.Mkdir(dir, 0o700); errors.Is(err, os.ErrExist) {
+		return ref, nil // another start of this run got here first
+	} else if err != nil {
 		return "", err
 	}
 	m := runMeta{Name: a.Name, ID: req.ID, Project: req.Project, Worktree: filepath.Join(dir, "worktree"), Branch: fmt.Sprintf("sous/run-%d", req.ID), Limit: a.Limit}
@@ -96,17 +102,61 @@ func (a *Agent) Start(req Request) (string, error) {
 	if err := writeJSON(dir, "run.json", m); err != nil {
 		return "", err
 	}
-	return ref, a.launch(dir, false)
+	lock, err := lockRun(dir)
+	if err != nil {
+		return "", err
+	}
+	return ref, a.launch(dir, false, lock)
 }
 
-// launch starts the watcher, detached in its own session: it outlives this
-// call, and is the only process that waits on the agent.
-func (a *Agent) launch(dir string, resume bool) error {
-	args := []string{"runner", a.Name, "watch", dir}
+// uncommitted: the worktree has changes git has not recorded, the agent's
+// own files included.
+func uncommitted(worktree string) bool {
+	out, err := exec.Command("git", "-C", worktree, "status", "--porcelain").Output()
+	return err != nil || len(strings.TrimSpace(string(out))) > 0
+}
+
+// lockRun takes the run's lock, which only a live watcher holds: the
+// kernel lets go of it when the watcher dies, however it dies. An error
+// says the run is still working.
+func lockRun(dir string) (*os.File, error) {
+	f, err := os.OpenFile(filepath.Join(dir, "watcher.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		f.Close()
+		return nil, errWorking
+	}
+	return f, nil
+}
+
+var errWorking = errors.New("still working")
+
+// watcherAlive: someone holds the run's lock.
+func watcherAlive(dir string) bool {
+	f, err := lockRun(dir)
+	if err != nil {
+		return errors.Is(err, errWorking)
+	}
+	f.Close()
+	return false
+}
+
+// launch starts the watcher, detached in its own session, and hands it the
+// run's lock (taken by the caller), so the run is working from this moment
+// until the watcher exits. It outlives this call, and is the only process
+// that waits on the agent.
+func (a *Agent) launch(dir string, resume bool, lock *os.File) error {
+	defer lock.Close()
+	os.Remove(filepath.Join(dir, "watcher.pid"))
+	os.Remove(filepath.Join(dir, "agent.pgid"))
+	args := []string{"runner", a.Name, "watch", dir, "--lock-fd", "3"}
 	if resume {
 		args = append(args, "--resume")
 	}
 	cmd := exec.Command(a.Exe, args...)
+	cmd.ExtraFiles = []*os.File{lock}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("starting the watcher: %w", err)
@@ -114,14 +164,32 @@ func (a *Agent) launch(dir string, resume bool) error {
 	return cmd.Process.Release()
 }
 
-// pushBlock is the git environment for the agent: every push URL, whatever
-// its form, is rewritten to a scheme no git can reach, so a push fails even
-// if tried. The repository's own config is never changed.
-func pushBlock() []string {
-	prefixes := []string{"https://", "http://", "ssh://", "git://", "git@", "file://", "/"}
-	env := []string{fmt.Sprintf("GIT_CONFIG_COUNT=%d", len(prefixes))}
-	for i, p := range prefixes {
-		env = append(env, fmt.Sprintf("GIT_CONFIG_KEY_%d=url.sous-no-push::.pushInsteadOf", i), fmt.Sprintf("GIT_CONFIG_VALUE_%d=%s", i, p))
+// pushBlock is the git environment for the agent: every place a push
+// could go is rewritten to a scheme no git can reach, so a push fails even
+// if tried. It covers the usual address forms, and each of the project's
+// remotes exactly as written: a url (pushInsteadOf) and a pushurl, which
+// git only rewrites with insteadOf. Fetching still works. The repository's
+// own config is never changed.
+func pushBlock(project string) []string {
+	type rule struct{ key, prefix string }
+	var rules []rule
+	for _, p := range []string{"https://", "http://", "ssh://", "git://", "git@", "file://", "/"} {
+		rules = append(rules, rule{"pushInsteadOf", p})
+	}
+	out, _ := exec.Command("git", "-C", project, "config", "--get-regexp", `^remote\..*\.(url|pushurl)$`).Output()
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		key, url, ok := strings.Cut(line, " ")
+		switch {
+		case !ok || url == "":
+		case strings.HasSuffix(key, ".pushurl"):
+			rules = append(rules, rule{"insteadOf", url})
+		default:
+			rules = append(rules, rule{"pushInsteadOf", url})
+		}
+	}
+	env := []string{fmt.Sprintf("GIT_CONFIG_COUNT=%d", len(rules))}
+	for i, r := range rules {
+		env = append(env, fmt.Sprintf("GIT_CONFIG_KEY_%d=url.sous-no-push::.%s", i, r.key), fmt.Sprintf("GIT_CONFIG_VALUE_%d=%s", i, r.prefix))
 	}
 	return env
 }
@@ -166,47 +234,71 @@ func readString(dir, name string) string {
 }
 
 // Reply passes the answer to the agent's session, with a new watcher.
+// Holding the run's lock from the check to the launch means two quick
+// replies start one watcher.
 func (a *Agent) Reply(_, ref, answer string) error {
 	dir, m, err := a.meta(ref)
 	if err != nil {
 		return err
 	}
-	var r result
-	switch {
-	case strings.TrimSpace(answer) == "":
+	if strings.TrimSpace(answer) == "" {
 		return errors.New("the answer is empty")
-	case readJSON(dir, "result.json", &r) != nil && watcherAlive(dir):
+	}
+	lock, err := lockRun(dir)
+	if errors.Is(err, errWorking) {
 		return fmt.Errorf("run %d is still working; wait for it to ask", m.ID)
-	case m.Session == "":
+	} else if err != nil {
+		return err
+	}
+	if m.Session == "" {
+		lock.Close()
 		return errors.New("the agent never started a session, so it cannot carry on; start a new run with the answer in the brief")
 	}
 	m.Answer = answer
 	if err := writeJSON(dir, "run.json", m); err != nil {
+		lock.Close()
 		return err
 	}
 	os.Remove(filepath.Join(dir, "result.json"))
-	return a.launch(dir, true)
+	return a.launch(dir, true, lock)
 }
 
-// Stop asks the watcher to stop the agent (it records "stopped"), and
-// makes sure of it. Stopping a finished run changes nothing.
+// Stop asks the watcher to stop the agent (it records "stopped"), and makes
+// sure of it, reaching the agent's own group when the watcher is gone. It
+// signals only while the run's lock is held, which only the watcher and
+// the agent do, so a process that later got the same pid is never touched.
+// Stopping a finished run changes nothing.
 func (a *Agent) Stop(_, ref string) error {
 	dir, _, err := a.meta(ref)
 	if err != nil {
 		return err
 	}
-	var r result
-	if readJSON(dir, "result.json", &r) == nil {
-		return nil
-	}
-	if pid, err := strconv.Atoi(readString(dir, "watcher.pid")); err == nil && pid > 0 {
-		syscall.Kill(pid, syscall.SIGTERM)
-		for i := 0; i < 40 && syscall.Kill(pid, 0) == nil; i++ {
-			time.Sleep(50 * time.Millisecond)
+	signal := func(file string, sig syscall.Signal, group bool) bool {
+		pid, err := strconv.Atoi(readString(dir, file))
+		if err != nil || pid <= 0 {
+			return false
 		}
-		syscall.Kill(-pid, syscall.SIGKILL)
-		syscall.Kill(pid, syscall.SIGKILL)
+		if group {
+			pid = -pid
+		}
+		return syscall.Kill(pid, sig) == nil
 	}
+	for i := 0; i < 60 && watcherAlive(dir); i++ {
+		switch i {
+		case 0:
+			if !signal("watcher.pid", syscall.SIGTERM, false) {
+				signal("agent.pgid", syscall.SIGTERM, true) // no watcher: the agent carries on alone
+			}
+		case 40:
+			signal("agent.pgid", syscall.SIGKILL, true)
+			signal("watcher.pid", syscall.SIGKILL, false)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if watcherAlive(dir) {
+		return errors.New("the watcher did not stop")
+	}
+	var r result
 	if readJSON(dir, "result.json", &r) != nil {
 		return writeJSON(dir, "result.json", result{Exit: -1, Stopped: true, Ended: time.Now().UTC()})
 	}
@@ -220,12 +312,14 @@ func (a *Agent) Clean(_, ref string) error {
 	if err != nil {
 		return err
 	}
-	var r result
-	if readJSON(dir, "result.json", &r) != nil && watcherAlive(dir) {
+	if watcherAlive(dir) {
 		return fmt.Errorf("run %d is still working; stop it first", m.ID)
 	}
 	if _, err := os.Stat(m.Worktree); err == nil {
-		if out, err := exec.Command("git", "-C", m.Project, "worktree", "remove", "--force", m.Worktree).CombinedOutput(); err != nil {
+		if uncommitted(m.Worktree) {
+			return fmt.Errorf("run %d has work not committed in %s; commit or copy it first, then clean", m.ID, m.Worktree)
+		}
+		if out, err := exec.Command("git", "-C", m.Project, "worktree", "remove", m.Worktree).CombinedOutput(); err != nil {
 			return fmt.Errorf("removing the worktree: %s", strings.TrimSpace(string(out)))
 		}
 	}

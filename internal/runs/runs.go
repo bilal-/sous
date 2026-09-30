@@ -80,7 +80,11 @@ func (d *Dispatcher) Refresh(ctx context.Context, views []thread.View, local boo
 	var wg sync.WaitGroup
 	for i := range views {
 		v := &views[i]
-		if v.Run == nil || v.Run.Ref == "" || v.Closed != nil {
+		if v.Run == nil || v.Closed != nil {
+			continue
+		}
+		if v.Run.Ref == "" {
+			d.giveUpOnStart(v)
 			continue
 		}
 		r, err := runner.ByRef(d.Runners, v.Run.Ref)
@@ -106,6 +110,19 @@ func (d *Dispatcher) Refresh(ctx context.Context, views []thread.View, local boo
 	}
 	wg.Wait()
 	return views
+}
+
+// startGrace is how long a start may take to answer before a run with no
+// ref is taken as never started: sous stopped before the runner replied.
+const startGrace = 2 * runner.Timeout
+
+// giveUpOnStart ends a run stuck starting, so it neither sits on the board
+// forever nor holds its key.
+func (d *Dispatcher) giveUpOnStart(v *thread.View) {
+	if v.Run.State != "starting" || d.Now().Sub(v.Since) < startGrace {
+		return
+	}
+	d.record(v, runner.Status{State: runner.Failed, Text: "did not start: sous stopped before the runner answered"})
 }
 
 // record stores a status answer on the note and on its view.

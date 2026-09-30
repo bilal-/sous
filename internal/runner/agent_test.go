@@ -3,10 +3,10 @@ package runner
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -97,10 +97,20 @@ func TestStartRefusesWhatItCannotRun(t *testing.T) {
 // is untouched.
 func TestPushIsBlocked(t *testing.T) {
 	repo := gitRepo(t)
+	bare := filepath.Join(t.TempDir(), "fork.git")
+	exec.Command("git", "init", "-q", "--bare", bare).Run()
+	// A remote whose pushes go elsewhere (pushurl), and one with a user
+	// other than git: neither may slip through.
+	exec.Command("git", "-C", repo, "remote", "add", "fork", "https://example.invalid/sam/billing.git").Run()
+	exec.Command("git", "-C", repo, "config", "remote.fork.pushurl", bare).Run()
+	exec.Command("git", "-C", repo, "remote", "add", "work", "sam@example.invalid:acme/billing.git").Run()
+	rel := filepath.Join(filepath.Dir(repo), "rel.git")
+	exec.Command("git", "init", "-q", "--bare", rel).Run()
+	exec.Command("git", "-C", repo, "remote", "add", "near", "../rel.git").Run()
 	before, _ := os.ReadFile(filepath.Join(repo, ".git", "config"))
-	for _, remote := range []string{"origin", "https://example.invalid/acme/billing.git", "ssh://git@example.invalid/acme/billing.git", "git@example.invalid:acme/billing.git"} {
+	for _, remote := range []string{"origin", "fork", "work", "near", "https://example.invalid/acme/billing.git", "ssh://git@example.invalid/acme/billing.git", "git@example.invalid:acme/billing.git"} {
 		cmd := exec.Command("git", "-C", repo, "push", remote, "HEAD:refs/heads/x")
-		cmd.Env = append(os.Environ(), pushBlock()...)
+		cmd.Env = append(os.Environ(), pushBlock(repo)...)
 		out, err := cmd.CombinedOutput()
 		if err == nil || !strings.Contains(string(out), "sous-no-push") {
 			t.Errorf("push to %s: %v %s", remote, err, out)
@@ -124,11 +134,11 @@ func waitFor(t *testing.T, ok func() bool) {
 // Review Focus 5.
 func TestReplyRefusals(t *testing.T) {
 	a, ref, dir := startedRun(t, "claude", time.Minute)
-	os.WriteFile(filepath.Join(dir, "watcher.pid"), []byte(fmt.Sprint(os.Getpid())), 0o600)
+	release := holdLock(t, dir)
 	if err := a.Reply("", ref, "yes"); err == nil || !strings.Contains(err.Error(), "still working") {
 		t.Fatalf("running: %v", err)
 	}
-	os.Remove(filepath.Join(dir, "watcher.pid"))
+	release()
 	writeJSON(dir, "result.json", result{Exit: 1})
 	if err := a.Reply("", ref, "yes"); err == nil || !strings.Contains(err.Error(), "start a new run") {
 		t.Fatalf("no session: %v", err)
@@ -136,6 +146,23 @@ func TestReplyRefusals(t *testing.T) {
 	if err := a.Reply("", ref, "  "); err == nil || !strings.Contains(err.Error(), "empty") {
 		t.Fatalf("empty: %v", err)
 	}
+}
+
+// Review fix: two quick replies start one watcher, not two.
+func TestTwoRepliesStartOneWatcher(t *testing.T) {
+	claudeSays(t, `SOUS: needs you which one?`, 0)
+	a, ref := watchedRun(t, "claude")
+	waitFor(t, func() bool { st, _ := a.Status("", ref); return st.State == NeedsYou && !watcherAlive(a.dir("u3")) })
+	testutil.FakeBin(t, "claude", `sleep 30`)
+	errs := make(chan error, 2)
+	for range 2 {
+		go func() { errs <- a.Reply("", ref, "the new one") }()
+	}
+	e1, e2 := <-errs, <-errs
+	if (e1 == nil) == (e2 == nil) {
+		t.Fatalf("exactly one reply must win: %v, %v", e1, e2)
+	}
+	a.Stop("", ref)
 }
 
 func TestReplyCarriesOn(t *testing.T) {
@@ -164,12 +191,25 @@ func TestReplyCarriesOn(t *testing.T) {
 	}
 }
 
+// watchedRun starts a run with a real watcher: this test binary, through
+// the runner door (see TestMain in conformance_test.go).
+func watchedRun(t *testing.T, name string) (*Agent, string) {
+	t.Helper()
+	exe, _ := os.Executable()
+	home := t.TempDir()
+	t.Setenv("SOUS_HOME", home)
+	a, _ := Builtin(name, home, exe, time.Minute)
+	ref, err := a.Start(Request{ID: 3, UID: "u3", Project: gitRepo(t), Brief: "task"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a, ref
+}
+
 func TestStopAndClean(t *testing.T) {
-	a, ref, dir := startedRun(t, "claude", time.Minute)
-	sleeper := exec.Command("sleep", "30")
-	sleeper.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	sleeper.Start()
-	os.WriteFile(filepath.Join(dir, "watcher.pid"), []byte(fmt.Sprint(sleeper.Process.Pid)), 0o600)
+	testutil.FakeBin(t, "claude", "sleep 30")
+	a, ref := watchedRun(t, "claude")
+	dir := a.dir("u3")
 	if err := a.Clean("", ref); err == nil {
 		t.Fatal("clean must refuse a running run")
 	}
@@ -178,7 +218,6 @@ func TestStopAndClean(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	sleeper.Wait()
 	if st, _ := a.Status("", ref); st.State != Failed || st.Text != "stopped" {
 		t.Fatalf("%+v", st)
 	}
@@ -206,5 +245,93 @@ func TestCleanKeepsABranchWithCommits(t *testing.T) {
 	}
 	if out, _ := exec.Command("git", "-C", m.Project, "branch", "--list", m.Branch).Output(); len(out) == 0 {
 		t.Fatal("a branch with commits must be kept")
+	}
+}
+
+// Review fix: work left uncommitted (a Codex sandbox cannot commit) is
+// never thrown away by clean, and status says it is there.
+func TestUncommittedWorkIsKeptAndShown(t *testing.T) {
+	a, ref, dir := startedRun(t, "claude", time.Minute)
+	testutil.FakeBin(t, "claude", `echo fixed > fix.txt; printf '{"result":"SOUS: done fixed it","session_id":"s"}\n'`)
+	a.Watch(dir, false)
+	st, _ := a.Status("", ref)
+	if st.State != Done || !strings.Contains(st.Text, "fixed it") || !strings.Contains(st.Text, "not committed") {
+		t.Fatalf("%+v", st)
+	}
+	var m runMeta
+	readJSON(dir, "run.json", &m)
+	if err := a.Clean(m.Project, ref); err == nil || !strings.Contains(err.Error(), "not committed") {
+		t.Fatalf("clean: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(m.Worktree, "fix.txt")); err != nil {
+		t.Fatal("the work is gone")
+	}
+}
+
+// Review fix: a brief or answer that starts with a dash is text, never a flag.
+func TestPromptsAreNeverFlags(t *testing.T) {
+	for _, name := range BuiltinNames() {
+		a, ref, dir := startedRun(t, name, time.Minute)
+		testutil.FakeBin(t, name, `for x in "$@"; do echo "$x"; done > args; printf '{"result":"SOUS: needs you q","session_id":"s"}\n'; echo '{"thread_id":"s"}'`)
+		a.Watch(dir, false)
+		a.Reply("", ref, "--help is fine")
+		var m runMeta
+		readJSON(dir, "run.json", &m)
+		a.Watch(dir, true)
+		args := strings.Split(readString(m.Worktree, "args"), "\n")
+		if n := len(args); n < 2 || args[n-2] != "--" && args[n-3] != "--" || args[n-1] != "--help is fine" {
+			t.Errorf("%s: %q", name, args)
+		}
+	}
+}
+
+// Review fix: a watcher killed outright leaves its agent working; the run
+// still reads as running, and stop still stops the agent.
+func TestStopReachesAnAgentWhoseWatcherDied(t *testing.T) {
+	testutil.FakeBin(t, "claude", "sleep 30")
+	a, ref := watchedRun(t, "claude")
+	dir := a.dir("u3")
+	waitFor(t, func() bool { return readString(dir, "agent.pgid") != "" && readString(dir, "watcher.pid") != "" })
+	watcher, _ := strconv.Atoi(readString(dir, "watcher.pid"))
+	syscall.Kill(watcher, syscall.SIGKILL)
+	time.Sleep(200 * time.Millisecond)
+	if st, _ := a.Status("", ref); st.State != Running {
+		t.Fatalf("the agent is still at it: %+v", st)
+	}
+	if err := a.Stop("", ref); err != nil {
+		t.Fatal(err)
+	}
+	pgid, _ := strconv.Atoi(readString(dir, "agent.pgid"))
+	if syscall.Kill(-pgid, 0) == nil {
+		t.Fatal("the agent is still running")
+	}
+	if st, _ := a.Status("", ref); st.State != Failed || st.Text != "stopped" {
+		t.Fatalf("%+v", st)
+	}
+}
+
+// Review fix: two starts of the same run make one run, and neither undoes
+// the other.
+func TestConcurrentStartsOfOneRun(t *testing.T) {
+	testutil.FakeBin(t, "claude", "")
+	exe, calls := fakeSous(t)
+	a, _ := Builtin("claude", t.TempDir(), exe, time.Hour)
+	repo := gitRepo(t)
+	errs := make(chan error, 4)
+	for range 4 {
+		go func() { _, err := a.Start(Request{ID: 5, UID: "u5", Project: repo, Brief: "b"}); errs <- err }()
+	}
+	for range 4 {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(a.dir("u5"), "run.json")); err != nil {
+		t.Fatal("the run is gone")
+	}
+	waitFor(t, func() bool { b, _ := os.ReadFile(calls); return strings.Count(string(b), "watch") >= 1 })
+	time.Sleep(100 * time.Millisecond)
+	if b, _ := os.ReadFile(calls); strings.Count(string(b), "watch") != 1 {
+		t.Fatalf("watchers: %s", b)
 	}
 }

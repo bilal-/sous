@@ -79,3 +79,21 @@ func TestRefreshRecordsTheAnswer(t *testing.T) {
 		t.Fatalf("local refresh asked a plugin: %+v", got[0])
 	}
 }
+
+// Review fix: a run that never got a ref (sous stopped mid start) ends as
+// failed once its start has had time to answer, instead of starting forever.
+func TestStuckStartEndsAsFailed(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	then := time.Now().Add(-time.Hour)
+	id, _, _ := thread.NoteRun(s, project.Project{Path: "/p"}, "b", "k", "fake", "", then)
+	fresh, _, _ := thread.NoteRun(s, project.Project{Path: "/p"}, "c", "", "fake", "", time.Now())
+	d := &Dispatcher{Store: s, Now: time.Now}
+	views, _ := thread.Runs(s)
+	d.Refresh(context.Background(), views, true)
+	if th, _ := thread.Get(s, id); th.Run.State != "failed" || !strings.Contains(th.Run.Text, "did not start") {
+		t.Fatalf("%+v", th.Run)
+	}
+	if th, _ := thread.Get(s, fresh); th.Run.State != "starting" {
+		t.Fatalf("a start still in progress is left alone: %+v", th.Run)
+	}
+}

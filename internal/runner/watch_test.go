@@ -11,7 +11,8 @@ import (
 	"github.com/bilal-/sous/internal/testutil"
 )
 
-// startedRun makes a run folder as Start would, without a real watcher.
+// startedRun makes a run folder as Start would, with a fake watcher that
+// exits at once; tests then play the watcher themselves.
 func startedRun(t *testing.T, name string, limit time.Duration) (*Agent, string, string) {
 	t.Helper()
 	testutil.FakeBin(t, name, "")
@@ -21,6 +22,7 @@ func startedRun(t *testing.T, name string, limit time.Duration) (*Agent, string,
 	if err != nil {
 		t.Fatal(err)
 	}
+	waitFor(t, func() bool { return !watcherAlive(a.dir("u3")) }) // the fake watcher only records its call
 	return a, ref, a.dir("u3")
 }
 
@@ -66,18 +68,41 @@ func TestFailureWithoutAMessageShowsTheLog(t *testing.T) {
 	}
 }
 
+// holdLock plays a live watcher: it holds the run's lock until released.
+func holdLock(t *testing.T, dir string) func() {
+	t.Helper()
+	f, err := lockRun(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return func() { f.Close() }
+}
+
 func TestStatusRunning(t *testing.T) {
 	a, ref, dir := startedRun(t, "claude", time.Minute)
-	os.WriteFile(filepath.Join(dir, "watcher.pid"), []byte(fmt.Sprint(os.Getpid())), 0o600) // alive
+	release := holdLock(t, dir)
+	defer release()
 	if st, _ := a.Status("", ref); st.State != Running {
 		t.Fatalf("%+v", st)
 	}
 }
 
-// Review Focus 1: no result, watcher gone, is failed, never running forever.
+// Review fix: right after start, before the watcher has written anything,
+// the run is running, not "stopped without a result".
+func TestStatusRightAfterStart(t *testing.T) {
+	testutil.FakeBin(t, "claude", "sleep 30")
+	a, ref := watchedRun(t, "claude")
+	if st, _ := a.Status("", ref); st.State != Running {
+		t.Fatalf("%+v", st)
+	}
+	a.Stop("", ref)
+}
+
+// Review Focus 1: no result, watcher gone, is failed, never running forever,
+// even when its old pid now belongs to some other live process.
 func TestStatusWatcherGone(t *testing.T) {
 	a, ref, dir := startedRun(t, "claude", time.Minute)
-	os.WriteFile(filepath.Join(dir, "watcher.pid"), []byte("999999"), 0o600)
+	os.WriteFile(filepath.Join(dir, "watcher.pid"), []byte(fmt.Sprint(os.Getpid())), 0o600) // a live process, not the watcher
 	if st, _ := a.Status("", ref); st.State != Failed || !strings.Contains(st.Text, "stopped without a result") {
 		t.Fatalf("%+v", st)
 	}

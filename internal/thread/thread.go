@@ -205,7 +205,8 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 	var existed bool
 	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
 		for _, t := range d.Threads {
-			if key != "" && t.Closed == nil && t.Run != nil && t.Run.Key == key && t.Belongs(p.Path, remote) {
+			started := t.Run != nil && !(t.Run.Ref == "" && t.Run.State == "failed") // a failed start keeps no key
+			if key != "" && t.Closed == nil && started && t.Run.Key == key && t.Belongs(p.Path, remote) {
 				id, existed = t.ID, true
 				return nil
 			}

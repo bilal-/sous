@@ -53,12 +53,18 @@ func (a *Agent) Watch(dir string, resume bool) error {
 	defer unhook()
 	cmd := exec.CommandContext(ctx, a.cli.bin, args...)
 	cmd.Dir = m.Worktree
-	cmd.Env = append(os.Environ(), pushBlock()...)
+	cmd.Env = append(os.Environ(), pushBlock(m.Project)...)
 	cmd.Stdout, cmd.Stderr = logf, logf
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
 	cmd.WaitDelay = 2 * time.Second
-	runErr := cmd.Run()
+	runErr := cmd.Start()
+	if runErr == nil {
+		// Recorded so stop can reach the agent even if this watcher dies.
+		os.WriteFile(filepath.Join(dir, "agent.pgid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0o600)
+		runErr = cmd.Wait()
+		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) // anything it left running ends with it
+	}
 	r := result{Ended: time.Now().UTC()}
 	var ee *exec.ExitError
 	switch {
@@ -113,6 +119,9 @@ func (a *Agent) Status(_, ref string) (Status, error) {
 	default: // the agent's own last words, else the log's
 		st.State, st.Text = Failed, fmt.Sprintf("exit %d: %s", r.Exit, lastLine(cmp.Or(r.Message, tail(filepath.Join(dir, "log")))))
 	}
+	if st.State != Failed && uncommitted(m.Worktree) {
+		st.Text += " (changes not committed, in the worktree)"
+	}
 	return st, nil
 }
 
@@ -133,11 +142,6 @@ func parseMarker(msg string) (State, string) {
 		}
 	}
 	return "", ""
-}
-
-func watcherAlive(dir string) bool {
-	pid, err := strconv.Atoi(readString(dir, "watcher.pid"))
-	return err == nil && pid > 0 && syscall.Kill(pid, 0) == nil
 }
 
 func lastLine(s string) string {

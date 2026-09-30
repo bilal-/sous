@@ -2,6 +2,7 @@ package board
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -66,6 +67,9 @@ var (
 // priority). Why gets failed plugins, then extra, then stale rows.
 func classify(v view, now time.Time, threads []thread.View, signals []signal.Observed, plugins []signal.PluginStatus, extra ...string) Sections {
 	var s Sections
+	if slices.ContainsFunc(threads, func(t thread.View) bool { return t.RunErr != "" }) {
+		extra = append(extra, "run status unavailable")
+	}
 	s.routeThreads(v, now, threads)
 	stale := s.routeSignals(v, now, signals)
 	s.Why = why(plugins, stale, extra)
