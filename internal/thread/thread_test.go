@@ -235,3 +235,49 @@ func TestLegacyIsRecordedByTheUpgrade(t *testing.T) {
 		t.Fatal("a note made with a uid is never legacy")
 	}
 }
+
+func TestNoteRunIsIdempotentByKey(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	p := project.Project{Path: "/code/acme/billing"}
+	now := time.Now()
+	id, existed, err := NoteRun(s, p, "Fix the flaky test\nIt fails 1 in 5.", "flaky", "claude", "agent", now)
+	if err != nil || existed {
+		t.Fatal(id, existed, err)
+	}
+	again, existed, _ := NoteRun(s, p, "different words", "flaky", "claude", "agent", now)
+	if again != id || !existed {
+		t.Fatalf("same key: %d %v", again, existed)
+	}
+	other, existed, _ := NoteRun(s, p, "another", "", "claude", "agent", now)
+	if other == id || existed {
+		t.Fatal("no key is always new")
+	}
+	th, _ := Get(s, id)
+	if th.Text != "Fix the flaky test" || th.Kind != Them || th.Run.Runner != "claude" || th.Run.State != "starting" {
+		t.Fatalf("%+v %+v", th, th.Run)
+	}
+	if err := SetRun(s, id, func(r *Run) { r.Ref, r.State = "claude:u", "running" }); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetRun(s, other+100, func(*Run) {}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing: %v", err)
+	}
+	plain, _ := Note(s, p, Me, "a plain note", "human", now)
+	if err := SetRun(s, plain, func(*Run) {}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a note without a run: %v", err)
+	}
+	Done(s, id, now)
+	if _, existed, _ := NoteRun(s, p, "x", "flaky", "claude", "agent", now); existed {
+		t.Fatal("a closed run's key is free again")
+	}
+	if err := SetRun(s, id, func(*Run) {}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("closed: %v", err)
+	}
+	rs, _ := Runs(s)
+	if len(rs) != 2 {
+		t.Fatalf("open runs: %d", len(rs))
+	}
+	if _, _, err := NoteRun(s, p, "  \n ", "", "claude", "", now); err == nil {
+		t.Fatal("an empty brief is refused")
+	}
+}

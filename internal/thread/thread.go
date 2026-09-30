@@ -46,6 +46,22 @@ type Thread struct {
 	// ClosedBy: "" (the user, via done) or "upstream" (the tracker said
 	// closed; the system of record wins and the provenance is kept).
 	ClosedBy string `json:"closed_by,omitempty"`
+	// Run: the note was handed to a runner (sous go --run).
+	Run *Run `json:"run,omitempty"`
+}
+
+// Run is a note handed to a runner. State is the runner's word for it
+// (running, needs_you, done, failed; starting before the runner answered).
+type Run struct {
+	Runner   string     `json:"runner"`
+	Ref      string     `json:"ref,omitempty"`
+	Key      string     `json:"key,omitempty"` // go --key: a retry finds this run
+	State    string     `json:"state"`
+	Text     string     `json:"text,omitempty"` // the runner's summary or question
+	Branch   string     `json:"branch,omitempty"`
+	Worktree string     `json:"worktree,omitempty"`
+	Log      string     `json:"log,omitempty"`
+	Checked  *time.Time `json:"checked,omitempty"` // when the state was last asked
 }
 
 // Belongs: is this thread about the project at path (or with this remote)?
@@ -68,6 +84,9 @@ type View struct {
 	// reconciliation. UpstreamErr says why when it is "error".
 	Upstream    string `json:"upstream,omitempty"`
 	UpstreamErr string `json:"upstream_err,omitempty"`
+	// RunErr: why the run's state could not be read this time; the state
+	// shown is the last one known.
+	RunErr string `json:"run_err,omitempty"`
 }
 
 var ErrNotFound = errors.New("no open thread")
@@ -163,6 +182,72 @@ func Note(s *store.Store, p project.Project, kind Kind, text, source string, now
 		return nil
 	})
 	return id, err
+}
+
+// NoteRun makes the note for a new run: kind them (waiting on the runner),
+// its text the brief's first line. With a key, an open run in the same
+// project with that key is returned instead (existed), so a retry never
+// starts a second run.
+func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source string, now time.Time) (int, bool, error) {
+	first, _, _ := strings.Cut(strings.TrimSpace(brief), "\n")
+	text := oneLine(first)
+	if text == "" {
+		return 0, false, ValidationError("the brief is empty")
+	}
+	if source == "" {
+		source = "human"
+	}
+	remote := ""
+	if p.Remote != nil {
+		remote = *p.Remote
+	}
+	var id int
+	var existed bool
+	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
+		for _, t := range d.Threads {
+			if key != "" && t.Closed == nil && t.Run != nil && t.Run.Key == key && t.Belongs(p.Path, remote) {
+				id, existed = t.ID, true
+				return nil
+			}
+		}
+		id = d.NextID
+		d.NextID++
+		d.Threads = append(d.Threads, Thread{ID: id, UID: newUID(), Project: p.Path, Remote: p.Remote, Text: text, Kind: Them,
+			Since: now.UTC(), Source: source, Run: &Run{Runner: runnerName, Key: key, State: "starting"}})
+		return nil
+	})
+	return id, existed, err
+}
+
+// SetRun changes an open run under the lock.
+func SetRun(s *store.Store, id int, fn func(*Run)) error {
+	missing := false
+	err := touch(s, id, func(t *Thread) {
+		if t.Run == nil {
+			missing = true
+			return
+		}
+		fn(t.Run)
+	})
+	if err == nil && missing {
+		return fmt.Errorf("%w %d with a run", ErrNotFound, id)
+	}
+	return err
+}
+
+// Runs: every open run, snoozed or not.
+func Runs(s *store.Store) ([]View, error) {
+	d, err := store.Load[Doc](s, name, Migrator{})
+	if err != nil {
+		return nil, err
+	}
+	var out []View
+	for _, t := range d.Threads {
+		if t.Closed == nil && t.Run != nil {
+			out = append(out, View{Thread: t})
+		}
+	}
+	return out, nil
 }
 
 func touch(s *store.Store, id int, fn func(*Thread)) error {
