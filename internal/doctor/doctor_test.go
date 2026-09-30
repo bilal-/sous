@@ -93,3 +93,18 @@ func TestLastRefreshFailuresAreListed(t *testing.T) {
 		t.Fatalf("%+v", cs)
 	}
 }
+
+// The agent a built in runner needs: runs are optional, so missing is a
+// note, with the fix.
+func TestRunnerChecks(t *testing.T) {
+	testutil.OnlyGit(t)
+	testutil.FakeBin(t, "codex", "")
+	cs := runnerChecks()
+	got := map[string]Check{}
+	for _, c := range cs {
+		got[c.Name] = c
+	}
+	if got["runner claude"].Status != Warn || !strings.Contains(got["runner claude"].Fix, "sous config agent") || got["runner codex"].Status != OK {
+		t.Fatalf("%+v", cs)
+	}
+}

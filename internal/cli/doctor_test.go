@@ -10,11 +10,13 @@ import (
 	"github.com/bilal-/sous/internal/testutil"
 )
 
-// doctorPath: only git and a sous on PATH, so doctor sees the same machine
-// everywhere (no real gh or glab, and the shell line finds sous).
+// doctorPath: only git, a sous and a claude (the default agent) on PATH, so
+// doctor sees the same machine everywhere (no real gh or glab, the shell
+// line finds sous, and runs can start).
 func doctorPath(t *testing.T) {
 	testutil.OnlyGit(t)
 	testutil.FakeBin(t, "sous", "")
+	testutil.FakeBin(t, "claude", "")
 }
 
 func TestDoctor(t *testing.T) {

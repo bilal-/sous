@@ -18,6 +18,7 @@ import (
 	"github.com/bilal-/sous/internal/install"
 	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/runner"
 	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/store"
@@ -62,6 +63,7 @@ func Run(in Inputs) []Check {
 	if in.Cfg != nil {
 		out = append(out, trackerChecks(in.Cfg)...)
 		out = append(out, pluginChecks(in.Cfg.Plugins)...)
+		out = append(out, runnerChecks()...)
 	}
 	out = append(out, dataChecks(in.SousHome, in.Now)...)
 	return append(out, boardChecks(in)...)
@@ -189,6 +191,23 @@ func pluginChecks(plugins []string) []Check {
 		} else if !plugin.Named(p) {
 			c.Status, c.Detail = Bad, "sous skips it: a plugin's name must be sous-signal-, sous-backend-, sous-launcher- or sous-runner- and then its own name"
 			c.Fix = "rename it, then sous config plugins --remove " + p + " and --add the new path"
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// runnerChecks: the agent CLI each built in runner starts. Runs are
+// optional, so a missing one is worth a look, not broken; sous go --run
+// says the same, with exit 3, when it is tried.
+func runnerChecks() []Check {
+	var out []Check
+	for _, name := range runner.BuiltinNames() {
+		bin := runner.CLI(name)
+		c := Check{Name: "runner " + name, Status: OK, Detail: bin + " installed"}
+		if _, err := exec.LookPath(bin); err != nil {
+			c.Status, c.Detail = Warn, bin+" is not installed, so sous go --run -a "+name+" cannot start"
+			c.Fix = "install " + bin + ", or pick another: sous config agent <name>"
 		}
 		out = append(out, c)
 	}
