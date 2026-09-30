@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -95,13 +96,17 @@ func (a *Agent) Start(req Request) (string, error) {
 	if err := writeJSON(dir, "run.json", m); err != nil {
 		return "", err
 	}
-	return ref, a.launch(dir)
+	return ref, a.launch(dir, false)
 }
 
 // launch starts the watcher, detached in its own session: it outlives this
 // call, and is the only process that waits on the agent.
-func (a *Agent) launch(dir string) error {
-	cmd := exec.Command(a.Exe, "runner", a.Name, "watch", dir)
+func (a *Agent) launch(dir string, resume bool) error {
+	args := []string{"runner", a.Name, "watch", dir}
+	if resume {
+		args = append(args, "--resume")
+	}
+	cmd := exec.Command(a.Exe, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("starting the watcher: %w", err)
@@ -160,7 +165,70 @@ func readString(dir, name string) string {
 	return strings.TrimSpace(string(b))
 }
 
-// Filled in by the watcher's task and the next.
-func (a *Agent) Reply(project, ref, answer string) error { return errors.New("not yet") }
-func (a *Agent) Stop(project, ref string) error          { return errors.New("not yet") }
-func (a *Agent) Clean(project, ref string) error         { return errors.New("not yet") }
+// Reply passes the answer to the agent's session, with a new watcher.
+func (a *Agent) Reply(_, ref, answer string) error {
+	dir, m, err := a.meta(ref)
+	if err != nil {
+		return err
+	}
+	var r result
+	switch {
+	case strings.TrimSpace(answer) == "":
+		return errors.New("the answer is empty")
+	case readJSON(dir, "result.json", &r) != nil && watcherAlive(dir):
+		return fmt.Errorf("run %d is still working; wait for it to ask", m.ID)
+	case m.Session == "":
+		return errors.New("the agent never started a session, so it cannot carry on; start a new run with the answer in the brief")
+	}
+	m.Answer = answer
+	if err := writeJSON(dir, "run.json", m); err != nil {
+		return err
+	}
+	os.Remove(filepath.Join(dir, "result.json"))
+	return a.launch(dir, true)
+}
+
+// Stop asks the watcher to stop the agent (it records "stopped"), and
+// makes sure of it. Stopping a finished run changes nothing.
+func (a *Agent) Stop(_, ref string) error {
+	dir, _, err := a.meta(ref)
+	if err != nil {
+		return err
+	}
+	var r result
+	if readJSON(dir, "result.json", &r) == nil {
+		return nil
+	}
+	if pid, err := strconv.Atoi(readString(dir, "watcher.pid")); err == nil && pid > 0 {
+		syscall.Kill(pid, syscall.SIGTERM)
+		for i := 0; i < 40 && syscall.Kill(pid, 0) == nil; i++ {
+			time.Sleep(50 * time.Millisecond)
+		}
+		syscall.Kill(-pid, syscall.SIGKILL)
+		syscall.Kill(pid, syscall.SIGKILL)
+	}
+	if readJSON(dir, "result.json", &r) != nil {
+		return writeJSON(dir, "result.json", result{Exit: -1, Stopped: true, Ended: time.Now().UTC()})
+	}
+	return nil
+}
+
+// Clean removes a finished run's worktree. Its branch goes only when it
+// holds no work (git refuses to delete a branch it has not merged).
+func (a *Agent) Clean(_, ref string) error {
+	dir, m, err := a.meta(ref)
+	if err != nil {
+		return err
+	}
+	var r result
+	if readJSON(dir, "result.json", &r) != nil && watcherAlive(dir) {
+		return fmt.Errorf("run %d is still working; stop it first", m.ID)
+	}
+	if _, err := os.Stat(m.Worktree); err == nil {
+		if out, err := exec.Command("git", "-C", m.Project, "worktree", "remove", "--force", m.Worktree).CombinedOutput(); err != nil {
+			return fmt.Errorf("removing the worktree: %s", strings.TrimSpace(string(out)))
+		}
+	}
+	exec.Command("git", "-C", m.Project, "branch", "-d", m.Branch).Run()
+	return nil
+}

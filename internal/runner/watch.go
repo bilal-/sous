@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -46,8 +47,10 @@ func (a *Agent) Watch(dir string, resume bool) error {
 	if resume {
 		args = a.cli.resume(m)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), m.Limit)
+	limited, cancel := context.WithTimeout(context.Background(), m.Limit)
 	defer cancel()
+	ctx, unhook := signal.NotifyContext(limited, syscall.SIGTERM, syscall.SIGINT) // sous done: stop
+	defer unhook()
 	cmd := exec.CommandContext(ctx, a.cli.bin, args...)
 	cmd.Dir = m.Worktree
 	cmd.Env = append(os.Environ(), pushBlock()...)
@@ -59,8 +62,10 @@ func (a *Agent) Watch(dir string, resume bool) error {
 	r := result{Ended: time.Now().UTC()}
 	var ee *exec.ExitError
 	switch {
-	case errors.Is(ctx.Err(), context.DeadlineExceeded):
+	case errors.Is(limited.Err(), context.DeadlineExceeded):
 		r.Exit, r.Reason = -1, fmt.Sprintf("ran out of time (%s)", m.Limit)
+	case ctx.Err() != nil:
+		r.Exit, r.Stopped = -1, true
 	case errors.As(runErr, &ee):
 		r.Exit = ee.ExitCode()
 	case runErr != nil:

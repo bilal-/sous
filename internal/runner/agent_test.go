@@ -3,10 +3,12 @@ package runner
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -117,4 +119,92 @@ func waitFor(t *testing.T, ok func() bool) {
 		}
 	}
 	t.Fatal("timed out waiting")
+}
+
+// Review Focus 5.
+func TestReplyRefusals(t *testing.T) {
+	a, ref, dir := startedRun(t, "claude", time.Minute)
+	os.WriteFile(filepath.Join(dir, "watcher.pid"), []byte(fmt.Sprint(os.Getpid())), 0o600)
+	if err := a.Reply("", ref, "yes"); err == nil || !strings.Contains(err.Error(), "still working") {
+		t.Fatalf("running: %v", err)
+	}
+	os.Remove(filepath.Join(dir, "watcher.pid"))
+	writeJSON(dir, "result.json", result{Exit: 1})
+	if err := a.Reply("", ref, "yes"); err == nil || !strings.Contains(err.Error(), "start a new run") {
+		t.Fatalf("no session: %v", err)
+	}
+	if err := a.Reply("", ref, "  "); err == nil || !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("empty: %v", err)
+	}
+}
+
+func TestReplyCarriesOn(t *testing.T) {
+	a, ref, dir := startedRun(t, "claude", time.Minute)
+	claudeSays(t, `SOUS: needs you which one?`, 0)
+	a.Watch(dir, false)
+	if err := a.Reply("", ref, "the new one"); err != nil {
+		t.Fatal(err)
+	}
+	var m runMeta
+	readJSON(dir, "run.json", &m)
+	if m.Answer != "the new one" || m.Session != "s-1" {
+		t.Fatalf("%+v", m)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "result.json")); !os.IsNotExist(err) {
+		t.Fatal("the old result must go")
+	}
+	// The resumed watcher passes --resume and the answer.
+	testutil.FakeBin(t, "claude", `echo "$*" > args; printf '{"result":"SOUS: done ok","session_id":"s-1"}\n'`)
+	a.Watch(dir, true)
+	if args := readString(m.Worktree, "args"); !strings.Contains(args, "--resume s-1") || !strings.HasSuffix(args, "the new one") {
+		t.Fatalf("args %q", args)
+	}
+	if st, _ := a.Status("", ref); st.State != Done {
+		t.Fatalf("%+v", st)
+	}
+}
+
+func TestStopAndClean(t *testing.T) {
+	a, ref, dir := startedRun(t, "claude", time.Minute)
+	sleeper := exec.Command("sleep", "30")
+	sleeper.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	sleeper.Start()
+	os.WriteFile(filepath.Join(dir, "watcher.pid"), []byte(fmt.Sprint(sleeper.Process.Pid)), 0o600)
+	if err := a.Clean("", ref); err == nil {
+		t.Fatal("clean must refuse a running run")
+	}
+	for range 2 {
+		if err := a.Stop("", ref); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sleeper.Wait()
+	if st, _ := a.Status("", ref); st.State != Failed || st.Text != "stopped" {
+		t.Fatalf("%+v", st)
+	}
+	var m runMeta
+	readJSON(dir, "run.json", &m)
+	if err := a.Clean(m.Project, ref); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(m.Worktree); !os.IsNotExist(err) {
+		t.Fatal("worktree still there")
+	}
+	if out, _ := exec.Command("git", "-C", m.Project, "branch", "--list", m.Branch).Output(); len(out) != 0 {
+		t.Fatalf("an empty branch goes too: %s", out)
+	}
+}
+
+func TestCleanKeepsABranchWithCommits(t *testing.T) {
+	a, ref, dir := startedRun(t, "claude", time.Minute)
+	var m runMeta
+	readJSON(dir, "run.json", &m)
+	exec.Command("git", "-C", m.Worktree, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m", "work").Run()
+	writeJSON(dir, "result.json", result{})
+	if err := a.Clean(m.Project, ref); err != nil {
+		t.Fatal(err)
+	}
+	if out, _ := exec.Command("git", "-C", m.Project, "branch", "--list", m.Branch).Output(); len(out) == 0 {
+		t.Fatal("a branch with commits must be kept")
+	}
 }
