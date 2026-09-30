@@ -43,6 +43,9 @@ func TestAXI4And5ReadVerbsAnswerWhenEmpty(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("acme/chime", true)
 	for _, v := range readVerbs() {
+		if v.args != nil && v.args.min > 0 {
+			continue // needs something to show (show <n>, go --run): tested with one
+		}
 		out, errs, code := f.runIn(p, v.name)
 		if code != 0 && !(v.name == "doctor" && code == 1) || strings.TrimSpace(out) == "" { // doctor: 1 means problems found
 			t.Errorf("%s: %d %q %q", v.name, code, out, errs)

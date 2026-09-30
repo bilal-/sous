@@ -109,11 +109,15 @@ func cmdSnooze(e *Env, a argv) int {
 }
 
 // cmdDone closes a thread locally; --close closes it in its tracker first,
-// and a failure there leaves the thread open.
+// and a failure there leaves the thread open. A run is stopped first, and
+// with --clean its worktree removed.
 func cmdDone(e *Env, a argv) int {
 	id, code := threadID(e, a.pos[0])
 	if code != 0 {
 		return code
+	}
+	if c := stopRun(e, id, a.has("clean")); c != 0 {
+		return c
 	}
 	if a.has("close") {
 		if c := closeUpstream(e, id); c != 0 {

@@ -6,12 +6,13 @@ everyday flow, start with the [README](../README.md). Run
 
 * [How commands are written](#how-commands-are-written)
 * [Seeing what is waiting](#seeing-what-is-waiting): `sous`, `sous <folder>`, `sous <project>`, `here`, `projects`, `report`
-* [Notes](#notes): `note`, `edit`, `kind`, `snooze`, `done`
+* [Notes](#notes): `note`, `show`, `edit`, `kind`, `snooze`, `done`
 * [Sharing a note](#sharing-a-note): `file`, `note --file`, `done --close`
 * [Going to a project](#going-to-a-project): `go`
+* [Handing work to an agent](#handing-work-to-an-agent): `go --run`, `show`, `reply`, `done --clean`
 * [Setting up](#setting-up): `setup`, `config`, `doctor`, `version`, `help`
 * [Options for the shell and menu bar](#options-for-the-shell-and-menu-bar): `--ambient`, `--cached`, `--refresh`, `--menubar`
-* [Commands for plugins and hooks](#commands-for-plugins-and-hooks): `signal`, `backend`, `launcher`, `hook`
+* [Commands for plugins and hooks](#commands-for-plugins-and-hooks): `signal`, `backend`, `launcher`, `runner`, `hook`
 * [How project names are matched](#how-project-names-are-matched)
 * [Exit codes](#exit-codes)
 * [Environment variables](#environment-variables)
@@ -159,6 +160,16 @@ Options:
 When an agent writes a note on its own, it sets `SOUS_SOURCE=agent` so you
 can tell its notes from yours.
 
+### `sous show <n>`
+
+Shows one note in full: its project, text, kind and age, where it was
+filed, and the commands that make sense next. For a run, it asks the
+runner how it is going right then (see
+[Handing work to an agent](#handing-work-to-an-agent)). A closed note can
+still be shown.
+
+Options: `--json`, with `next`, the list of commands that make sense next.
+
 ### `sous edit <n> "text"`
 
 Change the text of note `n`. The text is taken as is, dashes and all.
@@ -183,6 +194,12 @@ Days do not apply to these rows.
 
 Close note `n`. It only closes your note; a filed item stays open in its
 tracker. Use `--close` to close both.
+
+For a run, `done` also stops the agent if it is still working. Its branch
+and worktree stay, for you to look at or merge.
+
+* `--clean`: for a run, also remove its worktree. Its branch stays when it
+  has commits, so no work is lost.
 
 ## Sharing a note
 
@@ -243,6 +260,64 @@ Options:
   nothing. The shell snippet uses it to move your terminal there.
 * `--in <folder>`: use this folder instead of looking the project up. The
   shell snippet passes the folder it already found.
+* `--run <brief>`: hand a task to an agent in the background instead, and
+  return at once. See [Handing work to an agent](#handing-work-to-an-agent).
+* `--key <text>`: with `--run`, a name for the task. Running the same
+  `go --run` again with the same key gives back the run already started,
+  so an agent that retries never starts it twice.
+
+## Handing work to an agent
+
+You, or your agent, can hand a task to an agent that works on it in the
+background. The run shows on the board: waiting on others while it works,
+then on you when it is done, needs an answer, or failed. The context your
+agent gets when a session starts lists the runs that need you first.
+
+```
+sous go billing --run - --json <<'EOF'
+Fix the flaky test in checkout_spec. It fails about 1 in 5 runs on CI
+since the fixtures change. Done means it passes 20 times in a row.
+EOF
+```
+
+`--run -` reads the brief from standard input; write what to do, why, and
+what done means. `-a` picks the runner (`claude`, `codex`, or a runner
+plugin); the default is `agent` in configuration. The answer names the
+run's number, and the command to check on it:
+
+```json
+{"id": 7, "runner": "claude", "state": "running", "existed": false, "next": "sous show 7 --json"}
+```
+
+The built in runners work in a new git worktree, on a branch named
+`sous/run-7`, so your own checkout is never touched. They never push: the
+branch waits for you. The agent gets the permissions you already gave it
+(Claude accepts file edits and the tools your Claude settings allow; Codex
+works in its workspace sandbox), and asks you for anything more. A run may
+take `run_minutes` (60 by default) before it is stopped. A run going when
+your computer restarts shows as failed, "stopped without a result": the
+built in runners do one thing, and never resume. For work that must
+survive that, use a runner plugin.
+
+A run is a note, so `snooze`, `edit` and `done` work on it.
+
+### `sous show <n>` for a run
+
+Shows how the run is going: `running`, `needs you` with its question,
+`done` with its summary, or `failed` with the reason, and where its branch,
+worktree and log are.
+
+### `sous reply <n> "answer"`
+
+Answers a run that needs you. The agent carries on in the same session. A
+run that is still working cannot be answered yet, and one that never
+started a session cannot carry on: start a new run with the answer in its
+brief.
+
+### `sous done <n> --clean` for a run
+
+Stops the run if it is still working, closes it, and removes its worktree.
+Its branch stays when it has commits.
 
 ## Setting up
 
@@ -387,6 +462,7 @@ plugin. See [plugins.md](plugins.md).
 | `sous signal <name> scan` | Run a built in signal (`git`, `github`, `gitlab`). Project folders on standard input, one JSON line per finding out. |
 | `sous backend <name> <call> ...` | Run a built in backend (`markdown`, `github`, `gitlab`): `detect`, `file`, `status`, `close` or `url`. |
 | `sous launcher <name> run <folder>` | Start a built in launcher (`claude`, `codex`) in a folder. |
+| `sous runner <name> <call> ...` | Run a built in runner (`claude`, `codex`): `start`, `status`, `reply`, `stop` or `clean`. |
 | `sous hook session-start\|session-end <agent>` | What the agent hooks run. Always exits `0` and never holds up a session. |
 
 ## How project names are matched
@@ -435,6 +511,7 @@ roots = ["~/code", "~/work"]   # where your projects live; sous looks two folder
 ignore = ["scratch/*"]         # folders to skip, as org/name patterns
 agent = "claude"               # the agent sous go starts
 refresh_hours = 4              # how old the saved board may get, and how often new shells print it
+run_minutes = 60               # how long a run by a built in runner may take
 gitlab_hosts = ["git.example.org"]   # GitLab servers, beyond the ones glab knows
 plugins = ["~/.sous/plugins/sous-backend-jira"]   # plugins to run; only listed ones run
 
@@ -451,6 +528,7 @@ backend = "markdown"           # always file to FOLLOWUPS.md, creating it if nee
 | `ignore` | none | Patterns like `scratch/*` or `*/tmp`, matched against `org/name`. |
 | `agent` | `claude` | The agent `sous go` starts when `-a` is not given. |
 | `refresh_hours` | `4` | How old the saved board may get, and how often new shells print it. |
+| `run_minutes` | `60` | How long a run by a built in runner may take before it is stopped. |
 | `gitlab_hosts` | none | GitLab servers to use, beyond the ones `glab` is logged in to. |
 | `plugins` | none | Paths to plugin programs. Only listed plugins run. |
 | `[projects."<org>/<name>"]` or `[projects."<org>/*"]` | | Settings for one project, or every project in an org folder. |
@@ -471,6 +549,7 @@ Everything lives in `~/.sous` (or `SOUS_HOME`).
 | `report.json` | when you last saw a report, where the next one starts |
 | `install-id` | a random id for this install, used in older filing markers. Do not delete it. |
 | `here/` | the files `sous go` hands to agents, one per project |
+| `runs/` | one folder per run by a built in runner: its worktree, log and result |
 | `report.html` | the last report page |
 | `sous.zsh`, `sous.5m.sh` | the zsh snippet and the menu bar script |
 | `.ambient-stamp` | when a new shell last printed the board |

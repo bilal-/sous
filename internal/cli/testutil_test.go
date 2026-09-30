@@ -107,3 +107,17 @@ func (f *fx) fileAs(id int, ref string) {
 		f.t.Fatal(err)
 	}
 }
+
+// plugin writes an executable plugin under $HOME/plugins, lists it in
+// config.toml's plugins, and returns its path.
+func (f *fx) plugin(name, body string) string {
+	f.t.Helper()
+	dir := filepath.Join(f.Home, "plugins")
+	os.MkdirAll(dir, 0o755)
+	p := filepath.Join(dir, name)
+	if err := os.WriteFile(p, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+		f.t.Fatal(err)
+	}
+	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + p + "\"]\n")
+	return p
+}

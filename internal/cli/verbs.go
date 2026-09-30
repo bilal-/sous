@@ -37,10 +37,12 @@ func init() {
 		{"edit", cmdEdit, false, &argSpec{min: 2, max: 2, raw: true}, `sous edit <n> "<text>"`},
 		{"kind", cmdKind, false, &argSpec{min: 2, max: 2, raw: true}, "sous kind <n> me|them|idea"},
 		{"snooze", cmdSnooze, false, &argSpec{min: 1, max: 2}, "sous snooze <n|s:id> [days]"},
-		{"done", cmdDone, false, exactly(1, []string{"close"}, nil), "sous done <n> [--close]"},
+		{"done", cmdDone, false, exactly(1, []string{"close", "clean"}, nil), "sous done <n> [--close] [--clean]   close a note; --close in its tracker too, --clean removes a run's worktree"},
 		{"file", cmdFile, false, exactly(1, []string{"force"}, nil), "sous file <n> [--force]    file a note in the project's tracker"},
 		{"config", cmdConfig, true, &argSpec{bools: []string{"unset", "add", "remove"}, values: []string{"p"}, max: -1}, "sous config [<key> <value...>] [-p <project>] [--unset] [--add] [--remove]   show or change settings; -p for one project or org/*"},
-		{"go", cmdGo, false, exactly(1, []string{"where"}, []string{"a|agent", "in"}), "sous go <project> [-a <launcher>] [--where] [--in <folder>]   start your agent in that project; --where only prints the folder"},
+		{"go", cmdGo, true, exactly(1, []string{"where"}, []string{"a|agent", "in", "run", "key"}), "sous go <project> [-a <agent>] [--run <brief|->] [--key <text>] [--where] [--in <folder>]   start your agent there; --run hands it a task in the background"},
+		{"show", cmdShow, true, exactly(1, nil, nil), "sous show <n>     one note in full; for a run, how it is going"},
+		{"reply", cmdReply, false, &argSpec{min: 2, max: 2, raw: true}, `sous reply <n> "<answer>"   answer a run that needs you; it carries on`},
 		{"setup", cmdSetup, false, &argSpec{bools: []string{"codex-session-end", "print-skill", "no-shell"}, max: -1}, "sous setup [folder...] [--no-shell] [--print-skill] [--codex-session-end]   set everything up; folders say where your projects are"},
 		{"doctor", cmdDoctor, true, exactly(0, nil, nil), "sous doctor       check that sous is set up and working, and how to fix what is not"},
 		{"version", cmdVersion, false, exactly(0, nil, nil), "sous version"},
@@ -49,6 +51,7 @@ func init() {
 		{"signal", cmdSignal, false, nil, ""},
 		{"backend", cmdBackend, false, nil, ""},
 		{"launcher", cmdLauncher, false, nil, ""},
+		{"runner", cmdRunner, false, nil, ""},
 		{"hook", cmdHook, false, nil, ""},
 	}
 }

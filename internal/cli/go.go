@@ -23,6 +23,16 @@ func cmdGo(e *Env, a argv) int {
 			return code
 		}
 	}
+	if a.has("run") {
+		cfg, code := e.config()
+		if code != 0 {
+			return code
+		}
+		return goRun(e, a, p, cfg)
+	}
+	if e.JSON {
+		return fail(e, 2, "go takes --json only with --run")
+	}
 	if a.has("where") { // for the shell wrapper: the folder, nothing started
 		fmt.Fprintln(e.Stdout, p.Path)
 		return 0

@@ -1,0 +1,105 @@
+package cli
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+)
+
+func TestGoRunShowReplyDone(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("acme/billing", true)
+	fake := f.plugin("sous-runner-fake", `d="$(dirname "$0")"
+case "$1" in
+start) echo fake:1;;
+status) cat "$d/state" 2>/dev/null || echo '{"v":0,"state":"running"}';;
+reply) cat > "$d/answer";;
+stop) echo stopped > "$d/stopped";;
+clean) echo cleaned > "$d/cleaned";;
+esac`)
+	out, errs, code := f.runStdin("Fix the flaky test\nmore context", "go", "billing", "--run", "-", "-a", "fake", "--json")
+	var started struct {
+		ID      int
+		Runner  string
+		State   string
+		Existed bool
+		Next    string
+	}
+	if code != 0 || json.Unmarshal([]byte(out), &started) != nil || started.ID != 1 || started.State != "running" || started.Next != "sous show 1 --json" {
+		t.Fatalf("%d %s %s", code, out, errs)
+	}
+	out, _, _ = f.run("go", "billing", "--run", "second task", "-a", "fake")
+	if !strings.Contains(out, "started run 2 in billing (fake)") || !strings.Contains(out, "sous show 2") {
+		t.Fatalf("text: %s", out)
+	}
+	os.WriteFile(filepath.Join(filepath.Dir(fake), "state"), []byte(`{"v":0,"state":"needs_you","text":"which fixture?"}`), 0o644)
+	out, _, _ = f.run("show", "1", "--json")
+	if !strings.Contains(out, `"state": "needs_you"`) || !strings.Contains(out, `sous reply 1`) {
+		t.Fatalf("show: %s", out)
+	}
+	out, _, _ = f.run("show", "1")
+	if !strings.Contains(out, "needs you") || !strings.Contains(out, "which fixture?") || !strings.Contains(out, `sous reply 1 "<answer>"`) {
+		t.Fatalf("show text: %s", out)
+	}
+	if _, _, code := f.run("reply", "1", "use main's"); code != 0 {
+		t.Fatal(code)
+	}
+	if b, _ := os.ReadFile(filepath.Join(filepath.Dir(fake), "answer")); string(b) != "use main's" {
+		t.Fatalf("answer %q", b)
+	}
+	if _, errs, code := f.run("done", "1", "--clean"); code != 0 {
+		t.Fatal(code, errs)
+	}
+	for _, name := range []string{"stopped", "cleaned"} {
+		if _, err := os.Stat(filepath.Join(filepath.Dir(fake), name)); err != nil {
+			t.Errorf("done --clean did not %s", name)
+		}
+	}
+	if _, _, code := f.run("show", "1"); code != 0 {
+		t.Fatal("a closed note can still be shown")
+	}
+}
+
+// Review Focus 2.
+func TestGoRunKeyIsIdempotentUnderRace(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("acme/billing", true)
+	f.plugin("sous-runner-fake", `case "$1" in start) echo "fake:$$";; status) echo '{"v":0,"state":"running"}';; esac`)
+	var wg sync.WaitGroup
+	for range 4 {
+		wg.Add(1)
+		go func() { defer wg.Done(); f.run("go", "billing", "--run", "fix it", "--key", "flaky", "-a", "fake") }()
+	}
+	wg.Wait()
+	b, _ := os.ReadFile(filepath.Join(f.SousHome, "threads.json"))
+	if n := strings.Count(string(b), `"key": "flaky"`); n != 1 {
+		t.Fatalf("%d runs: %s", n, b)
+	}
+}
+
+func TestRunMistakesSayWhy(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/billing", true)
+	f.runIn(p, "note", "a plain note")
+	if _, errs, code := f.run("reply", "1", "x"); code != 2 || !strings.Contains(errs, "not a run") {
+		t.Fatalf("reply to a note: %d %s", code, errs)
+	}
+	if _, errs, code := f.run("go", "billing", "--run", "x", "-a", "nope"); code != 2 || !strings.Contains(errs, "claude") {
+		t.Fatalf("unknown runner: %d %s", code, errs)
+	}
+	if _, _, code := f.run("go", "billing", "--run", "x", "--where"); code != 2 {
+		t.Fatal("--run with --where")
+	}
+	if _, _, code := f.run("go", "billing", "--json"); code != 2 {
+		t.Fatal("go --json without --run")
+	}
+	if _, _, code := f.run("done", "1", "--clean"); code != 2 {
+		t.Fatal("--clean on a note without a run")
+	}
+	if _, _, code := f.runStdin("", "go", "billing", "--run", "-"); code != 2 {
+		t.Fatal("an empty brief")
+	}
+}

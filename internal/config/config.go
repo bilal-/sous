@@ -19,6 +19,7 @@ type Config struct {
 	Ignore       []string                     `toml:"ignore"`
 	Agent        string                       `toml:"agent"`
 	RefreshHours int                          `toml:"refresh_hours"`
+	RunMinutes   int                          `toml:"run_minutes"`
 	Plugins      []string                     `toml:"plugins"`
 	GitLabHosts  []string                     `toml:"gitlab_hosts"`
 	Projects     map[string]map[string]string `toml:"projects"`
@@ -72,9 +73,14 @@ func (c *Config) Identities(key string) []string {
 }
 
 // Default is the configuration before config.toml says anything.
-func Default() *Config { return &Config{Agent: "claude", RefreshHours: defaultRefreshHours} }
+func Default() *Config {
+	return &Config{Agent: "claude", RefreshHours: defaultRefreshHours, RunMinutes: defaultRunMinutes}
+}
 
-const defaultRefreshHours = 4
+const (
+	defaultRefreshHours = 4
+	defaultRunMinutes   = 60
+)
 
 // NoRootsHint says what to do when no project folders are set yet.
 const NoRootsHint = "no project folders yet. Run sous setup to find them, or sous setup ~/path/to/your/projects"
@@ -324,4 +330,12 @@ func (sc *tomlScanner) str() {
 			return
 		}
 	}
+}
+
+// RunLimit is how long a built in run may take (run_minutes).
+func (c *Config) RunLimit() time.Duration {
+	if c.RunMinutes > 0 {
+		return time.Duration(c.RunMinutes) * time.Minute
+	}
+	return defaultRunMinutes * time.Minute
 }
