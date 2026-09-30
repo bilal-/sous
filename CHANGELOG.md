@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.3.1]
+
 ### Changed
 * The sous skill now tells agents to reach for sous when you want a task
   handed to an agent in the background. Run `sous setup` to update it;
