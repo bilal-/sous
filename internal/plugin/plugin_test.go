@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,5 +45,41 @@ func TestExecOutcomes(t *testing.T) {
 	r = Exec(context.Background(), []string{"/nope/binary"}, nil, time.Second)
 	if r.Err == nil {
 		t.Fatal("missing binary is an error")
+	}
+}
+
+func TestCallReadsExitCodesOneWay(t *testing.T) {
+	dir := t.TempDir()
+	n := 0
+	script := func(body string) []string {
+		n++
+		p := filepath.Join(dir, fmt.Sprintf("p%d", n))
+		os.WriteFile(p, []byte("#!/bin/sh\n"+body+"\n"), 0o755)
+		return []string{p}
+	}
+	ctx := context.Background()
+	if out, code, err := Call(ctx, "x", "op", script("echo hi"), nil, time.Second); out != "hi" || code != 0 || err != nil {
+		t.Fatalf("ok: %q %d %v", out, code, err)
+	}
+	if _, code, err := Call(ctx, "x", "op", script("exit 2"), nil, time.Second); code != 2 || err != nil {
+		t.Fatalf("2: %d %v", code, err)
+	}
+	if _, _, err := Call(ctx, "x", "op", script("exit 1"), nil, time.Second); !errors.Is(err, ErrNo) {
+		t.Fatalf("silent 1: %v", err)
+	}
+	if _, _, err := Call(ctx, "x", "op", script("echo nope >&2; exit 1"), nil, time.Second); err == nil || err.Error() != "nope" {
+		t.Fatalf("1 with reason: %v", err)
+	}
+	if _, _, err := Call(ctx, "x", "op", script("exit 7"), nil, time.Second); err == nil || !strings.Contains(err.Error(), "exit 7") {
+		t.Fatalf("7: %v", err)
+	}
+	if _, _, err := Call(ctx, "x", "op", script("sleep 5"), nil, 200*time.Millisecond); err == nil || !strings.Contains(err.Error(), "x op: timed out") {
+		t.Fatalf("timeout: %v", err)
+	}
+}
+
+func TestRunnerIsAnAxis(t *testing.T) {
+	if !Named("/p/sous-runner-orchid") || Named("/p/sous-runner-") {
+		t.Fatal("runner plugins are named sous-runner-<name>")
 	}
 }

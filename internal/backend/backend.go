@@ -35,7 +35,7 @@ type Implementation interface {
 }
 
 // Op is one contract operation as seen from argv/stdin/stdout.
-type Op func(args []string, stdin io.Reader, stdout, stderr io.Writer) int
+type Op = plugin.Op
 
 // Ops adapts an Implementation to the contract's op table. Usage errors are
 // exit 2, failures exit 1 with the reason on stderr, unsupported url exit 2.
@@ -168,7 +168,7 @@ var Local = Backend{Name: "local"}
 var ErrUnknownBackend = errors.New("backend not available")
 
 // errNotApplicable: exit 1 with nothing on stderr — a silent "no".
-var errNotApplicable = errors.New("not applicable")
+var errNotApplicable = plugin.ErrNo
 
 func Backends(exe string, builtins, thirdParty []string) []Backend {
 	var out []Backend
@@ -214,29 +214,8 @@ func run(ctx context.Context, b Backend, stdin []byte, op string, args ...string
 		return result{err: errors.New("local threads have no upstream backend")}
 	}
 	argv := append(append([]string{}, b.Argv...), op)
-	argv = append(argv, args...)
-	res := plugin.Exec(ctx, argv, stdin, timeout)
-	if res.TimedOut {
-		return result{err: fmt.Errorf("%s %s: timed out after %s", b.Name, op, timeout)}
-	}
-	if res.Err != nil {
-		return result{err: fmt.Errorf("%s %s: %w", b.Name, op, res.Err)}
-	}
-	msg := strings.TrimSpace(res.Stderr)
-	code := res.Code
-	if code != 0 && code != 1 && code != 2 {
-		if msg == "" {
-			msg = fmt.Sprintf("exit %d", code)
-		}
-		return result{code: code, err: errors.New(msg)}
-	}
-	if code == 1 {
-		if msg == "" {
-			return result{code: 1, err: errNotApplicable}
-		}
-		return result{code: 1, err: errors.New(msg)}
-	}
-	return result{out: strings.TrimSpace(res.Stdout), code: code}
+	out, code, err := plugin.Call(ctx, b.Name, op, append(argv, args...), stdin, timeout)
+	return result{out: out, code: code, err: err}
 }
 
 // Detect picks the backend for filing into project. An explicit override

@@ -1,5 +1,5 @@
 // Package plugin is the one subprocess door every axis (signals, backends,
-// launchers) goes through: discovery by name convention, and execution with
+// launchers, runners) goes through: discovery by name convention, and execution with
 // a process group, a deadline, and a bounded wait. Built-ins are re-exec'd
 // through `sous <axis> <name>` so they take exactly this path.
 package plugin
@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -21,7 +23,7 @@ type Plugin struct {
 }
 
 // Axes are the kinds of plugin, each named sous-<axis>-<name>.
-var Axes = []string{"signal", "backend", "launcher"}
+var Axes = []string{"signal", "backend", "launcher", "runner"}
 
 // Named reports whether path's file name is sous-<axis>-<name> for a known
 // axis; Discover skips any other.
@@ -90,4 +92,40 @@ func Exec(ctx context.Context, argv []string, stdin []byte, timeout time.Duratio
 	}
 	r.Err = err
 	return r
+}
+
+// Op is one contract call as a program sees it: arguments, standard input,
+// standard output and error, and an exit code. Built ins implement their
+// calls as Ops so they go through the same door as a plugin program.
+type Op func(args []string, stdin io.Reader, stdout, stderr io.Writer) int
+
+// ErrNo: exit 1 with nothing on standard error, a plain "no".
+var ErrNo = errors.New("not applicable")
+
+// Call runs one contract call and reads its exit code the way every kind of
+// plugin does: 0 and 2 are answers (out, code); 1 is a failure, its reason
+// on standard error (ErrNo when silent); anything else, a timeout, or a
+// program that cannot run is an error.
+func Call(ctx context.Context, name, op string, argv []string, stdin []byte, timeout time.Duration) (string, int, error) {
+	res := Exec(ctx, argv, stdin, timeout)
+	switch {
+	case res.TimedOut:
+		return "", 0, fmt.Errorf("%s %s: timed out after %s", name, op, timeout)
+	case res.Err != nil:
+		return "", 0, fmt.Errorf("%s %s: %w", name, op, res.Err)
+	}
+	msg := strings.TrimSpace(res.Stderr)
+	switch res.Code {
+	case 0, 2:
+		return strings.TrimSpace(res.Stdout), res.Code, nil
+	case 1:
+		if msg == "" {
+			return "", 1, ErrNo
+		}
+		return "", 1, errors.New(msg)
+	}
+	if msg == "" {
+		msg = fmt.Sprintf("exit %d", res.Code)
+	}
+	return "", res.Code, errors.New(msg)
 }
