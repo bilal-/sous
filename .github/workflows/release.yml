@@ -41,3 +41,12 @@ jobs:
       - if: runner.os == 'Linux' && matrix.shell == 'zsh'
         run: sudo apt-get install -y -qq zsh >/dev/null
       - run: scripts/install-smoke.sh "${{ github.ref_name }}" "${{ matrix.shell }}"
+
+  # Point Homebrew at the new release (bilal-/homebrew-tap).
+  tap:
+    needs: goreleaser
+    uses: ./.github/workflows/tap.yml
+    with:
+      version: ${{ github.ref_name }}
+    secrets:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

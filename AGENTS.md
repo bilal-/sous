@@ -203,12 +203,12 @@ A release is a tag, made when there is something worth handing to people:
    with no problems. If that job fails, the release is broken for new
    people: fix it and release again. You can run the same check by hand,
    in a throwaway home: `scripts/install-smoke.sh v0.1.1 zsh`.
-4. When the release is published, update Homebrew:
-
-       make tap VERSION=v0.1.1
-
-   This writes the formula from the release's checksums and pushes it to
-   [bilal-/homebrew-tap](https://github.com/bilal-/homebrew-tap).
+4. The same workflow then updates Homebrew
+   (`.github/workflows/tap.yml`): it writes the formula from the release's
+   checksums and pushes it to
+   [bilal-/homebrew-tap](https://github.com/bilal-/homebrew-tap). If that
+   job fails, rerun it from the Actions tab (tap, Run workflow, with the
+   version), or run `make tap VERSION=v0.1.1` by hand.
 5. Check that GitHub marked the new version as **Latest**
    (`gh release list -R bilal-/sous`). When two tags are pushed together,
    whichever finishes last wins; fix it with
@@ -227,17 +227,16 @@ sous is published through its own tap, not Homebrew's main catalogue.
   each platform, with their SHA-256 checksums, and installs the `sous`
   binary. Its test runs `sous version`.
 * **It is written by `scripts/homebrew-formula.sh`,** which reads the
-  release's `checksums.txt`. `make tap VERSION=vX.Y.Z` runs it and pushes the
-  result. Never edit `Formula/sous.rb` by hand; change the script.
+  release's `checksums.txt`. The tap workflow runs it after every release
+  and pushes the result, using the Actions secret `HOMEBREW_TAP_TOKEN` on
+  `bilal-/sous`: a fine grained token limited to `bilal-/homebrew-tap`,
+  with Contents read and write, and no expiry. If the tap job ever fails
+  to push (the token was revoked, say), make a new one the same way and
+  replace the secret (`gh secret set HOMEBREW_TAP_TOKEN -R bilal-/sous`).
+  `make tap VERSION=vX.Y.Z` does the same by hand. Never edit
+  `Formula/sous.rb` by hand; change the script.
 * **To check a formula before pushing:** `brew audit --tap=bilal-/tap`, then
   `brew install bilal-/tap/sous` and `brew test bilal-/tap/sous`.
-
-Planned: let the release workflow update the tap itself, so step 4 cannot
-be forgotten. It needs a fine grained GitHub token limited to
-`bilal-/homebrew-tap` with Contents read and write, saved on `bilal-/sous`
-as the Actions secret `HOMEBREW_TAP_TOKEN`. Once that secret exists, add a
-job to `.github/workflows/release.yml` that runs the same script after
-GoReleaser and pushes with that token. Until then, `make tap` is the way.
 
 Homebrew's main catalogue (`brew install sous` with no tap) wants projects
 that are established and widely used, and builds them from source. Revisit

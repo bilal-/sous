@@ -1,0 +1,46 @@
+name: tap
+
+# Update the Homebrew formula in bilal-/homebrew-tap for a released
+# version. The release workflow runs it after publishing; run it by hand
+# (Actions, tap, Run workflow) to redo a version.
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+    secrets:
+      HOMEBREW_TAP_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "released version, like v0.3.1"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  formula:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: write the formula and push it
+        env:
+          VERSION: ${{ inputs.version }}
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          git clone -q "https://x-access-token:${TOKEN}@github.com/bilal-/homebrew-tap.git" tap
+          scripts/homebrew-formula.sh "$VERSION" > tap/Formula/sous.rb
+          cd tap
+          git config user.name "sous release"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "the formula is already at $VERSION"
+            git push -q --dry-run origin HEAD   # proves the token can still push
+            exit 0
+          fi
+          git commit -qam "sous ${VERSION#v}"
+          git push -q origin HEAD

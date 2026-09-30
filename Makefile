@@ -39,5 +39,5 @@ tap:
 	@test -n "$(VERSION)" || { echo "usage: make tap VERSION=vX.Y.Z"; exit 1; }
 	rm -rf .tap && gh repo clone bilal-/homebrew-tap .tap -- -q
 	scripts/homebrew-formula.sh $(VERSION) > .tap/Formula/sous.rb
-	cd .tap && git add Formula/sous.rb && git commit -qm "sous $(VERSION:v%=%)" && git push -q
+	cd .tap && git add Formula/sous.rb && git -c user.name=Bilal -c user.email=sudo@bilal.sh commit -qm "sous $(VERSION:v%=%)" && git push -q
 	rm -rf .tap
