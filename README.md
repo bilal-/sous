@@ -186,6 +186,9 @@ To remove sous, delete:
   files (for fish, the file `~/.config/fish/conf.d/sous.fish`)
 * the `sous` folder in your cache folder (`~/Library/Caches/sous` on macOS,
   `~/.cache/sous` on Linux)
+* if you handed work to agents: their branches, named `sous/run-<n>`, in
+  those projects (`git branch -D sous/run-7`), then `git worktree prune`
+  there once `~/.sous` is gone
 
 ## Setting up
 
@@ -331,6 +334,7 @@ so you can say things like:
 * "what is waiting on me?"
 * "note for billing that I owe Sam the pricing copy"
 * "where did I leave off here?"
+* "have an agent fix the flaky test in billing"
 
 Claude asks before anything reaches a shared tracker.
 
@@ -386,7 +390,8 @@ To write a note that starts with a dash, put `--` before it:
 `sous note -- "-2 tests failing"`.
 
 Exit codes: `0` fine, `1` something failed, `2` the command was wrong or a
-name was ambiguous, `3` asked for the cached board before there was one.
+name was ambiguous, `3` asked for the cached board before there was one, or
+a runner is not set up.
 
 ## How sous stays honest
 
@@ -413,6 +418,7 @@ roots = ["~/code"]             # where your projects live
 ignore = ["scratch/*"]         # folders to skip
 agent = "claude"               # the agent sous go starts
 refresh_hours = 4              # how old the shell's cached board may get
+run_minutes = 60               # how long a run by a built in runner may take
 gitlab_hosts = ["git.example.org"]   # GitLab servers, beyond the ones glab knows
 plugins = ["~/.sous/plugins/sous-backend-jira"]   # extra plugins; only listed ones run
 
@@ -487,7 +493,7 @@ agents working on the code is [AGENTS.md](AGENTS.md).
 
 ## Status
 
-sous is young: version 0.1, still before 1.0. Commands and flags may change
+sous is young: version 0.3, still before 1.0. Commands and flags may change
 between minor versions, and every change is noted in
 [CHANGELOG.md](CHANGELOG.md). Your data files are always carried forward: a
 new version upgrades them, and an older version refuses a newer file rather

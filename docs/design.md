@@ -65,13 +65,14 @@ you pick. It never takes over how you work.**
 
 ## Commands
 
-Three groups, and each grows in one direction:
+Four groups, and each grows in one direction:
 
 | Commands | Answers | Grows through |
 |---|---|---|
 | `sous`, `here`, `<project>`, `projects`, `report` | What is waiting on me? Where was I? What changed? | **signals** |
 | `note`, `edit`, `kind`, `snooze`, `done`, `file` | Remember this, for that project | **backends** |
 | `go` | Take me there | **launchers** |
+| `go --run`, `show`, `reply` | Do this for me, and tell me how it went | **runners** |
 
 Plain `sous` always shows the board. `here`, the session hooks and `go` stay
 on your machine and finish quickly: they never wait on the network.
@@ -86,11 +87,12 @@ refused, never overwritten.
 
 | File | Holds |
 |---|---|
-| `threads.json` | your notes: a short number and a stable random id, text, kind (`me`, `them` or `idea`), project, when, where it was filed, and when and by whom it was closed |
+| `threads.json` | your notes: a short number and a stable random id, text, kind (`me`, `them` or `idea`), project, when, where it was filed, and when and by whom it was closed. A run is a note with its runner, ref and last known state. |
 | `observed.json` | what sous has seen before: when each row first and last appeared, and what you snoozed. Rows unseen for 30 days are dropped. |
 | `sessions.json` | the last agent session in each project (a pointer, not the conversation) |
 | `cache.json` | the last board, so a new shell and the menu bar can show it instantly |
 | `report.json` | when the last report was seen, where the next one starts |
+| `runs/` | one folder per run by a built in runner: the agent's worktree, its log and how it ended. Not versioned: it belongs to the runner. |
 | `config.toml` | your folders, what to skip, and settings per project. Written by you, `sous setup` and `sous config`; not versioned, and settings sous does not know are ignored. |
 
 sous never writes rows of its own. Apart from your notes, everything is

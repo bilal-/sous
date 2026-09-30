@@ -4,6 +4,13 @@ sous runs on your own machine. It reads your git repos, asks `gh` and
 `glab` about your GitHub and GitLab work using the logins you already have,
 and keeps its notes in `~/.sous`. It never sends your data anywhere else.
 
+When you hand a task to an agent (`sous go --run`), the built in runners
+start Claude Code or Codex on your machine with the permissions you already
+gave them, plus what committing on the run's own branch needs. The agent
+works in its own git worktree, and its pushes are blocked through each of
+the project's remotes. That block is a safeguard, not a sandbox: the
+agent's own permissions and sandbox are what keep it in bounds.
+
 ## Reporting a problem
 
 If you find a security problem, please tell me privately rather than in a

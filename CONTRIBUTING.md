@@ -12,7 +12,8 @@ with a test are the easiest to say yes to.
 
 * **Write a connector.** sous gets more useful with every place it can see.
   Signals for Jira, Linear, Gitea, Bitbucket, Azure DevOps, Sentry or CI
-  status, and backends for any tracker, are all wanted.
+  status, backends for any tracker, and runners that do work in the
+  background (on a server, or through a tool like orchid) are all wanted.
   [docs/plugins.md](docs/plugins.md) shows how.
 * **Report what surprised you.** If the board showed something wrong, or
   missed something it should have shown, open an issue with what you saw
@@ -40,8 +41,8 @@ Before you send a change:
   `sous go` must never wait on the network.
 * **Write the test first.** Show the problem with a failing test, then fix
   it. Tests never touch your real `~/.sous`, `~/.claude`, `~/.codex` or shell
-  files, and never call real GitHub or GitLab. They use small fake `gh` and
-  `glab` scripts instead.
+  files, and never call real GitHub, GitLab, Claude Code or Codex. They use
+  small fake `gh`, `glab`, `claude` and `codex` scripts instead.
 * **Use made up data.** Examples, tests and docs use invented projects,
   people and hosts (`acme/api`, `Sam`, `git.example.org`). Never real ones.
 * **Keep `make ci` passing**, and add a line to

@@ -13,8 +13,9 @@ missing from it.
 A Go command that shows a person what is waiting on them across every
 project they work on. It is an index, not a store: it works out git, GitHub
 and GitLab state again on every look, and keeps only the person's own notes
-and a little history about what it has seen. It never runs agents or owns a
-workflow. Running `sous` with nothing else always shows the board.
+and a little history about what it has seen. It can hand a task to a
+runner and follow it, but it never does the work or owns a workflow.
+Running `sous` with nothing else always shows the board.
 
 ## Build and test
 
@@ -28,8 +29,9 @@ Tests run inside the test process against a throwaway `HOME` and
 `SOUS_HOME` (see `internal/cli/testutil_test.go`). When a test needs a real
 `sous` process, the test binary plays that part (`SOUS_TEST_AS_BINARY=1`).
 **Never** run `sous setup` in a test, and never point a test at the real
-`~/.sous`, `~/.claude`, `~/.codex` or `~/.zshrc`. GitHub and GitLab are
-never called for real; tests use small fake `gh` and `glab` scripts.
+`~/.sous`, `~/.claude`, `~/.codex` or `~/.zshrc`. GitHub, GitLab, Claude
+Code and Codex are never called for real; tests use small fake `gh`,
+`glab`, `claude` and `codex` scripts.
 
 Write the test first, watch it fail, then make it pass. The files in
 `internal/board/testdata` pin the exact look of the board and of `here`.
@@ -47,7 +49,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/report     what changed since the last report, as text and as a page
     internal/session    the last agent session in each project
     internal/thread     the person's notes
-    internal/signal     the signal contract, the runner, what has been seen before, and the git, GitHub and GitLab signals
+    internal/signal     the signal contract, running signal plugins, what has been seen before, and the git, GitHub and GitLab signals
     internal/backend    the backend contract, FOLLOWUPS.md, and GitHub and GitLab issues
     internal/backend/backendtest   the rules every backend must pass
     internal/signal/signaltest     the rules every signal must pass
@@ -96,19 +98,22 @@ separate program.
 * **Starting a session stays fast and offline.** `sous here`, the session
   hooks and `sous go` run only the git signal, read everything else from
   what the board saw last, and only check trackers that live in the project
-  (`FOLLOWUPS.md`). Never add a network call there.
+  (`FOLLOWUPS.md`) and the built in runners (which read files on this
+  machine). Never add a network call there.
 * **Every data file carries a `version`** and is upgraded when read. A file
   from a newer sous is refused, never overwritten. Test every upgrade.
 * **Every write is locked and replaces the file whole** (`store.Modify`).
   Several agents writing at once is normal; a test races eight processes.
-* **Built ins take the same door as plugins.** Signals, backends and
-  launchers are separate programs, and built ins are reached by running
-  `sous signal|backend|launcher <name> ...`. No shortcuts inside the process.
+* **Built ins take the same door as plugins.** Signals, backends,
+  launchers and runners are separate programs, and built ins are reached by
+  running `sous signal|backend|launcher|runner <name> ...`. No shortcuts
+  inside the process.
 * **Notes stay private until the person says otherwise.** Anything that
   writes where others can see (`sous file`, `--file`, `--close`) must be
   asked for explicitly.
 * **Exit codes:** `0` fine, `1` something failed, `2` wrong command or an
-  ambiguous name, `3` asked for the cached board before there was one. Each
+  ambiguous name, `3` asked for the cached board before there was one, or
+  a runner is not set up (`go --run`). Each
   command declares its flags and how many arguments it takes in `verbs.go`,
   and anything else is refused with that command's usage.
 * **One dependency** (`github.com/BurntSushi/toml`). A new one needs a

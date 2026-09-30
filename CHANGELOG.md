@@ -7,6 +7,11 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+* The sous skill now tells agents to reach for sous when you want a task
+  handed to an agent in the background. Run `sous setup` to update it;
+  `sous doctor` shows it as out of date until then.
+
 ## [0.3.0]
 
 ### Added
