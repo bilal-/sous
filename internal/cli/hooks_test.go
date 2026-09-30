@@ -7,6 +7,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/thread"
 )
 
 func hookJSON(m map[string]any) string { b, _ := json.Marshal(m); return string(b) }
@@ -321,5 +325,28 @@ func TestSessionStartIntroducesSous(t *testing.T) {
 	first := strings.SplitN(out, "\n", 2)[0]
 	if !strings.Contains(first, "sous") || !strings.Contains(first, "sous help") || !strings.Contains(out, "api · main") {
 		t.Fatalf("%q", out)
+	}
+}
+
+// Runs that need the user are what an agent hears first at session start,
+// from any folder, with the command to answer.
+func TestSessionStartRuns(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/app-next", true)
+	st := &store.Store{Home: f.SousHome}
+	now := time.Now()
+	for _, c := range []struct{ state, text string }{{"needs_you", "which fixture should win?"}, {"done", "the spec passes"}, {"running", ""}} {
+		id, _, _ := thread.NoteRun(st, project.Project{Path: filepath.Join(f.WS, "acme/billing")}, "fix the flaky test", "", "fake", "agent", now)
+		thread.SetRun(st, id, func(r *thread.Run) { r.Ref, r.State, r.Text, r.Branch = "fake:x", c.state, c.text, "sous/run-2" })
+	}
+	for _, cwd := range []string{p, f.Home} {
+		out, _, code := f.runStdin(hookJSON(map[string]any{"cwd": cwd, "source": "startup"}), "hook", "session-start", "claude")
+		if code != 0 || !strings.Contains(out, "Runs waiting on the user") || !strings.Contains(out, `1 billing: needs you · which fixture should win? · answer with: sous reply 1 "<answer>"`) ||
+			!strings.Contains(out, "2 billing: done, review it · sous/run-2 · then: sous done 2") || strings.Contains(out, "3 billing") {
+			t.Errorf("from %s:\n%s", cwd, out)
+		}
+	}
+	if out, _, _ := f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "resume"}), "hook", "session-start", "claude"); out != "" {
+		t.Errorf("a resumed session hears nothing:\n%s", out)
 	}
 }

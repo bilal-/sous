@@ -60,13 +60,14 @@ func closeUpstream(e *Env, id int) int {
 	return 0
 }
 
-// reconcile asks trackers about filed notes; offline keeps to backends
-// whose items live on this machine.
+// reconcile asks trackers about filed notes, and runners about runs;
+// offline keeps to backends whose items live on this machine and to the
+// built in runners.
 func reconcile(e *Env, ctx context.Context, views []thread.View, now time.Time, offline bool) []thread.View {
 	if _, code := e.config(); code != 0 {
 		return views
 	}
 	f := e.filer()
 	f.Offline = offline
-	return f.Reconcile(ctx, views, now)
+	return e.dispatcher().Refresh(ctx, f.Reconcile(ctx, views, now), offline)
 }

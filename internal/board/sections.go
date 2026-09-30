@@ -29,6 +29,10 @@ type Row struct {
 	UpstreamErr string `json:"upstream_err,omitempty"`
 	Snoozed     bool   `json:"snoozed,omitempty"`
 	Stale       bool   `json:"stale,omitempty"`
+	// RunState: for a run, how it is going; RunErr why that could not be
+	// read this time (the state is the last one known).
+	RunState string `json:"run_state,omitempty"`
+	RunErr   string `json:"run_err,omitempty"`
 }
 
 // Sections is the board classified: what is on you, on others, and merely
@@ -68,9 +72,22 @@ func classify(v view, now time.Time, threads []thread.View, signals []signal.Obs
 	return s
 }
 
-// routeThreads puts each note under on you, on others, or ideas.
+// routeThreads puts each note under on you, on others, or ideas. A run
+// goes by its state: on others while it works, on you once it is done,
+// needs you, or failed.
 func (s *Sections) routeThreads(v view, now time.Time, threads []thread.View) {
 	for _, t := range threads {
+		if t.Run != nil {
+			if t.Snoozed && !v.snoozedPromises {
+				continue
+			}
+			if working(t.Run.State) {
+				s.Them = append(s.Them, ThreadRow(t, now))
+			} else {
+				s.Me = append(s.Me, ThreadRow(t, now))
+			}
+			continue
+		}
 		switch t.Kind {
 		case thread.Me:
 			s.Me = append(s.Me, ThreadRow(t, now))
@@ -145,11 +162,42 @@ func Classify(d *Data) Sections {
 	return classify(boardView, d.RenderedAt, d.Threads, d.Signals, d.Plugins, extra...)
 }
 
+// working: the run's agent is still at it (or starting).
+func working(state string) bool { return state == "running" || state == "starting" }
+
+// RunRowText is how a run reads on the board: its state first, then the
+// note, then what the runner said.
+func RunRowText(run *thread.Run, text string) string {
+	switch run.State {
+	case "needs_you":
+		return fmt.Sprintf("run needs you · %s · %q", text, run.Text)
+	case "done":
+		return "run done, review it · " + text + Suffix(run.Branch)
+	case "failed":
+		return "run failed · " + text + Suffix(run.Text)
+	case "starting":
+		return "run starting · " + text
+	}
+	return "running · " + text
+}
+
+// Suffix is " · s", or nothing for an empty s.
+func Suffix(s string) string {
+	if s == "" {
+		return ""
+	}
+	return " · " + s
+}
+
 // Ages are computed here, against the data's rendered-at time, so the
 // data model carries only timestamps (and --json stays cacheable).
 func ThreadRow(t thread.View, now time.Time) Row {
-	return Row{ID: fmt.Sprint(t.ID), Project: t.Project, Text: t.Text, Age: project.Age(now, t.Since), Since: t.Since, Kind: string(t.Kind), Source: t.Source,
+	r := Row{ID: fmt.Sprint(t.ID), Project: t.Project, Text: t.Text, Age: project.Age(now, t.Since), Since: t.Since, Kind: string(t.Kind), Source: t.Source,
 		Ref: t.Ref, Upstream: t.Upstream, UpstreamErr: t.UpstreamErr, Snoozed: t.Snoozed, ClosedAt: t.Closed, ClosedBy: t.ClosedBy}
+	if t.Run != nil {
+		r.Text, r.RunState, r.RunErr = RunRowText(t.Run, t.Text), t.Run.State, t.RunErr
+	}
+	return r
 }
 
 // closedRow: for recently-closed threads the interesting age is since the

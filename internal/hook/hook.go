@@ -39,9 +39,13 @@ func Parse(r io.Reader) (Input, bool) {
 	return in, true
 }
 
+// Fresh: the session is new (not resumed, cleared or compacted), so what
+// sous says at its start is news.
+func Fresh(in Input) bool { return in.Source == "" || in.Source == "startup" }
+
 // StartRoot: the repo to inject for, only on a fresh session.
 func StartRoot(in Input, fallback, home string) (string, bool) {
-	if in.Source != "" && in.Source != "startup" {
+	if !Fresh(in) {
 		return "", false
 	}
 	return Root(in, fallback, home)

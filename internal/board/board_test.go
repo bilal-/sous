@@ -3,6 +3,7 @@ package board
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -210,5 +211,27 @@ func TestAmbientShowsOnceAcrossConcurrentShells(t *testing.T) {
 	wg.Wait()
 	if shown != 1 {
 		t.Fatalf("shown %d times", shown)
+	}
+}
+
+func TestRunsAreRoutedByState(t *testing.T) {
+	now := time.Now()
+	mk := func(id int, state string) thread.View {
+		return thread.View{Thread: thread.Thread{ID: id, Project: "/code/acme/billing", Text: "fix the flaky test", Kind: thread.Them, Since: now,
+			Run: &thread.Run{Runner: "claude", State: state, Text: "which fixture?", Branch: fmt.Sprintf("sous/run-%d", id)}}}
+	}
+	unavailable := mk(5, "running")
+	unavailable.RunErr = "claude: timed out"
+	d := &Data{Checked: 1, RenderedAt: now, Threads: []thread.View{mk(1, "running"), mk(2, "needs_you"), mk(3, "done"), mk(4, "failed"), unavailable}}
+	s := Classify(d)
+	if len(s.Them) != 2 || len(s.Me) != 3 {
+		t.Fatalf("them %d me %d", len(s.Them), len(s.Me))
+	}
+	var b strings.Builder
+	Render(&b, d)
+	for _, want := range []string{"running · fix the flaky test", `run needs you · fix the flaky test · "which fixture?"`, "run done, review it · fix the flaky test · sous/run-3", "run failed · fix the flaky test · which fixture?", "(status unavailable: claude: timed out)"} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("missing %q in\n%s", want, b.String())
+		}
 	}
 }

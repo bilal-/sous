@@ -115,11 +115,13 @@ func (r Row) line() string {
 // upstreamNote says when a filed note's tracker could not vouch for it:
 // missing data is shown, never passed off as fine.
 func (r Row) upstreamNote() string {
-	switch r.Upstream {
-	case "unknown":
+	switch {
+	case r.Upstream == "unknown":
 		return " (ref missing)"
-	case "error":
+	case r.Upstream == "error":
 		return " (status unavailable: " + r.UpstreamErr + ")"
+	case r.RunErr != "":
+		return " (status unavailable: " + r.RunErr + ")"
 	}
 	return ""
 }
