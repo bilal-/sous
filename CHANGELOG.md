@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.3.0]
+
 ### Added
 * Runs: hand a task to an agent that works on it in the background, and
   follow it on the board. `sous go <project> --run <brief>` (or `--run -`
