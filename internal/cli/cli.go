@@ -50,6 +50,12 @@ For agents:
   (ref missing) and (status unavailable) mean sous could not confirm, not done.
   When work is put off, the user waits on someone, or an idea belongs to
     another project, offer to note it in one line. Write it only on a yes.
+  To hand the user's task to a background agent: sous go <project> --run -
+    with a full brief on stdin (what, why, and what done means), and --key
+    so a retry does not start it twice. Check with sous show <n> --json.
+    When a run needs the user, ask them, then pass the answer with
+    sous reply <n> "<answer>". A run never pushes; the user reviews its
+    branch. sous done <n> --clean when they are finished with it.
 `
 
 // Env carries everything a subcommand needs; nothing reads globals. Config

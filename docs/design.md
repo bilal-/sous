@@ -37,11 +37,17 @@ you pick. It never takes over how you work.**
   folder that is gone or a row that is out of date says so.
 * **No API key, no background service.** Anything that needs an AI is done
   by the agent you already use, which runs sous like any other command.
+* **It hands work off, and keeps track of it.** Your agent can hand a task
+  to a runner, which works on it in the background. sous shows how it is
+  going, and tells you when it is done or needs you. Work you handed off
+  is one more thing waiting on you, so it belongs on the same list.
 
 ## What sous is not
 
-* **Not an orchestrator.** It never runs agents or does work. `sous go`
-  starts your agent in a project and steps aside.
+* **Not an orchestrator.** It hands work to runners and shows you what
+  they report. The built in runners start one agent and do nothing more:
+  retrying, reviewing and scheduling belong to a runner such as orchid.
+  `sous go` without `--run` starts your agent in a project and steps aside.
 * **Not a tracker.** No priority, status, assignee, sprint or estimate.
   Age and kind are the only order.
 * **Not a registry.** You never add projects. sous finds them by looking
@@ -117,6 +123,10 @@ standard output, and runs with a time limit.
   `close <project> <ref>`, and optionally `url <project> <ref>` (reserved
   for opening an item; sous does not call it yet).
 * **launcher**: `run <project>`, which takes over your terminal.
+* **runner**: `start <project>` (reads `{v, id, uid, project, brief}`,
+  returns a ref at once, and starting the same uid twice is safe),
+  `status <project> <ref>` (one JSON line: `running`, `needs_you`, `done` or
+  `failed`), `stop <project> <ref>`, and optionally `reply` and `clean`.
 
 Plugins from others run only when listed in `config.toml`. How to write one
 is in [plugins.md](plugins.md).

@@ -7,6 +7,28 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+* Runs: hand a task to an agent that works on it in the background, and
+  follow it on the board. `sous go <project> --run <brief>` (or `--run -`
+  for a brief on standard input) starts one; `--key` makes a retry safe.
+  The board shows it on others while it works, then on you when it is
+  done, needs you, or failed. The context your agent gets at session start
+  lists runs that need you first.
+* `sous show <n>`: one note in full; for a run, how it is going now.
+* `sous reply <n> "answer"`: answer a run that needs you; it carries on.
+* `sous done <n> --clean`: for a run, also remove its worktree.
+* The built in `claude` and `codex` runners: each starts one agent in a new
+  git worktree on a branch `sous/run-<n>`, with the permissions you already
+  gave it, never pushes, and stops after `run_minutes` (60 by default).
+* The runner contract, a fourth kind of plugin (`sous-runner-<name>`), and
+  `runnertest`, its conformance suite.
+* `sous doctor` checks the agent each built in runner needs.
+
+### Changed
+* sous is no longer described as never running agents. It hands work to
+  runners and shows what they report; the built in runners start one agent
+  and nothing more.
+
 ## [0.2.3]
 
 ### Fixed

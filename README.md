@@ -122,9 +122,11 @@ pointers and short notes of your own, and works everything else out again
 each time you look.
 
 It has no priorities, due dates, assignees or sprints. Age is the only order.
-It never runs agents or does work for you. It needs no API key and runs no
-background service. When you want an AI to help, the agent you already use
-calls `sous` like any other command.
+It needs no API key and runs no background service. When you want an AI to
+help, the agent you already use calls `sous` like any other command. It can
+hand a task to an agent that works in the background, and keeps track of
+it, but it never becomes the thing that does the work: that is the job of a
+runner.
 
 The full design is in [docs/design.md](docs/design.md).
 
@@ -141,6 +143,7 @@ sous is young. Here is an honest list.
 | **GitHub**: reviews asked of you, changes asked on your pull requests, failing checks on your pull requests, unread notifications that mention or assign you; filing and closing issues | CI on branches without a pull request |
 | **GitLab**: merge requests to review, yours awaiting review; filing and closing issues | GitLab to do items |
 | `FOLLOWUPS.md` in the project as a simple tracker | Jira, Linear, Gitea, Bitbucket (plugins welcome) |
+| handing a task to **Claude Code** or **Codex** in the background, in its own git worktree, and following it on the board | runs that survive a restart, retries and reviews (a runner plugin's job) |
 | a menu bar view through [SwiftBar](https://swiftbar.app) on macOS | a Linux tray icon |
 | plugins in any language, on a contract that only grows until 1.0 | a contract frozen for good (that is what 1.0 means) |
 | install by script, Homebrew or from source | Windows, other package managers |
@@ -289,6 +292,30 @@ closed, which projects you worked in, and what needs a look. Plain
 `sous report` shows what changed since your last report, right in the
 terminal.
 
+### Hand work to an agent
+
+Tell your agent what you want done, and let it hand the task off:
+
+> "Have an agent fix the flaky test in billing. It fails about one run in
+> five since the fixtures changed."
+
+Your agent runs `sous go billing --run -` with a full brief. An agent
+starts on it in the background, in its own git worktree, so your checkout
+is never touched, and the board shows it:
+
+    on others
+      7    billing    running · fix the flaky test          4m
+
+Later, when you open a new session, your agent hears it first:
+
+    [sous] Runs waiting on the user:
+      7 billing: needs you · which fixture should win? · answer with: sous reply 7 "<answer>"
+
+You answer in plain words, your agent runs `sous reply 7 "…"`, and the run
+carries on. When it is done, the board says `run done, review it` with the
+branch to look at. The run never pushes. When you are finished with it,
+`sous done 7 --clean`.
+
 ## Use it with your AI agent
 
 sous is a plain command, so any agent that can run shell commands can use
@@ -343,10 +370,13 @@ explains itself with `--help`.
 | `sous edit <n> "text"` | change a note |
 | `sous kind <n> me\|them\|idea` | change whose move it is |
 | `sous snooze <n\|s:id> [days]` | hide a row for a while |
-| `sous done <n> [--close]` | close a note, and with `--close` its tracker item too |
+| `sous show <n>` | one note in full; for a run, how it is going |
+| `sous done <n> [--close] [--clean]` | close a note, and with `--close` its tracker item too; `--clean` removes a run's worktree |
 | `sous file <n> [--force]` | send a note to the project's tracker |
 | `sous report [--week] [--open]` | what changed lately |
 | `sous go <project> [-a agent]` | start your agent in a project |
+| `sous go <project> --run <brief>` | hand a task to an agent in the background |
+| `sous reply <n> "answer"` | answer a run that needs you |
 | `sous setup [folder...]` | set everything up; folders say where your projects are |
 | `sous config [key value...]` | see or change settings |
 | `sous doctor` | check the setup, and how to fix what is not right |
@@ -419,16 +449,18 @@ Output is plain text for people, with `--json` for programs.
 ## Connectors and plugins
 
 sous grows through small plugins, and we would love your help writing them.
-There are three kinds:
+There are four kinds:
 
 * **signals** find things that are waiting on you: pull requests, CI runs,
   calendar holds, tickets
 * **backends** are where filed notes go: Jira, Linear, Gitea, Bitbucket,
   plain text files
 * **launchers** start an agent or editor in a project
+* **runners** do a task in the background and say how it is going: an
+  agent on a server, a queue of reviewed changes, orchid
 
-A plugin is any program named `sous-signal-<name>`, `sous-backend-<name>` or
-`sous-launcher-<name>`. It reads arguments and standard input and writes
+A plugin is any program named `sous-signal-<name>`, `sous-backend-<name>`,
+`sous-launcher-<name>` or `sous-runner-<name>`. It reads arguments and standard input and writes
 standard output, so you can write one in any language. The built in GitHub,
 GitLab and git support go through exactly the same door, so they are good
 examples to read.

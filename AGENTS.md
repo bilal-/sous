@@ -54,6 +54,9 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     examples/sous-signal-todo      a small plugin in plain shell, for people starting their own
     internal/tracker    gh and glab: which account or host a project uses, running them safely, and the ref format
     internal/launcher   the launcher contract, and Claude Code and Codex
+    internal/runs       starting runs, asking runners how they are going, replies, stop and clean
+    internal/runner     the runner contract, the built in Claude Code and Codex runners and their watcher
+    internal/runner/runnertest     the rules every runner must pass
     internal/plugin     the one way sous runs another program: find it by name, run it with a time limit
     internal/project    finding projects, reading git facts, matching rough names
     internal/store      saving data files safely: locked, written whole, upgraded in place
@@ -64,12 +67,15 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/testutil   helpers shared by every package's tests
 
 Code only depends downward, in this order: `cli`, then `doctor`, then
-`report` and `install`, then `board`, `filing`, `hook` and `launcher`, then `signal` and `backend`, then
+`report` and `install`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
 `tracker`, `plugin`, `thread`, `session` and `project`, then `store` and
 `config`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.
 `thread` uses `project` for a project's path and remote; they share a tier.
-Only `cli` reads the environment. If a function decides something or owns a
+A built in runner starts one agent in a worktree, records how it ended,
+and passes on a reply. Retrying, reviewing and scheduling belong to a
+runner plugin such as orchid, never to sous. Only `cli` reads the
+environment. If a function decides something or owns a
 data file, it does not belong in `cli`.
 
 **Adding a tracker** (Jira, say) usually means two small tables: one for

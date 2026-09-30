@@ -1,7 +1,8 @@
 # Writing a plugin
 
 A plugin teaches sous something new: a place where work waits on you, a
-tracker to file notes in, or a way to start work in a project. This guide
+tracker to file notes in, a way to start work in a project, or something
+that does work in the background. This guide
 shows how to write one.
 
 **The contract is version 0, and it is stable.** Everything on this page
@@ -28,6 +29,7 @@ A plugin is a program named for what it does:
 | signal | `sous-signal-<name>` | find things waiting on you, or on others |
 | backend | `sous-backend-<name>` | keep notes you file, and report their state |
 | launcher | `sous-launcher-<name>` | start an agent or editor in a project |
+| runner | `sous-runner-<name>` | do a task in the background, and say how it is going |
 
 Any language works. sous passes arguments, writes to your standard input,
 and reads your standard output. Anything you print to standard error is
@@ -138,11 +140,65 @@ person's terminal. Start your tool in that folder. The environment variable
 `SOUS_HERE_FILE` names a file with a short summary of where the person left
 off, which you can pass to an agent as its first message.
 
+## Runners
+
+A runner takes a task and works on it somewhere else: an agent in a
+worktree, a job on a server, a queue of reviewed changes. sous hands it the
+task, then asks from time to time how it is going. It never waits on the
+runner, and never checks whether a process is alive: that is the runner's
+job.
+
+| Call | Input | Output | Exit codes |
+|---|---|---|---|
+| `start <project>` | JSON on standard input | the run's ref | `0` started, `1` failed, `2` request not understood, `3` not set up |
+| `status <project> <ref>` | | one JSON line | `0` answered, `1` could not find out |
+| `stop <project> <ref>` | | | `0` stopped (stopping twice is fine), `1` failed |
+| `reply <project> <ref>` | the person's answer on standard input | | `0` carrying on, `1` failed, `2` replies not supported. Optional |
+| `clean <project> <ref>` | | | `0` cleaned, `1` failed, `2` not supported. Optional: remove what a finished run left, keeping its work |
+
+The `start` request:
+
+```json
+{"v":0,"id":7,"uid":"0123456789ab","project":"/home/sam/code/acme/billing","brief":"Fix the flaky test in checkout_spec…","here_file":"/home/sam/.sous/here/…"}
+```
+
+`brief` is the whole task, as the person or their agent wrote it. `id` is
+the note's short number, handy for naming a branch. `here_file`, when
+present, names a file with a short summary of where the person left off.
+
+The `status` answer:
+
+```json
+{"v":0,"state":"needs_you","text":"which fixture should win?","branch":"sous/run-7","worktree":"/home/sam/.sous/runs/…/worktree","log":"/home/sam/.sous/runs/…/log"}
+```
+
+`state` is `running`, `needs_you`, `done` or `failed`. `text` is one short
+line: the question, the summary, or the reason. The rest are optional.
+
+Rules that matter:
+
+* **`start` returns quickly,** within the usual time limit. Detach the
+  work itself; sous never waits on a run.
+* **`start` is safe to repeat.** sous may send the same `uid` again. Return
+  the same ref and start nothing new.
+* **Never guess a state.** If you cannot find out, exit `1` with the
+  reason. sous keeps the state it knew and marks the row "status
+  unavailable".
+* **Refs name their runner,** like `orchid:T3`.
+* **Stay in your lane.** A run should never push or publish without the
+  person saying so; they review the result.
+
+The built in runners (`claude`, `codex`) are small on purpose: each starts
+one agent in a git worktree, records how it ended, and passes on a reply.
+They do not retry, review or survive a restart. A runner plugin is where
+that belongs.
+
 ## Testing your plugin
 
-Two conformance suites check a plugin against every rule above, running it
-exactly the way sous does: `internal/signal/signaltest` for signals and
-`internal/backend/backendtest` for backends. The example plugin and sous's
+Three conformance suites check a plugin against every rule above, running
+it exactly the way sous does: `internal/signal/signaltest` for signals,
+`internal/backend/backendtest` for backends, and
+`internal/runner/runnertest` for runners. The example plugin and sous's
 own built ins pass them. Go only lets code inside the sous repository
 import them, so run them from a small test in a sous checkout:
 
@@ -155,6 +211,13 @@ func TestTodoConforms(t *testing.T) {
 func TestJiraConforms(t *testing.T) {
 	b := backend.Backends("", nil, []string{"/path/to/sous-backend-jira"})[0]
 	backendtest.RunDoor(t, b, "/path/to/a/project/it/detects")
+}
+
+func TestOrchidConforms(t *testing.T) {
+	r := runner.Runners("", nil, []string{"/path/to/sous-runner-orchid"})[0]
+	runnertest.RunDoor(t, r, "/path/to/a/git/project", func(ref string) {
+		// make the run finish: your runner, your way
+	})
 }
 ```
 
