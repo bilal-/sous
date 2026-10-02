@@ -15,6 +15,10 @@ upgraded, never broken.
   `sous done` keeps the note open while the run goes on.
 * When a plugin refuses a call with exit 2, the reason it printed on
   standard error now reaches you.
+* `--json` never shows an empty list as `null`; it is `[]`. This was wrong
+  in the board, `here` and `report`.
+* In `report --json`, a run that is done, needs you or failed says
+  `"kind": "me"`, as the section it is listed in does.
 
 ## [0.3.1]
 

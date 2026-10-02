@@ -228,6 +228,11 @@ func TestRunsAreRoutedByState(t *testing.T) {
 	if len(s.Them) != 2 || len(s.Me) != 3 {
 		t.Fatalf("them %d me %d", len(s.Them), len(s.Me))
 	}
+	for _, r := range s.Me {
+		if r.Kind != "me" {
+			t.Errorf("a run on you says kind %q in --json", r.Kind)
+		}
+	}
 	var b strings.Builder
 	Render(&b, d)
 	for _, want := range []string{"running · fix the flaky test", `run needs you · fix the flaky test · "which fixture?"`, "run done, review it · fix the flaky test · sous/run-3", "run failed · fix the flaky test · which fixture?", "(status unavailable: claude: timed out)"} {

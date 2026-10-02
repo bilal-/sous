@@ -85,10 +85,14 @@ func (s *Sections) routeThreads(v view, now time.Time, threads []thread.View) {
 			if t.Snoozed && !v.snoozedPromises {
 				continue
 			}
+			// A run note is kind them; once it waits on the person its
+			// row says me, as the section it is in does.
+			r := ThreadRow(t, now)
 			if working(t.Run.State) {
-				s.Them = append(s.Them, ThreadRow(t, now))
+				s.Them = append(s.Them, r)
 			} else {
-				s.Me = append(s.Me, ThreadRow(t, now))
+				r.Kind = string(thread.Me)
+				s.Me = append(s.Me, r)
 			}
 			continue
 		}

@@ -4,7 +4,6 @@ package cli
 import (
 	"context"
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -110,16 +109,6 @@ func (e *Env) close() {
 	if e.cancel != nil {
 		e.cancel()
 	}
-}
-
-// writeJSON prints v as indented JSON on stdout. Every read verb's --json.
-func (e *Env) writeJSON(v any) int {
-	enc := json.NewEncoder(e.Stdout)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(v); err != nil {
-		return fail(e, 1, "%v", err)
-	}
-	return 0
 }
 
 // config returns the loaded config or the exit code for a broken one.
