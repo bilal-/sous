@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.3.2]
+
 ### Fixed
 * A backend whose `status` exits 2 or prints something other than `open`,
   `closed` or `unknown` is now read as "status unavailable". sous used to
