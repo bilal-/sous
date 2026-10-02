@@ -28,9 +28,9 @@ Tracked with `sous note --file`; tick a box to close it in sous too.
 - [x] concurrent gh probes can each trigger a macOS keychain prompt after a gh upgrade <!-- sous:26:2c50a1e0 -->
 - [x] refresh_hours has two sources of truth (config.toml vs SOUS_REFRESH_HOURS in sous.zsh) <!-- sous:27:2234550f -->
 - [x] automate the Homebrew tap: once HOMEBREW_TAP_TOKEN exists, add a release.yml job that runs scripts/homebrew-formula.sh and pushes to bilal-/homebrew-tap (see AGENTS.md, How Homebrew publishing works) <!-- sous:78166128d8b6 -->
-- [ ] go --run --json gives next as a string, show --json as a list; make both lists <!-- sous:3b9e02548df6 -->
+- [x] go --run --json gives next as a string, show --json as a list; make both lists <!-- sous:3b9e02548df6 -->
 - [ ] built in runners ignore here_file; go --run writes it anyway: name it in the preamble or skip it for built ins <!-- sous:9df7a58a1a88 -->
 - [ ] the board asks trackers then runners one after the other (up to 3s + 3s); ask both at once <!-- sous:ffd2fbd3f336 -->
-- [ ] goRun ignores thread.Get's error before using th.Run <!-- sous:7a76ec6b3392 -->
+- [x] goRun ignores thread.Get's error before using th.Run <!-- sous:7a76ec6b3392 -->
 - [ ] the run watcher's own stderr goes nowhere; an early watcher failure shows only as stopped without a result <!-- sous:d3c75ad21198 -->
 - [ ] ~/.sous/runs folders are never pruned; drop them some time after their note closes <!-- sous:a8229154353a -->

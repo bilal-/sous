@@ -287,7 +287,7 @@ plugin); the default is `agent` in configuration. The answer names the
 run's number, and the command to check on it:
 
 ```json
-{"id": 7, "runner": "claude", "state": "running", "existed": false, "next": "sous show 7 --json"}
+{"id": 7, "runner": "claude", "state": "running", "existed": false, "next": ["sous show 7 --json"]}
 ```
 
 The built in runners work in a new git worktree, on a branch named

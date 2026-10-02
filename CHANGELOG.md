@@ -20,6 +20,10 @@ upgraded, never broken.
 * In `report --json`, a run that is done, needs you or failed says
   `"kind": "me"`, as the section it is listed in does.
 
+### Changed
+* `sous go --run --json` gives `next` as a list, as `sous show --json`
+  does.
+
 ## [0.3.1]
 
 ### Changed

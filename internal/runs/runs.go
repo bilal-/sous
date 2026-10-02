@@ -62,7 +62,9 @@ func (d *Dispatcher) Start(ctx context.Context, p project.Project, brief, key, n
 	}
 	ref, err := runner.Start(ctx, r, runner.Request{ID: id, UID: th.UID, Project: p.Path, Brief: brief, HereFile: hereFile})
 	if err != nil {
-		thread.SetRun(d.Store, id, func(run *thread.Run) { run.State, run.Text = string(runner.Failed), "did not start: "+err.Error() })
+		if serr := thread.SetRun(d.Store, id, func(run *thread.Run) { run.State, run.Text = string(runner.Failed), "did not start: "+err.Error() }); serr != nil {
+			return id, false, fmt.Errorf("%w (and marking the run failed: %v)", err, serr)
+		}
 		return id, false, err
 	}
 	now := d.Now().UTC()

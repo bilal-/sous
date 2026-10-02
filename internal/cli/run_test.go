@@ -26,9 +26,9 @@ esac`)
 		Runner  string
 		State   string
 		Existed bool
-		Next    string
+		Next    []string
 	}
-	if code != 0 || json.Unmarshal([]byte(out), &started) != nil || started.ID != 1 || started.State != "running" || started.Next != "sous show 1 --json" {
+	if code != 0 || json.Unmarshal([]byte(out), &started) != nil || started.ID != 1 || started.State != "running" || len(started.Next) != 1 || started.Next[0] != "sous show 1 --json" {
 		t.Fatalf("%d %s %s", code, out, errs)
 	}
 	out, _, _ = f.run("go", "billing", "--run", "second task", "-a", "fake")

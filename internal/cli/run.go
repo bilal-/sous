@@ -70,9 +70,12 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 	case err != nil:
 		return fail(e, 1, "%v", err)
 	}
-	th, _ := thread.Get(e.store(), id)
+	th, err := thread.Get(e.store(), id)
+	if err != nil || th.Run == nil {
+		return fail(e, 1, "run %d started, but reading it back failed: %v (sous show %d)", id, err, id)
+	}
 	if e.JSON {
-		return e.writeJSON(map[string]any{"id": id, "runner": th.Run.Runner, "state": th.Run.State, "existed": existed, "next": fmt.Sprintf("sous show %d --json", id)})
+		return e.writeJSON(map[string]any{"id": id, "runner": th.Run.Runner, "state": th.Run.State, "existed": existed, "next": []string{fmt.Sprintf("sous show %d --json", id)}})
 	}
 	verb := "started"
 	if existed {
