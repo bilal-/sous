@@ -27,7 +27,7 @@ func TestWriteJSONEmptyListsAreNotNull(t *testing.T) {
 	}
 	var out bytes.Buffer
 	e := &Env{Stdout: &out}
-	v := outer{Rows: []inner{{}}, Ptr: &inner{}, Any: map[string]any{"xs": []int(nil)}, Map: map[string][]int{"a": nil}}
+	v := outer{Rows: []inner{{}}, Ptr: &inner{}, Any: map[string]any{"xs": []int(nil)}, Map: map[string][]int{"a": nil}, secret: []int{1}}
 	if code := e.writeJSON(v); code != 0 {
 		t.Fatal(code)
 	}

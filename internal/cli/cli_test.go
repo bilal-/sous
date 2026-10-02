@@ -10,7 +10,7 @@ import (
 func TestVersionAndHelp(t *testing.T) {
 	f := fixture(t)
 	out, _, code := f.run("version")
-	if code != 0 || !strings.Contains(out, "sous 0.1.0") {
+	if code != 0 || out != "sous "+Version+"\n" {
 		t.Fatalf("version: code=%d out=%q", code, out)
 	}
 	out, _, code = f.run("help")

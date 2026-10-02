@@ -49,7 +49,7 @@ func Take(s *store.Store, now time.Time, week bool) error {
 		return nil
 	}
 	_, err := store.Modify[markDoc](s, "report", markMigrator{}, func(m *markDoc) error {
-		m.Version, m.LastReport = 1, &now
+		m.LastReport = &now
 		return nil
 	})
 	return err

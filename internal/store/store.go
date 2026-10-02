@@ -151,6 +151,9 @@ func (s *Store) Update(name string, m Migrator, fn func([]byte) ([]byte, error))
 	if err != nil {
 		return nil, err
 	}
+	if v, err := version(out); json.Valid(out) && (err != nil || v != m.Current()) {
+		return nil, fmt.Errorf("refusing to write %s.json as version %d; it is version %d", name, v, m.Current())
+	}
 	if err := s.writeNoLock(name, out); err != nil {
 		return nil, err
 	}

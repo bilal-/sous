@@ -2,6 +2,7 @@ package project
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -252,5 +253,15 @@ func TestUnreadableFolderIsUnavailable(t *testing.T) {
 	t.Cleanup(func() { os.Chmod(org, 0o755) })
 	if _, unavailable := Discover([]string{root}, nil, io.Discard); unavailable != 1 {
 		t.Fatalf("unavailable = %d", unavailable)
+	}
+}
+
+// A folder sous could not read may hold the project: "no match" alone
+// would make missing data look like nothing there.
+func TestResolveNoMatchNamesUnreadableFolders(t *testing.T) {
+	home := t.TempDir()
+	_, err := Resolve([]string{filepath.Join(home, "gone")}, nil, "api", home, home, io.Discard)
+	if !errors.Is(err, ErrNoMatch) || !strings.Contains(err.Error(), "1 project folder could not be read") {
+		t.Fatalf("%v", err)
 	}
 }

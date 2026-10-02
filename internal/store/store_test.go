@@ -356,3 +356,20 @@ func TestResolveLinksDotDotAfterALinkedFolder(t *testing.T) {
 		t.Fatalf("%q %v, want %q", got, err, want)
 	}
 }
+
+// A write must carry the version the file is read as, or the next read
+// would migrate data that is already current (or refuse it as newer).
+func TestUpdateRefusesAWrongVersion(t *testing.T) {
+	s := &Store{Home: t.TempDir()}
+	Modify[doc](s, "threads", docMig{}, func(d *doc) error { d.Items = []string{"x"}; return nil })
+	before, _ := os.ReadFile(filepath.Join(s.Home, "threads.json"))
+	for _, v := range []int{0, 2} {
+		_, err := Modify[doc](s, "threads", docMig{}, func(d *doc) error { d.Version = v; return nil })
+		if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("version %d", v)) {
+			t.Errorf("v%d: %v", v, err)
+		}
+	}
+	if after, _ := os.ReadFile(filepath.Join(s.Home, "threads.json")); string(before) != string(after) {
+		t.Fatal("a refused write changed the file")
+	}
+}

@@ -19,6 +19,10 @@ upgraded, never broken.
   in the board, `here` and `report`.
 * In `report --json`, a run that is done, needs you or failed says
   `"kind": "me"`, as the section it is listed in does.
+* When no project matches a name and a project folder could not be read,
+  the error says so: the project may be in that folder.
+* `sous help` lists both meanings of exit code 3.
+* A build from source without a version says `sous dev`, not `0.1.0-dev`.
 
 ### Changed
 * `sous go --run --json` gives `next` as a list, as `sous show --json`

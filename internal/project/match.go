@@ -98,8 +98,16 @@ func Resolve(roots, ignore []string, term, cwd, home string, warn io.Writer) (Pr
 		if warn == nil {
 			warn = io.Discard
 		}
-		ps, _ := Discover(roots, ignore, warn)
-		return Match(ps, term)
+		ps, unavailable := Discover(roots, ignore, warn)
+		p, err := Match(ps, term)
+		if errors.Is(err, ErrNoMatch) && unavailable > 0 {
+			folders := "folders"
+			if unavailable == 1 {
+				folders = "folder"
+			}
+			err = fmt.Errorf("%w; %d project %s could not be read", err, unavailable, folders)
+		}
+		return p, err
 	}
 	root, ok := ForPath(cwd, home)
 	if !ok {

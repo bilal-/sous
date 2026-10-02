@@ -18,7 +18,8 @@ import (
 )
 
 // Version is set at build time: -ldflags "-X github.com/bilal-/sous/internal/cli.Version=v0.1.0".
-var Version = "0.1.0-dev"
+// A plain go build says dev, never a release it is not.
+var Version = "dev"
 
 const usageHeader = `sous %s: one list of what is waiting on you, across every project.
 
@@ -29,7 +30,7 @@ const usageHeader = `sous %s: one list of what is waiting on you, across every p
 
 const usageFooter = `
 Flags: --json (read verbs) · --brief (here) · --ambient · --cached · --refresh · --menubar
-Exit:  0 ok · 1 failure · 2 usage or ambiguity · 3 no board yet (--cached, --ambient)
+Exit:  0 ok · 1 failure · 2 usage or ambiguity · 3 not ready: no board yet (--cached, --ambient), or the runner is not set up (go --run)
 Put -- before a note that starts with a dash.
 
 For agents:

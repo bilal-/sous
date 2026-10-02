@@ -189,7 +189,6 @@ func WriteCache(s *store.Store, d *Data) error {
 	Render(&b, d)
 	text := b.String()
 	_, err := store.Modify[CacheDoc](s, "cache", CacheMigrator{}, func(c *CacheDoc) error {
-		c.Version = 1
 		c.RenderedAt = &d.RenderedAt
 		c.Board = &text
 		c.Data = d
