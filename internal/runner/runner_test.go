@@ -81,3 +81,12 @@ func TestByRef(t *testing.T) {
 		t.Fatal("unknown runner")
 	}
 }
+
+// Stop is required: exit 2 is not "stopped", or sous would close the note
+// while the run goes on.
+func TestStopExit2IsAnError(t *testing.T) {
+	r := fakeRunner(t, `stop) echo "cannot stop yet" >&2; exit 2;;`)
+	if err := Stop(context.Background(), r, "/p", "fake:1"); err == nil || !strings.Contains(err.Error(), "cannot stop yet") {
+		t.Fatalf("want an error with the reason, got %v", err)
+	}
+}

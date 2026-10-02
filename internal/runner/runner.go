@@ -92,7 +92,7 @@ func ByRef(rs []Runner, ref string) (Runner, error) {
 	return Runner{}, fmt.Errorf("no runner for %q (is sous-runner-%s listed in plugins?)", ref, name)
 }
 
-func call(ctx context.Context, r Runner, stdin []byte, op string, args ...string) (string, int, error) {
+func call(ctx context.Context, r Runner, stdin []byte, op string, args ...string) (plugin.Answer, error) {
 	argv := append(append(append([]string{}, r.Argv...), op), args...)
 	return plugin.Call(ctx, r.Name, op, argv, stdin, timeout)
 }
@@ -103,33 +103,33 @@ func Start(ctx context.Context, r Runner, req Request) (string, error) {
 	enc := json.NewEncoder(&body)
 	enc.SetEscapeHTML(false)
 	enc.Encode(req)
-	out, code, err := call(ctx, r, body.Bytes(), "start", req.Project)
+	a, err := call(ctx, r, body.Bytes(), "start", req.Project)
 	switch {
-	case code == 3:
+	case a.Code == 3:
 		return "", fmt.Errorf("%s: %w: %v", r.Name, ErrNotSetUp, err)
 	case err != nil:
 		return "", fmt.Errorf("%s start: %w", r.Name, err)
-	case code == 2:
-		return "", fmt.Errorf("%s start: rejected the request", r.Name)
-	case out == "":
+	case a.Code == 2:
+		return "", plugin.Refused(r.Name, "start", a)
+	case a.Out == "":
 		return "", fmt.Errorf("%s start: printed no ref", r.Name)
 	}
-	return out, nil
+	return a.Out, nil
 }
 
 // GetStatus never guesses: anything but a readable v0 line with a known
 // state is an error, and the caller keeps what it knew.
 func GetStatus(ctx context.Context, r Runner, project, ref string) (Status, error) {
-	out, code, err := call(ctx, r, nil, "status", project, ref)
+	a, err := call(ctx, r, nil, "status", project, ref)
 	if err != nil {
 		return Status{}, err
 	}
 	var st Status
 	switch {
-	case code != 0:
-		return Status{}, fmt.Errorf("%s status: exit %d", r.Name, code)
-	case json.Unmarshal([]byte(out), &st) != nil:
-		return Status{}, fmt.Errorf("%s status: not a JSON line: %.60q", r.Name, out)
+	case a.Code != 0:
+		return Status{}, plugin.Refused(r.Name, "status", a)
+	case json.Unmarshal([]byte(a.Out), &st) != nil:
+		return Status{}, fmt.Errorf("%s status: not a JSON line: %.60q", r.Name, a.Out)
 	case st.V != 0:
 		return Status{}, fmt.Errorf("%s status: contract v%d is newer than this sous speaks (v0)", r.Name, st.V)
 	case !st.State.Valid():
@@ -145,7 +145,10 @@ func Reply(ctx context.Context, r Runner, project, ref, answer string) error {
 
 // Stop ends a run; stopping twice is fine.
 func Stop(ctx context.Context, r Runner, project, ref string) error {
-	_, _, err := call(ctx, r, nil, "stop", project, ref)
+	a, err := call(ctx, r, nil, "stop", project, ref)
+	if err == nil && a.Code != 0 {
+		return plugin.Refused(r.Name, "stop", a)
+	}
 	return err
 }
 
@@ -155,12 +158,12 @@ func Clean(ctx context.Context, r Runner, project, ref string) error {
 }
 
 // optional reads an optional call's answer: exit 2 is "not supported".
-func optional(r Runner, op string) func(string, int, error) error {
-	return func(_ string, code int, err error) error {
+func optional(r Runner, op string) func(plugin.Answer, error) error {
+	return func(a plugin.Answer, err error) error {
 		switch {
 		case err != nil:
 			return err
-		case code == 2:
+		case a.Code == 2:
 			return fmt.Errorf("%s %s: %w", r.Name, op, ErrUnsupported)
 		}
 		return nil

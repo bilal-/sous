@@ -97,7 +97,7 @@ five commands.
 | Call | Input | Output | Exit codes |
 |---|---|---|---|
 | `detect <project>` | | | `0` this project is mine, `1` it is not (say why on standard error if it is close, like "not logged in") |
-| `file` | JSON on standard input | the new item's ref | `0` filed, `1` failed, `2` request not understood |
+| `file` | JSON on standard input | the new item's ref | `0` filed, `1` failed, `2` request not understood (say why on standard error) |
 | `status <project> <ref>` | | `open`, `closed` or `unknown` | `0` answered, `1` could not find out |
 | `close <project> <ref>` | | | `0` closed (closing twice is fine), `1` failed |
 | `url <project> <ref>` | | a web link | `0`, or `2` if you have no links. Optional, and not used by sous yet |
@@ -125,7 +125,8 @@ Rules that matter:
 * **Never guess a state.** `unknown` means the item is gone. If you could not
   reach the tracker, exit `1` with the reason instead. sous shows the person
   "status unavailable" and keeps the note open. Answering `closed` would close
-  their note, so only say it when it is true.
+  their note, so only say it when it is true. sous does not guess either: any
+  other exit code or any other output is read as "could not find out".
 * **Refs name their backend.** Start refs with your plugin's name, like
   `jira:OPS-12`, so sous knows who to ask about them later.
 
@@ -152,7 +153,7 @@ job.
 |---|---|---|---|
 | `start <project>` | JSON on standard input | the run's ref | `0` started, `1` failed, `2` request not understood, `3` not set up |
 | `status <project> <ref>` | | one JSON line | `0` answered, `1` could not find out |
-| `stop <project> <ref>` | | | `0` stopped (stopping twice is fine), `1` failed |
+| `stop <project> <ref>` | | | `0` stopped (stopping twice is fine), `1` failed. Any other exit code is read as not stopped |
 | `reply <project> <ref>` | the person's answer on standard input | | `0` carrying on, `1` failed, `2` replies not supported. Optional |
 | `clean <project> <ref>` | | | `0` cleaned, `1` failed, `2` not supported. Optional: remove what a finished run left, keeping its work |
 

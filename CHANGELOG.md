@@ -7,6 +7,15 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+* A backend whose `status` exits 2 or prints something other than `open`,
+  `closed` or `unknown` is now read as "status unavailable". sous used to
+  take it as `unknown` and could file the note a second time.
+* A runner whose `stop` exits 2 is no longer taken as stopped, so
+  `sous done` keeps the note open while the run goes on.
+* When a plugin refuses a call with exit 2, the reason it printed on
+  standard error now reaches you.
+
 ## [0.3.1]
 
 ### Changed

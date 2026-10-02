@@ -102,30 +102,47 @@ type Op func(args []string, stdin io.Reader, stdout, stderr io.Writer) int
 // ErrNo: exit 1 with nothing on standard error, a plain "no".
 var ErrNo = errors.New("not applicable")
 
+// Answer is what a contract call said: its standard output and exit code,
+// and for an exit 2, the reason it gave on standard error.
+type Answer struct {
+	Out    string
+	Code   int
+	Reason string
+}
+
 // Call runs one contract call and reads its exit code the way every kind of
-// plugin does: 0 and 2 are answers (out, code); 1 is a failure, its reason
-// on standard error (ErrNo when silent); anything else, a timeout, or a
-// program that cannot run is an error.
-func Call(ctx context.Context, name, op string, argv []string, stdin []byte, timeout time.Duration) (string, int, error) {
+// plugin does: 0 and 2 are answers; 1 is a failure, its reason on standard
+// error (ErrNo when silent); anything else, a timeout, or a program that
+// cannot run is an error.
+func Call(ctx context.Context, name, op string, argv []string, stdin []byte, timeout time.Duration) (Answer, error) {
 	res := Exec(ctx, argv, stdin, timeout)
 	switch {
 	case res.TimedOut:
-		return "", 0, fmt.Errorf("%s %s: timed out after %s", name, op, timeout)
+		return Answer{}, fmt.Errorf("%s %s: timed out after %s", name, op, timeout)
 	case res.Err != nil:
-		return "", 0, fmt.Errorf("%s %s: %w", name, op, res.Err)
+		return Answer{}, fmt.Errorf("%s %s: %w", name, op, res.Err)
 	}
 	msg := strings.TrimSpace(res.Stderr)
 	switch res.Code {
 	case 0, 2:
-		return strings.TrimSpace(res.Stdout), res.Code, nil
+		return Answer{Out: strings.TrimSpace(res.Stdout), Code: res.Code, Reason: msg}, nil
 	case 1:
 		if msg == "" {
-			return "", 1, ErrNo
+			return Answer{Code: 1}, ErrNo
 		}
-		return "", 1, errors.New(msg)
+		return Answer{Code: 1}, errors.New(msg)
 	}
 	if msg == "" {
 		msg = fmt.Sprintf("exit %d", res.Code)
 	}
-	return "", res.Code, errors.New(msg)
+	return Answer{Code: res.Code}, errors.New(msg)
+}
+
+// Refused is the error for an exit 2 that the caller cannot accept, with
+// the plugin's reason when it gave one.
+func Refused(name, op string, a Answer) error {
+	if a.Reason == "" {
+		return fmt.Errorf("%s %s: refused (exit 2)", name, op)
+	}
+	return fmt.Errorf("%s %s: refused: %s", name, op, a.Reason)
 }

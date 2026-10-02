@@ -204,9 +204,8 @@ func ByRef(bs []Backend, ref string) (Backend, error) {
 }
 
 type result struct {
-	out  string
-	code int
-	err  error
+	plugin.Answer
+	err error
 }
 
 func run(ctx context.Context, b Backend, stdin []byte, op string, args ...string) result {
@@ -214,8 +213,8 @@ func run(ctx context.Context, b Backend, stdin []byte, op string, args ...string
 		return result{err: errors.New("local threads have no upstream backend")}
 	}
 	argv := append(append([]string{}, b.Argv...), op)
-	out, code, err := plugin.Call(ctx, b.Name, op, append(argv, args...), stdin, timeout)
-	return result{out: out, code: code, err: err}
+	a, err := plugin.Call(ctx, b.Name, op, append(argv, args...), stdin, timeout)
+	return result{a, err}
 }
 
 // Detect picks the backend for filing into project. An explicit override
@@ -232,9 +231,9 @@ func Detect(ctx context.Context, bs []Backend, project, override string, warn io
 	for _, b := range bs {
 		r := run(ctx, b, nil, "detect", project)
 		switch {
-		case r.err == nil && r.code == 0:
+		case r.err == nil && r.Code == 0:
 			return b, nil
-		case r.code == 1:
+		case r.Code == 1:
 			// Not applicable — but a stated reason (auth, missing tool) must
 			// reach the user, or "no tracker" is a mystery.
 			if warn != nil && r.err != nil && !errors.Is(r.err, errNotApplicable) {
@@ -273,25 +272,28 @@ func File(ctx context.Context, b Backend, req Request) (string, error) {
 	if r.err != nil {
 		return "", r.err
 	}
-	if r.code == 2 {
-		return "", fmt.Errorf("%s file: rejected the request", b.Name)
+	if r.Code == 2 {
+		return "", plugin.Refused(b.Name, "file", r.Answer)
 	}
-	if r.out == "" {
+	if r.Out == "" {
 		return "", fmt.Errorf("%s file: printed no ref", b.Name)
 	}
-	return r.out, nil
+	return r.Out, nil
 }
 
 func Status(ctx context.Context, b Backend, project, ref string) (string, error) {
 	r := run(ctx, b, nil, "status", project, ref)
-	if r.err != nil {
-		return "unknown", r.err
+	switch {
+	case r.err != nil:
+		return "", r.err
+	case r.Code != 0:
+		return "", plugin.Refused(b.Name, "status", r.Answer)
 	}
-	switch r.out {
-	case "open", "closed":
-		return r.out, nil
+	switch r.Out {
+	case "open", "closed", "unknown":
+		return r.Out, nil
 	}
-	return "unknown", nil
+	return "", fmt.Errorf("%s status: not open, closed or unknown: %q", b.Name, r.Out)
 }
 
 func Close(ctx context.Context, b Backend, project, ref string) error {
@@ -299,8 +301,8 @@ func Close(ctx context.Context, b Backend, project, ref string) error {
 	if r.err != nil {
 		return r.err
 	}
-	if r.code == 2 {
-		return fmt.Errorf("%s close: rejected %s", b.Name, ref)
+	if r.Code == 2 {
+		return plugin.Refused(b.Name, "close "+ref, r.Answer)
 	}
 	return nil
 }
@@ -311,8 +313,8 @@ func URL(ctx context.Context, b Backend, project, ref string) (string, bool, err
 	if r.err != nil {
 		return "", false, r.err
 	}
-	if r.code == 2 {
+	if r.Code == 2 {
 		return "", false, nil
 	}
-	return r.out, true, nil
+	return r.Out, true, nil
 }

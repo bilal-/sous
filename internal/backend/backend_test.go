@@ -156,3 +156,25 @@ func (r *recordingImpl) File(Request) (string, error)          { r.filed = true;
 func (r *recordingImpl) Status(string, string) (string, error) { return "open", nil }
 func (r *recordingImpl) Close(string, string) error            { return nil }
 func (r *recordingImpl) URL(string, string) (string, error)    { return "", ErrUnsupported }
+
+// Status never guesses: only exit 0 with open, closed or unknown is an
+// answer. "unknown" means the item is gone, so reading it from a plugin
+// that said something else would re-file the note.
+func TestStatusRefusesAnythingButAnAnswer(t *testing.T) {
+	dir := t.TempDir()
+	for _, tc := range []struct{ name, body, want string }{
+		{"exit2", `echo "no idea" >&2; exit 2`, "no idea"},
+		{"odd", `echo Open`, `"Open"`},
+		{"empty", `exit 0`, `""`},
+	} {
+		b := Backends("", nil, []string{script(t, dir, "sous-backend-"+tc.name, tc.body)})[0]
+		st, err := Status(context.Background(), b, "/p", "x:1")
+		if err == nil || st != "" || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: want an error naming %s, got %q %v", tc.name, tc.want, st, err)
+		}
+	}
+	b := Backends("", nil, []string{script(t, dir, "sous-backend-gone", `echo unknown`)})[0]
+	if st, err := Status(context.Background(), b, "/p", "x:1"); err != nil || st != "unknown" {
+		t.Fatalf("unknown is an answer: %q %v", st, err)
+	}
+}

@@ -58,22 +58,22 @@ func TestCallReadsExitCodesOneWay(t *testing.T) {
 		return []string{p}
 	}
 	ctx := context.Background()
-	if out, code, err := Call(ctx, "x", "op", script("echo hi"), nil, time.Second); out != "hi" || code != 0 || err != nil {
-		t.Fatalf("ok: %q %d %v", out, code, err)
+	if a, err := Call(ctx, "x", "op", script("echo hi"), nil, time.Second); a.Out != "hi" || a.Code != 0 || err != nil {
+		t.Fatalf("ok: %+v %v", a, err)
 	}
-	if _, code, err := Call(ctx, "x", "op", script("exit 2"), nil, time.Second); code != 2 || err != nil {
-		t.Fatalf("2: %d %v", code, err)
+	if a, err := Call(ctx, "x", "op", script("echo why >&2; exit 2"), nil, time.Second); a.Code != 2 || a.Reason != "why" || err != nil {
+		t.Fatalf("2: %+v %v", a, err)
 	}
-	if _, _, err := Call(ctx, "x", "op", script("exit 1"), nil, time.Second); !errors.Is(err, ErrNo) {
+	if _, err := Call(ctx, "x", "op", script("exit 1"), nil, time.Second); !errors.Is(err, ErrNo) {
 		t.Fatalf("silent 1: %v", err)
 	}
-	if _, _, err := Call(ctx, "x", "op", script("echo nope >&2; exit 1"), nil, time.Second); err == nil || err.Error() != "nope" {
+	if _, err := Call(ctx, "x", "op", script("echo nope >&2; exit 1"), nil, time.Second); err == nil || err.Error() != "nope" {
 		t.Fatalf("1 with reason: %v", err)
 	}
-	if _, _, err := Call(ctx, "x", "op", script("exit 7"), nil, time.Second); err == nil || !strings.Contains(err.Error(), "exit 7") {
+	if _, err := Call(ctx, "x", "op", script("exit 7"), nil, time.Second); err == nil || !strings.Contains(err.Error(), "exit 7") {
 		t.Fatalf("7: %v", err)
 	}
-	if _, _, err := Call(ctx, "x", "op", script("sleep 5"), nil, 200*time.Millisecond); err == nil || !strings.Contains(err.Error(), "x op: timed out") {
+	if _, err := Call(ctx, "x", "op", script("sleep 5"), nil, 200*time.Millisecond); err == nil || !strings.Contains(err.Error(), "x op: timed out") {
 		t.Fatalf("timeout: %v", err)
 	}
 }
