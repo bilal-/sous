@@ -18,8 +18,11 @@ type Ref struct {
 	MR      bool // "!": a merge request rather than an issue
 }
 
-// defaultHost: trackers whose host goes unwritten.
-var defaultHost = map[string]string{"github": GitHubHost}
+// defaultHost is the host refs leave out for tracker, or "".
+func defaultHost(tracker string) string {
+	k, _ := KindOf(tracker)
+	return k.Host
+}
 
 func (r Ref) String() string {
 	sep := "#"
@@ -27,7 +30,7 @@ func (r Ref) String() string {
 		sep = "!"
 	}
 	where := r.Host + "/" + r.Repo
-	if r.Host == defaultHost[r.Tracker] {
+	if h := defaultHost(r.Tracker); h != "" && r.Host == h {
 		where = r.Repo
 	}
 	return r.Tracker + ":" + where + sep + r.Number
@@ -49,7 +52,7 @@ func ParseRef(s string) (Ref, bool) {
 		return Ref{}, false
 	}
 	where := rest[:i]
-	if h, ok := defaultHost[tr]; ok {
+	if h := defaultHost(tr); h != "" {
 		r.Host, r.Repo = h, where
 		if !strings.Contains(where, "/") {
 			return Ref{}, false // owner/repo
@@ -66,15 +69,8 @@ func ParseRef(s string) (Ref, bool) {
 // WebURL is the item's page, for trackers whose URL shape is known; "" for
 // the rest.
 func (r Ref) WebURL() string {
-	switch r.Tracker {
-	case "github":
-		return "https://github.com/" + r.Repo + "/issues/" + r.Number // GitHub redirects PR numbers
-	case "gitlab":
-		kind := "issues"
-		if r.MR {
-			kind = "merge_requests"
-		}
-		return "https://" + r.Host + "/" + r.Repo + "/-/" + kind + "/" + r.Number
+	if k, ok := KindOf(r.Tracker); ok {
+		return k.URL(r)
 	}
 	return ""
 }

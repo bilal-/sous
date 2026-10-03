@@ -337,7 +337,7 @@ func sshAlias(host string) string {
 			continue
 		}
 		to := strings.ReplaceAll(b.hostname, "%h", alias)
-		if !dotted || slices.Contains(b.patterns, alias) && slices.Contains(trackerHosts, to) {
+		if !dotted || slices.Contains(b.patterns, alias) && publicHost(to) {
 			return to
 		}
 		if dotted {
@@ -347,8 +347,15 @@ func sshAlias(host string) string {
 	return alias
 }
 
-// trackerHosts are the public hosts a dotted ssh alias may stand for.
-var trackerHosts = []string{GitHubHost, "gitlab.com"}
+// publicHost: may a dotted ssh alias stand for host (a tracker's own)?
+func publicHost(host string) bool {
+	for _, k := range Kinds {
+		if slices.Contains(k.PublicHosts, host) {
+			return true
+		}
+	}
+	return false
+}
 
 // readSSHConfig reads the Host blocks that set a HostName, in order.
 // Include lines are read in place, as part of the block they sit in; Match

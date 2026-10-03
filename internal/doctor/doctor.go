@@ -77,17 +77,11 @@ var trackerTimeout = 30 * time.Second
 // the board would show as a failed source is a problem; a tracker that is
 // simply not set up here is a note.
 func trackerChecks(cfg *config.Config) []Check {
-	runs := []struct {
-		tool  string
-		check func() []tracker.Result
-	}{
-		{"gh", func() []tracker.Result { return tracker.CheckGitHub(cfg.Identities(config.KeyGitHubAccount)) }},
-		{"glab", func() []tracker.Result { return tracker.CheckGitLab(cfg.GitLabHosts) }},
-	}
+	runs := tracker.Kinds
 	answers := make([]chan []tracker.Result, len(runs))
-	for i, r := range runs {
+	for i, k := range runs {
 		answers[i] = make(chan []tracker.Result, 1)
-		go func() { answers[i] <- r.check() }()
+		go func() { answers[i] <- k.Check(cfg) }()
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), trackerTimeout)
 	defer cancel()
@@ -97,7 +91,7 @@ func trackerChecks(cfg *config.Config) []Check {
 		select {
 		case results = <-answers[i]:
 		case <-ctx.Done():
-			results = []tracker.Result{{Name: r.tool, Detail: fmt.Sprintf("did not answer within %s", trackerTimeout), Fix: "try " + r.tool + " auth status"}}
+			results = []tracker.Result{{Name: r.Tool, Detail: fmt.Sprintf("did not answer within %s", trackerTimeout), Fix: "try " + r.Tool + " auth status"}}
 		}
 		for _, t := range results {
 			out = append(out, fromResult(t.Name, t.OK, t.Detail, t.Fix, severity(t.Optional)))

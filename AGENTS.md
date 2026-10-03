@@ -90,14 +90,25 @@ door `sous <axis> <name> <call>` (`internal/cli/door.go`), and which
 built ins a session start may ask. A built in ends every call with
 `plugin.Exit`, so it speaks the same exit codes as a plugin program.
 
-**Adding a tracker** (Jira, say) usually means two small tables: one for
-filing in `internal/backend/<name>.go`, one for finding work in
-`internal/signal/<name>.go`, and a line in each list of built ins. The
-shared code should not need to change. If it does, that is the part to
-review closely. Every backend must pass `backendtest.Run` and
-`RunUnreachable` against a fake of its command line tool that keeps state
-(`internal/backend/conformance_test.go`), and `RunDoor` when run as a
-separate program.
+**Adding a tracker** as a built in (Jira, say) is three pieces, each
+named after it:
+
+1. a row in `tracker.Kinds` (`internal/tracker/kind.go`): its command line
+   tool, its public host, its item links, and what `sous doctor` checks.
+   If it needs a tool sous does not run yet, the code that runs that tool
+   safely goes in `internal/tracker` too, next to `GH` and `GLab`.
+2. a backend, `internal/backend/<name>.go`: an `IssueCLI` for `Remote`
+   (find the project's repo, file, look up, close), and its entry in
+   `backend.Registry`.
+3. a signal, `internal/signal/<name>.go`: a `RemoteScanner` with its
+   queries, and its entry in `signal.Registry`.
+
+The shared code should not need to change; if it does, that is the part
+to review closely. `TestTablesAgree` fails until all three exist. Every
+backend must pass `backendtest.Run` and `RunUnreachable` against a fake of
+its tool that keeps state (`internal/backend/conformance_test.go`), and
+`RunDoor` when run as a separate program. A tracker that does not need to
+ship inside sous is better as a plugin program (docs/plugins.md).
 
 **Adding an agent** (Gemini CLI, say) is a file in `internal/harness`,
 like `claude.go`, and its line in `All`: where its skills and hook settings
