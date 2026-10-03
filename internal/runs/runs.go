@@ -62,14 +62,14 @@ func (d *Dispatcher) Start(ctx context.Context, p project.Project, brief, key, n
 	}
 	ref, err := runner.Start(ctx, r, runner.Request{ID: id, UID: th.UID, Project: p.Path, Brief: brief, HereFile: hereFile})
 	if err != nil {
-		if serr := thread.SetRun(d.Store, id, func(run *thread.Run) { run.State, run.Text = string(runner.Failed), "did not start: "+err.Error() }); serr != nil {
+		if serr := thread.SetRun(d.Store, id, func(run *thread.Run) { run.State, run.Text = runner.Failed, "did not start: "+err.Error() }); serr != nil {
 			return id, false, fmt.Errorf("%w (and marking the run failed: %v)", err, serr)
 		}
 		return id, false, err
 	}
 	now := d.Now().UTC()
 	return id, false, thread.SetRun(d.Store, id, func(run *thread.Run) {
-		run.Ref, run.State, run.Checked = ref, string(runner.Running), &now
+		run.Ref, run.State, run.Checked = ref, runner.Running, &now
 	})
 }
 
@@ -121,7 +121,7 @@ const startGrace = 2 * runner.Timeout
 // giveUpOnStart ends a run stuck starting, so it neither sits on the board
 // forever nor holds its key.
 func (d *Dispatcher) giveUpOnStart(v *thread.View) {
-	if v.Run.State != "starting" || d.Now().Sub(v.Since) < startGrace {
+	if v.Run.State != thread.RunStarting || d.Now().Sub(v.Since) < startGrace {
 		return
 	}
 	d.record(v, runner.Status{State: runner.Failed, Text: "did not start: sous stopped before the runner answered"})
@@ -131,7 +131,7 @@ func (d *Dispatcher) giveUpOnStart(v *thread.View) {
 func (d *Dispatcher) record(v *thread.View, st runner.Status) {
 	now := d.Now().UTC()
 	set := func(run *thread.Run) {
-		run.State, run.Text, run.Checked = string(st.State), st.Text, &now
+		run.State, run.Text, run.Checked = st.State, st.Text, &now
 		run.Branch, run.Worktree, run.Log = st.Branch, st.Worktree, st.Log
 	}
 	run := *v.Run
@@ -178,7 +178,7 @@ func (d *Dispatcher) Reply(ctx context.Context, id int, answer string) error {
 	if err := runner.Reply(ctx, r, th.Project, th.Run.Ref, answer); err != nil {
 		return err
 	}
-	return thread.SetRun(d.Store, id, func(run *thread.Run) { run.State, run.Text = string(runner.Running), "" })
+	return thread.SetRun(d.Store, id, func(run *thread.Run) { run.State, run.Text = runner.Running, "" })
 }
 
 // Stop ends the run, if it is still going.

@@ -335,14 +335,20 @@ func TestSessionStartRuns(t *testing.T) {
 	p := f.mkrepo("acme/app-next", true)
 	st := &store.Store{Home: f.SousHome}
 	now := time.Now()
-	for _, c := range []struct{ state, text string }{{"needs_you", "which fixture should win?"}, {"done", "the spec passes"}, {"running", ""}} {
+	for _, c := range []struct {
+		state thread.RunState
+		text  string
+	}{{thread.RunNeedsYou, "which fixture should win?"}, {thread.RunDone, "the spec passes"}, {thread.RunRunning, ""}, {thread.RunFailed, "snoozed, so not news"}} {
 		id, _, _ := thread.NoteRun(st, project.Project{Path: filepath.Join(f.WS, "acme/billing")}, "fix the flaky test", "", "fake", "agent", now)
 		thread.SetRun(st, id, func(r *thread.Run) { r.Ref, r.State, r.Text, r.Branch = "fake:x", c.state, c.text, "sous/run-2" })
+		if c.state == thread.RunFailed {
+			thread.Snooze(st, id, 3, now)
+		}
 	}
 	for _, cwd := range []string{p, f.Home} {
 		out, _, code := f.runStdin(hookJSON(map[string]any{"cwd": cwd, "source": "startup"}), "hook", "session-start", "claude")
-		if code != 0 || !strings.Contains(out, "Runs waiting on the user") || !strings.Contains(out, `1 billing: needs you · which fixture should win? · answer with: sous reply 1 "<answer>"`) ||
-			!strings.Contains(out, "2 billing: done, review it · sous/run-2 · then: sous done 2") || strings.Contains(out, "3 billing") {
+		if code != 0 || !strings.Contains(out, "Runs waiting on the user") || !strings.Contains(out, `1 billing: run needs you · fix the flaky test · "which fixture should win?" · sous reply 1 "<answer>" · sous done 1`) ||
+			!strings.Contains(out, "2 billing: run done, review it · fix the flaky test · sous/run-2 · sous done 2 --clean") || strings.Contains(out, "3 billing") || strings.Contains(out, "4 billing") {
 			t.Errorf("from %s:\n%s", cwd, out)
 		}
 	}

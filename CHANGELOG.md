@@ -7,6 +7,21 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+* A run reads the same everywhere: the board, `sous show`, `--json` and
+  what an agent hears at session start use one wording and one list of
+  next commands. A failed run now suggests `sous show <n>` before
+  `sous done <n> --clean`.
+* `sous kind` on a run says no: a run is on others while it works and on
+  you once it stops.
+* In `sous --json`, a snoozed idea is listed under `snoozed`, like every
+  other snoozed note. A run's item also has `log`, `key` and `checked_at`.
+
+### Fixed
+* `sous show` called a run that waits on you "them"; it says "me", as the
+  board and `--json` do.
+* A snoozed run is no longer announced at session start.
+
 ## [0.5.1]
 
 ### Fixed

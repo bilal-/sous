@@ -187,7 +187,7 @@ func TestAmbientShowsOnceAcrossConcurrentShells(t *testing.T) {
 
 func TestRunsAreRoutedByState(t *testing.T) {
 	now := time.Now()
-	mk := func(id int, state string) thread.View {
+	mk := func(id int, state thread.RunState) thread.View {
 		return thread.View{Thread: thread.Thread{ID: id, Project: "/code/acme/billing", Text: "fix the flaky test", Kind: thread.Them, Since: now,
 			Run: &thread.Run{Runner: "claude", State: state, Text: "which fixture?", Branch: fmt.Sprintf("sous/run-%d", id)}}}
 	}
@@ -240,5 +240,31 @@ func TestBoardSaysWhichDay(t *testing.T) {
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("seen after %v: %s", seen, b.String())
 		}
+	}
+}
+
+// The board's --json lists every snoozed note under snoozed, ideas too;
+// here shows them in place, marked. A run's item carries its log and key.
+func TestSnoozedAndRunItems(t *testing.T) {
+	now := time.Now()
+	later := now.Add(time.Hour)
+	idea := thread.View{Thread: thread.Thread{ID: 1, Project: "/code/acme/api", Text: "an idea", Kind: thread.Idea, Since: now, SnoozedUntil: &later}, Snoozed: true}
+	run := thread.View{Thread: thread.Thread{ID: 2, Project: "/code/acme/api", Text: "fix it", Kind: thread.Them, Since: now,
+		Run: &thread.Run{Runner: "claude", State: thread.RunFailed, Log: "/runs/x/log", Key: "k1"}}}
+	j := (&Data{Checked: 1, RenderedAt: now, Threads: []thread.View{idea, run}}).JSON()
+	if len(j.Ideas) != 0 || len(j.Snoozed) != 1 || j.Snoozed[0].ID != "1" {
+		t.Fatalf("ideas %v snoozed %v", j.Ideas, j.Snoozed)
+	}
+	if len(j.OnYou) != 1 || j.OnYou[0].Run.Log != "/runs/x/log" || j.OnYou[0].Run.Key != "k1" {
+		t.Fatalf("%+v", j.OnYou)
+	}
+	h := (&HereData{RenderedAt: now, Threads: []thread.View{idea}}).JSON()
+	if len(h.Ideas) != 1 || !h.Ideas[0].Snoozed {
+		t.Fatalf("here keeps a snoozed idea in place: %+v", h)
+	}
+	var b strings.Builder
+	RenderNote(&b, run, now, "/home/sam")
+	if !strings.Contains(b.String(), "(me · ") {
+		t.Fatalf("show says a run waiting on you is on you:\n%s", b.String())
 	}
 }

@@ -24,11 +24,11 @@ func (e *Env) dispatcher() *runs.Dispatcher {
 
 // startedJSON is sous go --run --json.
 type startedJSON struct {
-	ID      string   `json:"id"`
-	Runner  string   `json:"runner"`
-	State   string   `json:"state"`
-	Existed bool     `json:"existed"` // a run with this --key was already started
-	Next    []string `json:"next"`
+	ID      string          `json:"id"`
+	Runner  string          `json:"runner"`
+	State   thread.RunState `json:"state"`
+	Existed bool            `json:"existed"` // a run with this --key was already started
+	Next    []string        `json:"next"`
 }
 
 // goRun: sous go <project> --run <brief|-> [-a <runner>] [--key <text>].

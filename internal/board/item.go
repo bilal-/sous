@@ -44,11 +44,15 @@ type UpstreamItem struct {
 
 // RunItem is how a run is going.
 type RunItem struct {
-	Runner   string `json:"runner"`
-	State    string `json:"state"` // starting | running | needs_you | done | failed
-	Text     string `json:"text"`  // its summary, or its question for you
-	Branch   string `json:"branch"`
-	Worktree string `json:"worktree"`
+	Runner   string          `json:"runner"`
+	State    thread.RunState `json:"state"` // starting | running | needs_you | done | failed
+	Text     string          `json:"text"`  // its summary, or its question for you
+	Branch   string          `json:"branch"`
+	Worktree string          `json:"worktree"`
+	Log      string          `json:"log"`
+	Key      string          `json:"key"` // go --key: a retry with it finds this run
+	// CheckedAt: when the runner was last asked; null before it answered.
+	CheckedAt *time.Time `json:"checked_at"`
 	// Error: its state could not be read this time; State is the last known.
 	Error string `json:"error,omitempty"`
 }
@@ -61,7 +65,8 @@ func (r Row) Item() Item {
 		it.Upstream = &UpstreamItem{State: r.Upstream, Error: r.UpstreamErr}
 	}
 	if r.Run != nil {
-		it.Run = &RunItem{Runner: r.Run.Runner, State: r.Run.State, Text: r.Run.Text, Branch: r.Run.Branch, Worktree: r.Run.Worktree, Error: r.RunErr}
+		it.Run = &RunItem{Runner: r.Run.Runner, State: r.Run.State, Text: r.Run.Text, Branch: r.Run.Branch, Worktree: r.Run.Worktree,
+			Log: r.Run.Log, Key: r.Run.Key, CheckedAt: r.Run.Checked, Error: r.RunErr}
 	}
 	if r.ClosedAt != nil {
 		by := "you"

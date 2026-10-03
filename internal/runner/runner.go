@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/bilal-/sous/internal/plugin"
+	"github.com/bilal-/sous/internal/thread"
 )
 
 // Timeout bounds every call; start must detach its work to answer in time.
@@ -29,17 +30,19 @@ type Request struct {
 	HereFile string `json:"here_file,omitempty"`
 }
 
-// State is how a run is going.
-type State string
+// State is how a run is going: thread.RunState, which notes store.
+type State = thread.RunState
 
+// The states a runner reports. Starting is sous's own, until it answers.
 const (
-	Running  State = "running"
-	NeedsYou State = "needs_you"
-	Done     State = "done"
-	Failed   State = "failed"
+	Running  = thread.RunRunning
+	NeedsYou = thread.RunNeedsYou
+	Done     = thread.RunDone
+	Failed   = thread.RunFailed
 )
 
-func (s State) Valid() bool { return s == Running || s == NeedsYou || s == Done || s == Failed }
+// valid: a state a runner may report.
+func valid(s State) bool { return s == Running || s == NeedsYou || s == Done || s == Failed }
 
 // Status is status's one line of JSON.
 type Status struct {
@@ -107,7 +110,7 @@ func GetStatus(ctx context.Context, r Runner, project, ref string) (Status, erro
 		return Status{}, fmt.Errorf("%s status: not a JSON line: %.60q", r.Name, a.Out)
 	case st.V != 0:
 		return Status{}, fmt.Errorf("%s status: contract v%d is newer than this sous speaks (v0)", r.Name, st.V)
-	case !st.State.Valid():
+	case !valid(st.State):
 		return Status{}, fmt.Errorf("%s status: unknown state %q", r.Name, st.State)
 	}
 	return st, nil

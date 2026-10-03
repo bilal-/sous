@@ -50,13 +50,27 @@ type Thread struct {
 	Run *Run `json:"run,omitempty"`
 }
 
+// RunState is how a run is going.
+type RunState string
+
+const (
+	RunStarting RunState = "starting"  // sous asked the runner; no answer yet
+	RunRunning  RunState = "running"   // its agent is at it
+	RunNeedsYou RunState = "needs_you" // it asked the person something
+	RunDone     RunState = "done"      // finished; its work waits for review
+	RunFailed   RunState = "failed"
+)
+
+// Working: the run is still at it, so it waits on others, not the person.
+func (s RunState) Working() bool { return s == RunStarting || s == RunRunning }
+
 // Run is a note handed to a runner. State is the runner's word for it
 // (running, needs_you, done, failed; starting before the runner answered).
 type Run struct {
 	Runner   string     `json:"runner"`
 	Ref      string     `json:"ref,omitempty"`
 	Key      string     `json:"key,omitempty"` // go --key: a retry finds this run
-	State    string     `json:"state"`
+	State    RunState   `json:"state"`
 	Text     string     `json:"text,omitempty"` // the runner's summary or question
 	Branch   string     `json:"branch,omitempty"`
 	Worktree string     `json:"worktree,omitempty"`
@@ -209,14 +223,14 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 	var existed bool
 	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
 		for _, t := range d.Threads {
-			started := t.Run != nil && !(t.Run.Ref == "" && t.Run.State == "failed") // a failed start keeps no key
+			started := t.Run != nil && !(t.Run.Ref == "" && t.Run.State == RunFailed) // a failed start keeps no key
 			if key != "" && t.Closed == nil && started && t.Run.Key == key && t.Belongs(p.Path, remote) {
 				id, existed = t.ID, true
 				return nil
 			}
 		}
 		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: text, Kind: Them,
-			Since: now.UTC(), Source: source, Run: &Run{Runner: runnerName, Key: key, State: "starting"}})
+			Since: now.UTC(), Source: source, Run: &Run{Runner: runnerName, Key: key, State: RunStarting}})
 		return nil
 	})
 	return id, existed, err
@@ -271,7 +285,16 @@ func SetKind(s *store.Store, id int, kind Kind) error {
 	if !kind.Valid() {
 		return ValidationError("kind must be me, them, or idea")
 	}
-	return touch(s, id, func(t *Thread) { t.Kind = kind })
+	isRun := false
+	err := touch(s, id, func(t *Thread) {
+		if isRun = t.Run != nil; !isRun {
+			t.Kind = kind
+		}
+	})
+	if err == nil && isRun {
+		return ValidationError(fmt.Sprintf("note %d is a run: it is on others while it works and on you once it stops", id))
+	}
+	return err
 }
 
 func Snooze(s *store.Store, id, days int, now time.Time) error {

@@ -88,7 +88,7 @@ func (s *Sections) routeThreads(v view, now time.Time, threads []thread.View) {
 	for _, t := range threads {
 		r := ThreadRow(t, now)
 		switch {
-		case t.Snoozed && r.Kind != string(thread.Idea) && !v.snoozedPromises:
+		case t.Snoozed && !v.snoozedPromises:
 			s.Snoozed = append(s.Snoozed, r)
 		case r.Kind == string(thread.Me):
 			s.Me = append(s.Me, r)
@@ -164,25 +164,6 @@ func Classify(d *Data) Sections {
 	return classify(boardView, d.RenderedAt, d.Threads, d.Signals, d.Plugins, extra...)
 }
 
-// working: the run's agent is still at it (or starting).
-func working(state string) bool { return state == "running" || state == "starting" }
-
-// runText is how a run reads on the board: its state first, then the
-// note, then what the runner said.
-func runText(run *thread.Run, note string) string {
-	switch run.State {
-	case "needs_you":
-		return fmt.Sprintf("run needs you · %s · %q", note, run.Text)
-	case "done":
-		return "run done, review it · " + note + text.Suffix(run.Branch)
-	case "failed":
-		return "run failed · " + note + text.Suffix(run.Text)
-	case "starting":
-		return "run starting · " + note
-	}
-	return "running · " + note
-}
-
 // ThreadRow is a note as a row. Ages are computed here, against the
 // data's rendered-at time, so the data model carries only timestamps (and
 // --json stays cacheable). A run note is kind them while it works; once it
@@ -192,9 +173,9 @@ func ThreadRow(t thread.View, now time.Time) Row {
 	r := Row{ID: fmt.Sprint(t.ID), Project: t.Project, Text: t.Text, Shown: t.Text, Age: text.Age(now, t.Since), Since: t.Since, Kind: string(t.Kind), Source: t.Source,
 		Ref: t.Ref, Upstream: t.Upstream, UpstreamErr: t.UpstreamErr, Snoozed: t.Snoozed, ClosedAt: t.Closed, ClosedBy: t.ClosedBy}
 	if t.Run != nil {
-		r.Shown, r.Run, r.RunErr = runText(t.Run, t.Text), t.Run, t.RunErr
+		r.Shown, r.Run, r.RunErr = runLine(t.Run, t.Text), t.Run, t.RunErr
 		r.Kind = string(thread.Them)
-		if !working(t.Run.State) {
+		if !t.Run.State.Working() {
 			r.Kind = string(thread.Me)
 		}
 	}

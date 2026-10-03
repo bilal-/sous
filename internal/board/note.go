@@ -13,28 +13,63 @@ import (
 	"github.com/bilal-/sous/internal/thread"
 )
 
+// runLook is how a run in one state reads, and what to do about it. One
+// table, so the board, show, --json and the session start all agree.
+type runLook struct {
+	label  string                     // what the board says first: "run needs you"
+	detail func(r *thread.Run) string // what follows the note: its question, its branch
+	next   []string                   // commands, with %d for the note's number
+}
+
+var runLooks = map[thread.RunState]runLook{
+	thread.RunStarting: {label: "run starting", next: []string{"sous show %d", "sous done %d"}},
+	thread.RunRunning:  {label: "running", next: []string{"sous show %d", "sous done %d"}},
+	thread.RunNeedsYou: {label: "run needs you", detail: func(r *thread.Run) string { return fmt.Sprintf(" · %q", r.Text) },
+		next: []string{`sous reply %d "<answer>"`, "sous done %d"}},
+	thread.RunDone: {label: "run done, review it", detail: func(r *thread.Run) string { return text.Suffix(r.Branch) },
+		next: []string{"sous done %d --clean"}},
+	thread.RunFailed: {label: "run failed", detail: func(r *thread.Run) string { return text.Suffix(r.Text) },
+		next: []string{"sous show %d", "sous done %d --clean"}},
+}
+
+// look is r's entry; a state sous does not know reads like running.
+func look(r *thread.Run) runLook {
+	if l, ok := runLooks[r.State]; ok {
+		return l
+	}
+	return runLooks[thread.RunRunning]
+}
+
+// runLine is how a run reads on the board: its state, the note, and what
+// the runner said.
+func runLine(r *thread.Run, note string) string {
+	l := look(r)
+	line := l.label + " · " + note
+	if l.detail != nil {
+		line += l.detail(r)
+	}
+	return line
+}
+
 // Next is the commands that make sense for a note in its state.
 func Next(v thread.View) []string {
-	if v.Closed != nil {
+	switch {
+	case v.Closed != nil:
 		return []string{}
+	case v.Run == nil:
+		return []string{fmt.Sprintf("sous done %d", v.ID)}
 	}
-	id := v.ID
-	if v.Run == nil {
-		return []string{fmt.Sprintf("sous done %d", id)}
+	var out []string
+	for _, c := range look(v.Run).next {
+		out = append(out, fmt.Sprintf(c, v.ID))
 	}
-	switch v.Run.State {
-	case "needs_you":
-		return []string{fmt.Sprintf(`sous reply %d "<answer>"`, id), fmt.Sprintf("sous done %d", id)}
-	case "done", "failed":
-		return []string{fmt.Sprintf("sous done %d --clean", id)}
-	}
-	return []string{fmt.Sprintf("sous show %d", id), fmt.Sprintf("sous done %d", id)}
+	return out
 }
 
 // RenderNote is sous show: one note in full, and for a run how it is
 // going, with what to do next. home shortens paths for reading.
 func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
-	state := string(v.Kind) + " · " + text.Ago(now, v.Since)
+	state := ThreadRow(v, now).Kind + " · " + text.Ago(now, v.Since)
 	if v.Closed != nil {
 		state = "closed " + text.Ago(now, *v.Closed)
 	}
@@ -43,7 +78,7 @@ func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
 		fmt.Fprintf(w, "   filed: %s\n", *v.Ref)
 	}
 	if r := v.Run; r != nil {
-		line := "   run: " + strings.ReplaceAll(r.State, "_", " ")
+		line := "   run: " + strings.ReplaceAll(string(r.State), "_", " ")
 		if r.Text != "" {
 			line += " · " + r.Text
 		}
@@ -66,24 +101,17 @@ func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
 	}
 }
 
-// RunsWaiting lists the runs, in every project, that are done, need the
-// user, or failed: what an agent should hear about first when a session
-// starts. "" when there are none.
+// RunsWaiting lists the runs, in every project, that wait on the user
+// (done, needs them, failed) and are not snoozed: what an agent should hear
+// about first when a session starts. "" when there are none.
 func RunsWaiting(views []thread.View) string {
 	var b strings.Builder
 	for _, v := range views {
-		if v.Run == nil {
+		if v.Run == nil || v.Run.State.Working() || v.Snoozed {
 			continue
 		}
 		name := filepath.Base(v.Project) // no git: this runs while a session starts
-		switch v.Run.State {
-		case "needs_you":
-			fmt.Fprintf(&b, "  %d %s: needs you · %s · answer with: sous reply %d \"<answer>\"\n", v.ID, name, v.Run.Text, v.ID)
-		case "done":
-			fmt.Fprintf(&b, "  %d %s: done, review it%s · then: sous done %d\n", v.ID, name, text.Suffix(v.Run.Branch), v.ID)
-		case "failed":
-			fmt.Fprintf(&b, "  %d %s: failed%s · sous show %d\n", v.ID, name, text.Suffix(v.Run.Text), v.ID)
-		}
+		fmt.Fprintf(&b, "  %d %s: %s · %s\n", v.ID, name, runLine(v.Run, v.Text), strings.Join(Next(v), " · "))
 	}
 	if b.Len() == 0 {
 		return ""

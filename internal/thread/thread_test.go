@@ -287,3 +287,13 @@ func TestNoteRunIsIdempotentByKey(t *testing.T) {
 		t.Fatal("an empty brief is refused")
 	}
 }
+
+// A run's kind follows its state, so it cannot be set by hand.
+func TestSetKindRefusesARun(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	id, _, _ := NoteRun(s, project.Project{Path: "/code/acme/billing"}, "fix it", "", "fake", "human", time.Now())
+	err := SetKind(s, id, Me)
+	if !errors.As(err, new(ValidationError)) || !strings.Contains(err.Error(), "is a run") {
+		t.Fatal(err)
+	}
+}
