@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.10.2]
+
 ### Fixed
 * `sous setup` no longer stops on a hooks file that holds only `null`, and
   `sous doctor` no longer calls Antigravity's `hooks.json` invalid when it
