@@ -52,7 +52,7 @@ func setup(t *testing.T) env {
 	ws := filepath.Join(dir, "ws")
 	s := &store.Store{Home: filepath.Join(dir, ".sous")}
 	cfg := &config.Config{Roots: []string{ws}}
-	return env{f: &Filer{Store: s, Cfg: cfg, Backends: backend.Backends("", nil, []string{bin})}, s: s, calls: calls, ws: ws}
+	return env{f: &Filer{Store: s, Cfg: cfg, Backends: backend.Registry.Discover("", nil, []string{bin})}, s: s, calls: calls, ws: ws}
 }
 
 func (e env) repo(t *testing.T, rel, remote string, tracker bool) project.Project {

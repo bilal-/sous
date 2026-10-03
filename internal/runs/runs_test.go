@@ -19,7 +19,7 @@ func fakeRunner(t *testing.T, body string) runner.Runner {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "sous-runner-fake")
 	os.WriteFile(p, []byte("#!/bin/sh\ncase \"$1\" in\n"+body+"\nesac\n"), 0o755)
-	return runner.Runners("", nil, []string{p})[0]
+	return runner.Registry.Discover("", nil, []string{p})[0]
 }
 
 func TestStartRecordsTheRunAndAFailedStartStaysVisible(t *testing.T) {

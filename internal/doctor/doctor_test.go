@@ -104,7 +104,7 @@ func TestRunnerChecks(t *testing.T) {
 	for _, c := range cs {
 		got[c.Name] = c
 	}
-	if got["runner claude"].Status != Warn || !strings.Contains(got["runner claude"].Fix, "sous config agent") || got["runner codex"].Status != OK {
+	if got["runner claude"].Status != Warn || !strings.Contains(got["runner claude"].Fix, "sous config runner") || got["runner codex"].Status != OK {
 		t.Fatalf("%+v", cs)
 	}
 }

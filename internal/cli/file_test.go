@@ -20,7 +20,7 @@ func TestMarkdownBackendViaRunner(t *testing.T) {
 	p := f.mkrepo("a/r", true)
 	os.WriteFile(filepath.Join(p, "FOLLOWUPS.md"), []byte("# F\n"), 0o644)
 	exe, _ := os.Executable()
-	bs := backend.Backends(exe, []string{"markdown"}, nil)
+	bs := backend.Registry.Discover(exe, []string{"markdown"}, nil)
 	b, err := backend.Detect(context.Background(), bs, p, "", nil)
 	if err != nil || b.Name != "markdown" {
 		t.Fatalf("detect via subprocess: %+v %v", b, err)
@@ -401,7 +401,7 @@ func TestMarkdownConformsThroughTheDoor(t *testing.T) {
 	exe, _ := os.Executable()
 	p := t.TempDir()
 	os.WriteFile(filepath.Join(p, backend.MarkdownFile), []byte("# Follow-ups\n"), 0o644)
-	backendtest.RunDoor(t, backend.Backends(exe, []string{"markdown"}, nil)[0], p)
+	backendtest.RunDoor(t, backend.Registry.Discover(exe, []string{"markdown"}, nil)[0], p)
 }
 
 // The built-in git signal, reached through the same door as any plugin,

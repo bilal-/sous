@@ -107,12 +107,6 @@ var Local = Backend{Name: "local"}
 
 var ErrUnknownBackend = errors.New("backend not available")
 
-// Backends lists the named built ins, then the backend programs among
-// thirdParty.
-func Backends(exe string, builtins, thirdParty []string) []Backend {
-	return Registry.Discover(exe, builtins, thirdParty)
-}
-
 // ByRef routes an existing ref to the backend that owns it. Refs are
 // self-describing: "md:" is markdown, "<name>:" is that backend.
 func ByRef(bs []Backend, ref string) (Backend, error) {

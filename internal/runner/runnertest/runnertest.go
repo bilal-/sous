@@ -1,7 +1,7 @@
 // Package runnertest checks a runner against the contract, driving it the
 // way sous does. Run it from a test in a sous checkout:
 //
-//	r := runner.Runners("", nil, []string{"/path/to/sous-runner-x"})[0]
+//	r := runner.Registry.Discover("", nil, []string{"/path/to/sous-runner-x"})[0]
 //	runnertest.RunDoor(t, r, "/path/to/a/git/project", finish)
 package runnertest
 

@@ -20,7 +20,7 @@ func TestCollectStatuses(t *testing.T) {
 	ok := script(t, dir, "sous-signal-ok", `while read p; do echo "{\"v\":0,\"id\":\"s:aaaaaaaaaaaa\",\"project\":\"$p\",\"kind\":\"me\",\"text\":\"review\",\"observed\":\"2026-01-01T00:00:00Z\",\"ref\":null}"; done`)
 	broken := script(t, dir, "sous-signal-broken", `echo boom >&2; exit 1`)
 	slow := script(t, dir, "sous-signal-slow", `sleep 3`)
-	plugins := Plugins("", nil, []string{ok, broken, slow})
+	plugins := Registry.Discover("", nil, []string{ok, broken, slow})
 	c := Collect(context.Background(), plugins, []string{"/p one", "/p two"}, 500*time.Millisecond)
 	st := map[string]PluginStatus{}
 	for _, p := range c.Plugins {
@@ -38,7 +38,7 @@ func TestCollectStatuses(t *testing.T) {
 }
 
 func TestPluginsNaming(t *testing.T) {
-	ps := Plugins("/bin/sous", []string{"git", "github"}, []string{"/x/sous-signal-jira", "/x/not-a-plugin"})
+	ps := Registry.Discover("/bin/sous", []string{"git", "github"}, []string{"/x/sous-signal-jira", "/x/not-a-plugin"})
 	if len(ps) != 3 || ps[0].Name != "git" || ps[0].Argv[0] != "/bin/sous" || ps[0].Argv[2] != "git" || ps[2].Name != "jira" {
 		t.Fatalf("%+v", ps)
 	}
@@ -49,7 +49,7 @@ func TestPluginsNaming(t *testing.T) {
 func TestCollectKeepsPartialOutputOnFailure(t *testing.T) {
 	dir := t.TempDir()
 	partial := script(t, dir, "sous-signal-partial", `echo '{"v":0,"id":"s:aaaaaaaaaaaa","project":"/p","kind":"me","text":"review","observed":"2026-01-01T00:00:00Z","ref":null}'; echo "second query failed" >&2; exit 1`)
-	c := Collect(context.Background(), Plugins("", nil, []string{partial}), []string{"/p"}, time.Second)
+	c := Collect(context.Background(), Registry.Discover("", nil, []string{partial}), []string{"/p"}, time.Second)
 	if len(c.Plugins) != 1 || c.Plugins[0].Status != "failed" || *c.Plugins[0].Error != "second query failed" {
 		t.Fatalf("status: %+v", c.Plugins)
 	}
@@ -65,7 +65,7 @@ func TestCollectKillsProcessGroupOnTimeout(t *testing.T) {
 	dir := t.TempDir()
 	forker := script(t, dir, "sous-signal-forker", `sleep 30`) // sh forks sleep; sh dies, sleep keeps the pipe
 	start := time.Now()
-	c := Collect(context.Background(), Plugins("", nil, []string{forker}), []string{"/p"}, 500*time.Millisecond)
+	c := Collect(context.Background(), Registry.Discover("", nil, []string{forker}), []string{"/p"}, 500*time.Millisecond)
 	if el := time.Since(start); el > 5*time.Second {
 		t.Fatalf("Collect hung %v past a 500ms timeout", el)
 	}
@@ -79,7 +79,7 @@ func TestCollectKillsProcessGroupOnTimeout(t *testing.T) {
 func TestCollectSkipsBadLinesKeepsGood(t *testing.T) {
 	dir := t.TempDir()
 	mixed := script(t, dir, "sous-signal-mixed", `echo '{"v":0,"id":"s:aaaaaaaaaaaa","project":"/p","kind":"me","text":"review","observed":"2026-01-01T00:00:00Z","ref":null}'; echo 'debug: hello'; echo '{"v":0,"id":"s:bbbbbbbbbbbb","project":"/p","kind":"me","text":"two","observed":"2026-01-01T00:00:00Z","ref":null}'`)
-	c := Collect(context.Background(), Plugins("", nil, []string{mixed}), []string{"/p"}, time.Second)
+	c := Collect(context.Background(), Registry.Discover("", nil, []string{mixed}), []string{"/p"}, time.Second)
 	if len(c.Signals) != 2 {
 		t.Fatalf("good lines must survive a bad one: %+v", c.Signals)
 	}
@@ -93,7 +93,7 @@ func TestCollectSkipsBadLinesKeepsGood(t *testing.T) {
 func TestCollectNotSetUp(t *testing.T) {
 	dir := t.TempDir()
 	off := script(t, dir, "sous-signal-off", `printf 'gh: not logged in\n\n   run gh auth login\n' >&2; exit 3`)
-	c := Collect(context.Background(), Plugins("", nil, []string{off}), []string{"/p"}, time.Second)
+	c := Collect(context.Background(), Registry.Discover("", nil, []string{off}), []string{"/p"}, time.Second)
 	if st := c.Plugins[0]; st.Status != "off" || st.Error == nil || *st.Error != "gh: not logged in run gh auth login" {
 		t.Fatalf("%+v %q", st, *st.Error)
 	}
@@ -104,7 +104,7 @@ func TestCollectNotSetUp(t *testing.T) {
 func TestUnreadableLinesMakeThePluginIncomplete(t *testing.T) {
 	dir := t.TempDir()
 	p := script(t, dir, "sous-signal-half", `echo "not json"`)
-	c := Collect(context.Background(), Plugins("", nil, []string{p}), []string{"/p"}, time.Second)
+	c := Collect(context.Background(), Registry.Discover("", nil, []string{p}), []string{"/p"}, time.Second)
 	if c.Plugins[0].Status == StatusOK {
 		t.Fatalf("%+v", c.Plugins[0])
 	}

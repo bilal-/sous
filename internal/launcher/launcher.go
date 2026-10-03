@@ -19,16 +19,6 @@ import (
 // Launcher is a launcher as sous calls it.
 type Launcher = plugin.Plugin
 
-// Launchers lists the named built ins, then the launcher programs among
-// thirdParty.
-func Launchers(exe string, builtins, thirdParty []string) []Launcher {
-	return Registry.Discover(exe, builtins, thirdParty)
-}
-
-// BuiltinNames: every harness is a built in launcher, its program exec'd in
-// the project directory with the user's terminal.
-func BuiltinNames() []string { return harness.Names() }
-
 // Deps is what the built in launchers are given: Exec replaces sous with
 // the program in dir, and returns only when it could not.
 type Deps struct {
@@ -40,7 +30,8 @@ type Deps struct {
 var Registry = plugin.Registry[Deps]{Axis: "launcher"}
 
 func init() {
-	for _, name := range BuiltinNames() {
+	for _, h := range harness.All {
+		name := h.Name
 		Registry.Builtins = append(Registry.Builtins, plugin.Builtin[Deps]{Name: name, Ops: func(d Deps) map[string]plugin.Op {
 			return map[string]plugin.Op{"run": func(args []string, _ io.Reader, _, stderr io.Writer) int {
 				if len(args) != 1 {
@@ -71,7 +62,7 @@ func ExecArgv(l Launcher, path string) (string, []string, error) {
 // missing is an error now, so it reads as a sous message rather than a
 // failed exec.
 func Prepare(exe string, plugins []string, agent, project string) (string, []string, error) {
-	l, ok := plugin.Find(Launchers(exe, BuiltinNames(), plugins), agent)
+	l, ok := plugin.Find(Registry.All(exe, plugins), agent)
 	if !ok {
 		return "", nil, fmt.Errorf("%w: %s", ErrUnknown, agent)
 	}

@@ -36,8 +36,8 @@ type HereData struct {
 // the session hook and before `sous go` execs — so only the local built-in
 // plugins run here (through the same door as the board, no in-process
 // shortcut); everything the board observed from remote trackers is read
-// back from observed.json. in.Builtins is the list to run, normally
-// signal.Registry.OfflineNames().
+// back from observed.json. in.Signals is the list to run, normally
+// signal.Registry.Offline.
 func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 	p := project.Describe(root)
 	d := &HereData{Project: root, Name: p.Name, Remote: p.Remote, RenderedAt: in.Now.UTC()}
@@ -46,7 +46,7 @@ func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 		return nil, err
 	}
 	d.Facts = facts
-	col := signal.Collect(ctx, signal.Plugins(in.Exe, in.Builtins, nil), []string{root}, in.Timeout)
+	col := signal.Collect(ctx, in.Signals, []string{root}, in.Timeout)
 	if d.Signals, err = hereSignals(in, col, root); err != nil {
 		return nil, err
 	}

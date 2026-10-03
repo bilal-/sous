@@ -78,12 +78,12 @@ func TestBuildHereUsesThePluginDoor(t *testing.T) {
 	script := "#!/bin/sh\nwhile read p; do printf '{\"v\":0,\"id\":\"s:%s\",\"project\":\"%s\",\"kind\":\"me\",\"text\":\"review requested · PR #14\",\"observed\":\"2026-09-27T00:00:00Z\",\"ref\":null}\\n' \"$(basename \"$p\")\" \"$p\"; done\n"
 	os.WriteFile(plugin, []byte(script), 0o755)
 	// Seed observed.json the way a board run would, via the fake plugin.
-	col := signal.Collect(context.Background(), signal.Plugins("", nil, []string{plugin}), []string{root, "/elsewhere"}, 5*time.Second)
+	col := signal.Collect(context.Background(), signal.Registry.Discover("", nil, []string{plugin}), []string{root, "/elsewhere"}, 5*time.Second)
 	if len(col.Signals) != 2 {
 		t.Fatalf("seed plugin: %+v", col)
 	}
 	signal.Observe(s, col, []string{root, "/elsewhere"}, now)
-	in := Inputs{Store: s, Cfg: &config.Config{}, Exe: "", Builtins: nil, Timeout: 5 * time.Second, Now: now}
+	in := Inputs{Store: s, Cfg: &config.Config{}, Timeout: 5 * time.Second, Now: now}
 	d, err := BuildHere(context.Background(), in, root)
 	if err != nil {
 		t.Fatal(err)

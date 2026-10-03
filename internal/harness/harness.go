@@ -81,13 +81,3 @@ func Find(name string) (Harness, bool) {
 	}
 	return All[i], true
 }
-
-// Names lists every harness by name, sorted.
-func Names() []string {
-	names := make([]string, len(All))
-	for i, h := range All {
-		names[i] = h.Name
-	}
-	slices.Sort(names)
-	return names
-}

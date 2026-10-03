@@ -134,9 +134,9 @@ func said(e *Env, project, key string, value any) int {
 // named are the settings whose value names a plugin, and the names there
 // are: a typo must be caught before it is written.
 var named = map[string]func(e *Env) []plugin.Plugin{
-	"agent":           func(e *Env) []plugin.Plugin { return launcher.Launchers(e.Exe, launcher.BuiltinNames(), e.Cfg.Plugins) },
-	"runner":          func(e *Env) []plugin.Plugin { return runner.Runners(e.Exe, runner.Registry.Names(), e.Cfg.Plugins) },
-	config.KeyBackend: func(e *Env) []plugin.Plugin { return backend.Backends(e.Exe, backend.Registry.Names(), e.Cfg.Plugins) },
+	"agent":           func(e *Env) []plugin.Plugin { return launcher.Registry.All(e.Exe, e.Cfg.Plugins) },
+	"runner":          func(e *Env) []plugin.Plugin { return runner.Registry.All(e.Exe, e.Cfg.Plugins) },
+	config.KeyBackend: func(e *Env) []plugin.Plugin { return backend.Registry.All(e.Exe, e.Cfg.Plugins) },
 }
 
 // checkName refuses a value for key that names no plugin there is.

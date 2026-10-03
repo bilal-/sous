@@ -13,7 +13,7 @@ func TestLaunchersAndExecArgv(t *testing.T) {
 	bin := t.TempDir()
 	third := filepath.Join(bin, "sous-launcher-editor")
 	os.WriteFile(third, []byte("#!/bin/sh\n"), 0o755)
-	ls := Launchers("/bin/sous", []string{"claude", "codex"}, []string{third, filepath.Join(bin, "not-a-launcher")})
+	ls := Registry.Discover("/bin/sous", []string{"claude", "codex"}, []string{third, filepath.Join(bin, "not-a-launcher")})
 	if len(ls) != 3 || ls[0].Name != "claude" || ls[0].Argv[1] != "launcher" || ls[2].Name != "editor" || ls[2].Argv[0] != third {
 		t.Fatalf("%+v", ls)
 	}
@@ -24,7 +24,7 @@ func TestLaunchersAndExecArgv(t *testing.T) {
 	}
 	t.Setenv("PATH", bin)
 	os.WriteFile(filepath.Join(bin, "sous"), []byte("#!/bin/sh\n"), 0o755)
-	l, _ = plugin.Find(Launchers("sous", []string{"claude"}, nil), "claude")
+	l, _ = plugin.Find(Registry.Discover("sous", []string{"claude"}, nil), "claude")
 	if _, argv, err := ExecArgv(l, "/proj"); err != nil || strings.Join(argv[1:], " ") != "launcher claude run /proj" {
 		t.Fatalf("%v %v", argv, err)
 	}

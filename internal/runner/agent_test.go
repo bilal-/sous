@@ -270,7 +270,7 @@ func TestUncommittedWorkIsKeptAndShown(t *testing.T) {
 
 // Review fix: a brief or answer that starts with a dash is text, never a flag.
 func TestPromptsAreNeverFlags(t *testing.T) {
-	for _, name := range BuiltinNames() {
+	for _, name := range Registry.Names() {
 		a, ref, dir := startedRun(t, name, time.Minute)
 		testutil.FakeBin(t, name, `for x in "$@"; do echo "$x"; done > args; printf '{"result":"SOUS: needs you q","session_id":"s"}\n'; echo '{"thread_id":"s"}'`)
 		a.Watch(dir, false)
@@ -341,7 +341,7 @@ func TestConcurrentStartsOfOneRun(t *testing.T) {
 // git commands that commit, Codex git's objects, refs and logs and this
 // worktree's own folder (never the repo's hooks or config).
 func TestAgentsMayCommitAndNoMore(t *testing.T) {
-	for _, name := range BuiltinNames() {
+	for _, name := range Registry.Names() {
 		a, ref, dir := startedRun(t, name, time.Minute)
 		testutil.FakeBin(t, name, `for x in "$@"; do echo "$x"; done > args; printf '{"result":"SOUS: needs you q","session_id":"s"}\n'; echo '{"thread_id":"s"}'`)
 		var m runMeta

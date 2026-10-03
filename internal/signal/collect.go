@@ -12,17 +12,6 @@ import (
 
 type Plugin = plugin.Plugin
 
-// Plugins lists the named built-ins (re-exec'd through `sous signal <name>
-// scan`) then config-listed third-party executables. Built-ins get no
-// special path.
-func Plugins(exe string, builtins, thirdParty []string) []Plugin {
-	ps := Registry.Discover(exe, builtins, thirdParty)
-	for i := range ps {
-		ps[i].Argv = append(ps[i].Argv, "scan")
-	}
-	return ps
-}
-
 // Status is how a plugin's run went. The values are part of --json.
 type Status string
 
@@ -53,7 +42,7 @@ type Collected struct {
 	Plugins []PluginStatus `json:"plugins"`
 }
 
-// Collect runs every plugin concurrently with the same stdin, each under its
+// Collect runs every plugin's scan concurrently with the same stdin, each under its
 // own timeout. Results keep plugin order.
 func Collect(ctx context.Context, plugins []Plugin, paths []string, timeout time.Duration) Collected {
 	stdin := strings.Join(paths, "\n") + "\n"
@@ -83,7 +72,8 @@ func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) 
 	st   PluginStatus
 	sigs []Tagged
 }) {
-	res := plugin.Exec(ctx, p.Argv, []byte(stdin), timeout)
+	argv := append(append([]string{}, p.Argv...), "scan")
+	res := plugin.Exec(ctx, argv, []byte(stdin), timeout)
 	r.st = PluginStatus{Name: p.Name, Status: StatusOK}
 	switch {
 	case res.TimedOut:

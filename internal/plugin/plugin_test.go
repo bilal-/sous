@@ -38,8 +38,11 @@ func TestRegistryDiscover(t *testing.T) {
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("got %+v", got)
 	}
-	if fmt.Sprint(reg.OfflineNames()) != "[markdown]" {
-		t.Fatal(reg.OfflineNames())
+	if off := reg.Offline("/bin/sous"); len(off) != 1 || off[0].Name != "markdown" || !off[0].Offline {
+		t.Fatal(off)
+	}
+	if all := reg.All("/bin/sous", []string{"/x/sous-backend-jira"}); fmt.Sprint(all) != fmt.Sprint(want) {
+		t.Fatal(all)
 	}
 	if p, ok := ByRef(got, "jira:OPS-12"); !ok || p.Name != "jira" {
 		t.Fatal(p, ok)

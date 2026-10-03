@@ -30,14 +30,15 @@ type Data struct {
 }
 
 type Inputs struct {
-	Store    *store.Store
-	Cfg      *config.Config
-	Roots    []string // overrides Cfg.Roots when set
-	Exe      string
-	Builtins []string
-	Timeout  time.Duration
-	Warn     io.Writer
-	Now      time.Time
+	Store *store.Store
+	Cfg   *config.Config
+	Roots []string // overrides Cfg.Roots when set
+	// Signals are the signal plugins to run: every one for the board,
+	// the offline built ins for here (signal.Registry.All, .Offline).
+	Signals []signal.Plugin
+	Timeout time.Duration
+	Warn    io.Writer
+	Now     time.Time
 	// Reconcile, when set, checks filed threads against their trackers
 	// (closing what the tracker closed) before the board is built.
 	Reconcile Reconciler
@@ -66,7 +67,7 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 			knownRemote[*p.Remote] = true
 		}
 	}
-	col := signal.Collect(ctx, signal.Plugins(in.Exe, in.Builtins, in.Cfg.Plugins), paths, in.Timeout)
+	col := signal.Collect(ctx, in.Signals, paths, in.Timeout)
 	obs, err := signal.Observe(in.Store, col, paths, in.Now)
 	if err != nil {
 		return nil, err

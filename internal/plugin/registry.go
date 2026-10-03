@@ -35,15 +35,21 @@ func (r Registry[D]) Names() []string {
 	return names
 }
 
-// OfflineNames: the built ins that never leave this machine.
-func (r Registry[D]) OfflineNames() []string {
+// All: every built in, then the plugin programs among thirdParty.
+func (r Registry[D]) All(exe string, thirdParty []string) []Plugin {
+	return r.Discover(exe, r.Names(), thirdParty)
+}
+
+// Offline: the built ins that never leave this machine, for a session
+// start; no plugin program is assumed to stay offline.
+func (r Registry[D]) Offline(exe string) []Plugin {
 	var names []string
 	for _, b := range r.Builtins {
 		if b.Offline {
 			names = append(names, b.Name)
 		}
 	}
-	return names
+	return r.Discover(exe, names, nil)
 }
 
 // Discover lists the named built ins (called as `exe <axis> <name>`, so

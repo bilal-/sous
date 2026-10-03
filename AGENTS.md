@@ -86,9 +86,11 @@ data file, it does not belong in `cli`.
 **Built ins.** Each axis has one `Registry` (`signal.Registry`,
 `backend.Registry`, `launcher.Registry`, `runner.Registry`): a list of its
 built ins, each a name, whether it stays on this machine (`Offline`), and
-its calls as `plugin.Op`s. The list drives everything else: discovery, the
-door `sous <axis> <name> <call>` (`internal/cli/door.go`), and which
-built ins a session start may ask. A built in ends every call with
+its calls as `plugin.Op`s. The list drives everything else: `Registry.All`
+(every built in, then the plugins config lists), `Registry.Offline` (what
+a session start may ask), and the door `sous <axis> <name> <call>`
+(`internal/cli/door.go`). The launcher and runner lists are built from
+`harness.All`. A built in ends every call with
 `plugin.Exit`, so it speaks the same exit codes as a plugin program.
 
 **Adding a tracker** as a built in (Jira, say) is three pieces, each

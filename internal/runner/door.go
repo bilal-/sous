@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/plugin"
 )
 
@@ -16,14 +17,17 @@ type Deps struct {
 	Limit time.Duration
 }
 
-// Registry is the built in runners, one per agent CLI in clis. They are
-// offline: they read files on this machine.
+// Registry is the built in runners, one per harness that runs headless.
+// They are offline: they read files on this machine.
 var Registry = plugin.Registry[Deps]{Axis: "runner"}
 
 func init() {
-	for _, name := range BuiltinNames() {
-		Registry.Builtins = append(Registry.Builtins, plugin.Builtin[Deps]{Name: name, Offline: true, Ops: func(d Deps) map[string]plugin.Op {
-			a, _ := Builtin(name, d.Home, d.Exe, d.Limit)
+	for _, h := range harness.All {
+		if h.Headless == nil {
+			continue
+		}
+		Registry.Builtins = append(Registry.Builtins, plugin.Builtin[Deps]{Name: h.Name, Offline: true, Ops: func(d Deps) map[string]plugin.Op {
+			a, _ := Builtin(h.Name, d.Home, d.Exe, d.Limit)
 			ops := Ops(a)
 			ops["watch"] = watchOp(a)
 			return ops

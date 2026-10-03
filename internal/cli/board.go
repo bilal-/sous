@@ -25,7 +25,7 @@ func buildBoard(e *Env, roots []string) (*board.Data, int) {
 	}
 	now := time.Now()
 	d, err := board.Build(e.ctx(), board.Inputs{
-		Store: e.store(), Cfg: cfg, Roots: roots, Exe: e.Exe, Builtins: signal.Registry.Names(),
+		Store: e.store(), Cfg: cfg, Roots: roots, Signals: signal.Registry.All(e.Exe, cfg.Plugins),
 		Timeout: e.pluginTimeout(), Warn: e.Stderr, Now: now,
 		Reconcile: func(ctx context.Context, v []thread.View) []thread.View { return reconcile(e, ctx, v, now, false) },
 	})

@@ -48,7 +48,7 @@ func (d *Dispatcher) Names() []string {
 // runner that fails to start leaves the run on the board as failed, with
 // the reason, never silently dropped.
 func (d *Dispatcher) Start(ctx context.Context, p project.Project, brief, key, name, source, hereFile string) (int, bool, error) {
-	r, ok := runner.Find(d.Runners, name)
+	r, ok := plugin.Find(d.Runners, name)
 	if !ok {
 		return 0, false, fmt.Errorf("%w %q", ErrNoRunner, name)
 	}

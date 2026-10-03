@@ -19,7 +19,7 @@ import (
 
 // dispatcher builds the runs use case layer for this invocation.
 func (e *Env) dispatcher() *runs.Dispatcher {
-	return &runs.Dispatcher{Store: e.store(), Runners: runner.Runners(e.Exe, runner.BuiltinNames(), e.Cfg.Plugins), Now: time.Now}
+	return &runs.Dispatcher{Store: e.store(), Runners: runner.Registry.All(e.Exe, e.Cfg.Plugins), Now: time.Now}
 }
 
 // startedJSON is sous go --run --json.

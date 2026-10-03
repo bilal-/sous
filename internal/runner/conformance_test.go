@@ -30,7 +30,7 @@ printf '{"result":"SOUS: done nothing to do","session_id":"s"}\n'
 echo "SOUS: done nothing to do" > "$out"`
 
 func TestBuiltinsConform(t *testing.T) {
-	for _, name := range runner.BuiltinNames() {
+	for _, name := range runner.Registry.Names() {
 		t.Run(name, func(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("SOUS_HOME", home)
@@ -39,7 +39,7 @@ func TestBuiltinsConform(t *testing.T) {
 			exec.Command("git", "init", "-q", repo).Run()
 			exec.Command("git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m", "one").Run()
 			exe, _ := os.Executable()
-			r := runner.Runners(exe, []string{name}, nil)[0]
+			r := runner.Registry.Discover(exe, []string{name}, nil)[0]
 			runnertest.RunDoor(t, r, repo, func(ref string) {
 				uid := ref[len(name)+1:]
 				os.WriteFile(filepath.Join(home, "runs", uid, "worktree", "go"), nil, 0o600)

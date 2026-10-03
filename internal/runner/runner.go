@@ -62,15 +62,6 @@ var (
 // reads files on this machine, so sous may ask it while a session starts.
 type Runner = plugin.Plugin
 
-// Runners lists the named built ins, then the runner programs among
-// thirdParty.
-func Runners(exe string, builtins, thirdParty []string) []Runner {
-	return Registry.Discover(exe, builtins, thirdParty)
-}
-
-// Find is the runner called name.
-func Find(rs []Runner, name string) (Runner, bool) { return plugin.Find(rs, name) }
-
 // ByRef: refs name their runner, "claude:…".
 func ByRef(rs []Runner, ref string) (Runner, error) {
 	if r, ok := plugin.ByRef(rs, ref); ok {

@@ -15,10 +15,10 @@ import (
 
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/install"
 	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
-	"github.com/bilal-/sous/internal/runner"
 	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/store"
@@ -197,12 +197,14 @@ func pluginChecks(plugins []string) []Check {
 // says the same, with exit 3, when it is tried.
 func runnerChecks() []Check {
 	var out []Check
-	for _, name := range runner.BuiltinNames() {
-		bin := runner.CLI(name)
-		c := Check{Name: "runner " + name, Status: OK, Detail: bin + " installed"}
-		if _, err := exec.LookPath(bin); err != nil {
-			c.Status, c.Detail = Warn, bin+" is not installed, so sous go --run -a "+name+" cannot start"
-			c.Fix = "install " + bin + ", or pick another: sous config agent <name>"
+	for _, h := range harness.All {
+		if h.Headless == nil {
+			continue
+		}
+		c := Check{Name: "runner " + h.Name, Status: OK, Detail: h.Bin + " installed"}
+		if _, err := exec.LookPath(h.Bin); err != nil {
+			c.Status, c.Detail = Warn, h.Bin+" is not installed, so sous go --run -a "+h.Name+" cannot start"
+			c.Fix = "install " + h.Bin + ", or pick another: sous config runner <name>"
 		}
 		out = append(out, c)
 	}
