@@ -89,6 +89,9 @@ func (a *Agent) Watch(dir string, resume bool) error {
 	return writeJSON(dir, "result.json", r)
 }
 
+// watcherLog is the watcher's own output, in the run's folder.
+const watcherLog = "watcher.log"
+
 // Status reads the run folder; it never asks the agent anything.
 func (a *Agent) Status(_, ref string) (Status, error) {
 	dir, m, err := a.meta(ref)
@@ -102,6 +105,9 @@ func (a *Agent) Status(_, ref string) (Status, error) {
 			st.State = Running
 		} else {
 			st.State, st.Text = Failed, "stopped without a result"
+			if why := tail(filepath.Join(dir, watcherLog)); why != "" {
+				st.Text += ": " + lastLine(why)
+			}
 		}
 		return st, nil
 	}

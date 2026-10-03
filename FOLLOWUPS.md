@@ -32,5 +32,5 @@ Tracked with `sous note --file`; tick a box to close it in sous too.
 - [x] built in runners ignore here_file; go --run writes it anyway: name it in the preamble or skip it for built ins <!-- sous:9df7a58a1a88 -->
 - [x] the board asks trackers then runners one after the other (up to 3s + 3s); ask both at once <!-- sous:ffd2fbd3f336 -->
 - [x] goRun ignores thread.Get's error before using th.Run <!-- sous:7a76ec6b3392 -->
-- [ ] the run watcher's own stderr goes nowhere; an early watcher failure shows only as stopped without a result <!-- sous:d3c75ad21198 -->
+- [x] the run watcher's own stderr goes nowhere; an early watcher failure shows only as stopped without a result <!-- sous:d3c75ad21198 -->
 - [ ] ~/.sous/runs folders are never pruned; drop them some time after their note closes <!-- sous:a8229154353a -->

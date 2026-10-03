@@ -14,6 +14,9 @@ upgraded, never broken.
 * A run by the built in Claude Code or Codex runner now starts knowing
   where you left off in the project: the summary `go --run` writes is in
   the agent's prompt, before the task. It was written and then ignored.
+* A built in run whose watcher fails says why (`stopped without a
+  result: …`); its own output is kept in `watcher.log` in the run's
+  folder. It used to say only that it stopped.
 
 ## [0.8.1]
 

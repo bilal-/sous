@@ -390,3 +390,25 @@ func TestStartPutsWhereThePersonLeftOffInThePrompt(t *testing.T) {
 		t.Fatalf("a missing file adds nothing:\n%s", m.Prompt)
 	}
 }
+
+// A watcher that fails before the agent ends says why: its own output is
+// kept beside the run, and a run stopped without a result names it.
+func TestAWatcherThatFailsSaysWhy(t *testing.T) {
+	testutil.FakeBin(t, "claude", "")
+	repo := gitRepo(t)
+	exe := testutil.Script(t, t.TempDir(), "sous", `echo "watch: run.json: permission denied" >&2; exit 1`)
+	a, _ := Builtin("claude", t.TempDir(), exe, time.Hour)
+	ref, err := a.Start(Request{ID: 3, UID: "u3", Project: repo, Brief: "Fix it."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var st Status
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+		if st, _ = a.Status(repo, ref); st.State == Failed {
+			break
+		}
+	}
+	if st.State != Failed || !strings.Contains(st.Text, "permission denied") {
+		t.Fatalf("%+v", st)
+	}
+}

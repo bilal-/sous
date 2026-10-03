@@ -180,7 +180,15 @@ func (a *Agent) launch(dir string, resume bool, lock *os.File) error {
 	if resume {
 		args = append(args, "--resume")
 	}
+	// The watcher's own words (not the agent's) are kept beside the run,
+	// so a watcher that fails says why.
+	out, err := os.OpenFile(filepath.Join(dir, watcherLog), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
 	cmd := exec.Command(a.Exe, args...)
+	cmd.Stdout, cmd.Stderr = out, out
 	cmd.ExtraFiles = []*os.File{lock}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
