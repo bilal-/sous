@@ -3,6 +3,7 @@ package board
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -98,4 +99,28 @@ func TestMigratorsRefuseUnknownVersions(t *testing.T) {
 	if _, err := (CacheMigrator{}).Migrate(0, nil); err == nil {
 		t.Fatal("cache")
 	}
+}
+
+// What an agent hears at session start stays short: five rows of each
+// kind, then where the rest are; a long note is cut where it shows it was,
+// with how to read it whole.
+func TestBriefHereIsShortAndSaysWhatItCut(t *testing.T) {
+	now := time.Now()
+	var ths []thread.View
+	for i := 1; i <= 8; i++ {
+		ths = append(ths, thread.View{Thread: thread.Thread{ID: i, Project: "/code/acme/api", Text: fmt.Sprintf("task %d", i), Kind: thread.Me, Since: now}})
+	}
+	long := strings.Repeat("word ", 40)
+	ths = append(ths, thread.View{Thread: thread.Thread{ID: 9, Project: "/code/acme/api", Text: long, Kind: thread.Them, Since: now}})
+	d := &HereData{Project: "/code/acme/api", Name: "api", RenderedAt: now, Threads: ths}
+	var b strings.Builder
+	RenderHere(&b, d, now, true)
+	out := b.String()
+	testutil.Contains(t, out, "  5  task 5", "… and 3 more (sous api)", "…  0m  (them)", "cut short: sous show <n>")
+	if strings.Contains(out, "task 6") || strings.Contains(out, long) {
+		t.Fatalf("brief lists five of each and cuts long notes:\n%s", out)
+	}
+	b.Reset()
+	RenderHere(&b, d, now, false)
+	testutil.Contains(t, b.String(), "task 8")
 }

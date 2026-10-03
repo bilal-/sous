@@ -315,11 +315,3 @@ func dispatch(e *Env, cmd string, rest []string) int {
 	}
 	return v.run(e, a)
 }
-
-func verbHelp(e *Env, v verb) int {
-	fmt.Fprintf(e.Stdout, "usage: %s\n", v.synopsis())
-	if _, about, ok := strings.Cut(v.usage, "  "); ok {
-		fmt.Fprintf(e.Stdout, "  %s\n", strings.TrimSpace(about))
-	}
-	return 0
-}

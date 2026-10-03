@@ -279,3 +279,18 @@ func TestAXIMisses(t *testing.T) {
 		t.Fatalf("%d %q", code, out)
 	}
 }
+
+// AXI 10: a command's --help is what the docs say about it, so help and
+// guide never disagree: every command shown in sous help has a section.
+func TestAXI10HelpCarriesTheDocs(t *testing.T) {
+	f := fixture(t)
+	for _, v := range verbs {
+		if v.usage == "" {
+			continue
+		}
+		out, _, _ := f.run(v.name, "--help")
+		if !strings.Contains(out, "\nsous "+v.name) {
+			t.Errorf("%s --help has no section from docs/commands.md:\n%s", v.name, out)
+		}
+	}
+}

@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
 	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -148,8 +151,27 @@ func (d *Dispatcher) Show(ctx context.Context, id int) (thread.View, error) {
 	if err != nil {
 		return thread.View{}, err
 	}
-	v := []thread.View{{Thread: th}}
-	return d.Refresh(ctx, v, false)[0], nil
+	v := d.Refresh(ctx, []thread.View{{Thread: th}}, false)[0]
+	if v.Run != nil && v.Run.State == thread.RunFailed && v.Run.Log != "" {
+		v.LogTail = lastLines(v.Run.Log, 3)
+	}
+	return v, nil
+}
+
+// lastLines is the last n lines of the file at path that hold anything;
+// none when it cannot be read.
+func lastLines(path string, n int) []string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var lines []string
+	for _, l := range strings.Split(string(b), "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			lines = append(lines, text.Cut(l, 200))
+		}
+	}
+	return lines[max(len(lines)-n, 0):]
 }
 
 // run finds an open note's run and its runner.

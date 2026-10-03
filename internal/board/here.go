@@ -103,21 +103,32 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 	s := ClassifyHere(d)
 	renderHereHeader(w, d, s, now, brief)
 	fmt.Fprintf(w, "on you: %d · on others: %d · ideas: %d\n", len(s.Me), len(s.Them), len(s.Ideas))
-	for _, r := range s.Me {
-		fmt.Fprintln(w, r.hereLine())
+	// What an agent hears at session start stays short: a few rows of each
+	// kind, then where the rest are.
+	limit := 0
+	if brief {
+		limit = BriefRows
 	}
-	for _, r := range s.Them {
-		fmt.Fprintln(w, r.hereLine()+"  (them)")
+	cut := false
+	list := func(rows []Row, suffix string) {
+		shown := rows
+		if limit > 0 && len(rows) > limit {
+			shown = rows[:limit]
+		}
+		for _, r := range shown {
+			line, c := r.hereLine()
+			cut = cut || c
+			fmt.Fprintln(w, line+suffix)
+		}
+		if len(shown) < len(rows) {
+			fmt.Fprintf(w, "  … and %d more (sous %s)\n", len(rows)-len(shown), filepath.Base(d.Project))
+		}
 	}
-	shown := s.Ideas
-	if brief && len(s.Ideas) > 5 {
-		shown = s.Ideas[:5]
-	}
-	for _, r := range shown {
-		fmt.Fprintln(w, r.hereLine())
-	}
-	if len(shown) < len(s.Ideas) {
-		fmt.Fprintf(w, "  … and %d more (sous %s)\n", len(s.Ideas)-len(shown), filepath.Base(d.Project))
+	list(s.Me, "")
+	list(s.Them, "  (them)")
+	list(s.Ideas, "")
+	if cut {
+		fmt.Fprintln(w, "  (… cut short: sous show <n> for a whole note)")
 	}
 	for _, r := range s.RecentlyClosed {
 		fmt.Fprintf(w, "  ✓ %s  %s  (closed upstream %s)\n", r.ID, r.Shown, r.Age)
@@ -171,13 +182,21 @@ func sessionLine(sess *session.Session, brief bool) string {
 
 // hereLine is a row as here lists it: id, text, age, then what is known
 // about it (snoozed, filed where, upstream trouble).
-func (r Row) hereLine() string {
-	l := fmt.Sprintf("  %s  %s  %s", r.ID, r.Shown, r.Age)
+func (r Row) hereLine() (line string, cut bool) {
+	shown := text.Ellipsize(r.Shown, HereWidth)
+	l := fmt.Sprintf("  %s  %s  %s", r.ID, shown, r.Age)
 	if r.Snoozed {
 		l += " (snoozed)"
 	}
 	if r.Ref != nil {
 		l += "  → " + *r.Ref
 	}
-	return l + r.upstreamNote()
+	return l + r.upstreamNote(), shown != r.Shown
 }
+
+// HereWidth is how much of a note here shows; BriefRows how many rows of
+// each kind the short form (what an agent hears at session start) lists.
+const (
+	HereWidth = 120
+	BriefRows = 5
+)

@@ -53,6 +53,8 @@ type RunItem struct {
 	Key      string          `json:"key"` // go --key: a retry with it finds this run
 	// CheckedAt: when the runner was last asked; null before it answered.
 	CheckedAt *time.Time `json:"checked_at"`
+	// LogTail: in show --json, the last lines of a failed run's log.
+	LogTail []string `json:"log_tail,omitempty"`
 	// Error: its state could not be read this time; State is the last known.
 	Error string `json:"error,omitempty"`
 }
@@ -113,13 +115,13 @@ type BoardJSON struct {
 	Plugins     []signal.PluginStatus `json:"plugins"`
 	Checked     int                   `json:"checked"`
 	Unavailable int                   `json:"unavailable"`
-	AsOf        time.Time             `json:"as_of"`
+	AsOf        *time.Time            `json:"as_of"` // null before there is a board
 }
 
 // JSON is the board as --json shows it.
 func (d *Data) JSON() BoardJSON {
 	return BoardJSON{Configured: true, Waiting: Classify(d).waiting(), Projects: d.Projects, Plugins: d.Plugins,
-		Checked: d.Checked, Unavailable: d.Unavailable, AsOf: d.RenderedAt}
+		Checked: d.Checked, Unavailable: d.Unavailable, AsOf: &d.RenderedAt}
 }
 
 // HereJSON is sous here --json.
@@ -170,5 +172,9 @@ type NoteJSON struct {
 
 // Note is one note as show --json gives it.
 func Note(v thread.View, now time.Time, next []string) NoteJSON {
-	return NoteJSON{Item: ThreadRow(v, now).Item(), UID: v.UID, Remote: v.Remote, SnoozedUntil: v.SnoozedUntil, Next: next}
+	n := NoteJSON{Item: ThreadRow(v, now).Item(), UID: v.UID, Remote: v.Remote, SnoozedUntil: v.SnoozedUntil, Next: next}
+	if n.Run != nil {
+		n.Run.LogTail = append([]string{}, v.LogTail...)
+	}
+	return n
 }

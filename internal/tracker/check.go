@@ -28,11 +28,11 @@ func CheckGitHub(accounts []string) []Result {
 		return r
 	}
 	err := GHReady("")
-	gh := readyResult("gh", err, "gh auth login")
+	gh := readyResult("gh", err, "gh auth login", "gh auth status")
 	gh.Optional = len(accounts) == 0 && notSetUp(err)
 	out := []Result{gh}
 	for _, a := range accounts {
-		out = append(out, readyResult("GitHub account "+a, GHReady(a), "gh auth login --hostname github.com  (then log in as "+a+")"))
+		out = append(out, readyResult("GitHub account "+a, GHReady(a), "gh auth login --hostname github.com  (then log in as "+a+")", "gh auth status"))
 	}
 	// Notifications, with each working login's own token.
 	for i, a := range append([]string{""}, accounts...) {
@@ -44,7 +44,7 @@ func CheckGitHub(accounts []string) []Result {
 			name += " (" + a + ")"
 		}
 		_, err := GHNotifications(a)
-		r := readyResult(name, err, NotificationsFix)
+		r := readyResult(name, err, NotificationsFix, "gh api notifications")
 		if err != nil && strings.Contains(err.Error(), NotificationsFix) {
 			r.Fix = NotificationsFix
 		}
@@ -68,7 +68,7 @@ func CheckGitLab(configured []string) []Result {
 	}
 	out := []Result{{Name: "glab", OK: true, Detail: "installed"}}
 	for _, h := range hosts {
-		out = append(out, readyResult("GitLab host "+h, GLabReady(h), "glab auth login --hostname "+h))
+		out = append(out, readyResult("GitLab host "+h, GLabReady(h), "glab auth login --hostname "+h, "glab auth status --hostname "+h))
 	}
 	return out
 }
@@ -93,11 +93,13 @@ func notSetUp(err error) bool {
 
 // readyResult turns a readiness error into a result, naming the fix only
 // when the problem is one the fix solves (no login).
-func readyResult(name string, err error, fix string) Result {
+// Any other failure names the command that shows what is wrong (look), so
+// there is always a next step.
+func readyResult(name string, err error, fix, look string) Result {
 	if err == nil {
 		return Result{Name: name, OK: true, Detail: "works"}
 	}
-	r := Result{Name: name, Detail: err.Error()}
+	r := Result{Name: name, Detail: err.Error(), Fix: look}
 	if notSetUp(err) || strings.Contains(err.Error(), "token") {
 		r.Fix = fix
 	}

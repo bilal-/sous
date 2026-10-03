@@ -109,6 +109,9 @@ type View struct {
 	// RunErr: why the run's state could not be read this time; the state
 	// shown is the last one known.
 	RunErr string `json:"run_err,omitempty"`
+	// LogTail: for a run that failed, the last lines of its log, when show
+	// read them.
+	LogTail []string `json:"-"`
 }
 
 var ErrNotFound = errors.New("no open thread")

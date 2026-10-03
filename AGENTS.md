@@ -69,6 +69,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/install    setup's steps: agent hooks and skills, and the shell line, and Check for each
     internal/doctor     sous doctor: every check, in one list, with how to fix it
     internal/text       how sous writes things for people: ages, times, lines cut to fit
+    docs                the guides; docs.go carries commands.md inside the program for each command's --help
     internal/testutil   helpers shared by every package's tests
 
 Code only depends downward, in this order: `cli`, then `doctor`, then
@@ -169,7 +170,8 @@ that agents use, as they read at this exact version:
   [kunchenguid/axi](https://github.com/kunchenguid/axi)
 * commit: [`e15f82d`](https://github.com/kunchenguid/axi/blob/e15f82dd8e75ff640aaefd5c76c49471c5bcbbea/docs/index.html)
   (2026-09-27), the ten principles
-* checked against sous: 2026-09-28
+* checked against sous: 2026-10-03 (axi.md at `e7dd8fa` has the same ten
+  principles)
 
 We do not follow axi.md automatically. To move to a newer version, read
 what changed since that commit, update sous and its tests, then update the
@@ -180,18 +182,25 @@ command, not the test.
 
 What the tests hold: bare `sous` shows the board; every command that shows
 something answers even when there is nothing to show, and its `--json` is
-never `null`; unknown flags fail with exit code `2`; nothing waits for
-input; the board and `here` suggest a next command; every command has
-`--help`; the skill can be printed for any agent and stays tiny, pointing
-at `sous help`. The session hooks and
-the short `here --brief` are covered in `hooks_test.go` and the board tests.
+never `null`; a search that finds nothing is an answer, not an error;
+unknown flags, and `--json` or `--brief` where a command has no use for
+them, fail with exit code `2`; nothing waits for input; every command that
+changes something says what it did and what comes next, takes `--json`,
+and is safe to retry (`done` twice, the same `note` twice, the same
+`go --run` twice); with `--json` an error is JSON on stdout too; every
+command's `--help` carries its section of docs/commands.md; the skill can
+be printed for any agent and stays tiny, pointing at `sous help`. The
+session hooks and the short `here --brief` (five rows of a kind, long
+notes cut with `…` and a pointer to `sous show`) are covered in
+`hooks_test.go` and the board tests.
 
 Where sous chooses differently, for the person reading the terminal:
 
 * **Plain text, not TOON.** People read the board; `--json` is for programs.
-* **Errors go to stderr** as one clear line.
-* **No `--fields` or `--full`.** Output is already short, and `--json` has
-  everything.
+* **Errors go to stderr** as one clear line, and with `--json` to stdout
+  as JSON too.
+* **No `--fields` or `--full`.** Output is short, a note cut short says so
+  and names `sous show <n>`, and `--json` has everything.
 
 Changing one of these, or following a new AXI principle, is a design
 change: update this section and `docs/design.md` together.

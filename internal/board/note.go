@@ -86,6 +86,9 @@ func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
 		if v.RunErr != "" {
 			fmt.Fprintf(w, "   status unavailable: %s\n", v.RunErr)
 		}
+		for _, l := range v.LogTail {
+			fmt.Fprintf(w, "   | %s\n", l)
+		}
 		var where []string
 		for _, kv := range [][2]string{{"branch", r.Branch}, {"worktree", r.Worktree}, {"log", r.Log}} {
 			if kv[1] != "" {

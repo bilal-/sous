@@ -316,10 +316,22 @@ func TestSessionStartIntroducesSous(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("acme/api", true)
 	out, _, _ := f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "startup"}), "hook", "session-start", "claude")
+	exe, _ := os.Executable()
 	first := strings.SplitN(out, "\n", 2)[0]
-	if !strings.Contains(first, "sous") || !strings.Contains(first, "sous help") || !strings.Contains(out, "api · main") {
-		t.Fatalf("%q", out)
+	if !strings.HasPrefix(first, "[sous] ") || !strings.Contains(first, "Run "+exe+" help") || !strings.Contains(out, "api · main") {
+		t.Fatalf("with no sous on PATH it names this one by its path: %q", out)
 	}
+}
+
+// Outside any project, an agent hears the board in one line, from the
+// saved board, and how to see it.
+func TestSessionStartOutsideAProject(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	f.runIn(p, "note", "-k", "me", "check the index")
+	f.run() // saves the board
+	out, _, _ := f.runStdin(hookJSON(map[string]any{"cwd": f.Home, "source": "startup"}), "hook", "session-start", "claude")
+	testutil.Contains(t, out, "[sous] ", "1 on you · 0 on others · 0 unfinished across 1 project", "sous for the board")
 }
 
 // Runs that need the user are what an agent hears first at session start,

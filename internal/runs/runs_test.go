@@ -130,3 +130,18 @@ func TestFinish(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Showing a failed run reads the end of its log, so the reason is there
+// without opening it.
+func TestShowReadsAFailedRunsLog(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	log := filepath.Join(t.TempDir(), "log")
+	os.WriteFile(log, []byte("starting\n\nstep one\nstep two\npanic: no fixture\n\n"), 0o600)
+	r := runnertest.Fake(t, `start) echo fake:1;; status) echo '{"v":0,"state":"failed","text":"exit 2","log":"`+log+`"}';;`)
+	d := &Dispatcher{Store: s, Runners: []runner.Runner{r}, Now: time.Now}
+	id, _, _ := d.Start(context.Background(), project.Project{Path: "/code/acme/api"}, "fix it", "", "fake", "human", "")
+	v, err := d.Show(context.Background(), id)
+	if err != nil || strings.Join(v.LogTail, "|") != "step one|step two|panic: no fixture" {
+		t.Fatalf("%q %v", v.LogTail, err)
+	}
+}

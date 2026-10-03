@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os/exec"
 	"time"
 
 	"github.com/bilal-/sous/internal/board"
@@ -13,8 +14,15 @@ import (
 )
 
 // sessionIntro opens what an agent sees at session start, so it knows what
-// sous is and when to reach for it, not only what sous printed.
-const sessionIntro = "[sous] The user's list of what is waiting on them across projects. Below: where they left off here. Run sous help for how to use it."
+// sous is and when to reach for it, not only what sous printed. It names
+// the sous the agent can run: the one on PATH, else this one by its path.
+func sessionIntro(e *Env) string {
+	sous := "sous"
+	if onPath, err := exec.LookPath("sous"); err != nil || stableExe(e.Exe) != onPath {
+		sous = e.Exe
+	}
+	return "[sous] The user's list of what is waiting on them across projects. Run " + sous + " help for how to use it."
+}
 
 // cmdHook: `sous hook session-start|session-end <agent>`. Always exit 0, stderr silent.
 func cmdHook(e *Env, a argv) int {
@@ -42,12 +50,18 @@ func cmdHook(e *Env, a argv) int {
 		if guarded(func() {
 			if root, ok := hook.StartRoot(in, e.Cwd, e.UserHome); ok {
 				cmdHere(sub, argv{pos: []string{root}})
+			} else if in.Fresh {
+				// Outside any project: what waits across them, from the
+				// saved board (never built here: this must stay quick).
+				if c, err := board.ReadCache(sub.store()); err == nil && c.Data != nil {
+					fmt.Fprintln(&buf, board.Summary(c.Data))
+				}
 			}
 			if in.Fresh {
 				runs = runsWaiting(sub)
 			}
 		}) && buf.Len()+len(runs) > 0 {
-			fmt.Fprintln(e.Stdout, sessionIntro)
+			fmt.Fprintln(e.Stdout, sessionIntro(e))
 			fmt.Fprint(e.Stdout, runs)
 			io.Copy(e.Stdout, &buf)
 		}

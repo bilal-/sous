@@ -30,6 +30,19 @@ upgraded, never broken.
 * A word that is neither a command nor a project (`sous lsit`) says so,
   instead of looking for a project by that name.
 * `sous --version` works.
+* What an agent hears at session start stays short: five rows of each
+  kind, then `… and N more (sous <project>)`, and a long note cut to 120
+  characters. Started outside any project, it now hears the board in one
+  line instead of nothing. It is told to run the `sous` it can reach: the
+  one on PATH, or this one by its full path.
+* Text cut short ends in `…`, on the board and in `here`, and `here` says
+  `sous show <n>` gives the whole note. The board used to cut silently.
+* `sous show` on a failed run shows the last lines of its log, and
+  `--json` has them as `log_tail`.
+* Each command's `--help` now says everything docs/commands.md says about
+  it, not only its usage line.
+* Every failed check in `sous doctor` names a command to run.
+* An empty board's `--json` has `"as_of": null`, not the year 1.
 
 ## [0.6.0]
 

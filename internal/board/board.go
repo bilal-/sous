@@ -101,7 +101,7 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 }
 
 func (r Row) line() string {
-	return fmt.Sprintf("  %-14s  %-24.24s  %-60.60s  %s", r.ID, filepath.Base(r.Project), r.Shown, r.Age) + r.upstreamNote()
+	return fmt.Sprintf("  %-14s  %-24s  %-60s  %s", r.ID, text.Ellipsize(filepath.Base(r.Project), 24), text.Ellipsize(r.Shown, 60), r.Age) + r.upstreamNote()
 }
 
 // upstreamNote says when a filed note's tracker could not vouch for it:
@@ -209,4 +209,15 @@ func (a Ambient) Run(now time.Time, window time.Duration, show func() bool) {
 		}
 		return nil
 	})
+}
+
+// Summary is the board in one line, for an agent starting a session
+// outside any project: how much waits, where, and how to see it.
+func Summary(d *Data) string {
+	s := Classify(d)
+	line := fmt.Sprintf("%d on you · %d on others · %d unfinished across %s", len(s.Me), len(s.Them), len(s.Unfinished), text.Plural(d.Checked, "project"))
+	if len(s.Why) > 0 {
+		line += " (" + strings.Join(s.Why, ", ") + ")"
+	}
+	return line + " · sous for the board"
 }

@@ -251,7 +251,8 @@ Days do not apply to these rows.
 ### `sous done <n>`
 
 Close note `n`. It only closes your note; a filed item stays open in its
-tracker. Use `--close` to close both.
+tracker. Use `--close` to close both. Closing a note that is already
+closed says when it was, and exits `0`, so a retry is safe.
 
 For a run, `done` also stops the agent if it is still working. Its branch
 and worktree stay, for you to look at or merge.
