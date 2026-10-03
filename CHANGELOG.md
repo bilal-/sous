@@ -22,6 +22,18 @@ upgraded, never broken.
   * A run's text is the note as written; its state is under `run`
     (`run.state`, not `run_state`). Upstream state is under `upstream`.
   * `closed` (a time) is `closed_at` in `show --json`.
+* Inside sous: `cli` decides nothing about the data any more (closing a
+  run, the next commands for a note and how a note reads moved to `runs`
+  and `board`); ages, times and cut lines live in `internal/text`; notes
+  are listed through one filter.
+
+### Fixed
+* Since 0.4.0's test setup, part of the command line tests stopped running
+  without saying so: one test replaced the test process with a fake agent.
+  No test can do that now, and every test runs again. 0.4.0 passes them
+  all.
+* The context an agent gets at session start no longer runs git for each
+  run it lists.
 
 ## [0.4.0]
 
