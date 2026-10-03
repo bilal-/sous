@@ -78,7 +78,7 @@ func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
 		fmt.Fprintf(w, "   filed: %s\n", *v.Ref)
 	}
 	if r := v.Run; r != nil {
-		line := "   run: " + strings.ReplaceAll(string(r.State), "_", " ")
+		line := "   " + look(r).label
 		if r.Text != "" {
 			line += " · " + r.Text
 		}

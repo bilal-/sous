@@ -35,12 +35,11 @@ func (e *Env) changed(c changedJSON, said string) int {
 	return 0
 }
 
-// noteNext is what makes sense next for note id: seeing it in full, then
-// what its state allows. Only what can be read is suggested.
+// noteNext is what makes sense next for note id, as board.Next says.
 func noteNext(e *Env, id int) []string {
 	th, err := thread.Get(e.store(), id)
 	if err != nil {
 		return []string{}
 	}
-	return append([]string{fmt.Sprintf("sous show %d", id)}, board.Next(thread.View{Thread: th})...)
+	return board.Next(thread.View{Thread: th})
 }

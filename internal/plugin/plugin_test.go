@@ -194,3 +194,14 @@ func TestRefAnswer(t *testing.T) {
 		t.Fatal(Names())
 	}
 }
+
+// Exit 3 is not set up, said once whether or not the plugin said it.
+func TestCallNotSetUpIsSaidOnce(t *testing.T) {
+	dir := t.TempDir()
+	for _, body := range []string{`echo "claude is not installed" >&2; exit 3`, `echo "not set up: claude is not installed" >&2; exit 3`} {
+		_, err := Call(context.Background(), "claude", "start", []string{testutil.Script(t, dir, "p", body)}, nil, time.Second)
+		if !errors.Is(err, ErrNotSetUp) || err.Error() != "not set up: claude is not installed" {
+			t.Errorf("%q", err)
+		}
+	}
+}

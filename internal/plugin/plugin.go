@@ -29,7 +29,15 @@ type Plugin struct {
 }
 
 // Axes are the kinds of plugin, each named sous-<axis>-<name>.
-var Axes = []string{"signal", "backend", "launcher", "runner"}
+var Axes = []string{AxisSignal, AxisBackend, AxisLauncher, AxisRunner}
+
+// The kinds of plugin.
+const (
+	AxisSignal   = "signal"
+	AxisBackend  = "backend"
+	AxisLauncher = "launcher"
+	AxisRunner   = "runner"
+)
 
 // Named reports whether path's file name is sous-<axis>-<name> for a known
 // axis; Discover skips any other.
@@ -76,13 +84,10 @@ type Result struct {
 func Exec(ctx context.Context, argv []string, stdin []byte, timeout time.Duration) Result {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd := GroupCommand(ctx, argv[0], argv[1:]...)
 	cmd.Stdin = bytes.NewReader(stdin)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
-	cmd.WaitDelay = 2 * time.Second
 	err := cmd.Run()
 	r := Result{Stdout: out.String(), Stderr: errb.String()}
 	if err == nil {
@@ -140,6 +145,10 @@ func Call(ctx context.Context, name, op string, argv []string, stdin []byte, tim
 		}
 		return Answer{Code: 1}, errors.New(msg)
 	}
+	if res.Code == ExitNotSetUp {
+		// Said once, whether or not the plugin said it too.
+		return Answer{Code: res.Code}, fmt.Errorf("%w: %s", ErrNotSetUp, strings.TrimPrefix(msg, ErrNotSetUp.Error()+": "))
+	}
 	if msg == "" {
 		msg = fmt.Sprintf("exit %d", res.Code)
 	}
@@ -153,4 +162,15 @@ func Refused(name, op string, a Answer) error {
 		return fmt.Errorf("%s %s: refused (exit 2)", name, op)
 	}
 	return fmt.Errorf("%s %s: refused: %s", name, op, a.Reason)
+}
+
+// GroupCommand is a command in a process group of its own: when ctx ends,
+// the whole group is killed, so a shell wrapper's children cannot keep it
+// (or its pipes) alive, and Wait gives up two seconds after.
+func GroupCommand(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	cmd.WaitDelay = 2 * time.Second
+	return cmd
 }

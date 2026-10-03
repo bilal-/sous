@@ -113,7 +113,7 @@ func cmdReply(e *Env, a argv) int {
 	err := e.dispatcher().Reply(e.ctx(), id, a.pos[1])
 	switch {
 	case err == nil:
-		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "replied", Next: []string{fmt.Sprintf("sous show %d", id)}}, fmt.Sprintf("run %d carries on", id))
+		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "replied", Next: noteNext(e, id)}, fmt.Sprintf("run %d carries on", id))
 	case errors.Is(err, runs.ErrNotARun):
 		return fail(e, exitUsage, "%v; sous edit %d \"<text>\" changes a note", err, id)
 	case errors.Is(err, runner.ErrUnsupported):

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/bilal-/sous/internal/harness"
+	"github.com/bilal-/sous/internal/plugin"
 )
 
 // verb is one entry in the closed verb set. The table is the single source
@@ -53,10 +54,10 @@ func init() {
 		{"version", cmdVersion, false, false, exactly(0, nil, nil), "sous version"},
 		{"help", cmdHelp, false, false, exactly(0, nil, nil), "sous help"},
 		// Internal doors: how the runner re-execs built-ins, and hooks. Not in help.
-		{"signal", cmdSignal, false, false, nil, ""},
-		{"backend", cmdBackend, false, false, nil, ""},
-		{"launcher", cmdLauncher, false, false, nil, ""},
-		{"runner", cmdRunner, false, false, nil, ""},
+		{plugin.AxisSignal, cmdSignal, false, false, nil, ""},
+		{plugin.AxisBackend, cmdBackend, false, false, nil, ""},
+		{plugin.AxisLauncher, cmdLauncher, false, false, nil, ""},
+		{plugin.AxisRunner, cmdRunner, false, false, nil, ""},
 		{"hook", cmdHook, false, false, nil, ""},
 	}
 }

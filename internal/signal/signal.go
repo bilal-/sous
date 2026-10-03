@@ -13,6 +13,7 @@ import (
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/plugin"
+	"github.com/bilal-/sous/internal/tracker"
 )
 
 type Kind string
@@ -100,10 +101,10 @@ type Scanner func(paths []string, w, warn io.Writer, now time.Time) error
 // touches the network, so the resume view (and so the session hook and sous
 // go) may run it; the board runs them all, and here reads what the rest
 // last found from observed.json.
-var Registry = plugin.Registry[*config.Config]{Axis: "signal", Builtins: []plugin.Builtin[*config.Config]{
+var Registry = plugin.Registry[*config.Config]{Axis: plugin.AxisSignal, Builtins: []plugin.Builtin[*config.Config]{
 	{Name: "git", Offline: true, Ops: scanOps(func(*config.Config) Scanner { return ScanGit })},
-	{Name: "github", Ops: scanOps(ScanGitHub)},
-	{Name: "gitlab", Ops: scanOps(ScanGitLab)},
+	{Name: tracker.GitHub, Ops: scanOps(ScanGitHub)},
+	{Name: tracker.GitLab, Ops: scanOps(ScanGitLab)},
 }}
 
 // scanOps is a built-in scanner's one call, `scan`: paths on stdin, JSON

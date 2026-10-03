@@ -19,7 +19,7 @@ type Deps struct {
 
 // Registry is the built in runners, one per harness that runs headless.
 // They are offline: they read files on this machine.
-var Registry = plugin.Registry[Deps]{Axis: "runner"}
+var Registry = plugin.Registry[Deps]{Axis: plugin.AxisRunner}
 
 func init() {
 	for _, h := range harness.All {

@@ -14,6 +14,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/bilal-/sous/internal/plugin"
 )
 
 // result is result.json: how the agent ended.
@@ -51,13 +53,10 @@ func (a *Agent) Watch(dir string, resume bool) error {
 	defer cancel()
 	ctx, unhook := signal.NotifyContext(limited, syscall.SIGTERM, syscall.SIGINT) // sous done: stop
 	defer unhook()
-	cmd := exec.CommandContext(ctx, a.h.Bin, args...)
+	cmd := plugin.GroupCommand(ctx, a.h.Bin, args...)
 	cmd.Dir = m.Worktree
 	cmd.Env = append(os.Environ(), pushBlock(m.Project)...)
 	cmd.Stdout, cmd.Stderr = logf, logf
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
-	cmd.WaitDelay = 2 * time.Second
 	runErr := cmd.Start()
 	if runErr == nil {
 		// Recorded so stop can reach the agent even if this watcher dies.

@@ -37,10 +37,11 @@ func reportFixture() (*board.Data, []thread.View, map[string]session.Session, ti
 		},
 		Plugins: []signal.PluginStatus{{Name: "git", Status: "ok"}, {Name: "gitlab", Status: "failed"}},
 	}
+	// What thread.ClosedSince gives for the window: closed in it, newest
+	// first.
 	closed := []thread.View{
-		{Thread: thread.Thread{ID: 7, Project: "/ws/acme/chime", Kind: thread.Me, Text: "pairing flow", Closed: &closedYou}},
 		{Thread: thread.Thread{ID: 8, Project: "/ws/studio/work", Kind: thread.Me, Text: "filed and ticked", Closed: &closedUp, ClosedBy: "upstream"}},
-		{Thread: thread.Thread{ID: 9, Project: "/ws/studio/work", Kind: thread.Me, Text: "closed before the window", Closed: &longAgo}},
+		{Thread: thread.Thread{ID: 7, Project: "/ws/acme/chime", Kind: thread.Me, Text: "pairing flow", Closed: &closedYou}},
 	}
 	msg := "widget layout done"
 	sessions := map[string]session.Session{

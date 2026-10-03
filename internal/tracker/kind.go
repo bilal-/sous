@@ -23,17 +23,24 @@ type Kind struct {
 	Check func(cfg *config.Config) []Result
 }
 
+// The built in trackers' names: each one's ref prefix, and the name of its
+// backend and its signal.
+const (
+	GitHub = "github"
+	GitLab = "gitlab"
+)
+
 // Kinds are the built in trackers.
 var Kinds = []Kind{
 	{
-		Name: "github", Tool: "gh", Host: GitHubHost, PublicHosts: []string{GitHubHost}, Ready: GHReady,
+		Name: GitHub, Tool: "gh", Host: GitHubHost, PublicHosts: []string{GitHubHost}, Ready: GHReady,
 		URL: func(r Ref) string {
 			return "https://github.com/" + r.Repo + "/issues/" + r.Number // GitHub redirects PR numbers
 		},
 		Check: func(cfg *config.Config) []Result { return CheckGitHub(cfg.Identities(config.KeyGitHubAccount)) },
 	},
 	{
-		Name: "gitlab", Tool: "glab", PublicHosts: []string{"gitlab.com"}, Ready: GLabReady,
+		Name: GitLab, Tool: "glab", PublicHosts: []string{"gitlab.com"}, Ready: GLabReady,
 		URL: func(r Ref) string {
 			kind := "issues"
 			if r.MR {

@@ -68,8 +68,11 @@ func (r Remote) Detect(project string) error {
 		return err
 	}
 	if k, ok := tracker.KindOf(r.CLI.Name()); ok && k.Ready != nil {
-		if err := k.Ready(t.Identity); err != nil {
+		switch err := k.Ready(t.Identity); {
+		case errors.Is(err, tracker.ErrNoLogin) || errors.Is(err, tracker.ErrNotInstalled):
 			return fmt.Errorf("%w: %v", plugin.ErrNotSetUp, err)
+		case err != nil:
+			return err // the tool is there and logged in, but could not answer
 		}
 	}
 	return nil

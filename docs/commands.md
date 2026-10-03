@@ -193,7 +193,7 @@ else until you [share one](#sharing-a-note).
 ### `sous note "text"`
 
 Save a note, and say its number and what makes sense next:
-`noted 7 in api · sous show 7 · sous done 7`. Saving the same text, kind
+`noted 7 in api · sous done 7`. Saving the same text, kind
 and project again while that note is open gives back the same note
 (`already noted as 7`), so a retry never makes two. With `--json`:
 `{"id": "7", "did": "noted", "ref": null, "next": [...]}`; every command

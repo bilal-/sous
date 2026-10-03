@@ -27,7 +27,7 @@ type Deps struct {
 
 // Registry is the built in launchers, one per harness. Each has
 // one call, `run <path>`.
-var Registry = plugin.Registry[Deps]{Axis: "launcher"}
+var Registry = plugin.Registry[Deps]{Axis: plugin.AxisLauncher}
 
 func init() {
 	for _, h := range harness.All {

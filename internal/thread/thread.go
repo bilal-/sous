@@ -72,6 +72,12 @@ const (
 // Working: the run is still at it, so it waits on others, not the person.
 func (s RunState) Working() bool { return s == RunStarting || s == RunRunning }
 
+// Reported: a state a runner may report (starting is sous's own, until
+// the runner answers).
+func (s RunState) Reported() bool {
+	return s == RunRunning || s == RunNeedsYou || s == RunDone || s == RunFailed
+}
+
 // Run is a note handed to a runner. State is the runner's word for it
 // (running, needs_you, done, failed; starting before the runner answered).
 type Run struct {

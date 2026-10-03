@@ -12,6 +12,7 @@ import (
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/plugin"
+	"github.com/bilal-/sous/internal/tracker"
 )
 
 // ErrUnsupported: an optional call (url) this backend does not have.
@@ -74,10 +75,10 @@ func builtin(make func(Deps) Implementation) func(Deps) map[string]plugin.Op {
 // Registry is the built in backends, in detection order: a project's own
 // follow-ups file before any remote host. markdown is offline: its items
 // live in the project, so asking about them never leaves the machine.
-var Registry = plugin.Registry[Deps]{Axis: "backend", Builtins: []plugin.Builtin[Deps]{
+var Registry = plugin.Registry[Deps]{Axis: plugin.AxisBackend, Builtins: []plugin.Builtin[Deps]{
 	{Name: "markdown", Offline: true, Ops: builtin(func(Deps) Implementation { return Markdown{} })},
-	{Name: "github", Ops: builtin(func(d Deps) Implementation { return GitHub(d.Home, d.Cfg) })},
-	{Name: "gitlab", Ops: builtin(func(d Deps) Implementation { return GitLab(d.Home, d.Cfg) })},
+	{Name: tracker.GitHub, Ops: builtin(func(d Deps) Implementation { return GitHub(d.Home, d.Cfg) })},
+	{Name: tracker.GitLab, Ops: builtin(func(d Deps) Implementation { return GitLab(d.Home, d.Cfg) })},
 }}
 
 var timeout = plugin.Timeout // overridable in tests
@@ -128,7 +129,7 @@ func Detect(ctx context.Context, bs []Backend, project, override string, warn io
 		if b, ok := plugin.Find(bs, override); ok {
 			return b, nil
 		}
-		return Backend{}, fmt.Errorf("%w: %q is declared but no %s%s is listed in config plugins", ErrUnknownBackend, override, plugin.Prefix("backend"), override)
+		return Backend{}, fmt.Errorf("%w: %q is declared but no %s%s is listed in config plugins", ErrUnknownBackend, override, plugin.Prefix(plugin.AxisBackend), override)
 	}
 	for _, b := range bs {
 		r := run(ctx, b, nil, "detect", project)
@@ -137,7 +138,7 @@ func Detect(ctx context.Context, bs []Backend, project, override string, warn io
 			return b, nil
 		case r.Code == plugin.ExitNotSetUp:
 			if warn != nil {
-				fmt.Fprintf(warn, "sous: backend %s: %v\n", b.Name, notSetUp(r.err))
+				fmt.Fprintf(warn, "sous: backend %s: %v\n", b.Name, r.err)
 			}
 		case r.Code == plugin.ExitFailed:
 			// Not applicable — but a stated reason (auth, missing tool) must
@@ -210,13 +211,4 @@ func URL(ctx context.Context, b Backend, project, ref string) (string, bool, err
 		return "", false, nil
 	}
 	return r.Out, true, nil
-}
-
-// notSetUp says that err (a plugin's exit 3 reason) means not set up,
-// unless the plugin said so itself.
-func notSetUp(err error) string {
-	if msg := err.Error(); strings.HasPrefix(msg, plugin.ErrNotSetUp.Error()) {
-		return msg
-	}
-	return plugin.ErrNotSetUp.Error() + ": " + err.Error()
 }

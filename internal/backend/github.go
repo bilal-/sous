@@ -22,7 +22,7 @@ func GitHub(home string, cfg *config.Config) Remote {
 	return Remote{CLI: githubCLI{cfg: cfg}, Home: home}
 }
 
-func (githubCLI) Name() string { return "github" }
+func (githubCLI) Name() string { return tracker.GitHub }
 
 func (g githubCLI) Locate(projectPath string) (Target, error) {
 	host, path := tracker.ParseRemote(project.Remote(projectPath))

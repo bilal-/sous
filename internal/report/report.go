@@ -67,8 +67,9 @@ func (r Report) JSON() JSON {
 	return j
 }
 
-// BuildReport slices board data by time. closed are threads closed in the
-// window (thread.ClosedSince); sessions are the session pointers.
+// Build slices board data by time. closed are the threads closed in the
+// window, newest first (thread.ClosedSince); sessions are the session
+// pointers.
 func Build(d *board.Data, closed []thread.View, sessions map[string]session.Session, since, now time.Time) Report {
 	s := board.Classify(d)
 	return Report{
@@ -77,7 +78,7 @@ func Build(d *board.Data, closed []thread.View, sessions map[string]session.Sess
 		NewMe:    newSince(s.Me, since),
 		NewThem:  newSince(s.Them, since),
 		NewIdeas: ideasSince(d.Threads, since, now),
-		Closed:   closedSince(closed, since, now),
+		Closed:   closedRows(closed, now),
 		Worked:   worked(sessions, d.Projects, since, now),
 	}
 }
@@ -103,15 +104,12 @@ func ideasSince(threads []thread.View, since, now time.Time) []board.Row {
 	return out
 }
 
-// closedSince: notes closed in the window, newest first.
-func closedSince(closed []thread.View, since, now time.Time) []board.Row {
-	var out []board.Row
-	for _, t := range closed {
-		if t.Closed != nil && !t.Closed.Before(since) {
-			out = append(out, board.ClosedRow(t, now))
-		}
+// closedRows: the notes thread.ClosedSince gave for the window, as rows.
+func closedRows(closed []thread.View, now time.Time) []board.Row {
+	out := make([]board.Row, len(closed))
+	for i, t := range closed {
+		out[i] = board.ClosedRow(t, now)
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].ClosedAt.After(*out[j].ClosedAt) })
 	return out
 }
 

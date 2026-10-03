@@ -197,9 +197,6 @@ func TestBuiltinDetectNotSetUpThroughTheDoor(t *testing.T) {
 	if code != 3 || errb.String() != "not set up: gh: not logged in\n" {
 		t.Fatalf("%d %q", code, errb.String())
 	}
-	if got := notSetUp(errors.New(strings.TrimSpace(errb.String()))); got != "not set up: gh: not logged in" {
-		t.Fatal(got)
-	}
 }
 
 type notReady struct{ recordingImpl }

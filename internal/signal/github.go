@@ -159,7 +159,7 @@ var checksQuery = `query{search(query:"is:pr is:open author:@me archived:false",
 func ScanGitHub(cfg *config.Config) Scanner {
 	accounts := cfg.Identities(config.KeyGitHubAccount)
 	return RemoteScanner{
-		Name:       "github",
+		Name:       tracker.GitHub,
 		Host:       tracker.GitHubHost,
 		Identities: append([]string{""}, accounts...),
 		Configured: len(accounts) > 0,

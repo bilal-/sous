@@ -106,7 +106,7 @@ func (e *Env) pluginTimeout() time.Duration {
 	if e.PluginTimeout > 0 {
 		return e.PluginTimeout
 	}
-	return 15 * time.Second
+	return plugin.Timeout
 }
 
 // ctx: the verb's context, bounded by Deadline when one is set. Made once

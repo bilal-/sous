@@ -58,7 +58,7 @@ func glUsername(host string) (string, error) {
 func ScanGitLab(cfg *config.Config) Scanner {
 	hosts, hostsErr := tracker.GitLabHosts(cfg)
 	return RemoteScanner{
-		Name:       "gitlab",
+		Name:       tracker.GitLab,
 		Identities: hosts,
 		Configured: len(cfg.GitLabHosts) > 0,
 		Available: func() error {

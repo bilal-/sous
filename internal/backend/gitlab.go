@@ -25,7 +25,7 @@ func GitLab(home string, cfg *config.Config) Remote {
 	return Remote{CLI: gitlabCLI{cfg: cfg}, Home: home}
 }
 
-func (gitlabCLI) Name() string { return "gitlab" }
+func (gitlabCLI) Name() string { return tracker.GitLab }
 
 // knownHost: is host one glab is logged into (or declared in config)?
 func (g gitlabCLI) knownHost(host string) (bool, error) {

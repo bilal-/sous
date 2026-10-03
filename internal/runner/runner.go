@@ -41,9 +41,6 @@ const (
 	Failed   = thread.RunFailed
 )
 
-// valid: a state a runner may report.
-func valid(s State) bool { return s == Running || s == NeedsYou || s == Done || s == Failed }
-
 // Status is status's one line of JSON.
 type Status struct {
 	V        int    `json:"v"`
@@ -71,7 +68,7 @@ func ByRef(rs []Runner, ref string) (Runner, error) {
 		return r, nil
 	}
 	name, _, _ := strings.Cut(ref, ":")
-	return Runner{}, fmt.Errorf("no runner for %q (is %s%s listed in plugins?)", ref, plugin.Prefix("runner"), name)
+	return Runner{}, fmt.Errorf("no runner for %q (is %s%s listed in plugins?)", ref, plugin.Prefix(plugin.AxisRunner), name)
 }
 
 func call(ctx context.Context, r Runner, stdin []byte, op string, args ...string) (plugin.Answer, error) {
@@ -84,7 +81,7 @@ func Start(ctx context.Context, r Runner, req Request) (string, error) {
 	a, err := call(ctx, r, plugin.Request(req), "start", req.Project)
 	switch {
 	case a.Code == plugin.ExitNotSetUp:
-		return "", fmt.Errorf("%s: %w: %v", r.Name, ErrNotSetUp, err)
+		return "", fmt.Errorf("%s: %w", r.Name, err)
 	case err != nil:
 		return "", fmt.Errorf("%s start: %w", r.Name, err)
 	}
@@ -106,7 +103,7 @@ func GetStatus(ctx context.Context, r Runner, project, ref string) (Status, erro
 		return Status{}, fmt.Errorf("%s status: not a JSON line: %.60q", r.Name, a.Out)
 	case st.V != plugin.Version:
 		return Status{}, plugin.Newer(r.Name+" status", st.V)
-	case !valid(st.State):
+	case !st.State.Reported():
 		return Status{}, fmt.Errorf("%s status: unknown state %q", r.Name, st.State)
 	}
 	return st, nil
