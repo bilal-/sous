@@ -77,9 +77,18 @@ type OpencodePlugin struct{}
 
 var pluginHook = regexp.MustCompile(`(?m)^// sous hook (\S+): (.*)$`)
 
+// pluginHeader starts every plugin file sous writes.
+const pluginHeader = "// sous:"
+
 func (OpencodePlugin) Place(file, event string, cmd Cmd) (bool, error) {
+	if strings.ContainsAny(cmd.String(), "\n\r") {
+		return false, fmt.Errorf("a hook command cannot hold a line break: %q", cmd.String())
+	}
 	changed := false
 	err := store.EditFile(file, 0o644, func(b []byte) ([]byte, error) {
+		if len(b) > 0 && !strings.HasPrefix(string(b), pluginHeader) {
+			return nil, fmt.Errorf("%s is not a plugin sous wrote; move it away, then sous setup", file)
+		}
 		cmds := map[string]string{}
 		for _, m := range pluginHook.FindAllStringSubmatch(string(b), -1) {
 			cmds[m[1]] = m[2]
@@ -109,7 +118,7 @@ func (OpencodePlugin) Commands(file, event string) ([]string, error) {
 			out = append(out, m[2])
 		}
 	}
-	if len(out) == 0 && !strings.HasPrefix(string(b), "// sous:") {
+	if len(out) == 0 && !strings.HasPrefix(string(b), pluginHeader) {
 		return nil, fmt.Errorf("%s is not a plugin sous wrote", file)
 	}
 	return out, nil

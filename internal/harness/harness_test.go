@@ -394,6 +394,12 @@ func TestOpencodePlugin(t *testing.T) {
 	if _, err := (OpencodePlugin{}).Commands(other, RoleStart); err == nil {
 		t.Fatal("someone else's plugin is not sous's")
 	}
+	if _, err := (OpencodePlugin{}).Place(other, RoleStart, start); err == nil {
+		t.Fatal("someone else's file is never written over")
+	}
+	if _, err := (OpencodePlugin{}).Place(p, RoleStart, Cmd{Exe: "/x\nevil", Role: RoleStart, Agent: "opencode"}); err == nil {
+		t.Fatal("a command with a line break would break out of its comment")
+	}
 }
 
 // opencode run's JSON events give the session and the last thing said.
@@ -428,7 +434,7 @@ func TestOpencodePluginSpeaksTheHookInput(t *testing.T) {
 	dir := t.TempDir()
 	got := filepath.Join(dir, "got")
 	fake := filepath.Join(dir, "sous")
-	os.WriteFile(fake, []byte("#!/bin/sh\ncat >> "+got+"\necho >> "+got+"\necho context\n"), 0o755)
+	os.WriteFile(fake, []byte("#!/bin/sh\nin=$(cat)\nprintf '%s\\n' \"$in\" >> "+got+"\necho context\n"), 0o755)
 	plugin := filepath.Join(dir, "sous.mjs")
 	for _, role := range []string{RoleStart, RoleEnd} {
 		(OpencodePlugin{}).Place(plugin, role, Cmd{Exe: fake, Role: role, Agent: "opencode"})
@@ -443,20 +449,44 @@ if (out.system.join() !== "context,context") throw new Error("system: " + out.sy
 await h.event({ event: { type: "message.updated", properties: { info: { role: "assistant", id: "m1" } } } })
 await h.event({ event: { type: "message.part.updated", properties: { part: { type: "text", messageID: "m1", sessionID: "ses_1", text: "all green" } } } })
 await h.event({ event: { type: "session.idle", properties: { sessionID: "ses_1" } } })
+const after = await Sous({ directory: "/code/acme/api" })
+await after.event({ event: { type: "message.updated", properties: { info: { role: "assistant", id: "m2" } } } })
+await after.event({ event: { type: "message.part.updated", properties: { part: { type: "text", messageID: "m2", sessionID: "ses_2", text: "earlier" } } } })
+await after["experimental.chat.system.transform"]({ sessionID: "ses_2" }, { system: [] })
+await after["experimental.chat.system.transform"]({}, { system: [] })
 `), 0o644)
 	if out, err := exec.Command(node, drive).CombinedOutput(); err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
-	b, _ := os.ReadFile(got)
-	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("one start, said once per session, and one end: %q", lines)
+	var lines []string
+	for deadline := time.Now().Add(5 * time.Second); len(lines) < 3 && time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+		b, _ := os.ReadFile(got) // the end is told without waiting
+		lines = strings.Split(strings.TrimSpace(string(b)), "\n")
 	}
-	if in := opencode.Parse([]byte(lines[0])); in != (Input{SessionID: "ses_1", CWD: "/code/acme/api", Fresh: true}) {
+	slices.Sort(lines)
+	byKind := map[string]Input{}
+	for _, l := range lines {
+		in := opencode.Parse([]byte(l))
+		switch {
+		case in.LastMessage != "":
+			byKind["end"] = in
+		case in.Fresh:
+			byKind["start"] = in
+		default:
+			byKind["resumed"] = in
+		}
+	}
+	if len(lines) != 3 || len(byKind) != 3 {
+		t.Fatalf("one start (said once), one end, one resumed start, none without a session: %q", lines)
+	}
+	if in := byKind["start"]; in != (Input{SessionID: "ses_1", CWD: "/code/acme/api", Fresh: true}) {
 		t.Errorf("start: %+v", in)
 	}
-	if in := opencode.Parse([]byte(lines[1])); in.SessionID != "ses_1" || in.CWD != "/code/acme/api" || in.LastMessage != "all green" {
+	if in := byKind["end"]; in.SessionID != "ses_1" || in.CWD != "/code/acme/api" || in.LastMessage != "all green" {
 		t.Errorf("end: %+v", in)
+	}
+	if in := byKind["resumed"]; in.SessionID != "ses_2" || in.Fresh {
+		t.Errorf("a session already under way is not a new one: %+v", in)
 	}
 }
 

@@ -19,7 +19,8 @@ var antigravity = Harness{
 	Display: "Antigravity",
 	Bin:     "agy",
 	Present: func(home string) bool {
-		return Installed(home, "agy", ".gemini/config", ".gemini/antigravity", ".gemini/antigravity-cli")
+		// Not ~/.gemini/config: other tools write there too.
+		return Installed(home, "agy", ".gemini/antigravity", ".gemini/antigravity-cli")
 	},
 	SkillDir: func(home string) string { return filepath.Join(home, ".gemini", "config", "skills") },
 	HookFile: func(home string) string { return filepath.Join(home, ".gemini", "config", "hooks.json") },
