@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bilal-/sous/internal/launcher"
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
 )
@@ -32,7 +33,7 @@ func cmdGo(e *Env, a argv) int {
 		return goRun(e, a, p, cfg)
 	}
 	if e.JSON {
-		return fail(e, 2, "go takes --json only with --run")
+		return fail(e, exitUsage, "go takes --json only with --run")
 	}
 	if a.has("where") { // for the shell wrapper: the folder, nothing started
 		fmt.Fprintln(e.Stdout, p.Path)
@@ -48,9 +49,11 @@ func cmdGo(e *Env, a argv) int {
 	argv0, cmdline, err := launcher.Prepare(e.Exe, cfg.Plugins, agent, p.Path)
 	switch {
 	case errors.Is(err, launcher.ErrUnknown):
-		return fail(e, 2, "%v", err)
+		return fail(e, exitUsage, "%v", err)
+	case errors.Is(err, plugin.ErrNotSetUp):
+		return fail(e, exitNotReady, "%v (sous doctor says what to install)", err)
 	case err != nil:
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	// Resume context: shown to the human, and handed to launchers via a file.
 	var here bytes.Buffer
@@ -64,7 +67,7 @@ func cmdGo(e *Env, a argv) int {
 	fmt.Fprintf(e.Stderr, "→ %s in %s\n", agent, p.Path)
 	e.Stdout.Write(here.Bytes())
 	if err := execIn(p.Path, argv0, cmdline, env...); err != nil {
-		return fail(e, 1, "starting %s: %v", agent, err)
+		return fail(e, exitFailed, "starting %s: %v", agent, err)
 	}
 	return 0
 }

@@ -80,7 +80,7 @@ func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) 
 		r.st.Status = StatusTimeout
 		msg := "exceeded " + timeout.String()
 		r.st.Error = &msg
-	case res.Err != nil || res.Code != 0:
+	case res.Err != nil || res.Code != plugin.ExitOK:
 		r.st.Status = StatusFailed
 		if res.Code == plugin.ExitNotSetUp {
 			r.st.Status = StatusOff

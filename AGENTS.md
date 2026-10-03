@@ -146,7 +146,7 @@ transcripts written the way the agent writes them, never the real tool.
   asked for explicitly.
 * **Exit codes:** `0` fine, `1` something failed, `2` wrong command or an
   ambiguous name, `3` asked for the cached board before there was one, or
-  a runner is not set up (`go --run`). Each
+  the agent or runner `sous go` needs is not set up. Each
   command declares its flags and how many arguments it takes in `verbs.go`,
   and anything else is refused with that command's usage.
 * **One dependency** (`github.com/BurntSushi/toml`). A new one needs a

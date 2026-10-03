@@ -104,7 +104,7 @@ func GetStatus(ctx context.Context, r Runner, project, ref string) (Status, erro
 	}
 	var st Status
 	switch {
-	case a.Code != 0:
+	case a.Code != plugin.ExitOK:
 		return Status{}, plugin.Refused(r.Name, "status", a)
 	case json.Unmarshal([]byte(a.Out), &st) != nil:
 		return Status{}, fmt.Errorf("%s status: not a JSON line: %.60q", r.Name, a.Out)
@@ -124,7 +124,7 @@ func Reply(ctx context.Context, r Runner, project, ref, answer string) error {
 // Stop ends a run; stopping twice is fine.
 func Stop(ctx context.Context, r Runner, project, ref string) error {
 	a, err := call(ctx, r, nil, "stop", project, ref)
-	if err == nil && a.Code != 0 {
+	if err == nil && a.Code != plugin.ExitOK {
 		return plugin.Refused(r.Name, "stop", a)
 	}
 	return err

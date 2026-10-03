@@ -547,7 +547,7 @@ code `2`. It never guesses.
 | `0` | Fine. |
 | `1` | Something failed: a data file, a tracker, a missing tool. The message says what. For `sous doctor`, something is broken. |
 | `2` | The command was wrong (unknown option, wrong arguments, bad value), or a name matched more than one project. |
-| `3` | `--cached` or `--ambient` was asked for the board before there was one. A first board is being built. For `go --run`, the runner is not set up (its agent is not installed); the run shows on the board as failed. (For a signal or runner plugin, exit `3` means "not set up here"; see [plugins.md](plugins.md).) |
+| `3` | `--cached` or `--ambient` was asked for the board before there was one. A first board is being built. For `sous go`, the agent it starts is not installed; for `go --run`, the runner is not set up, and the run shows on the board as failed. (For a signal or runner plugin, exit `3` means "not set up here"; see [plugins.md](plugins.md).) |
 
 ## Environment variables
 

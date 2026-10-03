@@ -19,7 +19,7 @@ import (
 // removes a setting.
 func cmdConfig(e *Env, a argv) int {
 	if e.cfgErr != nil {
-		return fail(e, 1, "%s could not be read (%v); fix it by hand", config.Path(e.Home), e.cfgErr)
+		return fail(e, exitFailed, "%s could not be read (%v); fix it by hand", config.Path(e.Home), e.cfgErr)
 	}
 	switch {
 	case a.has("p"):
@@ -32,22 +32,22 @@ func cmdConfig(e *Env, a argv) int {
 
 func setConfig(e *Env, a argv) int {
 	if len(a.pos) == 0 {
-		return fail(e, 2, "which setting? one of: %s", config.KeyNames())
+		return fail(e, exitUsage, "which setting? one of: %s", config.KeyNames())
 	}
 	k, ok := config.KeyNamed(a.pos[0])
 	if !ok {
-		return fail(e, 2, "no setting %q; the settings are: %s (per project: sous config -p <project> <key> <value>)", a.pos[0], config.KeyNames())
+		return fail(e, exitUsage, "no setting %q; the settings are: %s (per project: sous config -p <project> <key> <value>)", a.pos[0], config.KeyNames())
 	}
 	var value any
 	if !a.has("unset") {
 		v, err := k.Parse(a.pos[1:])
 		if err != nil {
-			return fail(e, 2, "%v", err)
+			return fail(e, exitUsage, "%v", err)
 		}
 		if a.has("add") || a.has("remove") {
 			list, ok := v.([]string)
 			if !ok {
-				return fail(e, 2, "--add and --remove are for lists: %s is not one", k.Name)
+				return fail(e, exitUsage, "--add and --remove are for lists: %s is not one", k.Name)
 			}
 			v = config.ChangeList(k.Value(e.Cfg).([]string), list, a.has("add"))
 		}
@@ -56,22 +56,22 @@ func setConfig(e *Env, a argv) int {
 		}
 		value = v
 	} else if len(a.pos) != 1 {
-		return fail(e, 2, "--unset takes just the setting's name")
+		return fail(e, exitUsage, "--unset takes just the setting's name")
 	} else if k.Name == "roots" {
-		return fail(e, 2, "sous needs roots; change them with sous setup <folder> or sous config roots <folder...>")
+		return fail(e, exitUsage, "sous needs roots; change them with sous setup <folder> or sous config roots <folder...>")
 	}
 	if k.Name == "roots" && value != nil {
 		return setRoots(e, value.([]string))
 	}
 	if err := config.Set(e.Home, nil, k.Name, value); err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	return said(e, "", k.Name, value)
 }
 
 func setRoots(e *Env, roots []string) int {
 	if err := config.SetRoots(e.Home, e.UserHome, roots); err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	return said(e, "", "roots", roots)
 }
@@ -81,7 +81,7 @@ func setProjectConfig(e *Env, a argv) int {
 	key := term // an org/* pattern names every project in that org
 	if strings.Contains(term, "*") {
 		if err := config.CheckPattern(term); err != nil {
-			return fail(e, 2, "%v", err)
+			return fail(e, exitUsage, "%v", err)
 		}
 	} else {
 		p, code := resolveProject(e, term)
@@ -101,10 +101,10 @@ func setProjectConfig(e *Env, a argv) int {
 			return code
 		}
 	default:
-		return fail(e, 2, "usage: sous config -p <project> <key> <value>, or -p <project> --unset <key>")
+		return fail(e, exitUsage, "usage: sous config -p <project> <key> <value>, or -p <project> --unset <key>")
 	}
 	if err := config.Set(e.Home, []string{"projects", key}, a.pos[0], value); err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	if value != nil && !slices.Contains(config.ProjectKeys, a.pos[0]) {
 		fmt.Fprintf(e.Stderr, "sous: note: sous itself does not read %q (it reads %s); a plugin may\n", a.pos[0], strings.Join(config.ProjectKeys, ", "))
@@ -150,7 +150,7 @@ func checkName(e *Env, key string, value any) int {
 		names = append(names, p.Name)
 	}
 	if !slices.Contains(names, value.(string)) {
-		return fail(e, 2, "no %s %q; choose one of: %s", key, value, strings.Join(names, ", "))
+		return fail(e, exitUsage, "no %s %q; choose one of: %s", key, value, strings.Join(names, ", "))
 	}
 	return 0
 }
@@ -170,7 +170,7 @@ type settingView struct {
 func showConfig(e *Env) int {
 	set, projects, err := config.Written(e.Home)
 	if err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	v := configView{File: config.Tilde(e.UserHome, config.Path(e.Home)), Settings: map[string]settingView{}, Projects: projects}
 	for _, k := range config.Keys() {
@@ -224,7 +224,7 @@ func showConfig(e *Env) int {
 func showProjectConfig(e *Env, key string) int {
 	_, projects, err := config.Written(e.Home)
 	if err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	settings := projects[key]
 	if settings == nil {

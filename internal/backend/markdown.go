@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/store"
 )
 
@@ -21,7 +21,12 @@ const MarkdownFile = "FOLLOWUPS.md"
 // Markdown is the built-in Implementation over the package functions.
 type Markdown struct{}
 
-func (Markdown) Detect(project string, _ io.Writer) bool    { return MarkdownDetect(project) }
+func (Markdown) Detect(project string) error {
+	if MarkdownDetect(project) {
+		return nil
+	}
+	return plugin.ErrNo
+}
 func (Markdown) File(req Request) (string, error)           { return MarkdownFileNote(req.Project, req) }
 func (Markdown) Status(project, ref string) (string, error) { return MarkdownStatus(project, ref) }
 func (Markdown) Close(project, ref string) error            { return MarkdownClose(project, ref) }

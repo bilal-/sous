@@ -12,6 +12,10 @@ upgraded, never broken.
   what an agent hears at session start use one wording and one list of
   next commands. A failed run now suggests `sous show <n>` before
   `sous done <n> --clean`.
+* Exit code `3` means "not set up" for every plugin call and for
+  `sous go`: a built in launcher whose agent is missing, `sous go` with a
+  missing agent, and a built in backend whose `gh` or `glab` is logged out
+  for a project that would be its own. They exited `1` before.
 * `sous kind` on a run says no: a run is on others while it works and on
   you once it stops.
 * In `sous --json`, a snoozed idea is listed under `snoozed`, like every

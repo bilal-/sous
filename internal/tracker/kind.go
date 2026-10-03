@@ -16,6 +16,9 @@ type Kind struct {
 	PublicHosts []string
 	// URL is an item's web page.
 	URL func(r Ref) string
+	// Ready says why the tool cannot work for identity (a GitHub account,
+	// a GitLab host) right now: missing, logged out, no token.
+	Ready func(identity string) error
 	// Check is what sous doctor asks it, with the settings it reads.
 	Check func(cfg *config.Config) []Result
 }
@@ -23,14 +26,14 @@ type Kind struct {
 // Kinds are the built in trackers.
 var Kinds = []Kind{
 	{
-		Name: "github", Tool: "gh", Host: GitHubHost, PublicHosts: []string{GitHubHost},
+		Name: "github", Tool: "gh", Host: GitHubHost, PublicHosts: []string{GitHubHost}, Ready: GHReady,
 		URL: func(r Ref) string {
 			return "https://github.com/" + r.Repo + "/issues/" + r.Number // GitHub redirects PR numbers
 		},
 		Check: func(cfg *config.Config) []Result { return CheckGitHub(cfg.Identities(config.KeyGitHubAccount)) },
 	},
 	{
-		Name: "gitlab", Tool: "glab", PublicHosts: []string{"gitlab.com"},
+		Name: "gitlab", Tool: "glab", PublicHosts: []string{"gitlab.com"}, Ready: GLabReady,
 		URL: func(r Ref) string {
 			kind := "issues"
 			if r.MR {

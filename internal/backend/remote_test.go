@@ -2,12 +2,15 @@ package backend
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/testutil"
 	"github.com/bilal-/sous/internal/tracker/trackertest"
 )
@@ -44,7 +47,7 @@ esac`)
 	p := repoWithRemote(t, "acme", "chime", "git@github.com:acme/chime.git")
 
 	var warn bytes.Buffer
-	if !g.Detect(p, &warn) {
+	if !detect(g, p, &warn) {
 		t.Fatalf("detect: %s", warn.String())
 	}
 	ref, err := g.File(Request{ID: 7, UID: "000000000007", Project: p, Text: "notifications need context, not \"unused terminal\"", Kind: "me"})
@@ -91,17 +94,17 @@ func TestGitHubDetectRefusals(t *testing.T) {
 	home := t.TempDir()
 	cfg := &config.Config{}
 	var warn bytes.Buffer
-	if GitHub(home, cfg).Detect(repoWithRemote(t, "a", "b", "https://git.example.org/a/b.git"), &warn) {
+	if detect(GitHub(home, cfg), repoWithRemote(t, "a", "b", "https://git.example.org/a/b.git"), &warn) {
 		t.Fatal("gitlab remote must not detect as github")
 	}
 	fakeGH(t, filepath.Join(t.TempDir(), "c"), `case "$*" in "auth status"*) echo "not logged in" >&2; exit 1;; esac`)
 	warn.Reset()
-	if GitHub(home, cfg).Detect(repoWithRemote(t, "o", "r", "git@github.com:o/r.git"), &warn) || !strings.Contains(warn.String(), "not logged in") {
+	if detect(GitHub(home, cfg), repoWithRemote(t, "o", "r", "git@github.com:o/r.git"), &warn) || !strings.Contains(warn.String(), "not logged in") {
 		t.Fatalf("unauth must not detect, and must say why: %q", warn.String())
 	}
 	testutil.OnlyGit(t)
 	warn.Reset()
-	if GitHub(home, cfg).Detect(repoWithRemote(t, "o", "r2", "git@github.com:o/r2.git"), &warn) || !strings.Contains(warn.String(), "gh not installed") {
+	if detect(GitHub(home, cfg), repoWithRemote(t, "o", "r2", "git@github.com:o/r2.git"), &warn) || !strings.Contains(warn.String(), "gh not installed") {
 		t.Fatalf("%q", warn.String())
 	}
 }
@@ -154,7 +157,7 @@ esac`)
 	g := GitHub(home, cfg)
 	p := repoWithRemote(t, "acme", "chime", "git@github.com:acme/chime.git")
 	var warn bytes.Buffer
-	if g.Detect(p, &warn) || !strings.Contains(warn.String(), "work-account") {
+	if detect(g, p, &warn) || !strings.Contains(warn.String(), "work-account") {
 		t.Fatalf("detect must refuse and name the account: %q", warn.String())
 	}
 	if _, err := g.File(Request{ID: 1, UID: "000000000001", Project: p, Text: "x", Kind: "me"}); err == nil {
@@ -195,7 +198,7 @@ esac`)
 	g := GitLab(home, cfg)
 	p := repoWithRemote(t, "oss", "app-next", "https://git.example.org/frontend/app-next.git")
 	var warn bytes.Buffer
-	if !g.Detect(p, &warn) {
+	if !detect(g, p, &warn) {
 		t.Fatalf("detect: %s", warn.String())
 	}
 	ref, err := g.File(Request{ID: 7, UID: "000000000007", Project: p, Text: "json api for browse & search", Kind: "me"})
@@ -232,10 +235,10 @@ esac`)
 		t.Fatal(u, err)
 	}
 	warn.Reset()
-	if g.Detect(repoWithRemote(t, "x", "y", "https://git.other.dev/a/b.git"), &warn) || warn.Len() != 0 {
+	if detect(g, repoWithRemote(t, "x", "y", "https://git.other.dev/a/b.git"), &warn) || warn.Len() != 0 {
 		t.Fatalf("a host that is not GitLab-looking is silently not ours: %q", warn.String())
 	}
-	if g.Detect(repoWithRemote(t, "o", "r", "git@github.com:o/r.git"), &warn) {
+	if detect(g, repoWithRemote(t, "o", "r", "git@github.com:o/r.git"), &warn) {
 		t.Fatal("github remote is not gitlab")
 	}
 }
@@ -246,10 +249,20 @@ func TestGitLabLocateHintsOnlyForGitLabHosts(t *testing.T) {
 	fakeGLab(t, filepath.Join(t.TempDir(), "calls"), `echo "No hosts are configured on this machine." >&2; exit 1`)
 	g := GitLab(t.TempDir(), &config.Config{})
 	var warn bytes.Buffer
-	if g.Detect(repoWithRemote(t, "acme", "chime", "git@bitbucket.org:acme/chime.git"), &warn) || warn.Len() != 0 {
+	if detect(g, repoWithRemote(t, "acme", "chime", "git@bitbucket.org:acme/chime.git"), &warn) || warn.Len() != 0 {
 		t.Fatalf("bitbucket: %q", warn.String())
 	}
-	if g.Detect(repoWithRemote(t, "acme", "api", "https://gitlab.example.org/acme/api.git"), &warn) || !strings.Contains(warn.String(), "glab auth login --hostname gitlab.example.org") {
+	if detect(g, repoWithRemote(t, "acme", "api", "https://gitlab.example.org/acme/api.git"), &warn) || !strings.Contains(warn.String(), "glab auth login --hostname gitlab.example.org") {
 		t.Fatalf("gitlab-looking host: %q", warn.String())
 	}
+}
+
+// detect is Remote.Detect as a yes or no, with the reason for a no that
+// has one written to warn, the way backend.Detect reports it.
+func detect(r Remote, project string, warn *bytes.Buffer) bool {
+	err := r.Detect(project)
+	if err != nil && !errors.Is(err, plugin.ErrNo) {
+		fmt.Fprintln(warn, err)
+	}
+	return err == nil
 }

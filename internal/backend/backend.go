@@ -23,7 +23,10 @@ var ErrUnsupported = plugin.ErrUnsupported
 // Implementation into that program's behaviour so built-ins take the
 // identical door.
 type Implementation interface {
-	Detect(project string, warn io.Writer) bool
+	// Detect: nil when project is this backend's; plugin.ErrNo when it is
+	// not; plugin.ErrNotSetUp (wrapped, with the reason) when it would be
+	// but what it needs is missing; any other error says why it is not.
+	Detect(project string) error
 	File(req Request) (string, error)
 	Status(project, ref string) (string, error)
 	Close(project, ref string) error
@@ -37,10 +40,7 @@ func Ops(b Implementation) map[string]plugin.Op {
 			if len(args) != 1 {
 				return plugin.Usage(stderr, "detect <project>")
 			}
-			if b.Detect(args[0], stderr) {
-				return plugin.ExitOK
-			}
-			return plugin.ExitFailed
+			return plugin.Exit(b.Detect(args[0]), stderr)
 		},
 		"file": func(_ []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			var req Request
@@ -154,7 +154,7 @@ func Detect(ctx context.Context, bs []Backend, project, override string, warn io
 			return b, nil
 		case r.Code == plugin.ExitNotSetUp:
 			if warn != nil {
-				fmt.Fprintf(warn, "sous: backend %s not set up: %v\n", b.Name, r.err)
+				fmt.Fprintf(warn, "sous: backend %s: %v\n", b.Name, notSetUp(r.err))
 			}
 		case r.Code == plugin.ExitFailed:
 			// Not applicable — but a stated reason (auth, missing tool) must
@@ -191,7 +191,7 @@ func File(ctx context.Context, b Backend, req Request) (string, error) {
 	if r.err != nil {
 		return "", r.err
 	}
-	if r.Code == 2 {
+	if r.Code == plugin.ExitRefused {
 		return "", plugin.Refused(b.Name, "file", r.Answer)
 	}
 	if r.Out == "" {
@@ -205,7 +205,7 @@ func Status(ctx context.Context, b Backend, project, ref string) (string, error)
 	switch {
 	case r.err != nil:
 		return "", r.err
-	case r.Code != 0:
+	case r.Code != plugin.ExitOK:
 		return "", plugin.Refused(b.Name, "status", r.Answer)
 	}
 	switch r.Out {
@@ -236,4 +236,13 @@ func URL(ctx context.Context, b Backend, project, ref string) (string, bool, err
 		return "", false, nil
 	}
 	return r.Out, true, nil
+}
+
+// notSetUp says that err (a plugin's exit 3 reason) means not set up,
+// unless the plugin said so itself.
+func notSetUp(err error) string {
+	if msg := err.Error(); strings.HasPrefix(msg, plugin.ErrNotSetUp.Error()) {
+		return msg
+	}
+	return plugin.ErrNotSetUp.Error() + ": " + err.Error()
 }

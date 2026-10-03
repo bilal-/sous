@@ -30,13 +30,13 @@ func buildBoard(e *Env, roots []string) (*board.Data, int) {
 		Reconcile: func(ctx context.Context, v []thread.View) []thread.View { return reconcile(e, ctx, v, now, false) },
 	})
 	if err != nil {
-		return nil, fail(e, 1, "%v", err)
+		return nil, fail(e, exitFailed, "%v", err)
 	}
 	// Only the full configured board is cached; a scoped board must never
 	// become what the zsh surface prints as "the board".
 	if len(roots) == 0 {
 		if err := board.WriteCache(e.store(), d); err != nil {
-			return nil, fail(e, 1, "cache: %v", err)
+			return nil, fail(e, exitFailed, "cache: %v", err)
 		}
 	}
 	return d, 0
@@ -80,7 +80,7 @@ func cmdPath(e *Env, arg string) int {
 		if ps, _ := project.Discover([]string{arg}, nil, io.Discard); len(ps) > 0 {
 			return cmdBoard(e, []string{arg})
 		}
-		return fail(e, 2, "%s is neither a repo nor a folder of repos", arg)
+		return fail(e, exitUsage, "%s is neither a repo nor a folder of repos", arg)
 	}
 	p, code := resolveProject(e, arg)
 	if code != 0 {
@@ -102,7 +102,7 @@ func cmdAmbient(e *Env) int {
 		default:
 			code = cmdCached(e)
 		}
-		return code != exitNoBoardYet
+		return code != exitNotReady
 	})
 	return code
 }
@@ -112,14 +112,14 @@ func cmdAmbient(e *Env) int {
 func cmdCached(e *Env) int {
 	c, err := board.ReadCache(e.store())
 	if err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	if c.Board == nil || c.RenderedAt == nil {
 		// The forgetting user must not be told to remember: build it now,
 		// detached, and exit 3 so the shell surface doesn't stamp this print.
 		fmt.Fprintln(e.Stdout, "sous: building your board now. It will show in your next shell.")
 		spawnRefresh(e)
-		return exitNoBoardYet
+		return exitNotReady
 	}
 	now := time.Now()
 	if c.Data != nil {
@@ -133,10 +133,6 @@ func cmdCached(e *Env) int {
 	}
 	return 0
 }
-
-// exitNoBoardYet: --cached or --ambient was asked for the board before
-// there was one; a first one is being built.
-const exitNoBoardYet = 3
 
 func spawnRefresh(e *Env) {
 	cmd := exec.Command(e.Exe, "--refresh")

@@ -18,7 +18,7 @@ func cmdHere(e *Env, a argv) int {
 	}
 	root, ok := project.ForPath(start, e.UserHome)
 	if !ok {
-		return fail(e, 2, "not inside a project; use sous here <path> or sous <project>")
+		return fail(e, exitUsage, "not inside a project; use sous here <path> or sous <project>")
 	}
 	if real, err := filepath.EvalSymlinks(root); err == nil {
 		root = real
@@ -31,7 +31,7 @@ func cmdHere(e *Env, a argv) int {
 		Reconcile: func(ctx context.Context, v []thread.View) []thread.View { return reconcile(e, ctx, v, now, true) },
 	}, root)
 	if err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	if e.JSON {
 		return e.writeJSON(d.JSON())

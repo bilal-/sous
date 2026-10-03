@@ -22,7 +22,7 @@ func loadProjects(e *Env, roots []string) ([]project.Project, int, int) {
 		roots = cfg.Roots
 	}
 	if len(roots) == 0 {
-		return nil, 0, fail(e, 1, "%s (or pass --root)", config.NoRootsHint)
+		return nil, 0, fail(e, exitFailed, "%s (or pass --root)", config.NoRootsHint)
 	}
 	ps, unavailable := project.Discover(roots, cfg.Ignore, e.Stderr)
 	return ps, unavailable, 0
@@ -38,7 +38,7 @@ func cmdProjects(e *Env, a argv) int {
 	if pathOf := a.value("path"); pathOf != "" {
 		p, err := project.Match(ps, pathOf)
 		if err != nil {
-			return fail(e, 2, "%v", err)
+			return fail(e, exitUsage, "%v", err)
 		}
 		fmt.Fprintln(e.Stdout, p.Path)
 		return 0
@@ -46,7 +46,7 @@ func cmdProjects(e *Env, a argv) int {
 	if len(a.pos) > 0 {
 		ps = project.Candidates(ps, a.pos[0])
 		if len(ps) == 0 {
-			return fail(e, 2, "no project matches '%s'", a.pos[0])
+			return fail(e, exitUsage, "no project matches '%s'", a.pos[0])
 		}
 	}
 	if e.JSON {
@@ -77,7 +77,7 @@ func resolveProject(e *Env, term string) (project.Project, int) {
 			return project.Project{}, code
 		}
 		if len(cfg.Roots) == 0 {
-			return project.Project{}, fail(e, 1, "%s", config.NoRootsHint)
+			return project.Project{}, fail(e, exitFailed, "%s", config.NoRootsHint)
 		}
 		roots, ignore = cfg.Roots, cfg.Ignore
 	}
@@ -86,9 +86,9 @@ func resolveProject(e *Env, term string) (project.Project, int) {
 	case err == nil:
 		return p, 0
 	case errors.Is(err, project.ErrNotInProject):
-		return project.Project{}, fail(e, 2, "not inside a project; use -p <project>")
+		return project.Project{}, fail(e, exitUsage, "not inside a project; use -p <project>")
 	}
-	return project.Project{}, fail(e, 2, "%v", err)
+	return project.Project{}, fail(e, exitUsage, "%v", err)
 }
 
 func renderProjects(w io.Writer, ps []project.Project, now time.Time) {

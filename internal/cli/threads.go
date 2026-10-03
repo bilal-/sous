@@ -40,7 +40,7 @@ func cmdNote(e *Env, a argv) int {
 func threadID(e *Env, s string) (int, int) {
 	id, err := strconv.Atoi(s)
 	if err != nil || id <= 0 {
-		return 0, fail(e, 2, "thread id must be a number, got %q", s)
+		return 0, fail(e, exitUsage, "thread id must be a number, got %q", s)
 	}
 	return id, 0
 }
@@ -53,13 +53,13 @@ func threadErr(e *Env, err error) int {
 		return 0
 	}
 	if errors.Is(err, thread.ErrNotFound) || errors.Is(err, store.ErrNewer) {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	var vErr thread.ValidationError
 	if errors.As(err, &vErr) {
-		return fail(e, 2, "%v", err)
+		return fail(e, exitUsage, "%v", err)
 	}
-	return fail(e, 1, "%v", err)
+	return fail(e, exitFailed, "%v", err)
 }
 
 // The four thread-maintenance verbs, one function each: the verb table
@@ -86,10 +86,10 @@ func cmdSnooze(e *Env, a argv) int {
 	args := a.pos
 	if strings.HasPrefix(args[0], "s:") {
 		if len(args) != 1 {
-			return fail(e, 2, "a signal is snoozed until it changes; days do not apply")
+			return fail(e, exitUsage, "a signal is snoozed until it changes; days do not apply")
 		}
 		if err := signal.Snooze(e.store(), args[0]); err != nil {
-			return fail(e, 1, "%v", err)
+			return fail(e, exitFailed, "%v", err)
 		}
 		return 0
 	}
@@ -101,7 +101,7 @@ func cmdSnooze(e *Env, a argv) int {
 	if len(args) == 2 {
 		d, err := strconv.Atoi(args[1])
 		if err != nil || d <= 0 {
-			return fail(e, 2, "days must be a positive number")
+			return fail(e, exitUsage, "days must be a positive number")
 		}
 		days = d
 	}

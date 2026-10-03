@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/tracker"
 )
@@ -24,12 +24,12 @@ func GitHub(home string, cfg *config.Config) Remote {
 
 func (githubCLI) Name() string { return "github" }
 
-func (g githubCLI) Locate(projectPath string, _ io.Writer) (Target, bool) {
+func (g githubCLI) Locate(projectPath string) (Target, error) {
 	host, path := tracker.ParseRemote(project.Remote(projectPath))
 	if host != tracker.GitHubHost {
-		return Target{}, false
+		return Target{}, plugin.ErrNo
 	}
-	return Target{Host: host, Repo: path, Identity: tracker.GitHubAccount(g.cfg, project.OrgName(projectPath))}, true
+	return Target{Host: host, Repo: path, Identity: tracker.GitHubAccount(g.cfg, project.OrgName(projectPath))}, nil
 }
 
 // TargetFromRef: the repo from a ref. Identity is filled in by Remote from
@@ -45,14 +45,6 @@ func (g githubCLI) TargetFromRef(ref tracker.Ref) Target {
 func (g githubCLI) run(t Target, args ...string) (string, error) {
 	out, err := tracker.GHRun(t.Identity, args...)
 	return strings.TrimSpace(string(out)), err
-}
-
-func (g githubCLI) Available(t Target, warn io.Writer) bool {
-	if err := tracker.GHReady(t.Identity); err != nil {
-		fmt.Fprintln(warn, err)
-		return false
-	}
-	return true
 }
 
 func (g githubCLI) ListMine(t Target) ([]Issue, error) {

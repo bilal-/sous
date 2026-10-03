@@ -12,7 +12,7 @@ func (e *Env) writeJSON(v any) int {
 	enc := json.NewEncoder(e.Stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(noNulls(reflect.ValueOf(v)).Interface()); err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	return 0
 }

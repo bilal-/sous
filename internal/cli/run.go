@@ -35,18 +35,18 @@ type startedJSON struct {
 // Hands the brief to a runner in the background and returns at once.
 func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 	if a.has("where") || a.has("in") {
-		return fail(e, 2, "--run starts work in the background; it does not go with --where or --in")
+		return fail(e, exitUsage, "--run starts work in the background; it does not go with --where or --in")
 	}
 	brief := a.value("run")
 	if brief == "-" {
 		b, err := io.ReadAll(e.Stdin)
 		if err != nil {
-			return fail(e, 1, "reading the brief: %v", err)
+			return fail(e, exitFailed, "reading the brief: %v", err)
 		}
 		brief = string(b)
 	}
 	if strings.TrimSpace(brief) == "" {
-		return fail(e, 2, "the brief is empty; say what to do, why, and what done means")
+		return fail(e, exitUsage, "the brief is empty; say what to do, why, and what done means")
 	}
 	name := a.value("a")
 	if name == "" {
@@ -64,19 +64,19 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 	id, existed, err := d.Start(e.ctx(), p, brief, a.value("key"), name, e.Source, hereFile)
 	switch {
 	case errors.Is(err, runs.ErrNoRunner):
-		return fail(e, 2, "%v; the runners are: %s", err, strings.Join(d.Names(), ", "))
+		return fail(e, exitUsage, "%v; the runners are: %s", err, strings.Join(d.Names(), ", "))
 	case errors.As(err, new(thread.ValidationError)):
-		return fail(e, 2, "%v", err)
+		return fail(e, exitUsage, "%v", err)
 	case errors.Is(err, runner.ErrNotSetUp):
-		return fail(e, 3, "%v (run %d is on the board as failed; sous doctor says what to install)", err, id)
+		return fail(e, exitNotReady, "%v (run %d is on the board as failed; sous doctor says what to install)", err, id)
 	case err != nil && id > 0:
-		return fail(e, 1, "%v (run %d is on the board as failed; sous show %d)", err, id, id)
+		return fail(e, exitFailed, "%v (run %d is on the board as failed; sous show %d)", err, id, id)
 	case err != nil:
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	th, err := thread.Get(e.store(), id)
 	if err != nil || th.Run == nil {
-		return fail(e, 1, "run %d started, but reading it back failed: %v (sous show %d)", id, err, id)
+		return fail(e, exitFailed, "run %d started, but reading it back failed: %v (sous show %d)", id, err, id)
 	}
 	if e.JSON {
 		return e.writeJSON(startedJSON{ID: fmt.Sprint(id), Runner: th.Run.Runner, State: th.Run.State, Existed: existed, Next: []string{fmt.Sprintf("sous show %d --json", id)}})
@@ -125,9 +125,9 @@ func cmdReply(e *Env, a argv) int {
 		fmt.Fprintf(e.Stdout, "run %d carries on · sous show %d to check\n", id, id)
 		return 0
 	case errors.Is(err, runs.ErrNotARun):
-		return fail(e, 2, "%v; sous edit %d \"<text>\" changes a note", err, id)
+		return fail(e, exitUsage, "%v; sous edit %d \"<text>\" changes a note", err, id)
 	case errors.Is(err, runner.ErrUnsupported):
-		return fail(e, 1, "%v; start a new run with the answer in the brief: sous go <project> --run -", err)
+		return fail(e, exitFailed, "%v; start a new run with the answer in the brief: sous go <project> --run -", err)
 	}
 	return threadErr(e, err)
 }
@@ -147,11 +147,11 @@ func stopRun(e *Env, id int, clean bool) int {
 	cleaned, err := d.Finish(e.ctx(), id, clean)
 	switch {
 	case errors.Is(err, runs.ErrNotARun):
-		return fail(e, 2, "%v", err)
+		return fail(e, exitUsage, "%v", err)
 	case errors.Is(err, thread.ErrNotFound):
 		return threadErr(e, err)
 	case err != nil:
-		return fail(e, 1, "%v (it stays open)", err)
+		return fail(e, exitFailed, "%v (it stays open)", err)
 	case clean && !cleaned:
 		if th, err := thread.Get(e.store(), id); err == nil && th.Run != nil && th.Run.Ref != "" {
 			fmt.Fprintf(e.Stderr, "sous: %s cannot clean up after its runs; its files stay\n", th.Run.Runner)

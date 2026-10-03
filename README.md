@@ -392,7 +392,7 @@ To write a note that starts with a dash, put `--` before it:
 
 Exit codes: `0` fine, `1` something failed, `2` the command was wrong or a
 name was ambiguous, `3` asked for the cached board before there was one, or
-a runner is not set up.
+the agent or runner `sous go` needs is not set up.
 
 ## How sous stays honest
 

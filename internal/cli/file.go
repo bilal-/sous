@@ -28,13 +28,13 @@ func fileThread(e *Env, id int, explicit bool) int {
 		fmt.Fprintln(e.Stdout, ref)
 		return 0
 	case errors.Is(err, thread.ErrNotFound):
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	case errors.Is(err, filing.ErrWorktree):
-		return fail(e, 1, "%v; markers filed there can vanish with the branch. Use --force to file it anyway", err)
+		return fail(e, exitFailed, "%v; markers filed there can vanish with the branch. Use --force to file it anyway", err)
 	case errors.Is(err, filing.ErrNoTracker):
-		return fail(e, 1, "%v; the note stays local (see README: Backends)", err)
+		return fail(e, exitFailed, "%v; the note stays local (see README: Backends)", err)
 	}
-	return fail(e, 1, "%v", err)
+	return fail(e, exitFailed, "%v", err)
 }
 
 func cmdFile(e *Env, a argv) int {
@@ -55,7 +55,7 @@ func closeUpstream(e *Env, id int) int {
 		if errors.Is(err, thread.ErrNotFound) {
 			return threadErr(e, err)
 		}
-		return fail(e, 1, "%v (thread %d left open)", err, id)
+		return fail(e, exitFailed, "%v (thread %d left open)", err, id)
 	}
 	return 0
 }

@@ -13,8 +13,21 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/tracker"
+)
+
+// The exit codes, the same ones plugins speak (sous help lists them).
+const (
+	exitFailed = plugin.ExitFailed
+	// exitUsage: the wrong command, flag or arguments, or a name that
+	// matches more than one project.
+	exitUsage = plugin.ExitRefused
+	// exitNotReady: asked for the cached board before there was one (a
+	// first one is being built), or the agent or runner sous go needs is
+	// not set up.
+	exitNotReady = plugin.ExitNotSetUp
 )
 
 // Version is set at build time: -ldflags "-X github.com/bilal-/sous/internal/cli.Version=v0.1.0".
@@ -30,7 +43,7 @@ const usageHeader = `sous %s: one list of what is waiting on you, across every p
 
 const usageFooter = `
 Flags: --json (read verbs) · --brief (here) · --ambient · --cached · --refresh · --menubar
-Exit:  0 ok · 1 failure · 2 usage or ambiguity · 3 not ready: no board yet (--cached, --ambient), or the runner is not set up (go --run)
+Exit:  0 ok · 1 failure · 2 usage or ambiguity · 3 not ready: no board yet (--cached, --ambient), or the agent or runner is not set up (go)
 Put -- before a note that starts with a dash.
 
 For agents:
@@ -115,7 +128,7 @@ func (e *Env) close() {
 // config returns the loaded config or the exit code for a broken one.
 func (e *Env) config() (*config.Config, int) {
 	if e.cfgErr != nil {
-		return nil, fail(e, 1, "config: %v", e.cfgErr)
+		return nil, fail(e, exitFailed, "config: %v", e.cfgErr)
 	}
 	return e.Cfg, 0
 }
@@ -251,7 +264,7 @@ func runMode(e *Env, flag string) int {
 		usage(e.Stdout)
 		return 0
 	}
-	return fail(e, 2, "unknown flag: %s (try: sous help)", flag)
+	return fail(e, exitUsage, "unknown flag: %s (try: sous help)", flag)
 }
 
 // dispatch runs a verb, or treats an unknown word as a folder, repo or
@@ -262,7 +275,7 @@ func dispatch(e *Env, cmd string, rest []string) int {
 		if len(rest) == 0 {
 			return cmdPath(e, cmd)
 		}
-		return fail(e, 2, "unknown subcommand: %s (try: sous help)", cmd)
+		return fail(e, exitUsage, "unknown subcommand: %s (try: sous help)", cmd)
 	}
 	// --json / --brief belong to read verbs only; a write verb given one is
 	// a caller mistake and must fail loud rather than silently succeed.
@@ -271,7 +284,7 @@ func dispatch(e *Env, cmd string, rest []string) int {
 		if e.Brief && !e.JSON {
 			flagName = "--brief"
 		}
-		return fail(e, 2, "%s does not take %s", cmd, flagName)
+		return fail(e, exitUsage, "%s does not take %s", cmd, flagName)
 	}
 	if v.args == nil {
 		return v.run(e, argv{pos: rest})
@@ -281,7 +294,7 @@ func dispatch(e *Env, cmd string, rest []string) int {
 	}
 	a, err := parseArgs(*v.args, rest)
 	if err != nil {
-		return fail(e, 2, "%v\nusage: %s", err, v.synopsis())
+		return fail(e, exitUsage, "%v\nusage: %s", err, v.synopsis())
 	}
 	return v.run(e, a)
 }

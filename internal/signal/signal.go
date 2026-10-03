@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -107,14 +106,8 @@ func scanOps(make func(*config.Config) Scanner) func(*config.Config) map[string]
 			if len(args) != 0 {
 				return plugin.Usage(stderr, "scan  (paths on stdin)")
 			}
-			err := make(cfg)(ReadPaths(stdin), stdout, stderr, time.Now().UTC())
-			switch {
-			case err == nil:
-				return plugin.ExitOK
-			case errors.Is(err, ErrNotSetUp):
-				return plugin.ExitNotSetUp
-			}
-			return plugin.ExitFailed
+			// A scanner writes its own reasons to stderr as it goes.
+			return plugin.Exit(make(cfg)(ReadPaths(stdin), stdout, stderr, time.Now().UTC()), io.Discard)
 		}}
 	}
 }

@@ -35,3 +35,15 @@ func TestLaunchersAndExecArgv(t *testing.T) {
 		t.Fatal("unknown")
 	}
 }
+
+// A built in launcher whose agent is not installed is not set up: exit 3,
+// as the contract says, saying what is missing.
+func TestBuiltinLauncherNotSetUp(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	var out, errb strings.Builder
+	code := Registry.Serve(Deps{Exec: func(string, string, []string) error { t.Fatal("must not exec"); return nil }},
+		[]string{"claude", "run", "/p"}, nil, &out, &errb)
+	if code != 3 || !strings.Contains(errb.String(), "claude not found") {
+		t.Fatalf("%d %q", code, errb.String())
+	}
+}

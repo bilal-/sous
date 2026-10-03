@@ -83,7 +83,7 @@ func BuiltinPath(name string) (string, error) {
 	}
 	path, err := exec.LookPath(h.Bin)
 	if err != nil {
-		return "", fmt.Errorf("%s not found on PATH", h.Bin)
+		return "", fmt.Errorf("%w: %s not found on PATH", plugin.ErrNotSetUp, h.Bin)
 	}
 	return path, nil
 }

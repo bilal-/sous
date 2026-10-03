@@ -19,7 +19,7 @@ func cmdDoctor(e *Env, _ argv) int {
 	problems, warnings := doctor.Count(checks, doctor.Bad), doctor.Count(checks, doctor.Warn)
 	code := 0
 	if problems > 0 {
-		code = 1
+		code = exitFailed
 	}
 	if e.JSON {
 		if c := e.writeJSON(map[string]any{"problems": problems, "warnings": warnings, "checks": checks}); c != 0 {

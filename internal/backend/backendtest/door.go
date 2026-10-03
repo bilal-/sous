@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/bilal-/sous/internal/backend"
+	"github.com/bilal-/sous/internal/plugin"
 )
 
 // Door drives a backend through the executable contract — argv, stdin,
@@ -15,9 +16,15 @@ func Door(b backend.Backend) backend.Implementation { return door{b} }
 
 type door struct{ b backend.Backend }
 
-func (d door) Detect(project string, warn io.Writer) bool {
-	got, err := backend.Detect(context.Background(), []backend.Backend{d.b}, project, "", warn)
-	return err == nil && got.Name == d.b.Name
+func (d door) Detect(project string) error {
+	got, err := backend.Detect(context.Background(), []backend.Backend{d.b}, project, "", io.Discard)
+	if err != nil {
+		return err
+	}
+	if got.Name != d.b.Name {
+		return plugin.ErrNo
+	}
+	return nil
 }
 
 func (d door) File(req backend.Request) (string, error) {

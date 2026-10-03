@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"slices"
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/tracker"
 )
@@ -33,27 +33,24 @@ func (g gitlabCLI) knownHost(host string) (bool, error) {
 	return slices.Contains(hosts, host), err
 }
 
-func (g gitlabCLI) Locate(projectPath string, warn io.Writer) (Target, bool) {
+func (g gitlabCLI) Locate(projectPath string) (Target, error) {
 	host, path := tracker.ParseRemote(project.Remote(projectPath))
 	if host == "" || host == tracker.GitHubHost {
-		return Target{}, false
+		return Target{}, plugin.ErrNo
 	}
 	known, err := g.knownHost(host)
-	if !known {
-		// Only a GitLab-looking host earns an explanation; Bitbucket or Gitea
-		// is just not ours. Self-hosted GitLab under another name is
+	switch {
+	case known:
+		return Target{Host: host, Repo: path, Identity: host}, nil
+	case !strings.Contains(host, "gitlab"):
+		// Only a GitLab-looking host earns an explanation; Bitbucket or
+		// Gitea is just not ours. Self-hosted GitLab under another name is
 		// declared in gitlab_hosts.
-		if !strings.Contains(host, "gitlab") {
-			return Target{}, false
-		}
-		if err != nil {
-			fmt.Fprintln(warn, err)
-			return Target{}, false
-		}
-		fmt.Fprintf(warn, "%s is not a host glab is logged into (glab auth login --hostname %s, or add it to gitlab_hosts)\n", host, host)
-		return Target{}, false
+		return Target{}, plugin.ErrNo
+	case err != nil:
+		return Target{}, err
 	}
-	return Target{Host: host, Repo: path, Identity: host}, true
+	return Target{}, fmt.Errorf("%s is not a host glab is logged into (glab auth login --hostname %s, or add it to gitlab_hosts)", host, host)
 }
 
 // TargetFromRef: on GitLab the host is the identity.
@@ -69,14 +66,6 @@ func (gitlabCLI) api(t Target, args ...string) (string, error) {
 		return err.Error(), err
 	}
 	return strings.TrimSpace(string(out)), nil
-}
-
-func (g gitlabCLI) Available(t Target, warn io.Writer) bool {
-	if err := tracker.GLabReady(t.Host); err != nil {
-		fmt.Fprintln(warn, err)
-		return false
-	}
-	return true
 }
 
 func (gitlabCLI) enc(t Target) string { return url.PathEscape(t.Repo) }

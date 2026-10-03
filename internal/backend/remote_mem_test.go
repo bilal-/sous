@@ -3,7 +3,6 @@ package backend_test
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/bilal-/sous/internal/backend"
 	"github.com/bilal-/sous/internal/backend/backendtest"
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/tracker"
 )
 
@@ -24,11 +24,12 @@ type memCLI struct {
 }
 
 func (m *memCLI) Name() string { return "mem" }
-func (m *memCLI) Locate(p string, _ io.Writer) (backend.Target, bool) {
-	t, ok := m.located[p]
-	return t, ok
+func (m *memCLI) Locate(p string) (backend.Target, error) {
+	if t, ok := m.located[p]; ok {
+		return t, nil
+	}
+	return backend.Target{}, plugin.ErrNo
 }
-func (m *memCLI) Available(backend.Target, io.Writer) bool { return true }
 func (m *memCLI) TargetFromRef(ref tracker.Ref) backend.Target {
 	return backend.Target{Host: ref.Host, Repo: ref.Repo, Identity: "from-ref"}
 }

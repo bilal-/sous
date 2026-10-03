@@ -3,10 +3,10 @@ package backend
 import (
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/tracker"
 )
 
@@ -41,13 +41,15 @@ var (
 
 // IssueCLI is the per-tracker table Remote drives.
 type IssueCLI interface {
-	Name() string                                         // ref prefix and error prefix: "github"
-	Locate(project string, warn io.Writer) (Target, bool) // from the project's remote; false = not this tracker's; a near-miss (right shape, unknown host) is explained on warn
-	Available(t Target, warn io.Writer) bool              // tool installed and authenticated for t.Identity; reason on warn
-	TargetFromRef(ref tracker.Ref) Target                 // where a ref points; Identity is a best guess, Remote prefers the project's
-	ListMine(t Target) ([]Issue, error)                   // open+closed issues I created, with bodies (recovery)
-	Create(t Target, title, body string) (Issue, error)   // returns at least Number
-	View(t Target, number string) (Issue, error)          // State and URL; ErrMissing / ErrInvisible classified
+	Name() string // ref prefix and error prefix: "github"
+	// Locate finds the project's repo from its remote: plugin.ErrNo when it
+	// is not this tracker's, another error when it nearly is (the right
+	// shape on a host the tool is not logged in to) saying why.
+	Locate(project string) (Target, error)
+	TargetFromRef(ref tracker.Ref) Target               // where a ref points; Identity is a best guess, Remote prefers the project's
+	ListMine(t Target) ([]Issue, error)                 // open+closed issues I created, with bodies (recovery)
+	Create(t Target, title, body string) (Issue, error) // returns at least Number
+	View(t Target, number string) (Issue, error)        // State and URL; ErrMissing / ErrInvisible classified
 	Close(t Target, number string) error
 }
 
@@ -57,12 +59,19 @@ type Remote struct {
 	Home string // for the install id in markers
 }
 
-func (r Remote) Detect(project string, warn io.Writer) bool {
-	t, ok := r.CLI.Locate(project, warn)
-	if !ok {
-		return false
+// Detect: the project is this tracker's and its tool is ready for it. A
+// project that is, while the tool is missing or logged out, is not set up.
+func (r Remote) Detect(project string) error {
+	t, err := r.CLI.Locate(project)
+	if err != nil {
+		return err
 	}
-	return r.CLI.Available(t, warn)
+	if k, ok := tracker.KindOf(r.CLI.Name()); ok && k.Ready != nil {
+		if err := k.Ready(t.Identity); err != nil {
+			return fmt.Errorf("%w: %v", plugin.ErrNotSetUp, err)
+		}
+	}
+	return nil
 }
 
 // title: an issue title from note text, capped the way trackers render it.
@@ -96,9 +105,9 @@ const recoveryLimit = 1000
 
 func (r Remote) File(req Request) (string, error) {
 	name := r.CLI.Name()
-	t, ok := r.CLI.Locate(req.Project, io.Discard)
-	if !ok {
-		return "", fmt.Errorf("not a %s remote", name)
+	t, err := r.CLI.Locate(req.Project)
+	if err != nil {
+		return "", fmt.Errorf("not a %s remote: %w", name, err)
 	}
 	ms, err := markers(r.Home, req)
 	if err != nil {
@@ -144,7 +153,7 @@ func (r Remote) parseRef(project, ref string) (Target, string, bool) {
 	}
 	t := r.CLI.TargetFromRef(parsed)
 	n := parsed.Number
-	if pt, ok := r.CLI.Locate(project, io.Discard); ok {
+	if pt, err := r.CLI.Locate(project); err == nil {
 		t.Identity = pt.Identity
 	}
 	return t, n, true

@@ -16,7 +16,7 @@ func cmdReport(e *Env, a argv) int {
 	week, now := a.has("week"), time.Now()
 	since, err := report.Window(e.store(), now, week)
 	if err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	d, code := buildBoard(e, nil)
 	if code != 0 {
@@ -24,11 +24,11 @@ func cmdReport(e *Env, a argv) int {
 	}
 	closed, err := thread.ClosedSince(e.store(), since, now)
 	if err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	sessions, err := session.All(e.store())
 	if err != nil {
-		return fail(e, 1, "%v", err)
+		return fail(e, exitFailed, "%v", err)
 	}
 	r := report.Build(d, closed, sessions, since, now)
 	// The next report starts after everything this one gathered, including
@@ -42,12 +42,12 @@ func cmdReport(e *Env, a argv) int {
 		code, seen = openReport(e, r)
 	default:
 		if err := report.Render(e.Stdout, r); err != nil {
-			code = fail(e, 1, "%v", err)
+			code = fail(e, exitFailed, "%v", err)
 		}
 	}
 	if code == 0 && seen {
 		if err := report.Take(e.store(), upTo, week); err != nil {
-			return fail(e, 1, "%v", err)
+			return fail(e, exitFailed, "%v", err)
 		}
 	}
 	return code
@@ -59,7 +59,7 @@ func cmdReport(e *Env, a argv) int {
 func openReport(e *Env, r report.Report) (code int, seen bool) {
 	page, err := report.WritePage(e.Home, r)
 	if err != nil {
-		return fail(e, 1, "%v", err), false
+		return fail(e, exitFailed, "%v", err), false
 	}
 	opener := "open" // macOS
 	if _, err := exec.LookPath(opener); err != nil {

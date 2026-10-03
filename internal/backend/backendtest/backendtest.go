@@ -5,7 +5,6 @@ package backendtest
 
 import (
 	"errors"
-	"io"
 	"testing"
 
 	"github.com/bilal-/sous/internal/backend"
@@ -22,7 +21,7 @@ import (
 //   - url is a link or ErrUnsupported
 func Run(t *testing.T, b backend.Implementation, project string) {
 	t.Helper()
-	if !b.Detect(project, io.Discard) {
+	if err := b.Detect(project); err != nil {
 		t.Fatal("detect: backend does not claim its own project")
 	}
 	req := backend.Request{ID: 41, UID: "000000000041", Project: project, Text: "conformance note", Kind: "idea"}

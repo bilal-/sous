@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bilal-/sous/internal/plugin"
 )
 
 func script(t *testing.T, dir, name, body string) string {
@@ -151,7 +153,7 @@ func TestFileRequestCarriesContractVersion(t *testing.T) {
 
 type recordingImpl struct{ filed bool }
 
-func (r *recordingImpl) Detect(string, io.Writer) bool         { return true }
+func (r *recordingImpl) Detect(string) error                   { return nil }
 func (r *recordingImpl) File(Request) (string, error)          { r.filed = true; return "x:1", nil }
 func (r *recordingImpl) Status(string, string) (string, error) { return "open", nil }
 func (r *recordingImpl) Close(string, string) error            { return nil }
@@ -186,7 +188,25 @@ func TestDetectNotSetUp(t *testing.T) {
 	off := script(t, dir, "sous-backend-jira", `echo "jira: no token in JIRA_TOKEN" >&2; exit 3`)
 	var warn bytes.Buffer
 	b, err := Detect(context.Background(), Registry.Discover("", nil, []string{off}), "/proj", "", &warn)
-	if err != nil || b.Name != "local" || warn.String() != "sous: backend jira not set up: jira: no token in JIRA_TOKEN\n" {
+	if err != nil || b.Name != "local" || warn.String() != "sous: backend jira: not set up: jira: no token in JIRA_TOKEN\n" {
 		t.Fatalf("%+v %v %q", b, err, warn.String())
 	}
 }
+
+// A built in backend whose tool is logged out says so once, through the
+// door, with exit 3.
+func TestBuiltinDetectNotSetUpThroughTheDoor(t *testing.T) {
+	var out, errb strings.Builder
+	impl := &notReady{}
+	code := Ops(impl)["detect"]([]string{"/p"}, nil, &out, &errb)
+	if code != 3 || errb.String() != "not set up: gh: not logged in\n" {
+		t.Fatalf("%d %q", code, errb.String())
+	}
+	if got := notSetUp(errors.New(strings.TrimSpace(errb.String()))); got != "not set up: gh: not logged in" {
+		t.Fatal(got)
+	}
+}
+
+type notReady struct{ recordingImpl }
+
+func (*notReady) Detect(string) error { return fmt.Errorf("%w: gh: not logged in", plugin.ErrNotSetUp) }
