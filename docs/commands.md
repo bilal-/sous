@@ -154,7 +154,8 @@ Options:
 ### `sous projects [name]`
 
 Every project sous can see: org, name, host and the age of the last commit.
-Give a name to filter the list.
+Give a name to filter the list; a name that matches nothing says so and
+exits `0` (`[]` with `--json`).
 
 Options:
 

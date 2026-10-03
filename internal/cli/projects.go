@@ -46,7 +46,10 @@ func cmdProjects(e *Env, a argv) int {
 	if len(a.pos) > 0 {
 		ps = project.Candidates(ps, a.pos[0])
 		if len(ps) == 0 {
-			return fail(e, exitUsage, "no project matches '%s'", a.pos[0])
+			if !e.JSON {
+				fmt.Fprintf(e.Stdout, "0 projects match '%s' · sous projects for them all\n", a.pos[0])
+				return 0
+			}
 		}
 	}
 	if e.JSON {

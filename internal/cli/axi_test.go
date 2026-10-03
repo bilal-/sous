@@ -259,3 +259,23 @@ func TestAXI10HelpNamesEveryOption(t *testing.T) {
 		t.Error("sous help does not mention --ambient")
 	}
 }
+
+// AXI 5 and 6: a search that finds nothing is an answer, not an error; a
+// word that is neither a command nor a project says so; --version works
+// as people expect.
+func TestAXIMisses(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("acme/api", true)
+	if out, _, code := f.run("projects", "zzz"); code != 0 || !strings.HasPrefix(out, "0 projects match 'zzz'") {
+		t.Fatalf("%d %q", code, out)
+	}
+	if out, _, code := f.run("projects", "zzz", "--json"); code != 0 || strings.TrimSpace(out) != "[]" {
+		t.Fatalf("%d %q", code, out)
+	}
+	if _, errs, code := f.run("lsit"); code != 2 || !strings.Contains(errs, "not a command or a project") || !strings.Contains(errs, "sous help") {
+		t.Fatalf("%d %q", code, errs)
+	}
+	if out, _, code := f.run("--version"); code != 0 || out != "sous "+Version+"\n" {
+		t.Fatalf("%d %q", code, out)
+	}
+}

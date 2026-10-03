@@ -78,9 +78,8 @@ func TestProjectsFilterAndResolve(t *testing.T) {
 	if strings.Count(out, "app") != 2 {
 		t.Fatalf("ambiguous filter shows all: %q", out)
 	}
-	_, errs, code := f.run("projects", "zzz")
-	if code != 2 || !strings.Contains(errs, "no project matches") {
-		t.Fatalf("no match: %d %q", code, errs)
+	if _, errs, code := f.run("projects", "--path", "zzz"); code != 2 || !strings.Contains(errs, "no project matches") {
+		t.Fatalf("--path must name exactly one: %d %q", code, errs)
 	}
 }
 

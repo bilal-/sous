@@ -2,11 +2,13 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -81,6 +83,13 @@ func cmdPath(e *Env, arg string) int {
 			return cmdBoard(e, []string{arg})
 		}
 		return fail(e, exitUsage, "%s is neither a repo nor a folder of repos", arg)
+	}
+	if e.cfgErr == nil && !strings.ContainsAny(arg, "/.") {
+		if _, err := project.Resolve(e.Cfg.Roots, e.Cfg.Ignore, arg, e.Cwd, e.UserHome, io.Discard); errors.Is(err, project.ErrNoMatch) {
+			// A word that is neither a command nor a project is most likely
+			// a command misremembered.
+			return fail(e, exitUsage, "%q is not a command or a project; sous help lists the commands, sous projects the projects", arg)
+		}
 	}
 	p, code := resolveProject(e, arg)
 	if code != 0 {

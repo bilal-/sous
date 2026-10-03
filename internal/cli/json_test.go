@@ -67,3 +67,20 @@ func TestReadCommandsJSONHasNoNullLists(t *testing.T) {
 		}
 	}
 }
+
+// A command asked for --json that fails says why on stdout too, as JSON
+// with its exit code, and on stderr as always.
+func TestErrorsUnderJSON(t *testing.T) {
+	f := fixture(t)
+	out, errs, code := f.run("show", "99", "--json")
+	var got struct {
+		Error string
+		Exit  int
+	}
+	if code != 1 || json.Unmarshal([]byte(out), &got) != nil || got.Exit != 1 || !strings.Contains(got.Error, "99") || !strings.Contains(errs, "99") {
+		t.Fatalf("%d %q %q", code, out, errs)
+	}
+	if out, _, code := f.run("show", "99"); code != 1 || out != "" {
+		t.Fatalf("without --json stdout stays empty: %q", out)
+	}
+}

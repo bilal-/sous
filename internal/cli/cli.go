@@ -4,6 +4,7 @@ package cli
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -42,7 +43,7 @@ const usageHeader = `sous %s: one list of what is waiting on you, across every p
 `
 
 const usageFooter = `
-Flags: --json (what a command shows or changed) · --brief (here) · --ambient · --cached · --refresh · --menubar
+Flags: --json (what a command shows or changed) · --brief (here) · --ambient · --cached · --refresh · --menubar · --version
 Exit:  0 ok · 1 failure · 2 usage or ambiguity · 3 not ready: no board yet (--cached, --ambient), or the agent or runner is not set up (go)
 Put -- before a note that starts with a dash.
 
@@ -183,8 +184,22 @@ func stableExe(exe string) string {
 }
 
 func fail(e *Env, code int, format string, a ...any) int {
-	fmt.Fprintf(e.Stderr, "sous: "+format+"\n", a...)
+	msg := fmt.Sprintf(format, a...)
+	fmt.Fprintln(e.Stderr, "sous: "+msg)
+	if e.JSON {
+		// A caller that asked for JSON reads stdout: the error is there too.
+		// Written directly, never through writeJSON, which fails through here.
+		b, _ := json.MarshalIndent(errorJSON{Error: msg, Exit: code}, "", "  ")
+		fmt.Fprintf(e.Stdout, "%s\n", b)
+	}
 	return code
+}
+
+// errorJSON is what --json prints when a command fails: the same line as
+// standard error, and the exit code (sous help lists them).
+type errorJSON struct {
+	Error string `json:"error"`
+	Exit  int    `json:"exit"`
 }
 
 // Run is the whole CLI. Returns the process exit code.
@@ -264,6 +279,8 @@ func runMode(e *Env, flag string) int {
 	case "--help", "-h":
 		usage(e.Stdout)
 		return 0
+	case "--version":
+		return cmdVersion(e, argv{})
 	}
 	return fail(e, exitUsage, "unknown flag: %s (try: sous help)", flag)
 }

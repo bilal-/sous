@@ -22,6 +22,14 @@ upgraded, never broken.
   commands that neither show nor change anything.
 * When a note cannot be filed because the project has no tracker, the
   error says what would make it fileable.
+* With `--json`, a command that fails also writes the error to standard
+  output as `{"error", "exit"}`, so a program reading it is never left
+  with nothing.
+* `sous projects <name>` that matches nothing says `0 projects match` and
+  exits `0`; `--path` still needs exactly one.
+* A word that is neither a command nor a project (`sous lsit`) says so,
+  instead of looking for a project by that name.
+* `sous --version` works.
 
 ## [0.6.0]
 
