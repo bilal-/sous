@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.8.0]
+
 ### Fixed
 * `sous done <n> --close` (or `--clean`) after a plain `done` closes the
   filed item (or removes the run's worktree) again, as it did before
