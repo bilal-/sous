@@ -20,6 +20,14 @@ upgraded, never broken.
   you once it stops.
 * In `sous --json`, a snoozed idea is listed under `snoozed`, like every
   other snoozed note. A run's item also has `log`, `key` and `checked_at`.
+* A backend's `detect` now hears the reason when sous cannot reach a
+  tracker that would own the project: `sous file` says "not set up" with
+  what is missing, instead of quietly keeping the note local.
+* Inside sous, a review round removed every duplicated piece of logic
+  the clone detector finds: one way to list each kind of plugin
+  (`Registry.All`, `Registry.Offline`), one table for how a run reads, one
+  set of exit codes, one place for request decoding and answers, for
+  text shaping, and for the hook command. AGENTS.md describes each.
 
 ### Fixed
 * `sous show` called a run that waits on you "them"; it says "me", as the
