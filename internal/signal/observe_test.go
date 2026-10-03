@@ -29,18 +29,18 @@ func TestObserveLifecycle(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 
-	obs, err := Observe(s, collected("1 files uncommitted", "git"), []string{"/p"}, t0)
+	obs, err := Observe(s, collected("1 file uncommitted", "git"), []string{"/p"}, t0)
 	if err != nil || len(obs) != 1 || !obs[0].FirstSeen.Equal(t0) || obs[0].Snoozed || obs[0].Stale {
 		t.Fatalf("first: %+v %v", obs, err)
 	}
-	obs, _ = Observe(s, collected("1 files uncommitted", "git"), []string{"/p"}, t0.Add(48*time.Hour))
+	obs, _ = Observe(s, collected("1 file uncommitted", "git"), []string{"/p"}, t0.Add(48*time.Hour))
 	if !obs[0].FirstSeen.Equal(t0) {
 		t.Fatalf("first_seen must persist: %+v", obs[0])
 	}
 	if err := Snooze(s, "s:x"); err != nil {
 		t.Fatal(err)
 	}
-	obs, _ = Observe(s, collected("1 files uncommitted", "git"), []string{"/p"}, t0.Add(49*time.Hour))
+	obs, _ = Observe(s, collected("1 file uncommitted", "git"), []string{"/p"}, t0.Add(49*time.Hour))
 	if !obs[0].Snoozed {
 		t.Fatal("snoozed should hide")
 	}
@@ -70,7 +70,7 @@ func TestObserveScopedScanPreservesUnscanned(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	full := ran("git",
-		Signal{ID: "s:a", Project: "/ws/a", Kind: Unfinished, Text: "1 files uncommitted"},
+		Signal{ID: "s:a", Project: "/ws/a", Kind: Unfinished, Text: "1 file uncommitted"},
 		Signal{ID: "s:b", Project: "/ws/b", Kind: Unfinished, Text: "2 stashes"},
 	)
 	Observe(s, full, []string{"/ws/a", "/ws/b"}, t0)
@@ -102,7 +102,7 @@ func TestObserveScopedScanPreservesUnscanned(t *testing.T) {
 func TestObserveFirstSeenSurvivesTextChange(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
-	Observe(s, collected("1 files uncommitted", "git"), []string{"/p"}, t0)
+	Observe(s, collected("1 file uncommitted", "git"), []string{"/p"}, t0)
 	Snooze(s, "s:x")
 	obs, _ := Observe(s, collected("2 files uncommitted", "git"), []string{"/p"}, t0.Add(72*time.Hour))
 	if obs[0].Snoozed || !obs[0].FirstSeen.Equal(t0) {
@@ -173,12 +173,12 @@ func TestKnown(t *testing.T) {
 }
 
 // A snooze ends when the thing changes, even if its one line summary does
-// not ("1 files uncommitted" before and after more edits).
+// not ("1 file uncommitted" before and after more edits).
 func TestSnoozeEndsWhenStateChanges(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	with := func(state string) Collected {
-		c := collected("1 files uncommitted", "git")
+		c := collected("1 file uncommitted", "git")
 		c.Signals[0].State = state
 		return c
 	}
@@ -229,7 +229,7 @@ func TestObserveOnlySettlesThePluginsThatRan(t *testing.T) {
 	t0 := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	full := Collected{
 		Signals: []Tagged{
-			{Signal: Signal{ID: "s:dirty", Project: "/p", Kind: Unfinished, Text: "1 files uncommitted"}, Plugin: "git"},
+			{Signal: Signal{ID: "s:dirty", Project: "/p", Kind: Unfinished, Text: "1 file uncommitted"}, Plugin: "git"},
 			{Signal: Signal{ID: "s:pr", Project: "/p", Kind: Me, Text: "review requested"}, Plugin: "github"},
 		},
 		Plugins: []PluginStatus{{Name: "git", Status: StatusOK}, {Name: "github", Status: StatusOK}},

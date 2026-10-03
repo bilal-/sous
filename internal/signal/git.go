@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/bilal-/sous/internal/text"
 )
 
 func gitOut(dir string, args ...string) (string, error) {
@@ -136,7 +138,7 @@ func (r gitRepo) dirty() {
 	}
 	diff, _ := gitOut(r.p, "diff", "HEAD")
 	sum := sha256.Sum256([]byte(st + "\x00" + diff))
-	r.emit("dirty", Unfinished, fmt.Sprintf("%d files uncommitted · %s", countLines(st), r.branch), r.now, hex.EncodeToString(sum[:8]))
+	r.emit("dirty", Unfinished, text.Plural(countLines(st), "file")+" uncommitted · "+r.branch, r.now, hex.EncodeToString(sum[:8]))
 }
 
 // unpushed: commits ahead of the upstream, or a branch other than the

@@ -29,7 +29,7 @@ func TestBoardCLI(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("board: %d %q", code, out)
 	}
-	testutil.Contains(t, out, "? on you (github failed) · 1 found", "1 on others", "1 unfinished", "need final copy for pricing", "waiting on Play Console", "1 files uncommitted · main", "4 checked", "github: failed", "sous snooze")
+	testutil.Contains(t, out, "? on you (github failed) · 1 found", "1 on others", "1 unfinished", "need final copy for pricing", "waiting on Play Console", "1 file uncommitted · main", "4 checked", "github: failed", "sous snooze")
 	if strings.Contains(out, "an idea") || strings.Contains(out, "quiet") {
 		t.Errorf("idea or quiet project leaked:\n%s", out)
 	}

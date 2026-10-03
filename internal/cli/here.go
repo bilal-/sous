@@ -17,7 +17,10 @@ func cmdHere(e *Env, a argv) int {
 		start = a.pos[0]
 	}
 	root, ok := project.ForPath(start, e.UserHome)
-	if !ok {
+	switch {
+	case !ok && len(a.pos) == 1:
+		return fail(e, exitUsage, "%s is not in a project (a git repo); sous projects lists them", start)
+	case !ok:
 		return fail(e, exitUsage, "not inside a project; use sous here <path> or sous <project>")
 	}
 	if real, err := filepath.EvalSymlinks(root); err == nil {

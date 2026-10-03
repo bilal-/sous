@@ -153,8 +153,9 @@ reads what the board learned last about GitHub and GitLab.
 Options:
 
 * `--brief`: a shorter version, what agents see when a session starts:
-  five rows of each kind with where the rest are, and every note and the
-  last message cut to one line, ending in `…` when cut.
+  five rows of each kind with where the rest are, and every line cut to
+  120 characters, ending in `…` when cut. Not with `--json`, which is
+  always whole.
 * `--json`: the sections, with `facts` (branch, last commit), `session`
   (how the last agent session here ended, or `null`), `recently_closed`,
   and `plugins`.
@@ -333,7 +334,8 @@ Options:
   the name of a launcher plugin. The default is `agent` in configuration,
   or `claude`.
 * `--where`: only print the project folder `go` would use, and start
-  nothing. The shell snippet uses it to move your terminal there.
+  nothing. The shell snippet uses it to move your terminal there. With
+  `--json`: `{"path": "..."}`.
 * `--in <folder>`: use this folder instead of looking the project up. The
   shell snippet passes the folder it already found.
 * `--run <brief>`: hand a task to an agent in the background instead, and

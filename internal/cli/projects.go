@@ -38,7 +38,7 @@ func cmdProjects(e *Env, a argv) int {
 	if pathOf := a.value("path"); pathOf != "" {
 		p, err := project.Match(ps, pathOf)
 		if err != nil {
-			return fail(e, exitUsage, "%v", err)
+			return projectErr(e, err)
 		}
 		fmt.Fprintln(e.Stdout, p.Path)
 		return 0

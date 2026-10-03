@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -206,5 +207,23 @@ func TestSuggestedProjectNamesAreUnambiguous(t *testing.T) {
 	arg := strings.Fields(retry)[2]
 	if out, errs, code := f.run("go", arg, "--where"); code != 0 || strings.TrimSpace(out) != p {
 		t.Fatalf("%q from %q: %d %q %q", arg, retry, code, out, errs)
+	}
+}
+
+// go asks for nothing it would ignore: --key without --run is refused, and
+// --where answers --json with the folder.
+func TestGoOptionsAreNeverIgnored(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	if _, _, code := f.run("go", "api", "--key", "k", "--where"); code != exitUsage {
+		t.Errorf("--key without --run: %d", code)
+	}
+	out, _, code := f.run("go", "api", "--where", "--json")
+	var got struct{ Path string }
+	if code != 0 || json.Unmarshal([]byte(out), &got) != nil || got.Path != p {
+		t.Errorf("%d %q, want %s", code, out, p)
+	}
+	if _, _, code := f.run("go", "api", "--json"); code != exitUsage {
+		t.Errorf("starting an agent has nothing for --json: %d", code)
 	}
 }

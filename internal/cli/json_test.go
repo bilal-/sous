@@ -114,3 +114,18 @@ func TestEveryDidIsDocumented(t *testing.T) {
 		}
 	}
 }
+
+// --brief is never silently ignored: the board has no short form, and
+// --json is always whole.
+func TestBriefWhereItMeansNothing(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	for _, args := range [][]string{{"--brief"}, {"--json", "--brief"}, {"here", p, "--brief", "--json"}, {"--cached", "--brief"}} {
+		if _, _, code := f.run(args...); code != exitUsage {
+			t.Errorf("%v: %d", args, code)
+		}
+	}
+	if _, _, code := f.run("here", p, "--brief"); code != 0 {
+		t.Errorf("here --brief: %d", code)
+	}
+}

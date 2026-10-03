@@ -28,7 +28,7 @@ sous · 2 on you · 1 on others · 3 unfinished
 
   unfinished
   s:fe9c4922caf6  chime              6 commits unpushed · main                     6d
-  s:4515743b9362  audio-app          11 files uncommitted · feat/history           3mo
+  s:4515743b9362  audio-app          11 file uncommitted · feat/history           3mo
 
   26 checked · 0 unavailable · as of 09:02 · sous snooze <id> to hide a row
 ```

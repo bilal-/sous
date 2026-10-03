@@ -60,7 +60,7 @@ func TestSignalFrontDoor(t *testing.T) {
 	r := f.mkrepo("a/r", true)
 	os.WriteFile(filepath.Join(r, "x"), nil, 0o644)
 	out, _, code := f.runStdin(r+"\n", "signal", "git", "scan")
-	if code != 0 || !strings.Contains(out, "1 files uncommitted") {
+	if code != 0 || !strings.Contains(out, "1 file uncommitted") {
 		t.Fatalf("signal git scan: %d %q", code, out)
 	}
 	if _, _, code := f.run("signal", "nope", "scan"); code != 2 {

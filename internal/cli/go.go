@@ -50,12 +50,18 @@ func cmdGo(e *Env, a argv) int {
 		}
 		return goRun(e, a, p, cfg)
 	}
-	if e.JSON {
-		return fail(e, exitUsage, "go takes --json only with --run")
+	if a.has("key") {
+		return fail(e, exitUsage, "--key names a run; it goes with --run")
 	}
 	if a.has("where") { // for the shell wrapper: the folder, nothing started
+		if e.JSON {
+			return e.writeJSON(map[string]string{"path": p.Path})
+		}
 		fmt.Fprintln(e.Stdout, p.Path)
 		return 0
+	}
+	if e.JSON {
+		return fail(e, exitUsage, "go takes --json with --run or --where: starting an agent here prints nothing to read")
 	}
 	cfg, code := e.config()
 	if code != 0 {

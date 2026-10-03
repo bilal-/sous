@@ -292,10 +292,14 @@ func run(args []string, cwd string, stdin io.Reader, stdout, stderr io.Writer) i
 	e := newEnv(cwd, stdin, stdout, stderr)
 	defer e.close()
 	args = e.takeReadFlags(args)
-	if len(args) > 0 && strings.HasPrefix(args[0], "-") {
+	switch {
+	case e.Brief && e.JSON:
+		return fail(e, exitUsage, "--brief shortens what is read; --json is always whole")
+	case e.Brief && (len(args) == 0 || strings.HasPrefix(args[0], "-")):
+		return fail(e, exitUsage, "the board does not take --brief; sous here --brief is the short form")
+	case len(args) > 0 && strings.HasPrefix(args[0], "-"):
 		return runMode(e, args[0])
-	}
-	if len(args) == 0 {
+	case len(args) == 0:
 		return cmdBoard(e, nil)
 	}
 	return dispatch(e, args[0], args[1:])

@@ -18,6 +18,14 @@ upgraded, never broken.
   start's `--json` error carries the run's `id` and `next`.
 * `note` that finds the same text under another kind puts the
   `sous kind` that changes it first in `next`.
+* `config` changes answer `{did, project, key, value, next}`, `did` being
+  `set`, `unset` or `unchanged`.
+* Options are never silently ignored: `go --key` without `--run`,
+  `--brief` on the board, and `--brief` with `--json` are refused.
+  `go --where --json` answers `{"path"}`.
+* `projects --path` with an ambiguous name lists the `matches`, as other
+  commands do; `here <path>` outside a project says so about that path.
+* "1 file uncommitted", not "1 files".
 * Every line of the session-start brief fits in 120 characters; a waiting
   run shows one next step (`sous show <n>` has the rest).
 

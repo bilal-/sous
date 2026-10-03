@@ -141,7 +141,7 @@ func TestCountLines(t *testing.T) {
 }
 
 // More edits to the same file change the dirty row's state, so a snooze on
-// it ends; the one line text stays "1 files uncommitted".
+// it ends; the one line text stays "1 file uncommitted".
 func TestGitDirtyStateFollowsEdits(t *testing.T) {
 	r := repo(t, filepath.Join(t.TempDir(), "acme/api"), true)
 	os.WriteFile(filepath.Join(r, "a.txt"), []byte("one\n"), 0o644)
