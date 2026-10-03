@@ -395,7 +395,9 @@ func TestAgentsMayCommitAndNoMore(t *testing.T) {
 func TestStartPutsWhereThePersonLeftOffInThePrompt(t *testing.T) {
 	testutil.FakeBin(t, "claude", "")
 	repo := gitRepo(t)
-	exe, _ := fakeSous(t)
+	// A watcher that does nothing: this is about the prompt, and one that
+	// wrote after the test ended would race its cleanup.
+	exe := testutil.Script(t, t.TempDir(), "sous", "exit 0")
 	here := filepath.Join(t.TempDir(), "here.txt")
 	os.WriteFile(here, []byte("api · main · last commit 2h ago\n  1  check the index  2h\n"), 0o600)
 	a, _ := Builtin("claude", t.TempDir(), exe, time.Hour)
