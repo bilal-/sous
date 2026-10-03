@@ -103,3 +103,32 @@ func TestRunMistakesSayWhy(t *testing.T) {
 		t.Fatal("an empty brief")
 	}
 }
+
+// go --run takes the runner setting when -a is not given, and agent when
+// that is unset. A runner plugin can be the default; a name sous does not
+// know is refused before it is written.
+func TestRunnerSetting(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("acme/billing", true)
+	fake := f.plugin("sous-runner-queue", `case "$1" in start) echo queue:1;; status) echo '{"v":0,"state":"running"}';; esac`)
+	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + fake + "\"]\n")
+	if _, errs, code := f.run("config", "runner", "nope"); code != 2 || !strings.Contains(errs, "queue") {
+		t.Fatalf("an unknown runner is refused, naming the ones there are: %d %q", code, errs)
+	}
+	if _, errs, code := f.run("config", "runner", "queue"); code != 0 {
+		t.Fatal(errs)
+	}
+	out, errs, code := f.run("go", "billing", "--run", "fix it", "--json")
+	if code != 0 || !strings.Contains(out, `"runner": "queue"`) {
+		t.Fatalf("%d %s %s", code, out, errs)
+	}
+	f.run("config", "--unset", "runner")
+	f.run("config", "agent", "codex")
+	if out, _, _ := f.run("config"); !strings.Contains(out, "runner         codex (the agent)") {
+		t.Fatalf("an unset runner says what it falls back to:\n%s", out)
+	}
+	out, _, _ = f.run("go", "billing", "--run", "fix it too", "--json")
+	if !strings.Contains(out, `"runner": "codex"`) {
+		t.Fatalf("with no runner set, agent picks it: %s", out)
+	}
+}

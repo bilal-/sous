@@ -338,10 +338,11 @@ so you can say things like:
 
 Claude asks before anything reaches a shared tracker.
 
-**Codex.** The same skill, and a hook when a session starts. Codex does not
-report when a session ends yet, so `sous here` cannot show how your last
-Codex session ended. It still shows the last commit and your notes. If your Codex version lists a SessionEnd hook, run
-`sous setup --codex-session-end`.
+**Codex.** The same skill, and a hook when a session starts. Newer Codex
+versions also report when a session ends: run
+`sous setup --codex-session-end` and `sous here` shows how your last Codex
+session ended, as it does for Claude Code. Without it, `sous here` still
+shows the last commit and your notes.
 
 **Gemini CLI, Kimi, Cursor, Antigravity and others.** Many agents now
 read skills from a shared folder, `~/.agents/skills`, and `sous setup` puts

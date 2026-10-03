@@ -83,8 +83,8 @@ Where you left off in a project, found by name from anywhere. The same as
 Where you left off in the project you are in, or the one at `path`:
 
 * the branch, the last commit and its message
-* how your last agent session there ended (Claude Code; Codex does not report
-  session ends yet)
+* how your last agent session there ended (Claude Code, and Codex when
+  `sous setup --codex-session-end` asked it to report session ends)
 * what is on you and on others in this project, including snoozed rows
 * your ideas for this project
 * notes that were closed in their tracker lately, marked
@@ -283,7 +283,8 @@ EOF
 
 `--run -` reads the brief from standard input; write what to do, why, and
 what done means. `-a` picks the runner (`claude`, `codex`, or a runner
-plugin); the default is `agent` in configuration. The answer names the
+plugin); the default is `runner` in configuration, or `agent` when that is
+not set. The answer names the
 run's number, and the command to check on it:
 
 ```json
@@ -376,8 +377,8 @@ settings for particular projects.
     sous config -p api                            one project's own settings
 
 The settings are described in [Configuration](#configuration). Values are
-checked before anything is written: an agent or backend must be one sous
-knows, and `refresh_hours` a whole number above 0. A per-project setting
+checked before anything is written: an agent, runner or backend must be
+one sous knows, and `refresh_hours` a whole number above 0. A per-project setting
 sous does not read itself is written anyway (a plugin may read it), with a
 note, so a typo does not pass unnoticed.
 
@@ -518,6 +519,7 @@ code `2`. It never guesses.
 roots = ["~/code", "~/work"]   # where your projects live; sous looks two folders deep
 ignore = ["scratch/*"]         # folders to skip, as org/name patterns
 agent = "claude"               # the agent sous go starts
+runner = "codex"               # the runner sous go --run hands work to; agent when not set
 refresh_hours = 4              # how old the saved board may get, and how often new shells print it
 run_minutes = 60               # how long a run by a built in runner may take
 gitlab_hosts = ["git.example.org"]   # GitLab servers, beyond the ones glab knows
@@ -535,6 +537,7 @@ backend = "markdown"           # always file to FOLLOWUPS.md, creating it if nee
 | `roots` | none | Folders to look for projects in, two folders deep. A root that is itself a repo counts. |
 | `ignore` | none | Patterns like `scratch/*` or `*/tmp`, matched against `org/name`. |
 | `agent` | `claude` | The agent `sous go` starts when `-a` is not given. |
+| `runner` | `agent` | The runner `sous go --run` hands work to when `-a` is not given: `claude`, `codex`, or a runner plugin's name. |
 | `refresh_hours` | `4` | How old the saved board may get, and how often new shells print it. |
 | `run_minutes` | `60` | How long a run by a built in runner may take before it is stopped. |
 | `gitlab_hosts` | none | GitLab servers to use, beyond the ones `glab` is logged in to. |

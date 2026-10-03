@@ -18,6 +18,7 @@ type Config struct {
 	Roots        []string                     `toml:"roots"`
 	Ignore       []string                     `toml:"ignore"`
 	Agent        string                       `toml:"agent"`
+	Runner       string                       `toml:"runner"` // "" = Agent
 	RefreshHours int                          `toml:"refresh_hours"`
 	RunMinutes   int                          `toml:"run_minutes"`
 	Plugins      []string                     `toml:"plugins"`
@@ -338,4 +339,13 @@ func (c *Config) RunLimit() time.Duration {
 		return time.Duration(c.RunMinutes) * time.Minute
 	}
 	return defaultRunMinutes * time.Minute
+}
+
+// RunAgent is the runner go --run uses when none is named: runner, or the
+// agent when runner is not set.
+func (c *Config) RunAgent() string {
+	if c.Runner != "" {
+		return c.Runner
+	}
+	return c.Agent
 }

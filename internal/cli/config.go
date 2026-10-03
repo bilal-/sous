@@ -10,6 +10,7 @@ import (
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/launcher"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/runner"
 )
 
 // cmdConfig: sous config shows every setting; sous config <key> <value...>
@@ -51,6 +52,9 @@ func setConfig(e *Env, a argv) int {
 		}
 		if k.Name == "agent" && !slices.Contains(launcherNames(e), v.(string)) {
 			return fail(e, 2, "no agent %q; choose one of: %s", v, strings.Join(launcherNames(e), ", "))
+		}
+		if k.Name == "runner" && !slices.Contains(runnerNames(e), v.(string)) {
+			return fail(e, 2, "no runner %q; choose one of: %s", v, strings.Join(runnerNames(e), ", "))
 		}
 		value = v
 	} else if len(a.pos) != 1 {
@@ -151,6 +155,14 @@ func launcherNames(e *Env) []string {
 	return names
 }
 
+func runnerNames(e *Env) []string {
+	var names []string
+	for _, r := range runner.Runners(e.Exe, runner.Registry.Names(), e.Cfg.Plugins) {
+		names = append(names, r.Name)
+	}
+	return names
+}
+
 func backendNames(e *Env) []string {
 	var names []string
 	for _, b := range backend.Backends(e.Exe, backend.Registry.Names(), e.Cfg.Plugins) {
@@ -195,6 +207,8 @@ func showConfig(e *Env) int {
 			shown = strings.Join(tilded, ", ")
 		}
 		switch {
+		case k.Name == "runner" && shown == "":
+			shown = e.Cfg.RunAgent() + " (the agent)"
 		case shown == "" || shown == "0":
 			shown = "(none)"
 		case s.Default:

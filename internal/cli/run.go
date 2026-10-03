@@ -40,7 +40,7 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 	}
 	name := a.value("a")
 	if name == "" {
-		name = cfg.Agent
+		name = cfg.RunAgent()
 	}
 	d := e.dispatcher()
 	hereFile := ""
