@@ -72,6 +72,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/doctor     sous doctor: every check, in one list, with how to fix it
     internal/text       how sous writes things for people: ages, times, lines cut to fit
     docs                the guides; docs.go carries commands.md inside the program for each command's --help
+    brand               the logo, icons and colours, made by brand/tools (Node, not part of the Go build); see brand/README.md
     internal/testutil   helpers shared by every package's tests
 
 Code only depends downward, in this order: `cli`, then `doctor`, then

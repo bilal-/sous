@@ -1,5 +1,10 @@
 # sous
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/svg/horizontal-on-dark.svg">
+  <img src="brand/svg/horizontal-on-light.svg" alt="sous" width="200">
+</picture>
+
 [![CI](https://github.com/bilal-/sous/actions/workflows/ci.yml/badge.svg)](https://github.com/bilal-/sous/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/bilal-/sous)](https://github.com/bilal-/sous/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><title>sous app icon</title><defs>
+  <linearGradient id="plate" x1="0" y1="0" x2="0.85" y2="1">
+    <stop stop-color="#353942"/><stop offset="0.48" stop-color="#17191D"/><stop offset="1" stop-color="#090B0E"/>
+  </linearGradient>
+  <linearGradient id="glass" x1="0" y1="0" x2="0.3" y2="1">
+    <stop stop-color="#FFFFFF" stop-opacity="0.22"/><stop offset="0.65" stop-color="#FFFFFF" stop-opacity="0.035"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="rim" x1="0" y1="0" x2="0.7" y2="1">
+    <stop stop-color="#FFFFFF" stop-opacity="0.35"/><stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.04"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0.09"/>
+  </linearGradient>
+</defs><rect width="1024" height="1024" rx="224" fill="#17191D"/><g transform="translate(187 259.22222222222223) scale(1.8055555555555556)"><path d="M31 4Q36 -1 41 4L166 129Q177 140 166 151L41 276Q36 281 31 276L3 248Q-2 243 3 238L101 140L3 42Q-2 37 3 32Z" fill="#A78BFA"/><path d="M190 220H344Q360 220 360 236V256Q360 272 344 272H190Q174 272 174 256V236Q174 220 190 220Z" fill="#A78BFA"/><path d="M226 126H348Q360 126 360 138V154Q360 166 348 166H226Q214 166 214 154V138Q214 126 226 126Z" fill="#A78BFA"/><path d="M262 46H348Q360 46 360 58V74Q360 86 348 86H262Q250 86 250 74V58Q250 46 262 46Z" fill="#A78BFA"/></g></svg>

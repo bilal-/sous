@@ -1,0 +1,14 @@
+{
+  "name": "sous-brand",
+  "private": true,
+  "type": "module",
+  "description": "Generates sous's brand kit in brand/ from brand-art.mjs. Not part of the Go build.",
+  "scripts": {
+    "brand": "node build.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "opentype.js": "2.0.0",
+    "sharp": "0.35.5"
+  }
+}
