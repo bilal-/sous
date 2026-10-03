@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.10.0]
+
 ### Added
 * **Antigravity.** `sous setup` sets Antigravity up when it is installed:
   the skill in `~/.gemini/config/skills` (the folder the app and `agy`
