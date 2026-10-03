@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 func sousCmd(f *fx, dir string, args ...string) *exec.Cmd {
@@ -43,9 +45,13 @@ func TestGoExecsAgentInProject(t *testing.T) {
 	if err := sousCmd(f, f.Home, "go", "ios", "-a", "nope").Run(); !errors.As(err, &ee) || ee.ExitCode() != 2 {
 		t.Fatal("unknown launcher exit 2")
 	}
+	// A missing agent is not set up (exit 3), whatever this machine has
+	// installed: PATH is the fixture's bin and git alone.
 	os.Remove(filepath.Join(f.Home, "bin", "codex"))
+	testutil.OnlyGit(t)
+	t.Setenv("PATH", filepath.Join(f.Home, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 	out, err = sousCmd(f, f.Home, "go", "ios").CombinedOutput()
-	if !errors.As(err, &ee) || ee.ExitCode() != 1 || !strings.Contains(string(out), "codex") {
+	if !errors.As(err, &ee) || ee.ExitCode() != 3 || !strings.Contains(string(out), "codex") {
 		t.Fatalf("missing binary: %v %s", err, out)
 	}
 }
