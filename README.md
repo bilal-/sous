@@ -2,11 +2,13 @@
 
 [![CI](https://github.com/bilal-/sous/actions/workflows/ci.yml/badge.svg)](https://github.com/bilal-/sous/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/bilal-/sous)](https://github.com/bilal-/sous/releases/latest)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/github/go-mod/go-version/bilal-/sous)](go.mod)
 [![AXI](https://img.shields.io/badge/agent%20friendly-AXI-8a2be2)](https://axi.md)
 
 One list of what is waiting on you, across every project you work on.
+
+**[sous.bilal.sh](https://sous.bilal.sh)**
 
 AI tools make it easy to keep ten or twenty projects moving at once. The hard
 part is keeping track of them. Which project has a review waiting for me?
@@ -519,8 +521,8 @@ and 1.0 freezes it.
 
 ## License
 
-sous is released under the [Apache License 2.0](LICENSE).
-Copyright 2026 Bilal.
+sous is released under the [MIT License](LICENSE). Copyright 2026 Bilal.
+The name and logo have a separate [trademark notice](TRADEMARK.md).
 
 In plain words, you may use, copy, change and share sous, including in paid
 and commercial work, as long as you:

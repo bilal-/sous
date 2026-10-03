@@ -18,7 +18,7 @@ cat <<RUBY
 class Sous < Formula
   desc "One list of what is waiting on you, across every project"
   homepage "https://github.com/$repo"
-  license "Apache-2.0"
+  license "MIT"
 
   on_macos do
     if Hardware::CPU.arm?

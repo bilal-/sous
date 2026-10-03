@@ -7,6 +7,14 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.11.1]
+
+### Changed
+* sous is now under the MIT License, as shellbell is. Releases up to 0.11.0
+  stay under Apache 2.0 for anyone who has them. The name and logo are
+  covered by a separate [trademark notice](TRADEMARK.md).
+* The README links to [sous.bilal.sh](https://sous.bilal.sh).
+
 ## [0.11.0]
 
 ### Changed

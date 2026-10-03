@@ -65,9 +65,10 @@ sous, and how you tested it. Small, focused changes are reviewed fastest.
 
 ## License
 
-sous is licensed under the [Apache License 2.0](LICENSE). By sending a
-contribution you agree that it is shared under that license, as section 5
-of the license describes. There is no separate agreement to sign.
+sous is licensed under the [MIT License](LICENSE). By sending a
+contribution you agree that it is shared under that license. There is no
+separate agreement to sign. Keep existing notices, and follow
+[TRADEMARK.md](TRADEMARK.md) for the name and logo.
 
 ## Be kind
 

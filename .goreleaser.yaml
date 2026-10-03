@@ -19,7 +19,7 @@ builds:
 archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files: [LICENSE, README.md, CHANGELOG.md]
+    files: [LICENSE, TRADEMARK.md, README.md, CHANGELOG.md]
 
 checksum:
   name_template: checksums.txt
