@@ -296,17 +296,13 @@ it once sous has an audience.
 
 Which number to raise, before 1.0:
 
-* **patch** (0.9.0 to 0.9.1): almost every release: fixes, improvements,
-  refactors, new options, and changes to output that the changelog spells
-  out. Patch numbers can climb as high as they need to.
-* **minor** (0.9.x to 0.10.0): only for a milestone the owner names, such
-  as a new kind of plugin or a change that makes people redo their setup.
-  Ask before raising it. The number after 0.9 is 0.10, not 1.0.
-* **1.0**: when the plugin contract is frozen, and only when the owner
-  decides; months away. After 1.0, breaking changes raise the major number.
-
-Any change a person or an agent would notice still goes in the changelog,
-whatever the number.
+* **patch** (0.9.0 to 0.9.1): fixes and small improvements.
+* **minor** (0.9.x to 0.10.0): new features, or any change to how a command,
+  flag, output or the plugin contract behaves. The number after 0.9 is
+  0.10, then 0.11: the minor number climbs as high as it needs to.
+* **1.0**: only when the owner decides the plugin contract is frozen;
+  months away. Never raise it as the next step after a 0.x. After 1.0,
+  breaking changes raise the major number.
 
 Only if people ever need fixes on an older line while newer work goes on do
 we create a branch such as `release/0.1` from its last tag, and only then.
