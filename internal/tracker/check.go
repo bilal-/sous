@@ -24,11 +24,8 @@ type Result struct {
 // each login's notifications readable. It asks GitHub, so it is for sous
 // doctor, never for the board's hot path.
 func CheckGitHub(accounts []string) []Result {
-	if err := GHInstalled(); err != nil {
-		if len(accounts) == 0 {
-			return []Result{{Name: "gh", OK: true, Detail: "not installed; GitHub is not set up here (optional)"}}
-		}
-		return []Result{{Name: "gh", Detail: "not installed, but config.toml names GitHub accounts", Fix: "install gh: https://cli.github.com"}}
+	if r, missing := missingTool("gh", "GitHub", "https://cli.github.com", "accounts", len(accounts) > 0); missing {
+		return r
 	}
 	err := GHReady("")
 	gh := readyResult("gh", err, "gh auth login")
@@ -59,11 +56,8 @@ func CheckGitHub(accounts []string) []Result {
 // CheckGitLab says whether glab can reach each GitLab host the board asks:
 // the ones config.toml names and the ones glab is logged in to.
 func CheckGitLab(configured []string) []Result {
-	if err := GLabInstalled(); err != nil {
-		if len(configured) == 0 {
-			return []Result{{Name: "glab", OK: true, Detail: "not installed; GitLab is not set up here (optional)"}}
-		}
-		return []Result{{Name: "glab", Detail: "not installed, but config.toml names GitLab hosts", Fix: "install glab: https://gitlab.com/gitlab-org/cli"}}
+	if r, missing := missingTool("glab", "GitLab", "https://gitlab.com/gitlab-org/cli", "hosts", len(configured) > 0); missing {
+		return r
 	}
 	hosts, err := GitLabHosts(&config.Config{GitLabHosts: configured})
 	if err != nil {
@@ -77,6 +71,19 @@ func CheckGitLab(configured []string) []Result {
 		out = append(out, readyResult("GitLab host "+h, GLabReady(h), "glab auth login --hostname "+h))
 	}
 	return out
+}
+
+// missingTool is the check's answer when tool is not installed: a note
+// when config asks nothing of it, a problem when config names its
+// tracker's accounts or hosts (what).
+func missingTool(tool, tracker, install, what string, configured bool) ([]Result, bool) {
+	if installed(tool) == nil {
+		return nil, false
+	}
+	if !configured {
+		return []Result{{Name: tool, OK: true, Detail: "not installed; " + tracker + " is not set up here (optional)"}}, true
+	}
+	return []Result{{Name: tool, Detail: "not installed, but config.toml names " + tracker + " " + what, Fix: "install " + tool + ": " + install}}, true
 }
 
 // notSetUp: the tool or its login is missing, rather than broken.
