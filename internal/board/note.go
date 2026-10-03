@@ -3,6 +3,7 @@ package board
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -74,7 +75,7 @@ func RunsWaiting(views []thread.View) string {
 		if v.Run == nil {
 			continue
 		}
-		name := project.Describe(v.Project).Name
+		name := filepath.Base(v.Project) // no git: this runs while a session starts
 		switch v.Run.State {
 		case "needs_you":
 			fmt.Fprintf(&b, "  %d %s: needs you · %s · answer with: sous reply %d \"<answer>\"\n", v.ID, name, v.Run.Text, v.ID)
