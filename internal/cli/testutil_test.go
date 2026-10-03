@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -90,6 +91,13 @@ func (f *fx) runStdin(stdin string, args ...string) (string, string, int) {
 func TestMain(m *testing.M) {
 	if os.Getenv("SOUS_TEST_AS_BINARY") == "1" {
 		os.Exit(Run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+	}
+	// sous go and sous launcher replace the process with the agent. Inside
+	// the test process that would end the run early and still report ok,
+	// so here they fail instead; tests that need the exec run sous as a
+	// separate program (sousCmd).
+	execProgram = func(path string, _, _ []string) error {
+		return fmt.Errorf("test: would exec %s in the test process", path)
 	}
 	os.Exit(m.Run())
 }

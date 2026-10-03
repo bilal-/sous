@@ -41,8 +41,12 @@ func execIn(dir, path string, argv []string, env ...string) error {
 	if err := os.Chdir(dir); err != nil {
 		return err
 	}
-	return syscall.Exec(path, argv, withEnv(os.Environ(), env))
+	return execProgram(path, argv, withEnv(os.Environ(), env))
 }
+
+// execProgram replaces this process with another. Tests that run sous in
+// their own process swap it, so no test can end the test run.
+var execProgram = syscall.Exec
 
 // withEnv sets each "K=V" in set on base, replacing any inherited K: exec
 // keeps duplicates and programs read the first.

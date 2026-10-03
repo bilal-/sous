@@ -95,6 +95,7 @@ func TestGoAndLauncherUsageErrors(t *testing.T) {
 		}
 	}
 	t.Setenv("PATH", filepath.Join(f.Home, "bin"))
+	os.Remove(filepath.Join(f.Home, "bin", "claude"))
 	if _, errs, code := f.run("launcher", "claude", "run", p); code != 1 || !strings.Contains(errs, "claude not found") {
 		t.Errorf("missing binary: %d %q", code, errs)
 	}
