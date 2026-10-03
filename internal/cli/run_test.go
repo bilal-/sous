@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -146,5 +147,19 @@ func TestRunRetryWhileNotSetUp(t *testing.T) {
 	}
 	if _, _, code := f.run("show", "2"); code != 1 {
 		t.Fatal("a second try made a second note")
+	}
+	// Under --json the error names the run, and the next step it suggests
+	// (its own key) starts the same note again, not a new one.
+	out, _, _ := f.run("go", "billing", "--run", "fix it", "-a", "off", "--json")
+	var got errorJSON
+	if err := json.Unmarshal([]byte(out), &got); err != nil || got.ID != "1" || !slices.Contains(got.Next, "sous doctor") {
+		t.Fatalf("%q", out)
+	}
+	retry := strings.Fields(got.Next[2])
+	if _, _, code := f.runStdin("fix it", append(retry[1:], "-a", "off")...); code != 3 {
+		t.Fatalf("%v: %d", retry, code)
+	}
+	if _, _, code := f.run("show", "2"); code != 1 {
+		t.Fatalf("the suggested retry made a second note: %v", retry)
 	}
 }

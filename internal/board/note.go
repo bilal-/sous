@@ -18,7 +18,7 @@ import (
 type runLook struct {
 	label  string                     // what the board says first: "run needs you"
 	detail func(r *thread.Run) string // what follows the note: its question, its branch
-	next   []string                   // commands, with {n} for the note's number and {project} its org/name
+	next   []string                   // commands, with {n} for the note's number, {project} its org/name and {key} the run's key
 }
 
 var runLooks = map[thread.RunState]runLook{
@@ -32,8 +32,17 @@ var runLooks = map[thread.RunState]runLook{
 		next: []string{"sous show {n}", "sous go {project} --run - --key retry-{n}", "sous done {n} --clean"}},
 }
 
+// notStarted is a run that failed before its runner took it: nothing to
+// clean, and the same key starts it again on the same note once whatever
+// stopped it (sous doctor says) is fixed.
+var notStarted = runLook{label: "run did not start", detail: func(r *thread.Run) string { return text.Suffix(r.Text) },
+	next: []string{"sous show {n}", "sous doctor", "sous go {project} --run - --key {key}", "sous done {n}"}}
+
 // look is r's entry; a state sous does not know reads like running.
 func look(r *thread.Run) runLook {
+	if r.State == thread.RunFailed && r.Ref == "" {
+		return notStarted
+	}
 	if l, ok := runLooks[r.State]; ok {
 		return l
 	}
@@ -60,7 +69,7 @@ func Next(v thread.View) []string {
 		return []string{fmt.Sprintf("sous done %d", v.ID)}
 	}
 	// org/name: a folder name alone may match more than one project.
-	fill := strings.NewReplacer("{n}", fmt.Sprint(v.ID), "{project}", project.OrgName(v.Project))
+	fill := strings.NewReplacer("{n}", fmt.Sprint(v.ID), "{project}", project.OrgName(v.Project), "{key}", shellWord(v.Run.Key))
 	var out []string
 	for _, c := range look(v.Run).next {
 		out = append(out, fill.Replace(c))
@@ -123,4 +132,12 @@ func RunsWaiting(views []thread.View) string {
 		return ""
 	}
 	return "[sous] Runs waiting on the user:\n" + b.String()
+}
+
+// shellWord is s as one word on a command line: quoted when it has to be.
+func shellWord(s string) string {
+	if s == "" || strings.ContainsAny(s, " \t\n'\"$`\\|&;<>()*?[]#~!{}") {
+		return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+	}
+	return s
 }

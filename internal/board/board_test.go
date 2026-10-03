@@ -181,7 +181,7 @@ func TestRunsAreRoutedByState(t *testing.T) {
 	now := time.Now()
 	mk := func(id int, state thread.RunState) thread.View {
 		return thread.View{Thread: thread.Thread{ID: id, Project: "/code/acme/billing", Text: "fix the flaky test", Kind: thread.Them, Since: now,
-			Run: &thread.Run{Runner: "claude", State: state, Text: "which fixture?", Branch: fmt.Sprintf("sous/run-%d", id)}}}
+			Run: &thread.Run{Runner: "claude", Ref: fmt.Sprintf("claude:u%d", id), State: state, Text: "which fixture?", Branch: fmt.Sprintf("sous/run-%d", id)}}}
 	}
 	unavailable := mk(5, "running")
 	unavailable.RunErr = "claude: timed out"
@@ -258,10 +258,20 @@ func TestSnoozedAndRunItems(t *testing.T) {
 }
 
 // A failed run's next steps go forward: see why, try again under a new
-// key (the same brief would find the failed run), or clean it up.
+// key (the same brief would find the failed run), or clean it up. One
+// that never started has nothing to clean: once sous doctor's fix is in,
+// its own key starts it again on the same note.
 func TestFailedRunSuggestsARetry(t *testing.T) {
-	v := thread.View{Thread: thread.Thread{ID: 7, Project: "/code/acme/billing", Run: &thread.Run{State: thread.RunFailed}}}
+	v := thread.View{Thread: thread.Thread{ID: 7, Project: "/code/acme/billing", Run: &thread.Run{Ref: "claude:u7", State: thread.RunFailed}}}
 	if got := strings.Join(Next(v), " | "); got != "sous show 7 | sous go acme/billing --run - --key retry-7 | sous done 7 --clean" {
+		t.Fatal(got)
+	}
+	v.Run = &thread.Run{State: thread.RunFailed, Key: "brief:0a1b2c"}
+	if got := strings.Join(Next(v), " | "); got != "sous show 7 | sous doctor | sous go acme/billing --run - --key brief:0a1b2c | sous done 7" {
+		t.Fatal(got)
+	}
+	v.Run.Key = "fix it's flaky"
+	if got := Next(v)[2]; got != `sous go acme/billing --run - --key 'fix it'\''s flaky'` {
 		t.Fatal(got)
 	}
 }

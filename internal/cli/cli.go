@@ -274,6 +274,10 @@ type errorJSON struct {
 	// Matches: the projects an ambiguous name matched, as org/name, to
 	// pick one from.
 	Matches []string `json:"matches,omitempty"`
+	// ID and Next: the note a failed change left behind, and what to do
+	// about it.
+	ID   string   `json:"id,omitempty"`
+	Next []string `json:"next,omitempty"`
 }
 
 // Run is the whole CLI. Returns the process exit code.

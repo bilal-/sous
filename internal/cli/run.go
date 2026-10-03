@@ -50,9 +50,9 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 	case errors.As(err, new(thread.ValidationError)):
 		return fail(e, exitUsage, "%v", err)
 	case errors.Is(err, runner.ErrNotSetUp):
-		return fail(e, exitNotReady, "%v (run %d is on the board as failed; %s)", err, id, installHint)
+		return failWith(e, startFailed(e, id, exitNotReady, fmt.Sprintf("%v (run %d is on the board as failed; %s)", err, id, installHint)))
 	case err != nil && id > 0:
-		return fail(e, exitFailed, "%v (run %d is on the board as failed; sous show %d)", err, id, id)
+		return failWith(e, startFailed(e, id, exitFailed, fmt.Sprintf("%v (run %d is on the board as failed; sous show %d)", err, id, id)))
 	case err != nil:
 		return fail(e, exitFailed, "%v", err)
 	}
@@ -138,4 +138,14 @@ func stopRun(e *Env, id int, clean bool) (runs.Finished, int) {
 		fmt.Fprintf(e.Stderr, "sous: %s cannot clean up after its runs; its files stay\n", th.Run.Runner)
 	}
 	return done, 0
+}
+
+// startFailed is the error for a run that failed to start: the note it is
+// on, and what to do about it.
+func startFailed(e *Env, id, exit int, msg string) errorJSON {
+	ej := errorJSON{Error: msg, Exit: exit, ID: fmt.Sprint(id)}
+	if th, err := thread.Get(e.store(), id); err == nil {
+		ej.Next = board.Next(thread.View{Thread: th})
+	}
+	return ej
 }
