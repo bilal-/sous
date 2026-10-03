@@ -75,14 +75,11 @@ func TestReadCommandsJSONHasNoNullLists(t *testing.T) {
 func TestErrorsUnderJSON(t *testing.T) {
 	f := fixture(t)
 	out, errs, code := f.run("show", "99", "--json")
-	var got struct {
-		Error string
-		Exit  int
+	var got errorJSON
+	if code != exitUsage || json.Unmarshal([]byte(out), &got) != nil || got.Exit != exitUsage || !strings.Contains(got.Error, "99") || !strings.Contains(errs, "99") || len(got.Next) == 0 {
+		t.Fatalf("a note that is not there is the wrong number, with somewhere to look: %d %q %q", code, out, errs)
 	}
-	if code != 1 || json.Unmarshal([]byte(out), &got) != nil || got.Exit != 1 || !strings.Contains(got.Error, "99") || !strings.Contains(errs, "99") {
-		t.Fatalf("%d %q %q", code, out, errs)
-	}
-	if out, _, code := f.run("show", "99"); code != 1 || out != "" {
+	if out, _, code := f.run("show", "99"); code != exitUsage || out != "" {
 		t.Fatalf("without --json stdout stays empty: %q", out)
 	}
 }

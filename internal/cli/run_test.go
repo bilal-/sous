@@ -145,7 +145,7 @@ func TestRunRetryWhileNotSetUp(t *testing.T) {
 			t.Fatalf("try %d: %d", i, code)
 		}
 	}
-	if _, _, code := f.run("show", "2"); code != 1 {
+	if _, _, code := f.run("show", "2"); code != exitUsage {
 		t.Fatal("a second try made a second note")
 	}
 	// Under --json the error names the run, and the next step it suggests
@@ -159,7 +159,7 @@ func TestRunRetryWhileNotSetUp(t *testing.T) {
 	if _, _, code := f.runStdin("fix it", append(retry[1:], "-a", "off")...); code != 3 {
 		t.Fatalf("%v: %d", retry, code)
 	}
-	if _, _, code := f.run("show", "2"); code != 1 {
+	if _, _, code := f.run("show", "2"); code != exitUsage {
 		t.Fatalf("the suggested retry made a second note: %v", retry)
 	}
 }

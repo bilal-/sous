@@ -139,8 +139,15 @@ func TestValidationErrorAndNotFoundMessages(t *testing.T) {
 	}
 	s := &store.Store{Home: t.TempDir()}
 	err := Edit(s, 42, "y")
-	if err == nil || !strings.Contains(err.Error(), "no open note 42") {
+	if err == nil || err.Error() != "no note 42" || !errors.Is(err, ErrNotFound) {
 		t.Fatalf("%v", err)
+	}
+	now := time.Now()
+	id, _, _ := Note(s, project.Project{Path: "/ws/x"}, Me, "x", SourceHuman, now)
+	Done(s, id, now)
+	var closed ClosedError
+	if err := Edit(s, id, "y"); !errors.As(err, &closed) || closed.ID != id || !closed.At.Equal(now.UTC()) || !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a closed note says so, and when: %v", err)
 	}
 }
 

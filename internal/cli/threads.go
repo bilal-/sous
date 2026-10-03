@@ -38,8 +38,9 @@ func cmdNote(e *Env, a argv) int {
 	if existed {
 		c.Did, said = didAlreadyNoted, fmt.Sprintf("already noted as %d in %s", id, p.Name)
 		if th, err := thread.Get(e.store(), id); err == nil && th.Kind != kind {
-			said += fmt.Sprintf(" (%s; sous kind %d %s to change it)", th.Kind, id, kind)
-			c.Kind = string(th.Kind)
+			fix := fmt.Sprintf("sous kind %d %s", id, kind)
+			said += fmt.Sprintf(" (%s; %s to change it)", th.Kind, fix)
+			c.Kind, c.Next = string(th.Kind), append([]string{fix}, c.Next...)
 		}
 	}
 	if !a.has("file") {
@@ -76,7 +77,17 @@ func threadErr(e *Env, err error) int {
 	if err == nil {
 		return 0
 	}
-	if errors.Is(err, thread.ErrNotFound) || errors.Is(err, store.ErrNewer) {
+	// A note that is not open is the wrong number, not a failure to retry.
+	var closed thread.ClosedError
+	if errors.As(err, &closed) {
+		show := fmt.Sprintf("sous show %d", closed.ID)
+		return failWith(e, errorJSON{Error: fmt.Sprintf("note %d was closed %s; %s", closed.ID, text.Ago(time.Now(), closed.At), show),
+			Exit: exitUsage, ID: fmt.Sprint(closed.ID), Next: []string{show}})
+	}
+	if errors.Is(err, thread.ErrNotFound) {
+		return failWith(e, errorJSON{Error: err.Error() + "; sous lists the open ones", Exit: exitUsage, Next: []string{"sous"}})
+	}
+	if errors.Is(err, store.ErrNewer) {
 		return fail(e, exitFailed, "%v", err)
 	}
 	var vErr thread.ValidationError

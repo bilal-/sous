@@ -7,6 +7,27 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+* A note number that is not an open note exits `2`, not `1`: it is the
+  wrong number, not something to retry. A closed note says when it was
+  closed, and under `--json` the error has `id` and `next`
+  (`sous show <n>`).
+* A run that failed before its runner took it reads "run did not start",
+  and suggests `sous doctor` and its own `--key`, which starts the same
+  note again; `retry-<n>` made a new failed note each time. A failed
+  start's `--json` error carries the run's `id` and `next`.
+* `note` that finds the same text under another kind puts the
+  `sous kind` that changes it first in `next`.
+* Every line of the session-start brief fits in 120 characters; a waiting
+  run shows one next step (`sous show <n>` has the rest).
+
+### Fixed
+* `sous done` on a run that was already cleaned up no longer fails.
+* `sous done` right after `go --run` or `reply` stops the agent gently,
+  not with a kill two seconds later.
+* A board refreshed while a failed run is retried no longer marks the
+  retry failed.
+
 ## [0.10.2]
 
 ### Fixed

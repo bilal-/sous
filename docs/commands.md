@@ -202,9 +202,10 @@ else until you [share one](#sharing-a-note).
 ### `sous note "text"`
 
 Save a note, and say its number and what makes sense next:
-`noted 7 in api · sous done 7`. Saving the same text, kind
-and project again while that note is open gives back the same note
-(`already noted as 7`), so a retry never makes two. With `--json`:
+`noted 7 in api · sous done 7`. Saving the same text in the same
+project again while that note is open gives back the same note
+(`already noted as 7`), so a retry never makes two; if it was saved
+under another kind, `next` starts with the `sous kind` that changes it. With `--json`:
 `{"id": "7", "did": "noted", "ref": null, "next": [...]}`; every command
 that changes something answers this way, and `did` says what happened
 (`noted`, `already_noted`, `edited`, `kind`, `snoozed`, `closed`,
@@ -585,7 +586,7 @@ code `2`. It never guesses.
 |---|---|
 | `0` | Fine. |
 | `1` | Something failed: a data file, a tracker, a missing tool. The message says what. For `sous doctor`, something is broken. |
-| `2` | The command was wrong (unknown option, wrong arguments, bad value), or a name matched more than one project. |
+| `2` | The command was wrong (unknown option, wrong arguments, bad value), a name matched more than one project, or a note number is not an open note (a closed one says when it closed, and `sous show <n>`). |
 | `3` | `--cached` or `--ambient` was asked for the board before there was one. A first board is being built. For `sous go`, the agent it starts is not installed; for `go --run`, the runner is not set up, and the run shows on the board as failed. (For a signal or runner plugin, exit `3` means "not set up here"; see [plugins.md](plugins.md).) |
 
 ## Environment variables

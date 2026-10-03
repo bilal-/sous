@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,8 +45,13 @@ func TestNoteCLI(t *testing.T) {
 	if out, _, code := f.run("done", "1"); code != 0 || !strings.HasPrefix(out, "1 was closed ") {
 		t.Errorf("done twice is fine, and says when it was closed: %d %q", code, out)
 	}
-	if _, _, code := f.run("done", "99"); code != 1 {
-		t.Error("done missing should exit 1")
+	if _, _, code := f.run("done", "99"); code != exitUsage {
+		t.Error("done on a note that is not there is a usage error")
+	}
+	out, _, code = f.run("edit", "1", "again", "--json")
+	var got errorJSON
+	if code != exitUsage || json.Unmarshal([]byte(out), &got) != nil || !strings.Contains(got.Error, "note 1 was closed") || got.ID != "1" || len(got.Next) != 1 || got.Next[0] != "sous show 1" {
+		t.Errorf("a closed note says so, and where to see it: %d %q", code, out)
 	}
 }
 
@@ -183,5 +189,10 @@ func TestNoteSaysWhatItDidWithItsText(t *testing.T) {
 	}
 	if out, _, _ := f.runIn(p, "note", "-k", "idea", "first line second"); !strings.Contains(out, "already noted as 1 in api (me; sous kind 1 idea to change it)") {
 		t.Fatalf("%q", out)
+	}
+	out, _, _ := f.runIn(p, "note", "-k", "idea", "first line second", "--json")
+	var c changedJSON
+	if json.Unmarshal([]byte(out), &c) != nil || c.Did != didAlreadyNoted || c.Kind != "me" || len(c.Next) == 0 || c.Next[0] != "sous kind 1 idea" {
+		t.Fatalf("under --json the fix comes first in next: %q", out)
 	}
 }

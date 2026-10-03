@@ -123,7 +123,32 @@ type View struct {
 	LogTail []string `json:"-"`
 }
 
-var ErrNotFound = errors.New("no open note")
+// ErrNotFound: there is no such note, or (ClosedError) it is closed.
+var ErrNotFound = errors.New("no note")
+
+// ClosedError: the note is there, but closed, which is not where a change
+// can be made.
+type ClosedError struct {
+	ID int
+	At time.Time
+}
+
+func (e ClosedError) Error() string        { return fmt.Sprintf("note %d is closed", e.ID) }
+func (e ClosedError) Is(target error) bool { return target == ErrNotFound }
+
+// find is note id, or why there is none; with closed, a closed note is
+// found too, and otherwise it is a ClosedError.
+func (d *Doc) find(id int, closed bool) (*Thread, error) {
+	for i := range d.Threads {
+		if t := &d.Threads[i]; t.ID == id {
+			if t.Closed != nil && !closed {
+				return nil, ClosedError{ID: id, At: *t.Closed}
+			}
+			return t, nil
+		}
+	}
+	return nil, fmt.Errorf("%w %d", ErrNotFound, id)
+}
 
 // ValidationError marks caller mistakes (bad kind, empty text) so the CLI can
 // report them as usage errors rather than failures.
@@ -311,21 +336,17 @@ func MarkTidied(s *store.Store, id int, now time.Time) error {
 
 // editRun changes run id under the lock; with closed, a closed note's too.
 func editRun(s *store.Store, id int, closed bool, fn func(*Run)) error {
-	missing := false
 	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
-		for i := range d.Threads {
-			if t := &d.Threads[i]; t.ID == id && (closed || t.Closed == nil) {
-				if missing = t.Run == nil; !missing {
-					fn(t.Run)
-				}
-				return nil
-			}
+		t, err := d.find(id, closed)
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("%w %d", ErrNotFound, id)
+		if t.Run == nil {
+			return fmt.Errorf("%w %d with a run", ErrNotFound, id)
+		}
+		fn(t.Run)
+		return nil
 	})
-	if err == nil && missing {
-		return fmt.Errorf("%w %d with a run", ErrNotFound, id)
-	}
 	return err
 }
 
@@ -345,13 +366,12 @@ func Runs(s *store.Store, now time.Time) ([]View, error) {
 
 func touch(s *store.Store, id int, fn func(*Thread)) error {
 	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
-		for i := range d.Threads {
-			if d.Threads[i].ID == id && d.Threads[i].Closed == nil {
-				fn(&d.Threads[i])
-				return nil
-			}
+		t, err := d.find(id, false)
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("%w %d", ErrNotFound, id)
+		fn(t)
+		return nil
 	})
 	return err
 }
@@ -427,12 +447,11 @@ func Get(s *store.Store, id int) (Thread, error) {
 	if err != nil {
 		return Thread{}, err
 	}
-	for _, t := range d.Threads {
-		if t.ID == id {
-			return t, nil
-		}
+	t, err := d.find(id, true)
+	if err != nil {
+		return Thread{}, err
 	}
-	return Thread{}, fmt.Errorf("%w %d", ErrNotFound, id)
+	return *t, nil
 }
 
 // FileAtomically files an open thread under the threads lock: if it already
@@ -444,32 +463,24 @@ func Get(s *store.Store, id int) (Thread, error) {
 func FileAtomically(s *store.Store, id int, refile bool, do func(Thread) (string, error)) (string, error) {
 	var ref string
 	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
-		for i := range d.Threads {
-			t := &d.Threads[i]
-			if t.ID != id {
-				continue
-			}
-			if t.Closed != nil {
-				return fmt.Errorf("note %d is closed", id)
-			}
-			if t.Run != nil {
-				// A run's work is on its branch; closing its note stops it,
-				// which a tracker closing it would not.
-				return ValidationError(fmt.Sprintf("note %d is a run: its work is on its branch, not in a tracker", id))
-			}
-			if t.Ref != nil && !refile {
-				ref = *t.Ref
-				return nil
-			}
-			r, err := do(*t)
-			if err != nil {
-				return err
-			}
-			t.Ref = &r
-			ref = r
+		t, err := d.find(id, false)
+		switch {
+		case err != nil:
+			return err
+		case t.Run != nil:
+			// A run's work is on its branch; closing its note stops it,
+			// which a tracker closing it would not.
+			return ValidationError(fmt.Sprintf("note %d is a run: its work is on its branch, not in a tracker", id))
+		case t.Ref != nil && !refile:
+			ref = *t.Ref
 			return nil
 		}
-		return fmt.Errorf("%w %d", ErrNotFound, id)
+		r, err := do(*t)
+		if err != nil {
+			return err
+		}
+		t.Ref, ref = &r, r
+		return nil
 	})
 	return ref, err
 }
