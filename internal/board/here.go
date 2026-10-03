@@ -120,9 +120,9 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 			shown = shown[:limit]
 		}
 		for _, r := range shown {
-			line, c := r.hereLine()
+			line, c := r.hereLine(suffix)
 			cut = cut || c && !signal.IsID(r.ID) // only a note can be shown whole
-			fmt.Fprintln(w, line+suffix)
+			fmt.Fprintln(w, line)
 		}
 		if len(shown) < len(rows) {
 			fmt.Fprintf(w, "  … and %d more (sous %s)\n", len(rows)-len(shown), project.OrgName(d.Project))
@@ -161,7 +161,11 @@ func renderHereHeader(w io.Writer, d *HereData, s Sections, now time.Time, brief
 				parts[i] += " (stale)"
 			}
 		}
-		fmt.Fprintf(w, "  %s\n", strings.Join(parts, " · "))
+		line := "  " + strings.Join(parts, " · ")
+		if brief {
+			line = text.Fit("", line, "")
+		}
+		fmt.Fprintln(w, line)
 	}
 	fmt.Fprintln(w, sessionLine(d.Session, brief))
 	if len(s.Why) > 0 {
@@ -174,28 +178,30 @@ func sessionLine(sess *session.Session, brief bool) string {
 		return "last session · none recorded"
 	}
 	line := fmt.Sprintf("last session · %s · %s", sess.Agent, sess.Ended.Format("2006-01-02"))
-	if sess.LastMessage != nil && *sess.LastMessage != "" {
-		msg := *sess.LastMessage
-		if brief {
-			msg = text.Ellipsize(msg, text.LineRunes)
-		}
-		line += fmt.Sprintf(" · ended: %q", msg)
+	if sess.LastMessage == nil || *sess.LastMessage == "" {
+		return line
 	}
-	return line
+	if brief {
+		return text.Fit(line+` · ended: "`, *sess.LastMessage, `"`)
+	}
+	return line + fmt.Sprintf(" · ended: %q", *sess.LastMessage)
 }
 
-// hereLine is a row as here lists it: id, text, age, then what is known
-// about it (snoozed, filed where, upstream trouble).
-func (r Row) hereLine() (line string, cut bool) {
-	shown := text.Ellipsize(r.Shown, text.LineRunes)
-	l := fmt.Sprintf("  %s  %s  %s", r.ID, shown, r.Age)
+// hereLine is a row as here lists it, on one line: id, text, age, then
+// what is known about it (snoozed, filed where, upstream trouble) and
+// suffix. The text is cut to fit.
+func (r Row) hereLine(suffix string) (line string, cut bool) {
+	tail := "  " + r.Age
 	if r.Snoozed {
-		l += " (snoozed)"
+		tail += " (snoozed)"
 	}
 	if r.Ref != nil {
-		l += "  → " + *r.Ref
+		tail += "  → " + *r.Ref
 	}
-	return l + r.upstreamNote(), shown != r.Shown
+	tail += r.upstreamNote() + suffix
+	head := fmt.Sprintf("  %s  ", r.ID)
+	line = text.Fit(head, r.Shown, tail)
+	return line, line != head+r.Shown+tail
 }
 
 // briefRows is how many rows of each kind the short form (what an agent

@@ -296,8 +296,11 @@ func (a *Agent) Reply(_, ref, answer string) error {
 // sure of it, reaching the agent's own group when the watcher is gone. It
 // signals only while the run's lock is held, which only the watcher and
 // the agent do, so a process that later got the same pid is never touched.
-// Stopping a finished run changes nothing.
+// Stopping a finished or cleaned run changes nothing.
 func (a *Agent) Stop(_, ref string) error {
+	if gone, err := a.gone(ref); gone || err != nil {
+		return err
+	}
 	dir, _, err := a.meta(ref)
 	if err != nil {
 		return err
@@ -312,13 +315,15 @@ func (a *Agent) Stop(_, ref string) error {
 		}
 		return syscall.Kill(pid, sig) == nil
 	}
+	asked := false
 	for i := 0; i < 60 && watcherAlive(dir); i++ {
-		switch i {
-		case 0:
-			if !signal("watcher.pid", syscall.SIGTERM, false) {
+		switch {
+		case !asked && i < 40:
+			// A watcher just launched may not have said its pid yet: ask
+			// until one hears.
+			asked = signal("watcher.pid", syscall.SIGTERM, false) ||
 				signal("agent.pgid", syscall.SIGTERM, true) // no watcher: the agent carries on alone
-			}
-		case 40:
+		case i == 40:
 			signal("agent.pgid", syscall.SIGKILL, true)
 			signal("watcher.pid", syscall.SIGKILL, false)
 		}
@@ -334,17 +339,23 @@ func (a *Agent) Stop(_, ref string) error {
 	return nil
 }
 
+// gone: ref's run was cleaned away, folder and all.
+func (a *Agent) gone(ref string) (bool, error) {
+	uid, err := a.uidOf(ref)
+	if err != nil {
+		return false, err
+	}
+	_, err = os.Stat(a.dir(uid))
+	return os.IsNotExist(err), nil
+}
+
 // Clean removes what a finished run left: its worktree (refused while
 // work there is not committed), its branch only when it holds no work
 // (git refuses to delete a branch it has not merged), and its folder.
 // Cleaning twice is fine.
 func (a *Agent) Clean(_, ref string) error {
-	uid, err := a.uidOf(ref)
-	if err != nil {
+	if gone, err := a.gone(ref); gone || err != nil {
 		return err
-	}
-	if _, err := os.Stat(a.dir(uid)); os.IsNotExist(err) {
-		return nil // cleaned before
 	}
 	dir, m, err := a.meta(ref)
 	if err != nil {

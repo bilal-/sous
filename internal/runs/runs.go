@@ -252,6 +252,11 @@ func (d *Dispatcher) Finish(ctx context.Context, id int, clean bool) (Finished, 
 		return NoRun, fmt.Errorf("note %d %w; --clean is for runs", id, ErrNotARun)
 	case th.Run == nil || th.Run.Ref == "":
 		return NoRun, nil
+	case th.Run.Cleaned != nil: // stopped and cleaned before: nothing to ask
+		if clean {
+			return Cleaned, nil
+		}
+		return Stopped, nil
 	}
 	if err := d.on(ctx, th, runner.Stop); err != nil {
 		return NoRun, fmt.Errorf("stopping run %d: %w", id, err)

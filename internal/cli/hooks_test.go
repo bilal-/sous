@@ -364,7 +364,7 @@ func TestSessionStartRuns(t *testing.T) {
 	}
 	for _, cwd := range []string{p, f.Home} {
 		out, _, code := f.runStdin(hookJSON(map[string]any{"cwd": cwd, "source": "startup"}), "hook", "session-start", "claude")
-		if code != 0 || !strings.Contains(out, "Runs waiting on the user") || !strings.Contains(out, `1 billing: run needs you · fix the flaky test · "which fixture should win?" · sous reply 1 "<answer>" · sous done 1`) ||
+		if code != 0 || !strings.Contains(out, "Runs waiting on the user") || !strings.Contains(out, `1 billing: run needs you · fix the flaky test · "which fixture should win?" · sous reply 1 "<answer>"`) ||
 			!strings.Contains(out, "2 billing: run done, review it · fix the flaky test · sous/run-2 · sous done 2 --clean") || strings.Contains(out, "3 billing") || strings.Contains(out, "4 billing") {
 			t.Errorf("from %s:\n%s", cwd, out)
 		}

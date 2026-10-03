@@ -1,8 +1,10 @@
 package text
 
 import (
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 func TestEllipsizeIsRuneSafe(t *testing.T) {
@@ -69,5 +71,18 @@ func TestOneLineCutPlural(t *testing.T) {
 	}
 	if Plural(1, "project") != "1 project" || Plural(0, "project") != "0 projects" {
 		t.Fatal(Plural(0, "project"))
+	}
+}
+
+func TestFitKeepsTheLineToLineRunes(t *testing.T) {
+	long := strings.Repeat("é", 300)
+	if got := Fit("  12  ", long, "  3d  → github:acme/api#7"); utf8.RuneCountInString(got) != LineRunes || !strings.HasSuffix(got, "…  3d  → github:acme/api#7") {
+		t.Errorf("%d %q", utf8.RuneCountInString(got), got)
+	}
+	if got := Fit("a ", "short", " b"); got != "a short b" {
+		t.Errorf("%q", got)
+	}
+	if got := Fit(strings.Repeat("h", 200), long, ""); !strings.HasSuffix(got, strings.Repeat("é", 15)+"…") {
+		t.Errorf("the middle keeps a few runes: %q", got)
 	}
 }

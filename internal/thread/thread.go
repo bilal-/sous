@@ -267,8 +267,10 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 			id = t.ID
 			if t.Run.Ref == "" && t.Run.State == RunFailed {
 				// It never started: this retry starts it, on the same note,
-				// with whichever runner was asked this time.
+				// with whichever runner was asked this time, its start
+				// timed from now.
 				t.Run.Runner, t.Run.State, t.Run.Text = runnerName, RunStarting, ""
+				t.Since = now.UTC()
 				return nil
 			}
 			existed = true

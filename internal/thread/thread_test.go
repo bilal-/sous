@@ -343,12 +343,16 @@ func TestNoteRunWithoutAKeyUsesTheBrief(t *testing.T) {
 func TestNoteRunRetriesAFailedStart(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	p := project.Project{Path: "/code/acme/api"}
-	id, _, _ := NoteRun(s, p, "fix it", "", "claude", "human", time.Now())
+	id, _, _ := NoteRun(s, p, "fix it", "", "claude", "human", time.Now().Add(-time.Hour))
 	SetRun(s, id, func(r *Run) { r.State, r.Text = RunFailed, "did not start: claude is not installed" })
-	again, existed, err := NoteRun(s, p, "fix it", "", "codex", "human", time.Now())
+	now := time.Now()
+	again, existed, err := NoteRun(s, p, "fix it", "", "codex", "human", now)
 	th, _ := Get(s, id)
 	if err != nil || again != id || existed || th.Run.State != RunStarting || th.Run.Runner != "codex" || th.Run.Text != "" {
 		t.Fatalf("%d %d %v %+v", id, again, existed, th.Run)
+	}
+	if !th.Since.Equal(now.UTC()) {
+		t.Fatalf("the retry's start is timed from now, not the first try: %v", th.Since)
 	}
 }
 

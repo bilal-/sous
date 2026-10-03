@@ -225,6 +225,9 @@ func TestStopAndClean(t *testing.T) {
 	if err := a.Clean(m.Project, ref); err != nil {
 		t.Fatalf("cleaning twice is fine: %v", err)
 	}
+	if err := a.Stop(m.Project, ref); err != nil {
+		t.Fatalf("stopping a cleaned run is fine too (done after done --clean): %v", err)
+	}
 }
 
 func TestCleanKeepsABranchWithCommits(t *testing.T) {

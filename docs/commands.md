@@ -28,9 +28,11 @@ everyday flow, start with the [README](../README.md). Run
 * A command given an option it does not know, or the wrong number of
   arguments, stops with exit code `2` and prints its usage. Nothing is
   silently ignored.
-* Every command that shows something takes **`--json`** for programs, and
-  `here` also takes **`--brief`**. These two work anywhere on the line.
-  Commands that change something do not take them, and say so.
+* Every command but `setup`, `version` and `help` takes **`--json`** for
+  programs: one that shows something prints it, and one that changes
+  something says what it did, `{"id", "did", "next"}` (see `sous note`). `here` also takes
+  **`--brief`**. Both work anywhere on the line; a command they mean
+  nothing to stops with exit code `2`.
 * `sous <command> --help` (or `-h`) prints that command's usage.
 * sous never stops to ask a question. It is safe to run from scripts and
   agents.

@@ -116,7 +116,8 @@ func RunsWaiting(views []thread.View) string {
 			continue
 		}
 		name := filepath.Base(v.Project) // no git: this runs while a session starts
-		fmt.Fprintf(&b, "  %d %s: %s · %s\n", v.ID, name, runLine(v.Run, v.Text), strings.Join(Next(v), " · "))
+		// One line each: sous show tells the rest, and what to do next.
+		fmt.Fprintln(&b, text.Fit(fmt.Sprintf("  %d %s: ", v.ID, name), runLine(v.Run, v.Text), " · "+Next(v)[0]))
 	}
 	if b.Len() == 0 {
 		return ""

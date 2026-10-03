@@ -111,6 +111,16 @@ func TestFinish(t *testing.T) {
 	if b, _ := os.ReadFile(calls); string(b) != "stopped\ncleaned\n" {
 		t.Fatalf("%q", b)
 	}
+	// Done again, with or without --clean: the runner is not asked about a
+	// run it has cleaned away.
+	for _, clean := range []bool{false, true} {
+		if done, err := d.Finish(context.Background(), id, clean); err != nil || done == NoRun {
+			t.Fatal(clean, done, err)
+		}
+	}
+	if b, _ := os.ReadFile(calls); string(b) != "stopped\ncleaned\n" {
+		t.Fatalf("asked again: %q", b)
+	}
 	note, _, _ := thread.Note(s, project.Project{Path: "/code/acme/billing"}, thread.Me, "not a run", "human", time.Now())
 	if done, err := d.Finish(context.Background(), note, false); err != nil || done != NoRun {
 		t.Fatal("a note without a run has nothing to finish:", err)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // How much of a thing sous shows: a line of text (a note on the board's
@@ -67,6 +68,14 @@ func Ellipsize(s string, n int) string {
 		return ""
 	}
 	return string(r[:n-1]) + "…"
+}
+
+// Fit is head, s and tail on one line of at most LineRunes, s cut to make
+// room; head and tail are kept whole, and s keeps a few runes however
+// long they are.
+func Fit(head, s, tail string) string {
+	room := LineRunes - utf8.RuneCountInString(head) - utf8.RuneCountInString(tail)
+	return head + Ellipsize(s, max(room, 16)) + tail
 }
 
 // Suffix is " · s", or nothing for an empty s.

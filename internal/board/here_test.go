@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/project"
@@ -57,8 +58,13 @@ func TestRenderHere(t *testing.T) {
 	}
 	b.Reset()
 	RenderHere(&b, d, now, true)
-	if strings.Count(b.String(), "x") != text.LineRunes-1 || !strings.Contains(b.String(), "x…\"") || !strings.Contains(b.String(), "… and 4 more") {
+	if !strings.Contains(b.String(), "x…\"") || !strings.Contains(b.String(), "… and 4 more") {
 		t.Errorf("brief caps:\n%s", b.String())
+	}
+	for _, l := range strings.Split(b.String(), "\n") {
+		if utf8.RuneCountInString(l) > text.LineRunes {
+			t.Errorf("a brief line is at most %d runes: %q", text.LineRunes, l)
+		}
 	}
 }
 
