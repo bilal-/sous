@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.7.0]
+
 ### Changed
 * Every command that changes something says what it did and what makes
   sense next, in one line (`noted 7 in api · sous show 7 · sous done 7`,
