@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.3.3]
+
 ### Changed
 * Every kind of plugin speaks the same exit codes for every call: `0`
   done, `1` failed, `2` refused, `3` not set up. The plugin guide now has
