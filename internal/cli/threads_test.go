@@ -164,4 +164,7 @@ func TestNoteWorksWithBrokenConfig(t *testing.T) {
 	if _, errs, code := f.runIn(p, "note", "-p", "r", "needs roots"); code != 1 || !strings.Contains(errs, "config") {
 		t.Fatalf("-p needs config, and says so: %d %q", code, errs)
 	}
+	if _, errs, code := f.run("done", "1"); code != 0 {
+		t.Fatalf("closing a note needs no config either: %d %q", code, errs)
+	}
 }

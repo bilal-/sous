@@ -190,6 +190,36 @@ func (d *Dispatcher) Stop(ctx context.Context, id int) error {
 	return runner.Stop(ctx, r, th.Project, th.Run.Ref)
 }
 
+// Finish is what closing a note does to its run first: stop it, and with
+// clean remove what it left behind, keeping its work. A note that is not a
+// run is left alone (and asking to clean it is ErrNotARun); a run that
+// never started has nothing to stop. cleaned is false when the runner
+// cannot clean up; its files stay.
+func (d *Dispatcher) Finish(ctx context.Context, id int, clean bool) (cleaned bool, err error) {
+	th, err := thread.Get(d.Store, id)
+	switch {
+	case err != nil:
+		return false, err
+	case th.Run == nil && clean:
+		return false, fmt.Errorf("note %d %w; --clean is for runs", id, ErrNotARun)
+	case th.Run == nil || th.Run.Ref == "":
+		return false, nil
+	}
+	if err := d.Stop(ctx, id); err != nil {
+		return false, fmt.Errorf("stopping run %d: %w", id, err)
+	}
+	if !clean {
+		return false, nil
+	}
+	switch err := d.Clean(ctx, id); {
+	case errors.Is(err, runner.ErrUnsupported):
+		return false, nil
+	case err != nil:
+		return false, fmt.Errorf("cleaning up run %d: %w", id, err)
+	}
+	return true, nil
+}
+
 // Clean removes what the run left behind, keeping its work.
 func (d *Dispatcher) Clean(ctx context.Context, id int) error {
 	th, r, err := d.run(id)

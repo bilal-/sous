@@ -4,8 +4,10 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -348,4 +350,27 @@ func (c *Config) RunAgent() string {
 		return c.Runner
 	}
 	return c.Agent
+}
+
+// ChangeList adds items not already in have, or removes them, keeping order.
+func ChangeList(have, items []string, add bool) []string {
+	out := slices.Clone(have)
+	for _, it := range items {
+		switch i := slices.Index(out, it); {
+		case add && i < 0:
+			out = append(out, it)
+		case !add && i >= 0:
+			out = slices.Delete(out, i, i+1)
+		}
+	}
+	return out
+}
+
+// CheckPattern: the only pattern a project's settings may name is org/*,
+// every project in one org folder.
+func CheckPattern(term string) error {
+	if org, rest, ok := strings.Cut(term, "/"); !ok || rest != "*" || org == "" || strings.Contains(org, "*") {
+		return fmt.Errorf("%q: the only pattern sous knows is org/*, for every project in one org folder", term)
+	}
+	return nil
 }

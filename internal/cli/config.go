@@ -9,6 +9,7 @@ import (
 	"github.com/bilal-/sous/internal/backend"
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/launcher"
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
 )
@@ -48,13 +49,10 @@ func setConfig(e *Env, a argv) int {
 			if !ok {
 				return fail(e, 2, "--add and --remove are for lists: %s is not one", k.Name)
 			}
-			v = changeList(k.Value(e.Cfg).([]string), list, a.has("add"))
+			v = config.ChangeList(k.Value(e.Cfg).([]string), list, a.has("add"))
 		}
-		if k.Name == "agent" && !slices.Contains(launcherNames(e), v.(string)) {
-			return fail(e, 2, "no agent %q; choose one of: %s", v, strings.Join(launcherNames(e), ", "))
-		}
-		if k.Name == "runner" && !slices.Contains(runnerNames(e), v.(string)) {
-			return fail(e, 2, "no runner %q; choose one of: %s", v, strings.Join(runnerNames(e), ", "))
+		if code := checkName(e, k.Name, v); code != 0 {
+			return code
 		}
 		value = v
 	} else if len(a.pos) != 1 {
@@ -82,8 +80,8 @@ func setProjectConfig(e *Env, a argv) int {
 	term := a.value("p")
 	key := term // an org/* pattern names every project in that org
 	if strings.Contains(term, "*") {
-		if org, rest, ok := strings.Cut(term, "/"); !ok || rest != "*" || org == "" || strings.Contains(org, "*") {
-			return fail(e, 2, "%q: the only pattern sous knows is org/*, for every project in one org folder", term)
+		if err := config.CheckPattern(term); err != nil {
+			return fail(e, 2, "%v", err)
 		}
 	} else {
 		p, code := resolveProject(e, term)
@@ -99,8 +97,8 @@ func setProjectConfig(e *Env, a argv) int {
 	case a.has("unset") && len(a.pos) == 1:
 	case !a.has("unset") && len(a.pos) == 2:
 		value = a.pos[1]
-		if a.pos[0] == config.KeyBackend && !slices.Contains(backendNames(e), a.pos[1]) {
-			return fail(e, 2, "no backend %q; choose one of: %s", a.pos[1], strings.Join(backendNames(e), ", "))
+		if code := checkName(e, a.pos[0], value); code != 0 {
+			return code
 		}
 	default:
 		return fail(e, 2, "usage: sous config -p <project> <key> <value>, or -p <project> --unset <key>")
@@ -112,20 +110,6 @@ func setProjectConfig(e *Env, a argv) int {
 		fmt.Fprintf(e.Stderr, "sous: note: sous itself does not read %q (it reads %s); a plugin may\n", a.pos[0], strings.Join(config.ProjectKeys, ", "))
 	}
 	return said(e, key, a.pos[0], value)
-}
-
-// changeList adds items not already there, or removes them, keeping order.
-func changeList(have, items []string, add bool) []string {
-	out := slices.Clone(have)
-	for _, it := range items {
-		switch i := slices.Index(out, it); {
-		case add && i < 0:
-			out = append(out, it)
-		case !add && i >= 0:
-			out = slices.Delete(out, i, i+1)
-		}
-	}
-	return out
 }
 
 // said confirms a change in one line, or as JSON.
@@ -147,28 +131,28 @@ func said(e *Env, project, key string, value any) int {
 	return 0
 }
 
-func launcherNames(e *Env) []string {
-	var names []string
-	for _, l := range launcher.Launchers(e.Exe, launcher.BuiltinNames(), e.Cfg.Plugins) {
-		names = append(names, l.Name)
-	}
-	return names
+// named are the settings whose value names a plugin, and the names there
+// are: a typo must be caught before it is written.
+var named = map[string]func(e *Env) []plugin.Plugin{
+	"agent":           func(e *Env) []plugin.Plugin { return launcher.Launchers(e.Exe, launcher.BuiltinNames(), e.Cfg.Plugins) },
+	"runner":          func(e *Env) []plugin.Plugin { return runner.Runners(e.Exe, runner.Registry.Names(), e.Cfg.Plugins) },
+	config.KeyBackend: func(e *Env) []plugin.Plugin { return backend.Backends(e.Exe, backend.Registry.Names(), e.Cfg.Plugins) },
 }
 
-func runnerNames(e *Env) []string {
-	var names []string
-	for _, r := range runner.Runners(e.Exe, runner.Registry.Names(), e.Cfg.Plugins) {
-		names = append(names, r.Name)
+// checkName refuses a value for key that names no plugin there is.
+func checkName(e *Env, key string, value any) int {
+	list, ok := named[key]
+	if !ok {
+		return 0
 	}
-	return names
-}
-
-func backendNames(e *Env) []string {
 	var names []string
-	for _, b := range backend.Backends(e.Exe, backend.Registry.Names(), e.Cfg.Plugins) {
-		names = append(names, b.Name)
+	for _, p := range list(e) {
+		names = append(names, p.Name)
 	}
-	return names
+	if !slices.Contains(names, value.(string)) {
+		return fail(e, 2, "no %s %q; choose one of: %s", key, value, strings.Join(names, ", "))
+	}
+	return 0
 }
 
 // configView is sous config --json.

@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/hook"
-	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -59,32 +57,14 @@ func cmdHook(e *Env, a argv) int {
 	return 0
 }
 
-// runsWaiting lists the runs, in every project, that are done, need the
-// user, or failed: what an agent should hear about first. Only the built
-// in runners are asked (the hook must stay quick); the rest show as last
-// known.
+// runsWaiting: the runs waiting on the user, asked of the built in runners
+// only (the hook must stay quick); the rest show as last known.
 func runsWaiting(e *Env) string {
 	views, err := thread.Runs(e.store())
 	if err != nil || len(views) == 0 {
 		return ""
 	}
-	views = e.dispatcher().Refresh(e.ctx(), views, true)
-	var b strings.Builder
-	for _, v := range views {
-		name := project.Describe(v.Project).Name
-		switch v.Run.State {
-		case "needs_you":
-			fmt.Fprintf(&b, "  %d %s: needs you · %s · answer with: sous reply %d \"<answer>\"\n", v.ID, name, v.Run.Text, v.ID)
-		case "done":
-			fmt.Fprintf(&b, "  %d %s: done, review it%s · then: sous done %d\n", v.ID, name, board.Suffix(v.Run.Branch), v.ID)
-		case "failed":
-			fmt.Fprintf(&b, "  %d %s: failed%s · sous show %d\n", v.ID, name, board.Suffix(v.Run.Text), v.ID)
-		}
-	}
-	if b.Len() == 0 {
-		return ""
-	}
-	return "[sous] Runs waiting on the user:\n" + b.String()
+	return board.RunsWaiting(e.dispatcher().Refresh(e.ctx(), views, true))
 }
 
 // guarded runs fn but gives up after hookGuard, so a slow git, a huge

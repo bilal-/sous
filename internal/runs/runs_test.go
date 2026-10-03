@@ -2,6 +2,7 @@ package runs
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,5 +96,44 @@ func TestStuckStartEndsAsFailed(t *testing.T) {
 	}
 	if th, _ := thread.Get(s, fresh); th.Run.State != "starting" {
 		t.Fatalf("a start still in progress is left alone: %+v", th.Run)
+	}
+}
+
+// Finish is what sous done does to a run before the note closes: stop it,
+// and with clean remove what it left. A note that is not a run is left
+// alone, and clean is then a mistake; a runner that cannot clean is not.
+func TestFinish(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	r := fakeRunner(t, `start) echo fake:1;; stop) echo stopped >> "$(dirname "$0")/calls";; clean) echo cleaned >> "$(dirname "$0")/calls";;`)
+	calls := filepath.Join(filepath.Dir(r.Argv[0]), "calls")
+	d := &Dispatcher{Store: s, Runners: []runner.Runner{r}, Now: time.Now}
+	id, _, err := d.Start(context.Background(), project.Project{Path: "/code/acme/billing"}, "fix it", "", "fake", "human", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cleaned, err := d.Finish(context.Background(), id, true); err != nil || !cleaned {
+		t.Fatal(cleaned, err)
+	}
+	if b, _ := os.ReadFile(calls); string(b) != "stopped\ncleaned\n" {
+		t.Fatalf("%q", b)
+	}
+	note, _ := thread.Note(s, project.Project{Path: "/code/acme/billing"}, thread.Me, "not a run", "human", time.Now())
+	if _, err := d.Finish(context.Background(), note, false); err != nil {
+		t.Fatal("a note without a run has nothing to finish:", err)
+	}
+	if _, err := d.Finish(context.Background(), note, true); !errors.Is(err, ErrNotARun) {
+		t.Fatal("clean is for runs:", err)
+	}
+	noclean := fakeRunner(t, `start) echo fake:2;; stop) exit 0;; clean) exit 2;;`)
+	d.Runners = []runner.Runner{noclean}
+	id, _, _ = d.Start(context.Background(), project.Project{Path: "/code/acme/billing"}, "fix that", "", "fake", "human", "")
+	if cleaned, err := d.Finish(context.Background(), id, true); err != nil || cleaned {
+		t.Fatal("a runner that cannot clean still finishes:", cleaned, err)
+	}
+	stuck := fakeRunner(t, `start) echo fake:3;; stop) echo "still busy" >&2; exit 1;;`)
+	d.Runners = []runner.Runner{stuck}
+	id, _, _ = d.Start(context.Background(), project.Project{Path: "/code/acme/billing"}, "fix more", "", "fake", "human", "")
+	if _, err := d.Finish(context.Background(), id, false); err == nil || !strings.Contains(err.Error(), "still busy") {
+		t.Fatal(err)
 	}
 }
