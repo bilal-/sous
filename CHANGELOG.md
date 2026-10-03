@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.11.0]
+
 ### Changed
 * A note number that is not an open note exits `2`, not `1`: it is the
   wrong number, not something to retry. A closed note says when it was

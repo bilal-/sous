@@ -44,3 +44,7 @@ Tracked with `sous note --file`; tick a box to close it in sous too.
 - [ ] harness: Amp (TypeScript plugin in ~/.config/amp/plugins; agent.start returns a message). Docs only <!-- sous:a0ba73a9fc41 -->
 - [ ] harness: Goose and Cline cannot add context at session start: a line in their global AGENTS.md asking them to run sous here --brief <!-- sous:7856df15f47b -->
 - [ ] setup: remove the sous skill sous left in ~/.gemini/antigravity/skills before 0.10 (Antigravity never read it) <!-- sous:12a2f8f5cefb -->
+- [ ] architecture: one tracker list (internal/trackers) that backend.Registry and signal.Registry derive from, as launcher and runner derive from harness.All; generic Kind.Run in place of GHRun/GLabRun/…Installed <!-- sous:61c587c7bb37 -->
+- [ ] architecture: per-tracker settings in config (github_account, gitlab_hosts are named by hand in config and cli/config.go) <!-- sous:33219706bcae -->
+- [ ] architecture: tracker.Client{Home, Cache, Env} made in cli and passed down, in place of tracker's globals (Init, token and host caches, ResetCache) <!-- sous:4491631ca0e8 -->
+- [ ] architecture: per-harness test fixtures (testdata/<name>/) and one harnesstest.Run over harness.All, so a new agent is one file; signaltest.Run for the GitHub and GitLab signals too <!-- sous:2b18c3ec9bae -->

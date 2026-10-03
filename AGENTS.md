@@ -108,12 +108,14 @@ command that shows something answers with `--json` too, never `null`.
 The AXI tests loop over every verb, so they check a new one as it lands.
 
 **Adding a tracker** as a built in (Jira, say) is three pieces, each
-named after it:
+named after it, and their tests:
 
 1. a row in `tracker.Kinds` (`internal/tracker/kind.go`): its command line
    tool, its public host, its item links, and what `sous doctor` checks.
    If it needs a tool sous does not run yet, the code that runs that tool
-   safely goes in `internal/tracker` too, next to `GH` and `GLab`.
+   safely goes in `internal/tracker` too, next to `GHRun` and `GLabRun`,
+   with a check for doctor in `check.go`, and a setting for its accounts
+   or hosts in `config` if it has any.
 2. a backend, `internal/backend/<name>.go`: an `IssueCLI` for `Remote`
    (find the project's repo, file, look up, close), and its entry in
    `backend.Registry`.
@@ -123,7 +125,8 @@ named after it:
 The shared code should not need to change; if it does, that is the part
 to review closely. `TestTablesAgree` fails until all three exist. Every
 backend must pass `backendtest.Run` and `RunUnreachable` against a fake of
-its tool that keeps state (`internal/backend/conformance_test.go`), and
+its tool that keeps state (`internal/backend/conformance_test.go`, which
+fails for a tracker it has no case for), and
 `RunDoor` when run as a separate program. A tracker that does not need to
 ship inside sous is better as a plugin program (docs/plugins.md).
 
@@ -141,6 +144,10 @@ versions support gets a `Flag`, which becomes a `sous setup --<flag>`
 option. setup, doctor, the hooks, `sous go` and runs all read the table.
 A skill folder several agents share goes in `harness.SharedSkills`. Its tests use fake input and
 transcripts written the way the agent writes them, never the real tool.
+Tests name what else it needs, and fail until it is there: an agent that
+runs headless adds how it ends a run to `harnesstest.Says` and what a run
+of it may do to `TestAgentsMayCommitAndNoMore`; the README and
+commands.md name it wherever they list agents (`TestDocsNameEveryAgent`).
 
 ## Rules that are easy to break
 
