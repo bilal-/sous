@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -48,8 +47,7 @@ func TestScanGit(t *testing.T) {
 	feature := repo(t, filepath.Join(ws, "feature"), true)
 	git(t, feature, "checkout", "-q", "-b", "feat/x")
 	ahead := repo(t, filepath.Join(ws, "ahead"), true)
-	bare := filepath.Join(ws, "ahead.git")
-	exec.Command("git", "init", "-q", "--bare", bare).Run()
+	bare := testutil.Bare(t, filepath.Join(ws, "ahead.git"))
 	git(t, ahead, "remote", "add", "origin", bare)
 	git(t, ahead, "push", "-q", "-u", "origin", "main")
 	git(t, ahead, "commit", "-q", "--allow-empty", "-m", "local only")

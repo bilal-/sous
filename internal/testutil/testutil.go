@@ -63,6 +63,13 @@ func Repo(t *testing.T, dir string, commit bool, remote string) string {
 	return dir
 }
 
+// Bare creates a bare repo at path, for a remote to push to.
+func Bare(t *testing.T, path string) string {
+	t.Helper()
+	Git(t, filepath.Dir(path), "init", "-q", "--bare", path)
+	return path
+}
+
 // Script writes an executable sh script dir/name with body, and returns
 // its path: a fake tool or plugin.
 func Script(t *testing.T, dir, name, body string) string {

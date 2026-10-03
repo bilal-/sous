@@ -13,25 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bilal-/sous/internal/harness/harnesstest"
 	"github.com/bilal-/sous/internal/testutil"
 )
 
 // gitRepo makes a repo with one commit and a remote it could push to.
 func gitRepo(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
-	bare := filepath.Join(t.TempDir(), "origin.git")
-	for _, args := range [][]string{
-		{"init", "-q", "--bare", bare},
-		{"-C", dir, "init", "-q"},
-		{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m", "one"},
-		{"-C", dir, "remote", "add", "origin", bare},
-	} {
-		if out, err := exec.Command("git", args...).CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %s", args, out)
-		}
-	}
-	return dir
+	return testutil.Repo(t, t.TempDir(), true, testutil.Bare(t, filepath.Join(t.TempDir(), "origin.git")))
 }
 
 // fakeSous records the watcher's arguments instead of watching.
@@ -98,15 +87,13 @@ func TestStartRefusesWhatItCannotRun(t *testing.T) {
 // is untouched.
 func TestPushIsBlocked(t *testing.T) {
 	repo := gitRepo(t)
-	bare := filepath.Join(t.TempDir(), "fork.git")
-	exec.Command("git", "init", "-q", "--bare", bare).Run()
+	bare := testutil.Bare(t, filepath.Join(t.TempDir(), "fork.git"))
 	// A remote whose pushes go elsewhere (pushurl), and one with a user
 	// other than git: neither may slip through.
 	exec.Command("git", "-C", repo, "remote", "add", "fork", "https://example.invalid/sam/billing.git").Run()
 	exec.Command("git", "-C", repo, "config", "remote.fork.pushurl", bare).Run()
 	exec.Command("git", "-C", repo, "remote", "add", "work", "sam@example.invalid:acme/billing.git").Run()
-	rel := filepath.Join(filepath.Dir(repo), "rel.git")
-	exec.Command("git", "init", "-q", "--bare", rel).Run()
+	testutil.Bare(t, filepath.Join(filepath.Dir(repo), "rel.git"))
 	exec.Command("git", "-C", repo, "remote", "add", "near", "../rel.git").Run()
 	before, _ := os.ReadFile(filepath.Join(repo, ".git", "config"))
 	for _, remote := range []string{"origin", "fork", "work", "near", "https://example.invalid/acme/billing.git", "ssh://git@example.invalid/acme/billing.git", "git@example.invalid:acme/billing.git"} {
@@ -275,14 +262,9 @@ func TestUncommittedWorkIsKeptAndShown(t *testing.T) {
 }
 
 // fakeAgent records its arguments and says it needs the person, in each
-// built in agent's own words (Claude Code's result, Codex's thread,
-// Antigravity's conversation, opencode's events), so every runner finds a
-// session to resume.
-const fakeAgent = `for x in "$@"; do echo "$x"; done > args
-printf '{"result":"SOUS: needs you q","session_id":"s"}\n'
-echo '{"thread_id":"s"}'
-echo '{"conversation_id":"s","response":"SOUS: needs you q"}'
-echo '{"type":"text","sessionID":"s","part":{"type":"text","text":"SOUS: needs you q"}}'`
+// built in agent's own words, so every runner finds a session to resume.
+var fakeAgent = `for x in "$@"; do echo "$x"; done > args
+` + harnesstest.Says("SOUS: needs you q")
 
 // A brief or answer that starts with a dash is text, never a flag: it
 // follows "--", or is the value of a flag (-p=…).

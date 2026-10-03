@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -69,8 +68,7 @@ func TestRenderHere(t *testing.T) {
 func TestBuildHereUsesThePluginDoor(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
-	root := t.TempDir()
-	exec.Command("git", "-C", root, "init", "-q", "-b", "main").Run()
+	root := testutil.Repo(t, t.TempDir(), false, "")
 	dir := t.TempDir()
 	plugin := filepath.Join(dir, "sous-signal-fake")
 	script := "#!/bin/sh\nwhile read p; do printf '{\"v\":0,\"id\":\"s:%s\",\"project\":\"%s\",\"kind\":\"me\",\"text\":\"review requested · PR #14\",\"observed\":\"2026-09-27T00:00:00Z\",\"ref\":null}\\n' \"$(basename \"$p\")\" \"$p\"; done\n"

@@ -156,8 +156,7 @@ func TestFacts(t *testing.T) {
 		t.Fatalf("%+v", f)
 	}
 	e := filepath.Join(ws, "empty")
-	os.MkdirAll(e, 0o755)
-	exec.Command("git", "-C", e, "init", "-q", "-b", "main").Run()
+	testutil.Repo(t, e, false, "")
 	f, err = ReadFacts(e)
 	if err != nil || f.LastCommit != nil || f.Branch != "main" {
 		t.Fatalf("empty repo: %+v %v", f, err)

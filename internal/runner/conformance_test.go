@@ -2,11 +2,11 @@ package runner_test
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/bilal-/sous/internal/harness/harnesstest"
 	"github.com/bilal-/sous/internal/runner"
 	"github.com/bilal-/sous/internal/runner/runnertest"
 	"github.com/bilal-/sous/internal/testutil"
@@ -21,13 +21,9 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// fakeAgent waits for the test to say go, then finishes the way both
-// claude (JSON on stdout) and codex (-o <file>) do.
-const fakeAgent = `out=/dev/null; while [ $# -gt 0 ]; do [ "$1" = "-o" ] && out="$2"; shift; done
-while [ ! -f go ]; do sleep 0.05; done
-echo '{"thread_id":"th"}'
-printf '{"result":"SOUS: done nothing to do","session_id":"s"}\n'
-echo "SOUS: done nothing to do" > "$out"`
+// fakeAgent waits for the test to say go, then finishes the way every
+// built in agent does.
+var fakeAgent = "while [ ! -f go ]; do sleep 0.05; done\n" + harnesstest.Says("SOUS: done nothing to do")
 
 func TestBuiltinsConform(t *testing.T) {
 	for _, name := range runner.Registry.Names() {
@@ -35,9 +31,7 @@ func TestBuiltinsConform(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("SOUS_HOME", home)
 			testutil.FakeBin(t, name, fakeAgent)
-			repo := t.TempDir()
-			exec.Command("git", "init", "-q", repo).Run()
-			exec.Command("git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m", "one").Run()
+			repo := testutil.Repo(t, t.TempDir(), true, "")
 			exe, _ := os.Executable()
 			r := runner.Registry.Discover(exe, []string{name}, nil)[0]
 			runnertest.RunDoor(t, r, repo, func(ref string) {

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bilal-/sous/internal/harness/harnesstest"
 )
 
 // Install puts a hook, written as its command line, in a Claude Code style
@@ -522,6 +524,30 @@ func TestLastJSONReadsAnyLayout(t *testing.T) {
 	} {
 		if got := lastJSON([]byte(log), has).ID; got != want {
 			t.Errorf("%q: %q, want %q", log, got, want)
+		}
+	}
+}
+
+// The fake agent the runner tests use speaks for every harness that runs
+// headless: each finds its session and its last words in what it printed.
+func TestTheFakeAgentSpeaksForEveryHarness(t *testing.T) {
+	dir := t.TempDir()
+	r := Run{Dir: dir}
+	script := filepath.Join(dir, "agent")
+	os.WriteFile(script, []byte("#!/bin/sh\n"+harnesstest.Says("SOUS: done all green")), 0o755)
+	log, err := exec.Command(script, "-o", codexLastFile(r)).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, h := range All {
+		if h.Headless == nil {
+			continue
+		}
+		if got := h.Headless.Session(log); got != harnesstest.Session {
+			t.Errorf("%s: session %q", h.Name, got)
+		}
+		if got := h.Headless.Last(r, log); got != "SOUS: done all green" {
+			t.Errorf("%s: last %q", h.Name, got)
 		}
 	}
 }
