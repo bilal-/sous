@@ -92,6 +92,7 @@ type Run struct {
 	Log      string     `json:"log,omitempty"`
 	Checked  *time.Time `json:"checked,omitempty"` // when the state was last asked
 	Cleaned  *time.Time `json:"cleaned,omitempty"` // when what it left behind was removed
+	Tidied   *time.Time `json:"tidied,omitempty"`  // when sous last tried to clean it up itself
 }
 
 // Belongs: is this thread about the project at path (or with this remote)?
@@ -289,13 +290,36 @@ func briefKey(brief string) string {
 
 // SetRun changes an open run under the lock.
 func SetRun(s *store.Store, id int, fn func(*Run)) error {
+	return editRun(s, id, false, fn)
+}
+
+// MarkCleaned records that run id's leftovers were removed, open or
+// closed, so nobody asks its runner to clean it again.
+func MarkCleaned(s *store.Store, id int, now time.Time) error {
+	c := now.UTC()
+	return editRun(s, id, true, func(r *Run) { r.Cleaned = &c })
+}
+
+// MarkTidied records that sous tried to clean up after closed run id, so
+// it waits a while before trying again.
+func MarkTidied(s *store.Store, id int, now time.Time) error {
+	c := now.UTC()
+	return editRun(s, id, true, func(r *Run) { r.Tidied = &c })
+}
+
+// editRun changes run id under the lock; with closed, a closed note's too.
+func editRun(s *store.Store, id int, closed bool, fn func(*Run)) error {
 	missing := false
-	err := touch(s, id, func(t *Thread) {
-		if t.Run == nil {
-			missing = true
-			return
+	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
+		for i := range d.Threads {
+			if t := &d.Threads[i]; t.ID == id && (closed || t.Closed == nil) {
+				if missing = t.Run == nil; !missing {
+					fn(t.Run)
+				}
+				return nil
+			}
 		}
-		fn(t.Run)
+		return fmt.Errorf("%w %d", ErrNotFound, id)
 	})
 	if err == nil && missing {
 		return fmt.Errorf("%w %d with a run", ErrNotFound, id)
@@ -303,26 +327,12 @@ func SetRun(s *store.Store, id int, fn func(*Run)) error {
 	return err
 }
 
-// MarkCleaned records that run id's leftovers were removed, open or
-// closed, so nobody asks its runner to clean it again.
-func MarkCleaned(s *store.Store, id int, now time.Time) error {
-	c := now.UTC()
-	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
-		for i := range d.Threads {
-			if t := &d.Threads[i]; t.ID == id && t.Run != nil {
-				t.Run.Cleaned = &c
-				return nil
-			}
-		}
-		return fmt.Errorf("%w %d with a run", ErrNotFound, id)
-	})
-	return err
-}
-
-// Uncleaned: runs closed before cutoff that started and were never cleaned.
-func Uncleaned(s *store.Store, cutoff time.Time) ([]View, error) {
+// Untidied: runs closed before cutoff that started, were never cleaned,
+// and sous has not tried to clean up since retry.
+func Untidied(s *store.Store, cutoff, retry time.Time) ([]View, error) {
 	return filter(s, cutoff, func(t Thread) bool {
-		return t.Closed != nil && t.Closed.Before(cutoff) && t.Run != nil && t.Run.Ref != "" && t.Run.Cleaned == nil
+		return t.Closed != nil && t.Closed.Before(cutoff) && t.Run != nil && t.Run.Ref != "" && t.Run.Cleaned == nil &&
+			(t.Run.Tidied == nil || t.Run.Tidied.Before(retry))
 	})
 }
 

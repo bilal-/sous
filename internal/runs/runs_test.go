@@ -3,6 +3,7 @@ package runs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -182,7 +183,9 @@ func TestTidyCleansOldClosedRuns(t *testing.T) {
 	thread.Done(s, recent, now.Add(-time.Hour))
 	thread.Done(s, viaPlugin, now.Add(-31*24*time.Hour))
 	for range 2 {
-		d.Tidy(context.Background(), now)
+		if err := d.Tidy(context.Background()); err != nil {
+			t.Fatal(err)
+		}
 	}
 	b, _ := os.ReadFile(calls)
 	if got := strings.Fields(string(b)); len(got) != 1 {
@@ -191,5 +194,39 @@ func TestTidyCleansOldClosedRuns(t *testing.T) {
 	th, _ := thread.Get(s, old)
 	if th.Run.Cleaned == nil {
 		t.Fatal("the clean is recorded")
+	}
+}
+
+// A run whose clean refuses is asked again a day later, not on every
+// board, and one board tidies only a few runs however many are due.
+func TestTidyWaitsAndPaces(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	now := time.Now()
+	calls := filepath.Join(t.TempDir(), "calls")
+	local := runnertest.Fake(t, `start) echo fake:$$;; clean) echo "$3" >> `+calls+`; exit 2;;`)
+	local.Offline = true
+	d := &Dispatcher{Store: s, Runners: []runner.Runner{local}, Now: func() time.Time { return now }}
+	p := project.Project{Path: "/code/acme/api"}
+	for i := range TidyAtOnce + 1 {
+		id, _, _ := d.Start(context.Background(), p, fmt.Sprintf("run %d", i), "", "fake", "human", "")
+		thread.Done(s, id, now.Add(-31*24*time.Hour))
+	}
+	count := func() int { b, _ := os.ReadFile(calls); return len(strings.Fields(string(b))) }
+	d.Tidy(context.Background())
+	if got := count(); got != TidyAtOnce {
+		t.Fatalf("one board tidies %d, tried %d", TidyAtOnce, got)
+	}
+	d.Tidy(context.Background())
+	if got := count(); got != TidyAtOnce+1 {
+		t.Fatalf("the next board takes the rest and asks none again: %d", got)
+	}
+	d.Tidy(context.Background())
+	if got := count(); got != TidyAtOnce+1 {
+		t.Fatalf("a refusal is not asked again the same day: %d", got)
+	}
+	now = now.Add(TidyRetry + time.Minute)
+	d.Tidy(context.Background())
+	if got := count(); got != 2*TidyAtOnce+1 {
+		t.Fatalf("a day later it is asked again: %d", got)
 	}
 }

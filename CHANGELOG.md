@@ -7,6 +7,20 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+* `sous setup` no longer stops on a hooks file that holds only `null`, and
+  `sous doctor` no longer calls Antigravity's `hooks.json` invalid when it
+  has a `$schema` line.
+* `sous file` refuses a run: its work is on its branch, not in an issue.
+* opencode: an agent going idle no longer waits on sous, and a session
+  picked up again does not start with the brief a new one gets. `sous
+  setup` will not write over a `sous.js` plugin it did not write.
+* Antigravity is no longer taken as installed because `~/.gemini/config`
+  exists; other tools write there too.
+* Old runs are tidied at most three per board, after the board is saved,
+  and one whose clean refuses is asked again a day later, not every time.
+  A failure to record a clean is reported.
+
 ## [0.10.1]
 
 ### Added

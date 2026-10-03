@@ -262,38 +262,71 @@ func (d *Dispatcher) Finish(ctx context.Context, id int, clean bool) (Finished, 
 	if !clean {
 		return Stopped, nil
 	}
-	switch err := d.on(ctx, th, runner.Clean); {
+	switch err := d.clean(ctx, th); {
 	case errors.Is(err, runner.ErrUnsupported):
 		return CantClean, nil
 	case err != nil:
 		return Stopped, fmt.Errorf("cleaning up run %d: %w", id, err)
 	}
-	return Cleaned, thread.MarkCleaned(d.Store, id, d.Now())
+	return Cleaned, nil
 }
 
-// TidyAfter is how long a run closed without --clean keeps what it left
-// behind before sous cleans it up.
-const TidyAfter = 30 * 24 * time.Hour
+// clean asks th's runner to remove what its run left behind, and records
+// that it did.
+func (d *Dispatcher) clean(ctx context.Context, th thread.Thread) error {
+	if err := d.on(ctx, th, runner.Clean); err != nil {
+		return err
+	}
+	if err := thread.MarkCleaned(d.Store, th.ID, d.Now()); err != nil {
+		return fmt.Errorf("%w: %v", errNotRecorded, err)
+	}
+	return nil
+}
+
+// errNotRecorded: a run was cleaned, but saying so failed.
+var errNotRecorded = errors.New("cleaned, but could not record it")
+
+const (
+	// TidyAfter is how long a run closed without --clean keeps what it
+	// left behind before sous cleans it up.
+	TidyAfter = 30 * 24 * time.Hour
+	// TidyRetry is how long sous waits to try again on a run whose clean
+	// refused, its work not committed.
+	TidyRetry = 24 * time.Hour
+	// TidyAtOnce caps how many runs one board tidies, so a long backlog
+	// never holds it up.
+	TidyAtOnce = 3
+)
 
 // Tidy cleans up runs closed more than TidyAfter ago that nobody cleaned:
 // the built in runners' only, which keep their worktrees and logs on this
-// machine (a plugin runner keeps its own). A run whose clean refuses, its
-// work not committed, is left and asked again next time; each one cleaned
-// is not asked again.
-func (d *Dispatcher) Tidy(ctx context.Context, now time.Time) {
-	views, err := thread.Uncleaned(d.Store, now.Add(-TidyAfter))
+// machine (a plugin runner keeps its own). Each is tried at most once per
+// TidyRetry, and no more than TidyAtOnce at a time. A run whose clean
+// refuses is left for next time. The error is what could not be recorded.
+func (d *Dispatcher) Tidy(ctx context.Context) error {
+	now := d.Now()
+	views, err := thread.Untidied(d.Store, now.Add(-TidyAfter), now.Add(-TidyRetry))
 	if err != nil {
-		return
+		return err
 	}
+	var errs []error
+	tried := 0
 	for _, v := range views {
 		if r, err := runner.ByRef(d.Runners, v.Run.Ref); err != nil || !r.Offline {
 			continue
 		}
-		sctx, cancel := context.WithTimeout(ctx, StatusTimeout)
-		err := d.on(sctx, v.Thread, runner.Clean)
-		cancel()
-		if err == nil || errors.Is(err, runner.ErrUnsupported) {
-			thread.MarkCleaned(d.Store, v.ID, now)
+		if tried++; tried > TidyAtOnce {
+			break
 		}
+		if err := thread.MarkTidied(d.Store, v.ID, now); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		sctx, cancel := context.WithTimeout(ctx, StatusTimeout)
+		if err := d.clean(sctx, v.Thread); errors.Is(err, errNotRecorded) {
+			errs = append(errs, err)
+		}
+		cancel()
 	}
+	return errors.Join(errs...)
 }
