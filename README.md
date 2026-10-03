@@ -13,8 +13,8 @@ part is keeping track of them. Which project has a review waiting for me?
 Where did I leave off in this one? What did I promise to come back to?
 
 `sous` answers those questions in one place. It shows up on its own when you
-open a terminal or start a Claude Code or Codex session, so it still works on
-the days you forget it exists.
+open a terminal or start an agent session (Claude Code, Codex, Antigravity
+or opencode), so it still works on the days you forget it exists.
 
 ```
 sous · 2 on you · 1 on others · 3 unfinished
@@ -143,7 +143,7 @@ sous is young. Here is an honest list.
 | **GitHub**: reviews asked of you, changes asked on your pull requests, failing checks on your pull requests, unread notifications that mention or assign you; filing and closing issues | CI on branches without a pull request |
 | **GitLab**: merge requests to review, yours awaiting review; filing and closing issues | GitLab to do items |
 | `FOLLOWUPS.md` in the project as a simple tracker | Jira, Linear, Gitea, Bitbucket (plugins welcome) |
-| handing a task to **Claude Code** or **Codex** in the background, in its own git worktree, and following it on the board | runs that survive a restart, retries and reviews (a runner plugin's job) |
+| handing a task to **Claude Code**, **Codex**, **Antigravity** or **opencode** in the background, in its own git worktree, and following it on the board | runs that survive a restart, retries and reviews (a runner plugin's job) |
 | a menu bar view through [SwiftBar](https://swiftbar.app) on macOS | a Linux tray icon |
 | plugins in any language, on a contract that only grows until 1.0 | a contract frozen for good (that is what 1.0 means) |
 | install by script, Homebrew or from source | Windows, other package managers |
@@ -198,8 +198,8 @@ There is nothing else to do: installing runs `sous setup`, which
 * finds your projects by looking in the usual places (`~/code`, `~/src`,
   `~/projects`, `~/workspace`, `~/Developer` and a few more). It looks two
   folders deep, so `~/code` finds `~/code/acme/api`.
-* adds session hooks for Claude Code, Codex and Antigravity (when it is
-  installed), and the `sous` skill for them and for any agent that reads
+* adds session hooks for Claude Code and Codex, and for Antigravity and
+  opencode when they are installed, and the `sous` skill for them and for any agent that reads
   the shared `~/.agents/skills` folder (Gemini CLI, Kimi, Cursor and
   others)
 * adds one line to your shell's startup file (zsh, bash or fish), so new

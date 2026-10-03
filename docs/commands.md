@@ -132,8 +132,9 @@ Where you left off in a project, found by name from anywhere. The same as
 Where you left off in the project you are in, or the one at `path`:
 
 * the branch, the last commit and its message
-* how your last agent session there ended (Claude Code, and Codex when
-  `sous setup --codex-session-end` asked it to report session ends)
+* how your last agent session there ended (Claude Code, Antigravity,
+  opencode, and Codex when `sous setup --codex-session-end` asked it to
+  report session ends)
 * what is on you and on others in this project, including snoozed rows
 * your ideas for this project
 * notes that were closed in their tracker lately, marked
@@ -373,7 +374,9 @@ plus what committing on its own branch needs: Claude accepts file edits,
 may run `git add`, `git commit`, `git status`, `git diff` and `git log`,
 and otherwise follows your Claude settings; Codex works in its workspace
 sandbox, which may also write git's objects, refs and logs, but never your
-repo's hooks or settings. For anything more, the agent asks you. A run may
+repo's hooks or settings; Antigravity accepts file edits and refuses any
+command its settings do not allow; opencode has what your opencode config
+gives it. For anything more, the agent asks you. A run may
 take `run_minutes` (60 by default) before it is stopped. A run going when
 your computer restarts shows as failed, "stopped without a result": the
 built in runners do one thing, and never resume. For work that must
@@ -488,7 +491,8 @@ the command that fixes it. It only looks: it changes none of your files or
 settings. It checks:
 
 * config.toml and your project folders (and how many projects are in them)
-* the agent hooks for Claude Code and Codex, and that they run this sous
+* the agent hooks (Claude Code, Codex, and Antigravity and opencode when
+  installed), and that they run this sous
 * the sous skill in every folder agents read, and that it is current
 * the line in your shell's startup file, and that `sous` is on your PATH
 * `gh` and `glab`: installed, logged in, each configured account or host,

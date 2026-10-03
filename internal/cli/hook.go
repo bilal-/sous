@@ -40,31 +40,7 @@ func cmdHook(e *Env, a argv) int {
 	say := ""
 	switch args[0] {
 	case harness.RoleStart:
-		// Plugins and tracker probes must finish inside the guard; when it
-		// fires first, cancelling kills their process groups.
-		var buf bytes.Buffer
-		sub := e.child(&buf, io.Discard, true)
-		sub.PluginTimeout = 2 * time.Second
-		sub.Deadline = time.Now().Add(harness.HookGuard - time.Second)
-		sub.ctx()
-		defer sub.close()
-		var runs string
-		if guarded(func() {
-			if root, ok := hook.StartRoot(in, e.Cwd, e.UserHome); ok {
-				cmdHere(sub, argv{pos: []string{root}})
-			} else if in.Fresh {
-				// Outside any project: what waits across them, from the
-				// saved board (never built here: this must stay quick).
-				if c, err := board.ReadCache(sub.store()); err == nil && c.Data != nil {
-					fmt.Fprintln(&buf, board.Summary(c.Data, time.Now()))
-				}
-			}
-			if in.Fresh {
-				runs = runsWaiting(sub)
-			}
-		}) && buf.Len()+len(runs) > 0 {
-			say = sessionIntro(e) + "\n" + runs + buf.String()
-		}
+		say = sessionStart(e, in)
 	case harness.RoleEnd:
 		guarded(func() { hook.RecordEnd(e.store(), in, h, e.Cwd, e.UserHome, time.Now()) })
 	}
@@ -77,6 +53,39 @@ func cmdHook(e *Env, a argv) int {
 		}
 	}
 	return 0
+}
+
+// sessionStart is what an agent is told as its session starts: in a
+// project, what waits there; outside any, what waits across them; on a
+// fresh session, the runs waiting too. "" when there is nothing, or it
+// took too long.
+func sessionStart(e *Env, in harness.Input) string {
+	// Plugins and tracker probes must finish inside the guard; when it
+	// fires first, cancelling kills their process groups.
+	var buf bytes.Buffer
+	sub := e.child(&buf, io.Discard, true)
+	sub.PluginTimeout = 2 * time.Second
+	sub.Deadline = time.Now().Add(harness.HookGuard - time.Second)
+	sub.ctx()
+	defer sub.close()
+	var runs string
+	if !guarded(func() {
+		if root, ok := hook.StartRoot(in, e.Cwd, e.UserHome); ok {
+			cmdHere(sub, argv{pos: []string{root}})
+		} else if in.Fresh {
+			// Outside any project: what waits across them, from the saved
+			// board (never built here: this must stay quick).
+			if c, err := board.ReadCache(sub.store()); err == nil && c.Data != nil {
+				fmt.Fprintln(&buf, board.Summary(c.Data, time.Now()))
+			}
+		}
+		if in.Fresh {
+			runs = runsWaiting(sub)
+		}
+	}) || buf.Len()+len(runs) == 0 {
+		return ""
+	}
+	return sessionIntro(e) + "\n" + runs + buf.String()
 }
 
 // runsWaiting: the runs waiting on the user, asked of the built in runners

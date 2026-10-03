@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/bilal-/sous/internal/backend"
@@ -31,6 +33,33 @@ func TestTablesAgree(t *testing.T) {
 		}
 		if runs := slices.Contains(runner.Registry.Names(), h.Name); runs != (h.Headless != nil) {
 			t.Errorf("%s: a runner exactly when it runs headless (runner %v)", h.Name, runs)
+		}
+	}
+}
+
+// The docs name every agent tool wherever they list them: a paragraph that
+// names Claude Code and Codex names them all (unless it is about one), and a list of agent names
+// (`claude`, `codex`, ...) has every one. A new harness the docs do not
+// mention fails here.
+func TestDocsNameEveryAgent(t *testing.T) {
+	for _, file := range []string{"../../README.md", "../../docs/commands.md"} {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, para := range strings.Split(string(b), "\n\n") {
+			para = strings.Join(strings.Fields(para), " ")
+			if strings.HasPrefix(para, "**") && strings.Contains(para[:min(len(para), 20)], ".**") {
+				continue // a section about one agent
+			}
+			for _, h := range harness.All {
+				if strings.Contains(para, "Claude Code") && strings.Contains(para, "Codex") && !strings.Contains(para, h.Display) {
+					t.Errorf("%s: names Claude Code and Codex but not %s: %.120s", file, h.Display, para)
+				}
+				if strings.Contains(para, "`claude`, `codex`") && !strings.Contains(para, "`"+h.Name+"`") {
+					t.Errorf("%s: lists agents without `%s`: %.120s", file, h.Name, para)
+				}
+			}
 		}
 	}
 }
