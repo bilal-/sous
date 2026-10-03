@@ -35,8 +35,10 @@ func buildBoard(e *Env, roots []string) (*board.Data, int) {
 		return nil, fail(e, exitFailed, "%v", err)
 	}
 	// Only the full configured board is cached; a scoped board must never
-	// become what the zsh surface prints as "the board".
+	// become what the zsh surface prints as "the board". It is also when
+	// old runs are tidied away: never while a session starts.
 	if len(roots) == 0 {
+		e.dispatcher().Tidy(e.ctx(), now)
 		if err := board.WriteCache(e.store(), d); err != nil {
 			return nil, fail(e, exitFailed, "cache: %v", err)
 		}

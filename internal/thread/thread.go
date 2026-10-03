@@ -91,6 +91,7 @@ type Run struct {
 	Worktree string     `json:"worktree,omitempty"`
 	Log      string     `json:"log,omitempty"`
 	Checked  *time.Time `json:"checked,omitempty"` // when the state was last asked
+	Cleaned  *time.Time `json:"cleaned,omitempty"` // when what it left behind was removed
 }
 
 // Belongs: is this thread about the project at path (or with this remote)?
@@ -300,6 +301,29 @@ func SetRun(s *store.Store, id int, fn func(*Run)) error {
 		return fmt.Errorf("%w %d with a run", ErrNotFound, id)
 	}
 	return err
+}
+
+// MarkCleaned records that run id's leftovers were removed, open or
+// closed, so nobody asks its runner to clean it again.
+func MarkCleaned(s *store.Store, id int, now time.Time) error {
+	c := now.UTC()
+	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
+		for i := range d.Threads {
+			if t := &d.Threads[i]; t.ID == id && t.Run != nil {
+				t.Run.Cleaned = &c
+				return nil
+			}
+		}
+		return fmt.Errorf("%w %d with a run", ErrNotFound, id)
+	})
+	return err
+}
+
+// Uncleaned: runs closed before cutoff that started and were never cleaned.
+func Uncleaned(s *store.Store, cutoff time.Time) ([]View, error) {
+	return filter(s, cutoff, func(t Thread) bool {
+		return t.Closed != nil && t.Closed.Before(cutoff) && t.Run != nil && t.Run.Ref != "" && t.Run.Cleaned == nil
+	})
 }
 
 // Runs: every open run, snoozed or not.

@@ -7,6 +7,13 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+* Run folders no longer pile up in `~/.sous/runs`. `done --clean` removes
+  the run's whole folder, not only its worktree. A built in run closed
+  with a plain `done` is cleaned up the same way 30 days after it closed,
+  the next time the board is built: its branch stays when it has commits,
+  and a worktree with work not committed is never removed.
+
 ### Fixed
 * The board asks trackers about filed notes and runners about runs at
   the same time, instead of one after the other: a slow one of each

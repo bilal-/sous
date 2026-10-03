@@ -160,3 +160,36 @@ func TestFinishAClosedRun(t *testing.T) {
 		t.Fatalf("%q", b)
 	}
 }
+
+// A built in run closed long enough ago is cleaned up once, by sous: its
+// folder does not stay forever. Recent ones, plugin runs and runs whose
+// clean refuses (work not committed) are left; cleaned ones are not
+// asked again.
+func TestTidyCleansOldClosedRuns(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	now := time.Now()
+	calls := filepath.Join(t.TempDir(), "calls")
+	local := runnertest.Fake(t, `start) echo fake:$$;; clean) echo "$3" >> `+calls+`;;`)
+	local.Offline = true // as a built in is
+	plugin := runnertest.Fake(t, `start) echo other:1;; clean) echo plugin >> `+calls+`;;`)
+	plugin.Name = "other"
+	d := &Dispatcher{Store: s, Runners: []runner.Runner{local, plugin}, Now: time.Now}
+	p := project.Project{Path: "/code/acme/api"}
+	old, _, _ := d.Start(context.Background(), p, "old", "", "fake", "human", "")
+	recent, _, _ := d.Start(context.Background(), p, "recent", "", "fake", "human", "")
+	viaPlugin, _, _ := d.Start(context.Background(), p, "via plugin", "", "other", "human", "")
+	thread.Done(s, old, now.Add(-31*24*time.Hour))
+	thread.Done(s, recent, now.Add(-time.Hour))
+	thread.Done(s, viaPlugin, now.Add(-31*24*time.Hour))
+	for range 2 {
+		d.Tidy(context.Background(), now)
+	}
+	b, _ := os.ReadFile(calls)
+	if got := strings.Fields(string(b)); len(got) != 1 {
+		t.Fatalf("one old built in run cleaned, once: %q", got)
+	}
+	th, _ := thread.Get(s, old)
+	if th.Run.Cleaned == nil {
+		t.Fatal("the clean is recorded")
+	}
+}

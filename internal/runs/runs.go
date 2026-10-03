@@ -268,5 +268,32 @@ func (d *Dispatcher) Finish(ctx context.Context, id int, clean bool) (Finished, 
 	case err != nil:
 		return Stopped, fmt.Errorf("cleaning up run %d: %w", id, err)
 	}
-	return Cleaned, nil
+	return Cleaned, thread.MarkCleaned(d.Store, id, d.Now())
+}
+
+// TidyAfter is how long a run closed without --clean keeps what it left
+// behind before sous cleans it up.
+const TidyAfter = 30 * 24 * time.Hour
+
+// Tidy cleans up runs closed more than TidyAfter ago that nobody cleaned:
+// the built in runners' only, which keep their worktrees and logs on this
+// machine (a plugin runner keeps its own). A run whose clean refuses, its
+// work not committed, is left and asked again next time; each one cleaned
+// is not asked again.
+func (d *Dispatcher) Tidy(ctx context.Context, now time.Time) {
+	views, err := thread.Uncleaned(d.Store, now.Add(-TidyAfter))
+	if err != nil {
+		return
+	}
+	for _, v := range views {
+		if r, err := runner.ByRef(d.Runners, v.Run.Ref); err != nil || !r.Offline {
+			continue
+		}
+		sctx, cancel := context.WithTimeout(ctx, StatusTimeout)
+		err := d.on(sctx, v.Thread, runner.Clean)
+		cancel()
+		if err == nil || errors.Is(err, runner.ErrUnsupported) {
+			thread.MarkCleaned(d.Store, v.ID, now)
+		}
+	}
 }

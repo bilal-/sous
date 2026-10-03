@@ -231,6 +231,12 @@ func TestStopAndClean(t *testing.T) {
 	if out, _ := exec.Command("git", "-C", m.Project, "branch", "--list", m.Branch).Output(); len(out) != 0 {
 		t.Fatalf("an empty branch goes too: %s", out)
 	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatal("the run's folder (log, result) goes too: nothing is left behind")
+	}
+	if err := a.Clean(m.Project, ref); err != nil {
+		t.Fatalf("cleaning twice is fine: %v", err)
+	}
 }
 
 func TestCleanKeepsABranchWithCommits(t *testing.T) {

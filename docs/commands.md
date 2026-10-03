@@ -396,9 +396,16 @@ brief.
 
 ### `sous done <n> --clean` for a run
 
-Stops the run if it is still working, closes it, and removes its worktree.
-Its branch stays when it has commits. A worktree with changes not yet
-committed is kept, and the note stays open, until you commit or copy them.
+Stops the run if it is still working, closes it, and removes its worktree
+and its folder in `~/.sous/runs`. Its branch stays when it has commits. A
+worktree with changes not yet committed is kept, and the note stays open,
+until you commit or copy them. Running it again is fine.
+
+A run by a built in runner closed with a plain `done` keeps its worktree
+for you to look at or merge. Thirty days after it closed, sous cleans it
+up the same way when it next builds the board: the branch stays when it
+has commits, and a worktree with changes not yet committed is left
+alone.
 
 ## Setting up
 
@@ -634,7 +641,7 @@ Everything lives in `~/.sous` (or `SOUS_HOME`).
 | `report.json` | when you last saw a report, where the next one starts |
 | `install-id` | a random id for this install, used in older filing markers. Do not delete it. |
 | `here/` | the files `sous go` hands to agents, one per project |
-| `runs/` | one folder per run by a built in runner: its worktree, log and result |
+| `runs/` | one folder per run by a built in runner: its worktree, log, result and the watcher's own log (`watcher.log`). Removed by `done --clean`, or 30 days after the run was closed |
 | `report.html` | the last report page |
 | `sous.zsh`, `sous.5m.sh` | the zsh snippet and the menu bar script |
 | `.ambient-stamp` | when a new shell last printed the board |

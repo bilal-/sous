@@ -338,9 +338,18 @@ func (a *Agent) Stop(_, ref string) error {
 	return nil
 }
 
-// Clean removes a finished run's worktree. Its branch goes only when it
-// holds no work (git refuses to delete a branch it has not merged).
+// Clean removes what a finished run left: its worktree (refused while
+// work there is not committed), its branch only when it holds no work
+// (git refuses to delete a branch it has not merged), and its folder.
+// Cleaning twice is fine.
 func (a *Agent) Clean(_, ref string) error {
+	uid, err := a.uidOf(ref)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(a.dir(uid)); os.IsNotExist(err) {
+		return nil // cleaned before
+	}
 	dir, m, err := a.meta(ref)
 	if err != nil {
 		return err
@@ -357,5 +366,5 @@ func (a *Agent) Clean(_, ref string) error {
 		}
 	}
 	exec.Command("git", "-C", m.Project, "branch", "-d", m.Branch).Run()
-	return nil
+	return os.RemoveAll(dir)
 }
