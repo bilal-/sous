@@ -112,7 +112,7 @@ type result struct {
 }
 
 func run(ctx context.Context, b Backend, stdin []byte, op string, args ...string) result {
-	if b.Name == "local" {
+	if b.Name == Local.Name {
 		return result{err: errors.New("local threads have no upstream backend")}
 	}
 	argv := append(append([]string{}, b.Argv...), op)
@@ -176,6 +176,8 @@ func File(ctx context.Context, b Backend, req Request) (string, error) {
 }
 
 func Status(ctx context.Context, b Backend, project, ref string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, plugin.StatusTimeout) // asked of many at once
+	defer cancel()
 	r := run(ctx, b, nil, "status", project, ref)
 	switch {
 	case r.err != nil:

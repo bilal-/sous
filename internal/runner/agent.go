@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/harness"
+	"github.com/bilal-/sous/internal/project"
 )
 
 // Agent is a built in runner: it starts one agent CLI in a worktree, and
@@ -67,10 +67,18 @@ var preamble = `You are working alone, in a git worktree made for this task, on 
 Commit your work on this branch if you can; if you cannot, leave it in
 the worktree and say so. Never push.
 If you need to do something you are not allowed to do, stop and ask for it.
-` + harness.EndWith + `
-The task:
+` + harness.EndWith
 
-`
+// prompt is what the agent is told: how to work, where the person left off
+// in the project (inline: the file may be outside what the agent may
+// read), and the task.
+func prompt(branch, here, brief string) string {
+	p := fmt.Sprintf(preamble, branch) + "\n"
+	if here = strings.TrimSpace(here); here != "" {
+		p += "Where the person left off in this project:\n\n" + here + "\n\n"
+	}
+	return p + "The task:\n\n" + brief
+}
 
 func (a *Agent) Start(req Request) (string, error) {
 	ref := a.Name + ":" + req.UID
@@ -84,8 +92,8 @@ func (a *Agent) Start(req Request) (string, error) {
 	if _, err := exec.LookPath(a.h.Bin); err != nil {
 		return "", fmt.Errorf("%w: %s is not installed", ErrNotSetUp, a.h.Bin)
 	}
-	if out, err := exec.Command("git", "-C", req.Project, "rev-parse", "--show-toplevel").CombinedOutput(); err != nil {
-		return "", fmt.Errorf("%s is not a git repository, so there is nowhere safe to work: %s", req.Project, strings.TrimSpace(string(out)))
+	if _, err := project.Git(req.Project, "rev-parse", "--show-toplevel"); err != nil {
+		return "", fmt.Errorf("%s is not a git repository, so there is nowhere safe to work: %v", req.Project, err)
 	}
 	if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
 		return "", err
@@ -96,16 +104,14 @@ func (a *Agent) Start(req Request) (string, error) {
 		return "", err
 	}
 	m := runMeta{Name: a.Name, ID: req.ID, Project: req.Project, Worktree: filepath.Join(dir, "worktree"), Branch: fmt.Sprintf("sous/run-%d", req.ID), Limit: a.Limit}
-	m.Prompt = fmt.Sprintf(preamble, m.Branch)
-	if here, err := os.ReadFile(req.HereFile); req.HereFile != "" && err == nil && len(bytes.TrimSpace(here)) > 0 {
-		// Where the person left off, inline: the file may be outside what
-		// the agent is allowed to read.
-		m.Prompt = strings.Replace(m.Prompt, "The task:", "Where the person left off in this project:\n\n"+strings.TrimSpace(string(here))+"\n\nThe task:", 1)
+	var here []byte
+	if req.HereFile != "" {
+		here, _ = os.ReadFile(req.HereFile)
 	}
-	m.Prompt += req.Brief
-	if out, err := exec.Command("git", "-C", req.Project, "worktree", "add", "-q", "-b", m.Branch, m.Worktree, "HEAD").CombinedOutput(); err != nil {
+	m.Prompt = prompt(m.Branch, string(here), req.Brief)
+	if _, err := project.Git(req.Project, "worktree", "add", "-q", "-b", m.Branch, m.Worktree, "HEAD"); err != nil {
 		os.RemoveAll(dir)
-		return "", fmt.Errorf("making the worktree: %s", strings.TrimSpace(string(out)))
+		return "", fmt.Errorf("making the worktree: %v", err)
 	}
 	m.GitDirs = commitDirs(m.Worktree)
 	if err := writeJSON(dir, "run.json", m); err != nil {
@@ -121,20 +127,19 @@ func (a *Agent) Start(req Request) (string, error) {
 // commitDirs: where a commit in worktree writes, outside it: the shared
 // objects, refs and logs, and the worktree's own git folder.
 func commitDirs(worktree string) []string {
-	common, err1 := exec.Command("git", "-C", worktree, "rev-parse", "--path-format=absolute", "--git-common-dir").Output()
-	own, err2 := exec.Command("git", "-C", worktree, "rev-parse", "--absolute-git-dir").Output()
+	c, err1 := project.Git(worktree, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	own, err2 := project.Git(worktree, "rev-parse", "--absolute-git-dir")
 	if err1 != nil || err2 != nil {
 		return nil
 	}
-	c := strings.TrimSpace(string(common))
-	return []string{filepath.Join(c, "objects"), filepath.Join(c, "refs"), filepath.Join(c, "logs"), strings.TrimSpace(string(own))}
+	return []string{filepath.Join(c, "objects"), filepath.Join(c, "refs"), filepath.Join(c, "logs"), own}
 }
 
 // uncommitted: the worktree has changes git has not recorded, the agent's
 // own files included.
 func uncommitted(worktree string) bool {
-	out, err := exec.Command("git", "-C", worktree, "status", "--porcelain").Output()
-	return err != nil || len(strings.TrimSpace(string(out))) > 0
+	out, err := project.Git(worktree, "status", "--porcelain")
+	return err != nil || strings.TrimSpace(out) != ""
 }
 
 // lockRun takes the run's lock, which only a live watcher holds: the
@@ -199,14 +204,14 @@ func (a *Agent) launch(dir string, resume bool, lock *os.File) error {
 // remotes exactly as written: a url (pushInsteadOf) and a pushurl, which
 // git only rewrites with insteadOf. Fetching still works. The repository's
 // own config is never changed.
-func pushBlock(project string) []string {
+func pushBlock(repo string) []string {
 	type rule struct{ key, prefix string }
 	var rules []rule
 	for _, p := range []string{"https://", "http://", "ssh://", "git://", "git@", "file://", "/"} {
 		rules = append(rules, rule{"pushInsteadOf", p})
 	}
-	out, _ := exec.Command("git", "-C", project, "config", "--get-regexp", `^remote\..*\.(url|pushurl)$`).Output()
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+	out, _ := project.Git(repo, "config", "--get-regexp", `^remote\..*\.(url|pushurl)$`)
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		key, url, ok := strings.Cut(line, " ")
 		switch {
 		case !ok || url == "":
@@ -368,10 +373,10 @@ func (a *Agent) Clean(_, ref string) error {
 		if uncommitted(m.Worktree) {
 			return fmt.Errorf("run %d has work not committed in %s; commit or copy it first, then clean", m.ID, m.Worktree)
 		}
-		if out, err := exec.Command("git", "-C", m.Project, "worktree", "remove", m.Worktree).CombinedOutput(); err != nil {
-			return fmt.Errorf("removing the worktree: %s", strings.TrimSpace(string(out)))
+		if _, err := project.Git(m.Project, "worktree", "remove", m.Worktree); err != nil {
+			return fmt.Errorf("removing the worktree: %v", err)
 		}
 	}
-	exec.Command("git", "-C", m.Project, "branch", "-d", m.Branch).Run()
+	project.Git(m.Project, "branch", "-d", m.Branch)
 	return os.RemoveAll(dir)
 }

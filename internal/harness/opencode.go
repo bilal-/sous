@@ -50,19 +50,13 @@ var opencodeSession = regexp.MustCompile(`"sessionID"\s*:\s*"([^"]+)"`)
 // opencodeLast is the last text the agent wrote, from opencode run's JSON
 // events.
 func opencodeLast(log []byte) string {
-	last := ""
-	for _, line := range strings.Split(string(log), "\n") {
-		var e struct {
-			Type string `json:"type"`
-			Part struct {
-				Text string `json:"text"`
-			} `json:"part"`
-		}
-		if json.Unmarshal([]byte(line), &e) == nil && e.Type == "text" && e.Part.Text != "" {
-			last = e.Part.Text
-		}
+	type event struct {
+		Type string `json:"type"`
+		Part struct {
+			Text string `json:"text"`
+		} `json:"part"`
 	}
-	return last
+	return lastJSON(log, func(e event) bool { return e.Type == "text" && e.Part.Text != "" }).Part.Text
 }
 
 //go:embed assets/opencode-plugin.js

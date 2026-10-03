@@ -12,13 +12,14 @@ import (
 	"sync"
 	"time"
 
+	"io"
+
 	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
-	"io"
 )
 
 var (
@@ -75,7 +76,7 @@ func (d *Dispatcher) Start(ctx context.Context, p project.Project, brief, key, n
 }
 
 // Refresh asks the runner of each open run how it is going, concurrently,
-// each within plugin.StatusTimeout. An answer is stored; a failure keeps
+// each within runner.GetStatus's time. An answer is stored; a failure keeps
 // the last known state and says why (RunErr), never guessing. With local,
 // only the built in runners are asked: the session hook and here must not
 // wait on plugins.
@@ -101,9 +102,7 @@ func (d *Dispatcher) Refresh(ctx context.Context, views []thread.View, local boo
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sctx, cancel := context.WithTimeout(ctx, plugin.StatusTimeout)
-			defer cancel()
-			st, err := runner.GetStatus(sctx, r, v.Project, v.Run.Ref)
+			st, err := runner.GetStatus(ctx, r, v.Project, v.Run.Ref)
 			if err != nil {
 				v.RunErr = err.Error()
 				return

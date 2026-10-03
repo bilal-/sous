@@ -17,7 +17,6 @@ import (
 
 	"github.com/bilal-/sous/internal/backend"
 	"github.com/bilal-/sous/internal/config"
-	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/thread"
@@ -101,15 +100,13 @@ func (f *Filer) File(ctx context.Context, id int, explicit bool) (string, error)
 	if err != nil {
 		return "", err
 	}
-	if b.Name == "local" {
+	if b.Name == backend.Local.Name {
 		return "", fmt.Errorf("%w for %s", ErrNoTracker, project.OrgName(path))
 	}
 	refile := false
 	if th.Ref != nil {
 		if ob, err := backend.ByRef(f.Backends, *th.Ref); err == nil {
-			sctx, cancel := context.WithTimeout(ctx, plugin.StatusTimeout)
-			st, serr := backend.Status(sctx, ob, path, *th.Ref)
-			cancel()
+			st, serr := backend.Status(ctx, ob, path, *th.Ref)
 			refile = serr == nil && st == "unknown"
 		}
 	}
@@ -183,9 +180,7 @@ func (f *Filer) Ask(ctx context.Context, filed []thread.Thread) []Upstream {
 			if f.Offline && !b.Offline {
 				return
 			}
-			sctx, cancel := context.WithTimeout(ctx, plugin.StatusTimeout)
-			st, err := backend.Status(sctx, b, f.CurrentPath(th), *th.Ref)
-			cancel()
+			st, err := backend.Status(ctx, b, f.CurrentPath(th), *th.Ref)
 			if err != nil {
 				u.State, u.Err = "error", fmt.Sprintf("%s: %v", b.Name, err)
 				return

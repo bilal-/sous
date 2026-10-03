@@ -3,6 +3,8 @@
 package project
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -125,7 +127,7 @@ func Describe(path string) Project {
 	if r := Remote(path); r != "" {
 		p.Remote = &r
 	}
-	if out, err := git(path, "log", "-1", "--format=%cI"); err == nil {
+	if out, err := Git(path, "log", "-1", "--format=%cI"); err == nil {
 		if t, err := time.Parse(time.RFC3339, strings.TrimSpace(out)); err == nil {
 			u := t.UTC()
 			p.LastCommit = &u
@@ -134,14 +136,21 @@ func Describe(path string) Project {
 	return p
 }
 
-func git(dir string, args ...string) (string, error) {
+// Git runs git in dir and returns what it printed, its last newline
+// dropped (a line's leading space can mean something, as in status
+// --porcelain). A failure says what git said.
+func Git(dir string, args ...string) (string, error) {
 	out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).Output()
-	return string(out), err
+	var ee *exec.ExitError
+	if errors.As(err, &ee) && len(bytes.TrimSpace(ee.Stderr)) > 0 {
+		err = errors.New(strings.TrimSpace(string(ee.Stderr)))
+	}
+	return strings.TrimRight(string(out), "\n"), err
 }
 
 // Remote returns "host/org/repo" for origin, or "".
 func Remote(path string) string {
-	out, err := git(path, "remote", "get-url", "origin")
+	out, err := Git(path, "remote", "get-url", "origin")
 	if err != nil {
 		return ""
 	}
@@ -188,7 +197,7 @@ func joinRemote(host, path string) string {
 // A repo whose root is the home folder (a dotfiles repo) is not a project:
 // otherwise every folder under home would belong to it.
 func ForPath(path, home string) (string, bool) {
-	out, err := git(path, "rev-parse", "--show-toplevel")
+	out, err := Git(path, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", false
 	}
@@ -217,19 +226,19 @@ type Facts struct {
 // ReadFacts reads them for a repo root. A repo with no commits has a branch and
 // nothing else.
 func ReadFacts(root string) (Facts, error) {
-	if _, err := git(root, "rev-parse", "--is-inside-work-tree"); err != nil {
+	if _, err := Git(root, "rev-parse", "--is-inside-work-tree"); err != nil {
 		return Facts{}, fmt.Errorf("%s: not a git repository", root)
 	}
 	var f Facts
-	if b, err := git(root, "branch", "--show-current"); err == nil && strings.TrimSpace(b) != "" {
+	if b, err := Git(root, "branch", "--show-current"); err == nil && strings.TrimSpace(b) != "" {
 		f.Branch = strings.TrimSpace(b)
 	} else {
 		f.Branch = "(detached)"
 	}
-	if _, err := git(root, "rev-parse", "--abbrev-ref", "-q", "@{u}"); err == nil {
+	if _, err := Git(root, "rev-parse", "--abbrev-ref", "-q", "@{u}"); err == nil {
 		f.HasUpstream = true
 	}
-	if out, err := git(root, "log", "-1", "--format=%cI%x00%s"); err == nil {
+	if out, err := Git(root, "log", "-1", "--format=%cI%x00%s"); err == nil {
 		ts, subject, _ := strings.Cut(strings.TrimSpace(out), "\x00")
 		if t, err := time.Parse(time.RFC3339, ts); err == nil {
 			u := t.UTC()

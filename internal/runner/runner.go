@@ -91,6 +91,8 @@ func Start(ctx context.Context, r Runner, req Request) (string, error) {
 // GetStatus never guesses: anything but a readable v0 line with a known
 // state is an error, and the caller keeps what it knew.
 func GetStatus(ctx context.Context, r Runner, project, ref string) (Status, error) {
+	ctx, cancel := context.WithTimeout(ctx, plugin.StatusTimeout) // asked of many at once
+	defer cancel()
 	a, err := call(ctx, r, nil, "status", project, ref)
 	if err != nil {
 		return Status{}, err

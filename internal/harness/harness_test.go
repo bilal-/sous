@@ -224,6 +224,15 @@ func TestEveryHarnessIsComplete(t *testing.T) {
 			t.Errorf("incomplete: %+v", h)
 		}
 		seen[h.Name] = true
+		// Claude Code and Codex are set up whether or not they are here yet;
+		// any other agent says how to tell, or setup would make its folders
+		// on every machine.
+		if h.Present == nil && h.Name != "claude" && h.Name != "codex" {
+			t.Errorf("%s: say how to tell it is installed (Present)", h.Name)
+		}
+		if x := h.Headless; x != nil && (x.Start == nil || x.Resume == nil || x.Session == nil || x.Last == nil) {
+			t.Errorf("%s: a headless run needs Start, Resume, Session and Last", h.Name)
+		}
 		if h.SkillDir != nil && !strings.HasPrefix(h.SkillDir("/h"), "/h/") || !strings.HasPrefix(h.HookFile("/h"), "/h/") {
 			t.Errorf("%s: skills and hooks live under home", h.Name)
 		}

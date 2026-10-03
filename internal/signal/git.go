@@ -15,12 +15,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/text"
 )
 
 func gitOut(dir string, args ...string) (string, error) {
-	out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).Output()
-	return strings.TrimSpace(string(out)), err
+	out, err := project.Git(dir, args...)
+	return strings.TrimSpace(out), err
 }
 
 func countLines(s string) int {
