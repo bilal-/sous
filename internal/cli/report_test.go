@@ -23,7 +23,7 @@ func TestReportCLI(t *testing.T) {
 	if out, _, _ = f.run("report", "--week"); !strings.Contains(out, "fresh note") {
 		t.Fatalf("--week looks back 7 days regardless:\n%s", out)
 	}
-	if out, _, code = f.run("--json", "report", "--week"); code != 0 || !strings.Contains(out, `"new_me"`) {
+	if out, _, code = f.run("--json", "report", "--week"); code != 0 || !strings.Contains(out, `"new_on_you"`) || !strings.Contains(out, `"text": "fresh note"`) {
 		t.Fatalf("--json: %d %s", code, out)
 	}
 	// --open writes the page and opens it (fake `open` records its argument).

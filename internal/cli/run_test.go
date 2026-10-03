@@ -22,13 +22,13 @@ clean) echo cleaned > "$d/cleaned";;
 esac`)
 	out, errs, code := f.runStdin("Fix the flaky test\nmore context", "go", "billing", "--run", "-", "-a", "fake", "--json")
 	var started struct {
-		ID      int
+		ID      string
 		Runner  string
 		State   string
 		Existed bool
 		Next    []string
 	}
-	if code != 0 || json.Unmarshal([]byte(out), &started) != nil || started.ID != 1 || started.State != "running" || len(started.Next) != 1 || started.Next[0] != "sous show 1 --json" {
+	if code != 0 || json.Unmarshal([]byte(out), &started) != nil || started.ID != "1" || started.State != "running" || len(started.Next) != 1 || started.Next[0] != "sous show 1 --json" {
 		t.Fatalf("%d %s %s", code, out, errs)
 	}
 	out, _, _ = f.run("go", "billing", "--run", "second task", "-a", "fake")

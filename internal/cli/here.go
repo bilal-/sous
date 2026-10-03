@@ -34,7 +34,7 @@ func cmdHere(e *Env, a argv) int {
 		return fail(e, 1, "%v", err)
 	}
 	if e.JSON {
-		return e.writeJSON(d)
+		return e.writeJSON(d.JSON())
 	}
 	board.RenderHere(e.Stdout, d, now, e.Brief)
 	return 0

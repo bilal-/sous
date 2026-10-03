@@ -14,34 +14,40 @@ import (
 
 // Row is one line of the board, whatever produced it: a thread or a signal.
 // Renderers only lay rows out; the classification happens once, here.
+// --json shows a row as an Item.
 type Row struct {
-	ID       string     `json:"id"`      // thread id as digits, or "s:…"
-	Project  string     `json:"project"` // absolute path
-	Text     string     `json:"text"`
-	Age      string     `json:"-"`     // display only: Since against RenderedAt, "(stale)" appended; --json readers use since/stale
-	Since    time.Time  `json:"since"` // when the thing began waiting (thread since / signal first_seen)
-	ClosedAt *time.Time `json:"closed_at,omitempty"`
-	ClosedBy string     `json:"closed_by,omitempty"` // "" (you) | "upstream"
-	Kind     string     `json:"kind"`                // me | them | unfinished | idea
-	Source   string     `json:"source,omitempty"`    // "human" | "agent" | plugin name
-	Ref      *string    `json:"ref,omitempty"`
+	ID      string // thread id as digits, or "s:…"
+	Project string // absolute path
+	Text    string // as written
+	Shown   string // what a person reads: Text, or for a run its state and Text
+	Age     string // Since against the time of the board, "(stale)" appended
+	Since   time.Time
+	// ClosedAt, ClosedBy ("" for you, or "upstream"): a closed note.
+	ClosedAt *time.Time
+	ClosedBy string
+	Kind     string // me | them | unfinished | idea: the section it belongs in
+	Source   string // "human" | "agent" | plugin name
+	Ref      *string
 	// Upstream state from reconciliation: "" | open | closed | unknown | error.
-	Upstream    string `json:"upstream,omitempty"`
-	UpstreamErr string `json:"upstream_err,omitempty"`
-	Snoozed     bool   `json:"snoozed,omitempty"`
-	Stale       bool   `json:"stale,omitempty"`
-	// RunState: for a run, how it is going; RunErr why that could not be
-	// read this time (the state is the last one known).
-	RunState string `json:"run_state,omitempty"`
-	RunErr   string `json:"run_err,omitempty"`
+	Upstream    string
+	UpstreamErr string
+	Snoozed     bool
+	Stale       bool
+	// Run: for a run, how it is going; RunErr why that could not be read
+	// this time (the state is the last one known).
+	Run    *thread.Run
+	RunErr string
 }
 
 // Sections is the board classified: what is on you, on others, and merely
 // unfinished. Ideas never appear here (spec: they show on landing only).
 type Sections struct {
 	Me, Them, Unfinished []Row
-	// Ideas and RecentlyClosed are filled only for a project view (here).
+	// Ideas are listed by here, and left off the board (spec: they show
+	// on landing only). RecentlyClosed is filled only for here.
 	Ideas, RecentlyClosed []Row
+	// Snoozed rows are hidden until the snooze ends; --json lists them.
+	Snoozed []Row
 	// Why is non-empty when the picture is incomplete: failed plugins,
 	// unavailable roots, nothing checked, stale rows. The headline must
 	// carry a "?" whenever it is.
@@ -53,13 +59,12 @@ func (s Sections) Total() int { return len(s.Me) + len(s.Them) + len(s.Unfinishe
 // view is what differs between the board and a project's resume view; the
 // routing itself is shared, so the two can never disagree about a kind.
 type view struct {
-	ideas           bool // ideas are listed (here) or left for landing (board)
 	snoozedPromises bool // snoozed me/them rows still shown (here: this is where they belong)
 }
 
 var (
 	boardView = view{}
-	hereView  = view{ideas: true, snoozedPromises: true}
+	hereView  = view{snoozedPromises: true}
 )
 
 // classify routes threads and signals into sections. Snoozed unfinished
@@ -81,30 +86,16 @@ func classify(v view, now time.Time, threads []thread.View, signals []signal.Obs
 // needs you, or failed.
 func (s *Sections) routeThreads(v view, now time.Time, threads []thread.View) {
 	for _, t := range threads {
-		if t.Run != nil {
-			if t.Snoozed && !v.snoozedPromises {
-				continue
-			}
-			// A run note is kind them; once it waits on the person its
-			// row says me, as the section it is in does.
-			r := ThreadRow(t, now)
-			if working(t.Run.State) {
-				s.Them = append(s.Them, r)
-			} else {
-				r.Kind = string(thread.Me)
-				s.Me = append(s.Me, r)
-			}
-			continue
-		}
-		switch t.Kind {
-		case thread.Me:
-			s.Me = append(s.Me, ThreadRow(t, now))
-		case thread.Them:
-			s.Them = append(s.Them, ThreadRow(t, now))
+		r := ThreadRow(t, now)
+		switch {
+		case t.Snoozed && r.Kind != string(thread.Idea) && !v.snoozedPromises:
+			s.Snoozed = append(s.Snoozed, r)
+		case r.Kind == string(thread.Me):
+			s.Me = append(s.Me, r)
+		case r.Kind == string(thread.Them):
+			s.Them = append(s.Them, r)
 		default:
-			if v.ideas {
-				s.Ideas = append(s.Ideas, ThreadRow(t, now))
-			}
+			s.Ideas = append(s.Ideas, r)
 		}
 	}
 }
@@ -120,6 +111,9 @@ func (s *Sections) routeSignals(v view, now time.Time, signals []signal.Observed
 			stale[o.Plugin] = true
 		}
 		if o.Snoozed && (o.Kind == signal.Unfinished || !v.snoozedPromises) {
+			if o.Kind != signal.Info {
+				s.Snoozed = append(s.Snoozed, signalRow(o, now))
+			}
 			continue
 		}
 		switch o.Kind {
@@ -173,9 +167,9 @@ func Classify(d *Data) Sections {
 // working: the run's agent is still at it (or starting).
 func working(state string) bool { return state == "running" || state == "starting" }
 
-// RunRowText is how a run reads on the board: its state first, then the
+// runText is how a run reads on the board: its state first, then the
 // note, then what the runner said.
-func RunRowText(run *thread.Run, text string) string {
+func runText(run *thread.Run, text string) string {
 	switch run.State {
 	case "needs_you":
 		return fmt.Sprintf("run needs you · %s · %q", text, run.Text)
@@ -197,18 +191,25 @@ func Suffix(s string) string {
 	return " · " + s
 }
 
-// Ages are computed here, against the data's rendered-at time, so the
-// data model carries only timestamps (and --json stays cacheable).
+// ThreadRow is a note as a row. Ages are computed here, against the
+// data's rendered-at time, so the data model carries only timestamps (and
+// --json stays cacheable). A run note is kind them while it works; once it
+// waits on the person (done, needs you, failed) its row is kind me, and
+// that is the section it goes in.
 func ThreadRow(t thread.View, now time.Time) Row {
-	r := Row{ID: fmt.Sprint(t.ID), Project: t.Project, Text: t.Text, Age: project.Age(now, t.Since), Since: t.Since, Kind: string(t.Kind), Source: t.Source,
+	r := Row{ID: fmt.Sprint(t.ID), Project: t.Project, Text: t.Text, Shown: t.Text, Age: project.Age(now, t.Since), Since: t.Since, Kind: string(t.Kind), Source: t.Source,
 		Ref: t.Ref, Upstream: t.Upstream, UpstreamErr: t.UpstreamErr, Snoozed: t.Snoozed, ClosedAt: t.Closed, ClosedBy: t.ClosedBy}
 	if t.Run != nil {
-		r.Text, r.RunState, r.RunErr = RunRowText(t.Run, t.Text), t.Run.State, t.RunErr
+		r.Shown, r.Run, r.RunErr = runText(t.Run, t.Text), t.Run, t.RunErr
+		r.Kind = string(thread.Them)
+		if !working(t.Run.State) {
+			r.Kind = string(thread.Me)
+		}
 	}
 	return r
 }
 
-// closedRow: for recently-closed threads the interesting age is since the
+// ClosedRow: for recently-closed threads the interesting age is since the
 // close, not since the note.
 func ClosedRow(t thread.View, now time.Time) Row {
 	r := ThreadRow(t, now)
@@ -223,7 +224,7 @@ func signalRow(o signal.Observed, now time.Time) Row {
 	if o.Stale {
 		age += " (stale)" // in the age column so text truncation can't eat it
 	}
-	return Row{ID: o.ID, Project: o.Project, Text: o.Text, Age: age, Since: o.FirstSeen, Kind: string(o.Kind), Source: o.Plugin, Ref: o.Ref, Snoozed: o.Snoozed, Stale: o.Stale}
+	return Row{ID: o.ID, Project: o.Project, Text: o.Text, Shown: o.Text, Age: age, Since: o.FirstSeen, Kind: string(o.Kind), Source: o.Plugin, Ref: o.Ref, Snoozed: o.Snoozed, Stale: o.Stale}
 }
 
 // ClassifyHere is Classify for one project: ideas and snoozed obligations

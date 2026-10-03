@@ -132,12 +132,22 @@ func TestHeadlineCarriesEveryWhy(t *testing.T) {
 	}
 }
 
-// Review F11: --json carries data, not layout. Age is text for the eye;
-// since and stale are what a program reads.
-func TestRowJSONHasNoDisplayText(t *testing.T) {
-	b, _ := json.Marshal(Row{ID: "1", Age: "6d (stale)", Stale: true})
-	if strings.Contains(string(b), "6d") || !strings.Contains(string(b), `"stale":true`) {
-		t.Fatalf("%s", b)
+// --json carries data, not layout: no ages, and a run's text is the note
+// as written, with how the run is going beside it, never the board's
+// "run needs you · …" line.
+func TestItemHasNoDisplayText(t *testing.T) {
+	now := time.Now()
+	v := thread.View{Thread: thread.Thread{ID: 1, Project: "/code/acme/billing", Text: "fix the flaky test", Kind: thread.Them, Since: now.Add(-6 * 24 * time.Hour),
+		Run: &thread.Run{Runner: "claude", State: "needs_you", Text: "which fixture?"}}}
+	b, _ := json.Marshal(ThreadRow(v, now).Item())
+	got := string(b)
+	for _, want := range []string{`"text":"fix the flaky test"`, `"kind":"me"`, `"run":{"runner":"claude","state":"needs_you","text":"which fixture?"`, `"name":"billing"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("want %s in %s", want, got)
+		}
+	}
+	if strings.Contains(got, "6d") || strings.Contains(got, "run needs you") {
+		t.Fatalf("display text in --json: %s", got)
 	}
 }
 

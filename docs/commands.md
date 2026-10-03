@@ -35,6 +35,48 @@ everyday flow, start with the [README](../README.md). Run
 * sous never stops to ask a question. It is safe to run from scripts and
   agents.
 
+### What `--json` gives
+
+Every list of things waiting is a list of the same **item**, whichever
+command prints it, in sections named as the board names them: `on_you`,
+`on_others`, `unfinished`, `ideas`, `snoozed` (waiting, but hidden until
+the snooze ends), and `attention` (why the picture is incomplete; empty
+when it is whole). An empty list is `[]`, never `null`. Times are UTC.
+
+```json
+{
+  "id": "7",
+  "project": "/home/sam/code/acme/billing",
+  "name": "billing",
+  "kind": "me",
+  "text": "fix the flaky checkout test",
+  "since": "2026-09-27T09:02:00Z",
+  "source": "human",
+  "ref": "github:acme/billing#12",
+  "upstream": {"state": "open"},
+  "run": {"runner": "claude", "state": "needs_you", "text": "which fixture?", "branch": "sous/run-7", "worktree": "/home/sam/.sous/runs/0a1b2c3d4e5f/worktree"},
+  "snoozed": false,
+  "stale": false,
+  "closed_at": null,
+  "closed_by": null
+}
+```
+
+* `id`: a note's number (`"7"`, a string), or a signal's id (`"s:…"`).
+  Either goes to `sous snooze`; a note's goes to `done`, `show` and the rest.
+* `kind`: whose move it is: `me`, `them`, `idea` or `unfinished`. A run
+  is `them` while it works and `me` once it is done, needs you, or failed.
+* `text`: as written. The board's "run needs you · …" is for people;
+  programs read `run`.
+* `source`: who wrote a note (`human` or `agent`), or which plugin found it.
+* `upstream`: for a filed note, what its tracker said: `open`, `closed`,
+  `unknown` (gone there) or `error` (could not ask, with `error` saying
+  why). `null` for a note that is not filed, and for signals.
+* `run`: for a run, how it is going; `error` when its state could not be
+  read this time (`state` is then the last one known). `null` otherwise.
+* `stale`: its source failed this time, and this is what it said before.
+* `closed_at`, `closed_by` (`you` or `upstream`): for a closed note.
+
 ## Seeing what is waiting
 
 ### `sous`
@@ -62,7 +104,9 @@ marked `(stale)`. It never shows a calm zero when data is missing.
 
 Ideas and snoozed rows are not on the board. They show in `sous here`.
 
-Options: `--json`.
+Options: `--json`: every section, ideas and snoozed included (see
+[What `--json` gives](#what---json-gives)), with `configured`, `projects`,
+`plugins` (how each source did), `checked`, `unavailable` and `as_of`.
 
 On a first run with no roots set, `sous` prints a short welcome that says
 how to set them.
@@ -103,7 +147,9 @@ Options:
 * `--brief`: a shorter version (the last message is cut to 300 characters
   and only five ideas are listed). This is what agents see when a session
   starts.
-* `--json`
+* `--json`: the sections, with `facts` (branch, last commit), `session`
+  (how the last agent session here ended, or `null`), `recently_closed`,
+  and `plugins`.
 
 ### `sous projects [name]`
 
@@ -131,7 +177,9 @@ Options:
 * `--open`: write the report as a page (`~/.sous/report.html`) and open it
   in your browser. The page has no scripts and loads nothing from the
   internet.
-* `--json`
+* `--json`: `new_on_you`, `new_on_others`, `new_ideas` and `closed` as
+  items, `worked`, `attention`, and `now` (how many are waiting at the end
+  of the window).
 
 A report only counts as seen when it was shown. If writing or opening it
 fails, the next report still covers the same time.
@@ -168,7 +216,9 @@ runner how it is going right then (see
 [Handing work to an agent](#handing-work-to-an-agent)). A closed note can
 still be shown.
 
-Options: `--json`, with `next`, the list of commands that make sense next.
+Options: `--json`: the note as an item, with `uid` (its id that never
+changes), `remote`, `snoozed_until`, and `next`, the commands that make
+sense next.
 
 ### `sous edit <n> "text"`
 
@@ -288,7 +338,7 @@ not set. The answer names the
 run's number, and the command to check on it:
 
 ```json
-{"id": 7, "runner": "claude", "state": "running", "existed": false, "next": ["sous show 7 --json"]}
+{"id": "7", "runner": "claude", "state": "running", "existed": false, "next": ["sous show 7 --json"]}
 ```
 
 The built in runners work in a new git worktree, on a branch named

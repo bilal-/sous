@@ -60,10 +60,8 @@ func TestReadCommandsJSONHasNoNullLists(t *testing.T) {
 			t.Errorf("%v: not JSON: %v %q %q", args, err, out, errs)
 			continue
 		}
-		keys := []string{"projects", "signals", "threads", "plugins", "new_me", "new_them", "new_idea", "worked", "attention"}
-		if len(args) == 1 && args[0] == "report" {
-			keys = append(keys, "closed") // elsewhere closed is a time, null while open
-		}
+		keys := []string{"projects", "plugins", "on_you", "on_others", "unfinished", "ideas", "snoozed", "attention", "recently_closed",
+			"new_on_you", "new_on_others", "new_ideas", "closed", "worked", "next"}
 		for _, k := range keys {
 			if strings.Contains(out, `"`+k+`": null`) {
 				t.Errorf("%v: %s is null:\n%s", args, k, out)

@@ -109,7 +109,7 @@ func asOf(t, now time.Time) string {
 }
 
 func (r Row) line() string {
-	return fmt.Sprintf("  %-14s  %-24.24s  %-60.60s  %s", r.ID, filepath.Base(r.Project), r.Text, r.Age) + r.upstreamNote()
+	return fmt.Sprintf("  %-14s  %-24.24s  %-60.60s  %s", r.ID, filepath.Base(r.Project), r.Shown, r.Age) + r.upstreamNote()
 }
 
 // upstreamNote says when a filed note's tracker could not vouch for it:

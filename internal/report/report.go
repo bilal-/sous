@@ -25,25 +25,44 @@ import (
 type Worked struct {
 	Name    string    `json:"name"`
 	Project string    `json:"project"`
-	Agent   string    `json:"agent,omitempty"` // last agent session, if any
+	Agent   string    `json:"agent"` // the last agent session, "" if none
 	When    time.Time `json:"when"`
-	Age     string    `json:"-"`              // display only; When is the data
-	Note    string    `json:"note,omitempty"` // last session's last message, capped
+	Age     string    `json:"-"`    // display only; When is the data
+	Note    string    `json:"note"` // the last session's last message, capped; "" if none
 }
 
 type Report struct {
-	Since     time.Time   `json:"since"`
-	Until     time.Time   `json:"until"`
-	NewMe     []board.Row `json:"new_me"`
-	NewThem   []board.Row `json:"new_them"`
-	NewIdeas  []board.Row `json:"new_ideas"`
-	Closed    []board.Row `json:"closed"`
-	Worked    []Worked    `json:"worked"`
-	Attention []string    `json:"attention"`
+	Since, Until                         time.Time
+	NewMe, NewThem, NewIdeas, Closed     []board.Row
+	Worked                               []Worked
+	Attention                            []string
+	OnYouNow, OnOthersNow, UnfinishedNow int
+}
 
-	OnYouNow      int `json:"on_you_now"`
-	OnOthersNow   int `json:"on_others_now"`
-	UnfinishedNow int `json:"unfinished_now"`
+// JSON is sous report --json: the same window, its rows as Items.
+type JSON struct {
+	Since       time.Time    `json:"since"`
+	Until       time.Time    `json:"until"`
+	NewOnYou    []board.Item `json:"new_on_you"`
+	NewOnOthers []board.Item `json:"new_on_others"`
+	NewIdeas    []board.Item `json:"new_ideas"`
+	Closed      []board.Item `json:"closed"`
+	Worked      []Worked     `json:"worked"`
+	Attention   []string     `json:"attention"`
+	// Now: how many are waiting at the end of the window.
+	Now struct {
+		OnYou      int `json:"on_you"`
+		OnOthers   int `json:"on_others"`
+		Unfinished int `json:"unfinished"`
+	} `json:"now"`
+}
+
+// JSON is r as --json shows it.
+func (r Report) JSON() JSON {
+	j := JSON{Since: r.Since.UTC(), Until: r.Until.UTC(), NewOnYou: board.Items(r.NewMe), NewOnOthers: board.Items(r.NewThem),
+		NewIdeas: board.Items(r.NewIdeas), Closed: board.Items(r.Closed), Worked: r.Worked, Attention: append([]string{}, r.Attention...)}
+	j.Now.OnYou, j.Now.OnOthers, j.Now.Unfinished = r.OnYouNow, r.OnOthersNow, r.UnfinishedNow
+	return j
 }
 
 // BuildReport slices board data by time. closed are threads closed in the
@@ -75,7 +94,7 @@ func newSince(rows []board.Row, since time.Time) []board.Row {
 func ideasSince(threads []thread.View, since, now time.Time) []board.Row {
 	var out []board.Row
 	for _, t := range threads {
-		if t.Kind == thread.Idea && !t.Since.Before(since) {
+		if t.Kind == thread.Idea && !t.Snoozed && !t.Since.Before(since) {
 			out = append(out, board.ThreadRow(t, now))
 		}
 	}
@@ -196,7 +215,7 @@ func render(w io.Writer, r Report) {
 		}
 		fmt.Fprintf(w, "\n  %s\n", title)
 		for _, row := range rows {
-			fmt.Fprintf(w, "  %-14s  %-22.22s  %-58.58s  %s\n", row.ID, filepath.Base(row.Project), row.Text, row.Age)
+			fmt.Fprintf(w, "  %-14s  %-22.22s  %-58.58s  %s\n", row.ID, filepath.Base(row.Project), row.Shown, row.Age)
 		}
 	}
 	section("new on you", r.NewMe)
@@ -215,7 +234,7 @@ func render(w io.Writer, r Report) {
 			if row.ClosedBy == "upstream" {
 				by = " (upstream)"
 			}
-			fmt.Fprintf(w, "  ✓ %-12s  %-22.22s  %-58.58s  %s%s\n", row.ID, filepath.Base(row.Project), row.Text, row.Age, by)
+			fmt.Fprintf(w, "  ✓ %-12s  %-22.22s  %-58.58s  %s%s\n", row.ID, filepath.Base(row.Project), row.Shown, row.Age, by)
 		}
 	}
 	if len(r.Worked) > 0 {

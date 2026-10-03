@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
@@ -19,6 +20,15 @@ import (
 // dispatcher builds the runs use case layer for this invocation.
 func (e *Env) dispatcher() *runs.Dispatcher {
 	return &runs.Dispatcher{Store: e.store(), Runners: runner.Runners(e.Exe, runner.BuiltinNames(), e.Cfg.Plugins), Now: time.Now}
+}
+
+// startedJSON is sous go --run --json.
+type startedJSON struct {
+	ID      string   `json:"id"`
+	Runner  string   `json:"runner"`
+	State   string   `json:"state"`
+	Existed bool     `json:"existed"` // a run with this --key was already started
+	Next    []string `json:"next"`
 }
 
 // goRun: sous go <project> --run <brief|-> [-a <runner>] [--key <text>].
@@ -69,7 +79,7 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 		return fail(e, 1, "run %d started, but reading it back failed: %v (sous show %d)", id, err, id)
 	}
 	if e.JSON {
-		return e.writeJSON(map[string]any{"id": id, "runner": th.Run.Runner, "state": th.Run.State, "existed": existed, "next": []string{fmt.Sprintf("sous show %d --json", id)}})
+		return e.writeJSON(startedJSON{ID: fmt.Sprint(id), Runner: th.Run.Runner, State: th.Run.State, Existed: existed, Next: []string{fmt.Sprintf("sous show %d --json", id)}})
 	}
 	verb := "started"
 	if existed {
@@ -77,12 +87,6 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 	}
 	fmt.Fprintf(e.Stdout, "%s run %d in %s (%s) · sous show %d to check\n", verb, id, p.Name, th.Run.Runner, id)
 	return 0
-}
-
-// showView is sous show --json.
-type showView struct {
-	thread.View
-	Next []string `json:"next"`
 }
 
 // cmdShow: one note in full; for a run, how it is going right now.
@@ -100,7 +104,7 @@ func cmdShow(e *Env, a argv) int {
 	}
 	next := nextFor(v)
 	if e.JSON {
-		return e.writeJSON(showView{View: v, Next: next})
+		return e.writeJSON(board.Note(v, time.Now(), next))
 	}
 	now := time.Now()
 	state := string(v.Kind) + " · " + project.Ago(now, v.Since)

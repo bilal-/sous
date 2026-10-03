@@ -7,6 +7,22 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+* `--json` has one shape for anything waiting, an **item**, whichever
+  command shows it, and the board, `here` and `report` list items in the
+  sections the board uses (`on_you`, `on_others`, `unfinished`, `ideas`,
+  `snoozed`) with `attention` saying what is missing. docs/commands.md
+  describes it once. What changed for a program reading it:
+  * `sous --json` gives sections instead of raw `threads` and `signals`,
+    and now includes ideas and snoozed notes. `rendered_at` is `as_of`.
+  * `here --json` gives sections too; `session` has `id` and `ended_at`.
+  * `report --json`: `new_me` and `new_them` are `new_on_you` and
+    `new_on_others`; the counts are under `now`; times are UTC.
+  * A note's `id` is a string everywhere (`"7"`), as signal ids are.
+  * A run's text is the note as written; its state is under `run`
+    (`run.state`, not `run_state`). Upstream state is under `upstream`.
+  * `closed` (a time) is `closed_at` in `show --json`.
+
 ## [0.4.0]
 
 ### Added

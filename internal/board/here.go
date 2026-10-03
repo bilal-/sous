@@ -132,7 +132,7 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 		fmt.Fprintf(w, "  … and %d more (sous %s)\n", len(s.Ideas)-len(shown), filepath.Base(d.Project))
 	}
 	for _, r := range s.RecentlyClosed {
-		fmt.Fprintf(w, "  ✓ %s  %s  (closed upstream %s)\n", r.ID, r.Text, r.Age)
+		fmt.Fprintf(w, "  ✓ %s  %s  (closed upstream %s)\n", r.ID, r.Shown, r.Age)
 	}
 	fmt.Fprintln(w, "\n  sous note \"…\" to add · sous done <n> to close · sous kind <n> me to escalate")
 }
@@ -153,7 +153,7 @@ func renderHereHeader(w io.Writer, d *HereData, s Sections, now time.Time, brief
 	if len(s.Unfinished) > 0 {
 		parts := make([]string, len(s.Unfinished))
 		for i, r := range s.Unfinished {
-			parts[i] = r.Text
+			parts[i] = r.Shown
 			if r.Stale {
 				parts[i] += " (stale)"
 			}
@@ -184,7 +184,7 @@ func sessionLine(sess *session.Session, brief bool) string {
 // hereLine is a row as here lists it: id, text, age, then what is known
 // about it (snoozed, filed where, upstream trouble).
 func (r Row) hereLine() string {
-	l := fmt.Sprintf("  %s  %s  %s", r.ID, r.Text, r.Age)
+	l := fmt.Sprintf("  %s  %s  %s", r.ID, r.Shown, r.Age)
 	if r.Snoozed {
 		l += " (snoozed)"
 	}

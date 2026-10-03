@@ -47,7 +47,7 @@ func (e *Env) unconfigured() bool { return e.cfgErr == nil && len(e.Cfg.Roots) =
 func cmdBoard(e *Env, roots []string) int {
 	if len(roots) == 0 && e.unconfigured() {
 		if e.JSON {
-			return e.writeJSON(map[string]any{"projects": []any{}, "configured": false})
+			return e.writeJSON(board.BoardJSON{})
 		}
 		fmt.Fprintln(e.Stdout, "sous · "+config.NoRootsHint)
 		return 0
@@ -57,7 +57,7 @@ func cmdBoard(e *Env, roots []string) int {
 		return code
 	}
 	if e.JSON {
-		return e.writeJSON(d)
+		return e.writeJSON(d.JSON())
 	}
 	board.Render(e.Stdout, d)
 	return 0

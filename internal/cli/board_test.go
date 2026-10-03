@@ -44,7 +44,7 @@ func TestBoardCLI(t *testing.T) {
 		t.Fatalf("scoped board:\n%s", out)
 	}
 	j, _, _ := f.run("--json")
-	for _, k := range []string{`"projects"`, `"signals"`, `"threads"`, `"plugins"`, `"checked"`, `"unavailable"`, `"rendered_at"`} {
+	for _, k := range []string{`"configured": true`, `"on_you"`, `"on_others"`, `"unfinished"`, `"ideas"`, `"snoozed"`, `"attention"`, `"projects"`, `"plugins"`, `"checked"`, `"unavailable"`, `"as_of"`} {
 		if !strings.Contains(j, k) {
 			t.Errorf("json missing %s", k)
 		}

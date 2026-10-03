@@ -98,7 +98,7 @@ footer { margin-top: 48px; }
 <div class="card">
 {{range .}}
   <div class="row body-medium">
-    <div class="text">{{with url .Ref}}<a href="{{.}}">{{end}}{{.Text}}{{with url .Ref}}</a>{{end}}</div>
+    <div class="text">{{with url .Ref}}<a href="{{.}}">{{end}}{{.Shown}}{{with url .Ref}}</a>{{end}}</div>
     <div class="muted">{{.Age}}</div>
     <div class="meta label-medium muted">
       <span class="chip">{{base .Project}}</span>

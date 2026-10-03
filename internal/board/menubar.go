@@ -37,13 +37,13 @@ func RenderMenubar(w io.Writer, d *Data, exe string, now time.Time, window time.
 		fmt.Fprintf(w, "%s | color=orange\n", strings.Join(why, " · "))
 	}
 	for _, r := range s.Me {
-		fmt.Fprintf(w, "%s · %s · %s | bash=%s param1=go param2=%s terminal=true\n", sanitize(r.Text+r.upstreamNote()), project.OrgName(r.Project), r.Age, exe, project.OrgName(r.Project))
+		fmt.Fprintf(w, "%s · %s · %s | bash=%s param1=go param2=%s terminal=true\n", sanitize(r.Shown+r.upstreamNote()), project.OrgName(r.Project), r.Age, exe, project.OrgName(r.Project))
 	}
 	if len(s.Unfinished) > 0 {
 		fmt.Fprintln(w, "---")
 		fmt.Fprintln(w, "unfinished")
 		for _, r := range s.Unfinished {
-			fmt.Fprintf(w, "-- %s · %s · %s\n", sanitize(r.Text), project.OrgName(r.Project), r.Age)
+			fmt.Fprintf(w, "-- %s · %s · %s\n", sanitize(r.Shown), project.OrgName(r.Project), r.Age)
 		}
 	}
 	fmt.Fprintln(w, "---")

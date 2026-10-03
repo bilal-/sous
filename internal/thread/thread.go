@@ -296,7 +296,8 @@ func view(t Thread, now time.Time) View {
 	return View{Thread: t, Snoozed: t.SnoozedUntil != nil && t.SnoozedUntil.After(now)}
 }
 
-// Open: open and not snoozed, for the board.
+// Open: every open note, for the board. A snoozed one is marked Snoozed:
+// the board hides it, and --json lists it as snoozed.
 func Open(s *store.Store, now time.Time) ([]View, error) {
 	d, err := store.Load[Doc](s, name, Migrator{})
 	if err != nil {
@@ -304,8 +305,8 @@ func Open(s *store.Store, now time.Time) ([]View, error) {
 	}
 	out := []View{}
 	for _, t := range d.Threads {
-		if v := view(t, now); t.Closed == nil && !v.Snoozed {
-			out = append(out, v)
+		if t.Closed == nil {
+			out = append(out, view(t, now))
 		}
 	}
 	return out, nil

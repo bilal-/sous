@@ -37,7 +37,7 @@ func cmdReport(e *Env, a argv) int {
 	seen := true
 	switch {
 	case e.JSON:
-		code = e.writeJSON(r)
+		code = e.writeJSON(r.JSON())
 	case a.has("open"):
 		code, seen = openReport(e, r)
 	default:

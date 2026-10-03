@@ -50,11 +50,11 @@ func TestNoteLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	open, _ = Open(s, now.Add(time.Hour))
-	if len(open) != 1 || open[0].Text != "chase designer Friday" {
-		t.Fatalf("snoozed should hide: %+v", open)
+	if len(open) != 2 || open[0].Snoozed || !open[1].Snoozed {
+		t.Fatalf("a snoozed note is open, marked snoozed: %+v", open)
 	}
 	open, _ = Open(s, now.Add(4*24*time.Hour))
-	if len(open) != 2 {
+	if len(open) != 2 || open[1].Snoozed {
 		t.Fatal("snooze should expire after 3 days")
 	}
 	fp, _ := ForProject(s, "/elsewhere/chime", remote, now.Add(time.Hour))
