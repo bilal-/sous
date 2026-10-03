@@ -215,7 +215,7 @@ func render(w io.Writer, r Report) {
 		}
 		fmt.Fprintf(w, "\n  %s\n", title)
 		for _, row := range rows {
-			fmt.Fprintf(w, "  %-14s  %-22.22s  %-58.58s  %s\n", row.ID, filepath.Base(row.Project), row.Shown, row.Age)
+			fmt.Fprintln(w, row.Line())
 		}
 	}
 	section("new on you", r.NewMe)
@@ -234,7 +234,8 @@ func render(w io.Writer, r Report) {
 			if row.ClosedBy == thread.ClosedByUpstream {
 				by = " (upstream)"
 			}
-			fmt.Fprintf(w, "  ✓ %-12s  %-22.22s  %-58.58s  %s%s\n", row.ID, filepath.Base(row.Project), row.Shown, row.Age, by)
+			row.ID = "✓ " + row.ID
+			fmt.Fprintln(w, row.Line()+by)
 		}
 	}
 	if len(r.Worked) > 0 {
@@ -250,7 +251,7 @@ func render(w io.Writer, r Report) {
 			fmt.Fprintln(w, line)
 		}
 	}
-	fmt.Fprintf(w, "\n  now: %d on you · %d on others · %d unfinished · sous report --open for the page\n", r.OnYouNow, r.OnOthersNow, r.UnfinishedNow)
+	fmt.Fprintf(w, "\n  now: %s · sous report --open for the page\n", board.Counts(r.OnYouNow, r.OnOthersNow, r.UnfinishedNow))
 }
 
 // WebURL turns a ref into a link, when the tracker has one.
@@ -274,7 +275,8 @@ var reportTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 	"isThread": func(id string) bool {
 		return id != "" && !signal.IsID(id)
 	},
-	"when": text.When,
+	"when":   text.When,
+	"counts": board.Counts,
 }).Parse(reportHTML))
 
 // RenderReportHTML writes one self-contained page: inline CSS (Material

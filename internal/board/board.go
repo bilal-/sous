@@ -100,7 +100,8 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 	return &Data{Projects: ps, Signals: sigs, Threads: ths, Plugins: col.Plugins, Checked: len(ps), Unavailable: unavailable, RenderedAt: in.Now.UTC()}, nil
 }
 
-func (r Row) line() string {
+// Line is a row as the board and the report lay it out.
+func (r Row) Line() string {
 	return fmt.Sprintf("  %-14s  %-24s  %-60s  %s", r.ID, text.Ellipsize(filepath.Base(r.Project), 24), text.Ellipsize(r.Shown, 60), r.Age) + r.upstreamNote()
 }
 
@@ -135,7 +136,7 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 	case len(s.Why) > 0:
 		fmt.Fprintf(w, "sous · ? on you (%s) · %d found · %d on others · %d unfinished\n", strings.Join(s.Why, ", "), len(s.Me), len(s.Them), len(s.Unfinished))
 	default:
-		fmt.Fprintf(w, "sous · %d on you · %d on others · %d unfinished\n", len(s.Me), len(s.Them), len(s.Unfinished))
+		fmt.Fprintln(w, "sous · "+s.Counts())
 	}
 	section := func(title string, rows []Row) {
 		if len(rows) == 0 {
@@ -143,7 +144,7 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 		}
 		fmt.Fprintf(w, "\n  %s\n", title)
 		for _, r := range rows {
-			fmt.Fprintln(w, r.line())
+			fmt.Fprintln(w, r.Line())
 		}
 	}
 	section("on you", s.Me)
@@ -216,7 +217,7 @@ func (a Ambient) Run(now time.Time, window time.Duration, show func() bool) {
 // it now.
 func Summary(d *Data, now time.Time) string {
 	s := Classify(d)
-	line := fmt.Sprintf("%d on you · %d on others · %d unfinished across %s", len(s.Me), len(s.Them), len(s.Unfinished), text.Plural(d.Checked, "project"))
+	line := s.Counts() + " across " + text.Plural(d.Checked, "project")
 	if len(s.Why) > 0 {
 		line += " (" + strings.Join(s.Why, ", ") + ")"
 	}

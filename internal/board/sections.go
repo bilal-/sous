@@ -56,6 +56,14 @@ type Sections struct {
 
 func (s Sections) Total() int { return len(s.Me) + len(s.Them) + len(s.Unfinished) }
 
+// Counts is how much waits, the way the board and the report say it.
+func (s Sections) Counts() string { return Counts(len(s.Me), len(s.Them), len(s.Unfinished)) }
+
+// Counts: "2 on you · 1 on others · 3 unfinished".
+func Counts(me, them, unfinished int) string {
+	return fmt.Sprintf("%d on you · %d on others · %d unfinished", me, them, unfinished)
+}
+
 // view is what differs between the board and a project's resume view; the
 // routing itself is shared, so the two can never disagree about a kind.
 type view struct {

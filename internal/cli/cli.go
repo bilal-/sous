@@ -43,7 +43,7 @@ const usageHeader = `sous %s: one list of what is waiting on you, across every p
 `
 
 const usageFooter = `
-Flags: --json (what a command shows or changed) · --brief (here) · --ambient · --cached · --refresh · --menubar · --version
+Flags: --json (what a command shows or changed) · --brief (here) · {modes}
 Exit:  0 ok · 1 failure · 2 usage or ambiguity · 3 not ready: no board yet (--cached, --ambient), or the agent or runner is not set up (go)
 Put -- before a note that starts with a dash.
 
@@ -158,7 +158,7 @@ func usage(w io.Writer) {
 			fmt.Fprintf(w, "  %s\n", v.usage)
 		}
 	}
-	fmt.Fprint(w, usageFooter)
+	fmt.Fprint(w, strings.Replace(usageFooter, "{modes}", modeFlags(), 1))
 }
 
 func cmdVersion(e *Env, _ argv) int { fmt.Fprintf(e.Stdout, "sous %s\n", Version); return 0 }
@@ -265,24 +265,47 @@ func (e *Env) takeReadFlags(args []string) []string {
 
 // runMode handles the options that stand alone and come first: the shell
 // and menu bar surfaces, and help.
+// modes are what sous does when its first word is a flag: one table for
+// running them and for sous help.
+var modes []struct {
+	flag string
+	run  func(*Env) int
+}
+
+// Filled in init, as verbs is: help is one of them, and help lists them.
+func init() {
+	modes = append(modes, []struct {
+		flag string
+		run  func(*Env) int
+	}{
+		{"--ambient", cmdAmbient},
+		{"--cached", cmdCached},
+		{"--refresh", func(e *Env) int { _, code := buildBoard(e, nil); return code }},
+		{"--menubar", cmdMenubar},
+		{"--version", func(e *Env) int { return cmdVersion(e, argv{}) }},
+		{"--help", func(e *Env) int { usage(e.Stdout); return 0 }},
+		{"-h", func(e *Env) int { usage(e.Stdout); return 0 }},
+	}...)
+}
+
 func runMode(e *Env, flag string) int {
-	switch flag {
-	case "--refresh":
-		_, code := buildBoard(e, nil)
-		return code
-	case "--cached":
-		return cmdCached(e)
-	case "--ambient":
-		return cmdAmbient(e)
-	case "--menubar":
-		return cmdMenubar(e)
-	case "--help", "-h":
-		usage(e.Stdout)
-		return 0
-	case "--version":
-		return cmdVersion(e, argv{})
+	for _, m := range modes {
+		if m.flag == flag {
+			return m.run(e)
+		}
 	}
 	return fail(e, exitUsage, "unknown flag: %s (try: sous help)", flag)
+}
+
+// modeFlags lists the modes for sous help, help itself left out.
+func modeFlags() string {
+	var fs []string
+	for _, m := range modes {
+		if m.flag != "--help" && m.flag != "-h" {
+			fs = append(fs, m.flag)
+		}
+	}
+	return strings.Join(fs, " · ")
 }
 
 // dispatch runs a verb, or treats an unknown word as a folder, repo or
