@@ -1,6 +1,10 @@
 package cli
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/bilal-/sous/internal/harness"
+)
 
 // verb is one entry in the closed verb set. The table is the single source
 // of truth for dispatch, for which verbs accept the read-side flags, and for
@@ -43,7 +47,7 @@ func init() {
 		{"go", cmdGo, true, exactly(1, []string{"where"}, []string{"a|agent", "in", "run", "key"}), "sous go <project> [-a <agent>] [--run <brief|->] [--key <text>] [--where] [--in <folder>]   start your agent there; --run hands it a task in the background"},
 		{"show", cmdShow, true, exactly(1, nil, nil), "sous show <n>     one note in full; for a run, how it is going"},
 		{"reply", cmdReply, false, &argSpec{min: 2, max: 2, raw: true}, `sous reply <n> "<answer>"   answer a run that needs you; it carries on`},
-		{"setup", cmdSetup, false, &argSpec{bools: []string{"codex-session-end", "print-skill", "no-shell"}, max: -1}, "sous setup [folder...] [--no-shell] [--print-skill] [--codex-session-end]   set everything up; folders say where your projects are"},
+		{"setup", cmdSetup, false, &argSpec{bools: append([]string{"print-skill", "no-shell"}, harness.Flags()...), max: -1}, "sous setup [folder...] [--no-shell] [--print-skill]" + setupFlags() + "   set everything up; folders say where your projects are"},
 		{"doctor", cmdDoctor, true, exactly(0, nil, nil), "sous doctor       check that sous is set up and working, and how to fix what is not"},
 		{"version", cmdVersion, false, exactly(0, nil, nil), "sous version"},
 		{"help", cmdHelp, false, exactly(0, nil, nil), "sous help"},
@@ -63,4 +67,13 @@ func findVerb(name string) (verb, bool) {
 		}
 	}
 	return verb{}, false
+}
+
+// setupFlags are the optional hooks' flags as setup's usage shows them.
+func setupFlags() string {
+	var b strings.Builder
+	for _, f := range harness.Flags() {
+		b.WriteString(" [--" + f + "]")
+	}
+	return b.String()
 }

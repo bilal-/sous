@@ -118,8 +118,10 @@ like `claude.go`, and its line in `All`: where its skills and hook settings
 live, which events sous hooks and how that file is laid out (`Format`;
 `HooksJSON` when it copied Claude Code's), how to read what its hooks send
 (`Parse`, which decides what a fresh session is) and its transcript
-(`Last`), and, if it can run headless, `Headless`. setup, doctor, the
-hooks, `sous go` and runs all read the table. Its tests use fake input and
+(`Last`), and, if it can run headless, `Headless`. A hook only some
+versions support gets a `Flag`, which becomes a `sous setup --<flag>`
+option. setup, doctor, the hooks, `sous go` and runs all read the table.
+A skill folder several agents share goes in `harness.SharedSkills`. Its tests use fake input and
 transcripts written the way the agent writes them, never the real tool.
 
 ## Rules that are easy to break

@@ -20,7 +20,7 @@ var codex = Harness{
 	Format:   HooksJSON{},
 	Hooks: []Hook{
 		{Role: RoleStart, Event: "SessionStart"},
-		{Role: RoleEnd, Event: "SessionEnd", Optional: true},
+		{Role: RoleEnd, Event: "SessionEnd", Flag: "codex-session-end"},
 	},
 	Parse: parseHookJSON,
 	Last:  func(transcript string, max int) string { return lastLine(transcript, max, codexText) },

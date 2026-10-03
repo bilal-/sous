@@ -22,7 +22,7 @@ func TestCheckFindsWhatSetupLeftAndWhatIsMissing(t *testing.T) {
 			t.Errorf("fresh home: %+v", c)
 		}
 	}
-	Hooks(home, exe, none)
+	Hooks(home, exe, nil)
 	Skills(home, []byte(Skill))
 	Files(sousHome, exe)
 	Shell(home, sousHome, "zsh", "linux", "")
@@ -39,7 +39,7 @@ func TestCheckFindsWhatSetupLeftAndWhatIsMissing(t *testing.T) {
 		}
 	}
 	// A hook for another sous, and an old skill, are caught.
-	Hooks(home, "/old/place/sous", all)
+	Hooks(home, "/old/place/sous", harness.Flags())
 	os.WriteFile(filepath.Join(home, ".codex", "skills", "sous", "SKILL.md"), []byte("---\nname: sous\n---\nold\n"), 0o644)
 	var problems []string
 	for _, c := range Check(home, sousHome, exe, "zsh", "linux", "") {
@@ -80,7 +80,3 @@ func TestCheckShellWantsTheCurrentLineAndItsFile(t *testing.T) {
 		t.Fatalf("set up: %+v", r)
 	}
 }
-
-// Opting in to a harness's optional hooks, or to none of them.
-func none(harness.Harness, harness.Hook) bool { return false }
-func all(harness.Harness, harness.Hook) bool  { return true }

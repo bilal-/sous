@@ -10,11 +10,11 @@ import (
 
 // Format is how a harness's hook settings file is laid out.
 type Format interface {
-	// Place puts command (from Command) into file for event. Any sous hook
+	// Place puts cmd into file for event. Any sous hook
 	// for the same role and agent, from this binary or one that moved, is
 	// replaced: the first in place, the rest removed. Every other hook is
 	// left as it was. It reports whether the file changed.
-	Place(file, event, command string) (bool, error)
+	Place(file, event string, cmd Cmd) (bool, error)
 	// Commands lists the hook commands under event, or an error when file
 	// cannot be read as this format (fs.ErrNotExist when it is missing).
 	Commands(file, event string) ([]string, error)
@@ -25,12 +25,7 @@ type Format interface {
 // "command": "..."}]}]}}.
 type HooksJSON struct{}
 
-func (HooksJSON) Place(file, event, command string) (bool, error) {
-	args := shellSplit(command)
-	if len(args) != 4 {
-		return false, fmt.Errorf("not a hook command: %q", command)
-	}
-	role, agent := args[2], args[3]
+func (HooksJSON) Place(file, event string, cmd Cmd) (bool, error) {
 	changed := false
 	err := store.EditFile(file, 0o644, func(b []byte) ([]byte, error) {
 		doc := map[string]any{}
@@ -45,7 +40,7 @@ func (HooksJSON) Place(file, event, command string) (bool, error) {
 			doc["hooks"] = hooks
 		}
 		var kept []any
-		kept, changed = placeHook(hooks[event], command, role, agent, args[0])
+		kept, changed = placeHook(hooks[event], cmd)
 		if !changed {
 			return nil, nil
 		}
@@ -79,12 +74,13 @@ func (HooksJSON) Commands(file, event string) ([]string, error) {
 	return out, nil
 }
 
-// placeHook returns event's hook groups with command in them once per
-// matcher: under each matcher (none counts as one), the first sous hook
-// for role and agent is updated in place and any others are removed.
+// placeHook returns event's hook groups with cmd in them once per matcher:
+// under each matcher (none counts as one), the first sous hook for its
+// role and agent is updated in place and any others are removed.
 // Entries sous does not understand, and every other hook, are kept as they
 // are. changed says whether anything moved.
-func placeHook(event any, command, role, agent, exe string) (kept []any, changed bool) {
+func placeHook(event any, cmd Cmd) (kept []any, changed bool) {
+	command := cmd.String()
 	groups, _ := event.([]any)
 	placed := map[string]bool{} // matcher → our hook is there
 	for _, g := range groups {
@@ -100,7 +96,7 @@ func placeHook(event any, command, role, agent, exe string) (kept []any, changed
 			hm, _ := h.(map[string]any)
 			c, _ := hm["command"].(string)
 			switch {
-			case hm == nil || !IsOurs(c, role, agent, exe):
+			case hm == nil || !cmd.Ours(c):
 				keep = append(keep, h)
 			case !placed[matcher]:
 				placed[matcher] = true

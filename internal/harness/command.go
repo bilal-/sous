@@ -12,25 +12,26 @@ const (
 	RoleEnd   = "session-end"
 )
 
-// Command is the hook command line for exe: `<exe> hook <role> <agent>`,
-// with exe quoted for the shell when it needs it.
-func Command(exe, role, agent string) string {
-	return shellQuote(exe) + " hook " + role + " " + agent
-}
+// Cmd is the hook sous puts in an agent's settings: `<exe> hook <role>
+// <agent>`.
+type Cmd struct{ Exe, Role, Agent string }
 
-// IsOurs: is command a sous hook for role and agent, whichever sous binary
-// it names? The program must be called sous (or be exe itself), and its
-// arguments exactly ours.
-func IsOurs(command, role, agent string, exe ...string) bool {
-	tail := " hook " + role + " " + agent
+// String is the command line, with Exe quoted for the shell when it needs it.
+func (c Cmd) String() string { return shellQuote(c.Exe) + " hook " + c.Role + " " + c.Agent }
+
+// Ours: is command a sous hook for c's role and agent, whichever sous binary
+// it names? The program must be called sous (or be c.Exe itself), and its
+// arguments exactly ours. An Exe of "" matches only by name.
+func (c Cmd) Ours(command string) bool {
+	tail := " hook " + c.Role + " " + c.Agent
 	if prog, ok := strings.CutSuffix(command, tail); ok && oldUnquotedPath(prog) {
 		return true // an older, unquoted line, whose path may hold spaces
 	}
 	args := shellSplit(command)
-	if len(args) != 4 || args[1] != "hook" || args[2] != role || args[3] != agent {
+	if len(args) != 4 || args[1] != "hook" || args[2] != c.Role || args[3] != c.Agent {
 		return false
 	}
-	return filepath.Base(args[0]) == "sous" || len(exe) > 0 && args[0] == exe[0]
+	return filepath.Base(args[0]) == "sous" || c.Exe != "" && args[0] == c.Exe
 }
 
 // oldUnquotedPath: prog is nothing but an absolute path to a sous binary,

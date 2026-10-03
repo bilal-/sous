@@ -31,7 +31,7 @@ func Check(home, sousHome, exe, shell, goos, zdotdir string) []Result {
 	var out []Result
 	for _, h := range hookSpecs() {
 		r := checkHook(home, h, exe)
-		if h.Optional && r.Detail == "not installed" { // asked for with a flag
+		if h.Flag != "" && r.Detail == "not installed" { // asked for with a flag
 			r = Result{Name: r.Name, OK: true, Detail: "not installed (optional)"}
 		}
 		out = append(out, r)
@@ -58,13 +58,13 @@ func checkHook(home string, h hookSpec, exe string) Result {
 		r.Detail, r.Fix = err.Error(), "fix "+file+" by hand, then sous setup"
 		return r
 	}
-	want := harness.Command(exe, h.Role, h.Name)
+	want := harness.Cmd{Exe: exe, Role: h.Role, Agent: h.Name}
 	r.Detail = "not installed"
 	for _, c := range cmds {
 		switch {
-		case c == want:
+		case c == want.String():
 			return Result{Name: r.Name, OK: true, Detail: "installed"}
-		case harness.IsOurs(c, h.Role, h.Name):
+		case harness.Cmd{Role: h.Role, Agent: h.Name}.Ours(c):
 			r.Detail = "runs another sous: " + harness.Program(c)
 		}
 	}

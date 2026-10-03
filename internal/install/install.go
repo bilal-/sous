@@ -86,17 +86,17 @@ func hookSpecs() []hookSpec {
 }
 
 // Hooks adds the session hooks for the sous at exe: every harness's, and
-// the optional ones only when optIn says so.
-func Hooks(home, exe string, optIn func(harness.Harness, harness.Hook) bool) ([]string, error) {
+// the optional ones only when their flag is in flags.
+func Hooks(home, exe string, flags []string) ([]string, error) {
 	extra := map[string]bool{} // harness → an optional end hook is on
 	for _, x := range hookSpecs() {
-		if x.Optional && !optIn(x.Harness, x.Hook) {
+		if x.Flag != "" && !slices.Contains(flags, x.Flag) {
 			continue
 		}
-		if _, err := x.Format.Place(x.file(home), x.Event, harness.Command(exe, x.Role, x.Name)); err != nil {
+		if _, err := x.Format.Place(x.file(home), x.Event, harness.Cmd{Exe: exe, Role: x.Role, Agent: x.Name}); err != nil {
 			return nil, fmt.Errorf("%s: %w", x.file(home), err)
 		}
-		extra[x.Name] = extra[x.Name] || x.Optional && x.Role == harness.RoleEnd
+		extra[x.Name] = extra[x.Name] || x.Flag != "" && x.Role == harness.RoleEnd
 	}
 	var done []string
 	for _, h := range harness.All {
@@ -109,20 +109,21 @@ func Hooks(home, exe string, optIn func(harness.Harness, harness.Hook) bool) ([]
 	return done, nil
 }
 
-// skillPlace is one folder agents read skills from.
+// skillPlace is one folder agents read skills from, and what setup says
+// once the skill is there ("" when the agent's hook line says it).
 type skillPlace struct{ Who, Dir, report string }
 
-// skillPlaces: Claude Code's and Codex's folders, the shared
-// ~/.agents/skills that Gemini CLI, Kimi, Cursor and others read, and
-// Antigravity's folder when Antigravity is installed.
+// skillPlaces: each harness's own folder, then the shared ones that apply
+// here.
 func skillPlaces(home string) []skillPlace {
 	var places []skillPlace
 	for _, h := range harness.All {
 		places = append(places, skillPlace{Who: h.Display, Dir: h.SkillDir(home)})
 	}
-	places = append(places, skillPlace{"Gemini CLI, Kimi, Cursor and other agents", filepath.Join(home, ".agents", "skills"), "Gemini CLI, Kimi, Cursor and other agents: have the sous skill (in ~/.agents/skills, the shared folder they read)"})
-	if st, err := os.Stat(filepath.Join(home, ".gemini", "antigravity")); err == nil && st.IsDir() {
-		places = append(places, skillPlace{"Antigravity", filepath.Join(home, ".gemini", "antigravity", "skills"), "Antigravity: has the sous skill"})
+	for _, f := range harness.SharedSkills {
+		if f.When == nil || f.When(home) {
+			places = append(places, skillPlace{f.Who, f.Dir(home), f.Says})
+		}
 	}
 	return places
 }

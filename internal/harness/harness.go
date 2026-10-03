@@ -7,6 +7,8 @@
 package harness
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 )
 
@@ -36,9 +38,9 @@ type Harness struct {
 type Hook struct {
 	Role  string // RoleStart or RoleEnd
 	Event string // the harness's name for the moment: "SessionStart"
-	// Optional: installed only when the person asks (sous setup
-	// --codex-session-end), so its absence is not a fault.
-	Optional bool
+	// Flag, when set, makes the hook optional: sous setup --<Flag> puts it
+	// in, for agent versions that support the event.
+	Flag string
 }
 
 // Input is what a hook call says, whatever shape the harness sent it in.
@@ -80,4 +82,39 @@ func Find(name string) (Harness, bool) {
 		return Harness{}, false
 	}
 	return All[i], true
+}
+
+// Flags are the setup flags that turn on optional hooks.
+func Flags() []string {
+	var out []string
+	for _, h := range All {
+		for _, k := range h.Hooks {
+			if k.Flag != "" {
+				out = append(out, k.Flag)
+			}
+		}
+	}
+	return out
+}
+
+// SharedSkills are skill folders several agents read besides their own,
+// for agents sous has no hooks for. When, if set, says whether the folder
+// applies on this machine.
+var SharedSkills = []SkillFolder{
+	{Who: "Gemini CLI, Kimi, Cursor and other agents", Dir: func(home string) string { return filepath.Join(home, ".agents", "skills") },
+		Says: "Gemini CLI, Kimi, Cursor and other agents: have the sous skill (in ~/.agents/skills, the shared folder they read)"},
+	{Who: "Antigravity", Dir: func(home string) string { return filepath.Join(home, ".gemini", "antigravity", "skills") },
+		When: func(home string) bool {
+			st, err := os.Stat(filepath.Join(home, ".gemini", "antigravity"))
+			return err == nil && st.IsDir()
+		},
+		Says: "Antigravity: has the sous skill"},
+}
+
+// SkillFolder is a folder agents read skills from.
+type SkillFolder struct {
+	Who  string
+	Dir  func(home string) string
+	When func(home string) bool // nil: always
+	Says string                 // what setup reports once the skill is there
 }

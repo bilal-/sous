@@ -29,7 +29,13 @@ func cmdSetup(e *Env, a argv) int {
 		return fail(e, exitFailed, "%v", err)
 	}
 	done = append(done, skills...)
-	hooks, err := install.Hooks(e.UserHome, e.Exe, func(h harness.Harness, _ harness.Hook) bool { return h.Name == "codex" && a.has("codex-session-end") })
+	var flags []string
+	for _, f := range harness.Flags() {
+		if a.has(f) {
+			flags = append(flags, f)
+		}
+	}
+	hooks, err := install.Hooks(e.UserHome, e.Exe, flags)
 	if err != nil {
 		return fail(e, exitFailed, "%v", err)
 	}

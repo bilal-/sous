@@ -10,10 +10,16 @@ import (
 	"time"
 )
 
-// Install puts a hook in a Claude Code style settings file.
+// Install puts a hook, written as its command line, in a Claude Code style
+// settings file.
 func Install(file, event, command string) (bool, error) {
-	return HooksJSON{}.Place(file, event, command)
+	args := shellSplit(command)
+	return HooksJSON{}.Place(file, event, Cmd{Exe: args[0], Role: args[2], Agent: args[3]})
 }
+
+// Command and IsOurs are Cmd's two sides, the way the tests read best.
+func Command(exe, role, agent string) string  { return Cmd{exe, role, agent}.String() }
+func IsOurs(command, role, agent string) bool { return Cmd{Role: role, Agent: agent}.Ours(command) }
 
 // LastAssistantText reads a Claude Code transcript.
 func LastAssistantText(path string, max int) string { return claude.Last(path, max) }
@@ -221,7 +227,7 @@ func TestEveryHarnessIsComplete(t *testing.T) {
 		}
 		var start bool
 		for _, k := range h.Hooks {
-			start = start || k.Role == RoleStart && !k.Optional
+			start = start || k.Role == RoleStart && k.Flag == ""
 		}
 		if !start {
 			t.Errorf("%s: no session start hook", h.Name)
