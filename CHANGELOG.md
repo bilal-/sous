@@ -7,6 +7,26 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+* The tests no longer reach the developer's own setup: with `ZDOTDIR`
+  set, the setup tests wrote sous's line into that person's real
+  `.zshrc`, and a git configured to sign commits failed the suite. Every
+  test now runs with git's global and system config, `ZDOTDIR` and
+  `SOUS_SOURCE` set aside.
+* The commands sous suggests name a project as `org/name`, so they work
+  when two projects share a folder name.
+* docs/plugins.md's conformance example compiles again.
+
+### Changed
+* A run keeps its whole brief, and `show --json` gives it under
+  `run.brief`, so a failed run can be handed over again as it was.
+* Under `--json`, `note` that finds the note under another kind says
+  which (`kind`), and says when it joined lines (`joined`); `done --clean`
+  whose runner cannot clean up says so (`error`); a closed note's next
+  step is `sous`.
+* A mistyped command gets a suggestion only when one command is clearly
+  meant: `sous x` no longer suggests `sous go`.
+
 ## [0.8.0]
 
 ### Fixed

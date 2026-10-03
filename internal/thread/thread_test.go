@@ -351,3 +351,14 @@ func TestNoteRunRetriesAFailedStart(t *testing.T) {
 		t.Fatalf("%d %d %v %+v", id, again, existed, th.Run)
 	}
 }
+
+// A run keeps its whole brief, so it can be handed over again; its note's
+// text is the first line.
+func TestNoteRunKeepsTheBrief(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	id, _, _ := NoteRun(s, project.Project{Path: "/code/acme/api"}, "Fix the flaky test.\nIt fails 1 in 5.\n", "", "fake", "human", time.Now())
+	th, _ := Get(s, id)
+	if th.Text != "Fix the flaky test." || th.Run.Brief != "Fix the flaky test.\nIt fails 1 in 5." {
+		t.Fatalf("%q %q", th.Text, th.Run.Brief)
+	}
+}

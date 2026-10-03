@@ -261,7 +261,7 @@ func TestSnoozedAndRunItems(t *testing.T) {
 // key (the same brief would find the failed run), or clean it up.
 func TestFailedRunSuggestsARetry(t *testing.T) {
 	v := thread.View{Thread: thread.Thread{ID: 7, Project: "/code/acme/billing", Run: &thread.Run{State: thread.RunFailed}}}
-	if got := strings.Join(Next(v), " | "); got != "sous show 7 | sous go billing --run - --key retry-7 | sous done 7 --clean" {
+	if got := strings.Join(Next(v), " | "); got != "sous show 7 | sous go acme/billing --run - --key retry-7 | sous done 7 --clean" {
 		t.Fatal(got)
 	}
 }

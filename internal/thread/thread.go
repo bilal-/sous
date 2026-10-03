@@ -83,7 +83,8 @@ func (s RunState) Reported() bool {
 type Run struct {
 	Runner   string     `json:"runner"`
 	Ref      string     `json:"ref,omitempty"`
-	Key      string     `json:"key,omitempty"` // go --key: a retry finds this run
+	Key      string     `json:"key,omitempty"`   // go --key: a retry finds this run
+	Brief    string     `json:"brief,omitempty"` // the whole task as handed over; the note's text is its first line
 	State    RunState   `json:"state"`
 	Text     string     `json:"text,omitempty"` // the runner's summary or question
 	Branch   string     `json:"branch,omitempty"`
@@ -272,7 +273,7 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 			return nil
 		}
 		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: title, Kind: Them,
-			Since: now.UTC(), Source: source, Run: &Run{Runner: runnerName, Key: key, State: RunStarting}})
+			Since: now.UTC(), Source: source, Run: &Run{Runner: runnerName, Key: key, Brief: strings.TrimSpace(brief), State: RunStarting}})
 		return nil
 	})
 	return id, existed, err

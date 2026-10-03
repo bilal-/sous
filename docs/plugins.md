@@ -225,12 +225,12 @@ func TestTodoConforms(t *testing.T) {
 }
 
 func TestJiraConforms(t *testing.T) {
-	b := backend.Backends("", nil, []string{"/path/to/sous-backend-jira"})[0]
+	b := backend.Registry.Discover("", nil, []string{"/path/to/sous-backend-jira"})[0]
 	backendtest.RunDoor(t, b, "/path/to/a/project/it/detects")
 }
 
 func TestOrchidConforms(t *testing.T) {
-	r := runner.Runners("", nil, []string{"/path/to/sous-runner-orchid"})[0]
+	r := runner.Registry.Discover("", nil, []string{"/path/to/sous-runner-orchid"})[0]
 	runnertest.RunDoor(t, r, "/path/to/a/git/project", func(ref string) {
 		// make the run finish: your runner, your way
 	})

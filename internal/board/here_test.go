@@ -117,7 +117,7 @@ func TestBriefHereIsShortAndSaysWhatItCut(t *testing.T) {
 	var b strings.Builder
 	RenderHere(&b, d, now, true)
 	out := b.String()
-	testutil.Contains(t, out, "  5  task 5", "… and 3 more (sous api)", "…  0m  (them)", "cut short: sous show <n>")
+	testutil.Contains(t, out, "  5  task 5", "… and 3 more (sous acme/api)", "…  0m  (them)", "cut short: sous show <n>")
 	if strings.Contains(out, "task 6") || strings.Contains(out, long) {
 		t.Fatalf("brief lists five of each and cuts long notes:\n%s", out)
 	}

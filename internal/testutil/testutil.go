@@ -10,14 +10,36 @@ import (
 	"testing"
 )
 
+// isolated is the environment every test binary that uses testutil runs
+// in, whatever the developer's: git with no global or system config (no
+// signing, hooks or aliases of theirs) and a fixed identity, no ZDOTDIR
+// (setup would write to their real .zshrc), and no SOUS_SOURCE. Tests that
+// need one of these set it themselves.
+var isolated = map[string]string{
+	"GIT_CONFIG_GLOBAL":   os.DevNull,
+	"GIT_CONFIG_NOSYSTEM": "1",
+	"GIT_AUTHOR_NAME":     "Sous Tests",
+	"GIT_AUTHOR_EMAIL":    "sous-tests@example.invalid",
+	"GIT_COMMITTER_NAME":  "Sous Tests",
+	"GIT_COMMITTER_EMAIL": "sous-tests@example.invalid",
+	"ZDOTDIR":             "",
+	"SOUS_SOURCE":         "",
+}
+
+func init() {
+	for k, v := range isolated {
+		if v == "" {
+			os.Unsetenv(k)
+		} else {
+			os.Setenv(k, v)
+		}
+	}
+}
+
 // Git runs git in dir with a fixed author and fails the test on error.
 func Git(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
-	cmd.Env = append(os.Environ(),
-		"GIT_AUTHOR_NAME=Sous Tests", "GIT_AUTHOR_EMAIL=sous-tests@example.invalid",
-		"GIT_COMMITTER_NAME=Sous Tests", "GIT_COMMITTER_EMAIL=sous-tests@example.invalid")
-	out, err := cmd.CombinedOutput()
+	out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}

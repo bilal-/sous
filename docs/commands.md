@@ -73,7 +73,12 @@ when it is whole). An empty list is `[]`, never `null`. Times are UTC.
   `unknown` (gone there) or `error` (could not ask, with `error` saying
   why). `null` for a note that is not filed, and for signals.
 * `run`: for a run, how it is going; `error` when its state could not be
-  read this time (`state` is then the last one known). `null` otherwise.
+  read this time (`state` is then the last one known). `brief` is the
+  whole task as it was handed over, to hand over again (a failed run
+  suggests `sous go <org/name> --run - --key retry-<n>`, with the brief on
+  standard input); `key` is the `--key` it was started with, or
+  `brief:<hash>` when none was given. `null` for a note that is not a
+  run.
 * `stale`: its source failed this time, and this is what it said before.
 * `closed_at`, `closed_by` (`you` or `upstream`): for a closed note.
 
@@ -202,7 +207,11 @@ that changes something answers this way, and `did` says what happened
 (`noted`, `already_noted`, `edited`, `kind`, `snoozed`, `closed`,
 `already_closed`, `cleaned` (a closed run's worktree removed by
 `done --clean`), `filed`, `replied`, and for `go --run` `started` and
-`already_started`).
+`already_started`). An answer may also carry `kind` (after `kind`, or
+when `note` found the note under another kind), `until` (after
+`snooze`), `joined` (`note` joined lines into one), `run` (after
+`go --run`), and `error`, for a part that could not be done: a note
+saved but not filed, a run whose runner cannot clean up.
 
 Options:
 

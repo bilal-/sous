@@ -10,7 +10,9 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/testutil"
+	"github.com/bilal-/sous/internal/thread"
 )
 
 func sousCmd(f *fx, dir string, args ...string) *exec.Cmd {
@@ -185,5 +187,24 @@ func TestGoInUsesTheFolderGiven(t *testing.T) {
 	real, _ := filepath.EvalSymlinks(p)
 	if err != nil || !strings.Contains(string(out), "claude in "+real) {
 		t.Fatalf("%v\n%s", err, out)
+	}
+}
+
+// The commands sous suggests name a project as org/name, which finds it
+// even when another project has the same folder name.
+func TestSuggestedProjectNamesAreUnambiguous(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	f.mkrepo("other/api", true)
+	v := thread.View{Thread: thread.Thread{ID: 1, Project: p, Run: &thread.Run{State: thread.RunFailed}}}
+	var retry string
+	for _, c := range board.Next(v) {
+		if strings.HasPrefix(c, "sous go ") {
+			retry = c
+		}
+	}
+	arg := strings.Fields(retry)[2]
+	if out, errs, code := f.run("go", arg, "--where"); code != 0 || strings.TrimSpace(out) != p {
+		t.Fatalf("%q from %q: %d %q %q", arg, retry, code, out, errs)
 	}
 }

@@ -314,6 +314,11 @@ func TestHelpForACommandAndTypos(t *testing.T) {
 			t.Errorf("%v: %d %q", args, code, errs)
 		}
 	}
+	for _, args := range [][]string{{"x", "y"}, {"ab", "c"}, {"zzzz", "y"}} {
+		if _, errs, _ := f.run(args...); strings.Contains(errs, "did you mean") {
+			t.Errorf("%v guesses: %q", args, errs)
+		}
+	}
 }
 
 // The README's tables are the front page: they cannot fall behind the

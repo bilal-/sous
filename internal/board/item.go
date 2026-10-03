@@ -50,7 +50,8 @@ type RunItem struct {
 	Branch   string          `json:"branch"`
 	Worktree string          `json:"worktree"`
 	Log      string          `json:"log"`
-	Key      string          `json:"key"` // go --key: a retry with it finds this run
+	Key      string          `json:"key"`   // go --key, or brief:<hash> when none was given: a retry with it finds this run
+	Brief    string          `json:"brief"` // the whole task, to hand over again
 	// CheckedAt: when the runner was last asked; null before it answered.
 	CheckedAt *time.Time `json:"checked_at"`
 	// LogTail: in show --json, the last lines of a failed run's log.
@@ -68,7 +69,7 @@ func (r Row) Item() Item {
 	}
 	if r.Run != nil {
 		it.Run = &RunItem{Runner: r.Run.Runner, State: r.Run.State, Text: r.Run.Text, Branch: r.Run.Branch, Worktree: r.Run.Worktree,
-			Log: r.Run.Log, Key: r.Run.Key, CheckedAt: r.Run.Checked, Error: r.RunErr}
+			Log: r.Run.Log, Key: r.Run.Key, Brief: r.Run.Brief, CheckedAt: r.Run.Checked, Error: r.RunErr}
 	}
 	if r.ClosedAt != nil {
 		by := "you"

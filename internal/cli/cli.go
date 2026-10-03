@@ -186,17 +186,24 @@ func unknownCommand(e *Env, word string) int {
 	return fail(e, exitUsage, "%q is not a command; %s", word, hint)
 }
 
-// nearestVerb is the command word is a typo of (at most two letters off),
-// or "".
+// nearestVerb is the command word is most likely a typo of, or "": one
+// letter off for a short word, a letter in three for a longer one, and
+// only when one command is nearest.
 func nearestVerb(word string) string {
-	best, bestD := "", 3
+	best, bestD, ties := "", max(1, len(word)/3)+1, 0
 	for _, v := range verbs {
 		if v.usage == "" {
 			continue
 		}
-		if d := editDistance(word, v.name); d < bestD {
-			best, bestD = v.name, d
+		switch d := editDistance(word, v.name); {
+		case d < bestD:
+			best, bestD, ties = v.name, d, 1
+		case d == bestD:
+			ties++
 		}
+	}
+	if ties != 1 || len(word) < 3 {
+		return ""
 	}
 	return best
 }

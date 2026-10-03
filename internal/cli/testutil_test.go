@@ -33,10 +33,6 @@ func fixture(t *testing.T) *fx {
 	t.Setenv("SOUS_HOME", f.SousHome)
 	t.Setenv("SHELL", "/bin/zsh") // setup edits the shell file; never depend on the real one
 	t.Setenv("PATH", filepath.Join(home, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
-	t.Setenv("GIT_AUTHOR_NAME", "Sous Tests")
-	t.Setenv("GIT_AUTHOR_EMAIL", "sous-tests@example.invalid")
-	t.Setenv("GIT_COMMITTER_NAME", "Sous Tests")
-	t.Setenv("GIT_COMMITTER_EMAIL", "sous-tests@example.invalid")
 	// Built-in plugins re-exec this binary as `sous`; TestMain honours this.
 	t.Setenv("SOUS_TEST_AS_BINARY", "1")
 	// No test may reach GitHub: gh is stubbed as "not logged in" unless a test

@@ -17,10 +17,13 @@ type changedJSON struct {
 	Did  string   `json:"did"` // one of dids
 	Ref  *string  `json:"ref"` // where it is filed, when it is
 	Next []string `json:"next"`
-	// Kind: for kind, the note's kind now. Until: for snooze, when it
+	// Kind: for kind, the note's kind now; for already_noted, the kind the
+	// note has, when another was asked for. Until: for snooze, when it
 	// shows again (null for a signal, snoozed until it changes).
 	Kind  string     `json:"kind,omitempty"`
 	Until *time.Time `json:"until,omitempty"`
+	// Joined: note joined a text of several lines onto one.
+	Joined bool `json:"joined,omitempty"`
 	// Run: for go --run, the run it started or found.
 	Run *board.RunItem `json:"run,omitempty"`
 	// Error: part of it could not be done (noted, but not filed: why).

@@ -29,17 +29,19 @@ func cmdNote(e *Env, a argv) int {
 	if err != nil {
 		return threadErr(e, err)
 	}
-	did, said := didNoted, fmt.Sprintf("noted %d in %s", id, p.Name)
+	c := changedJSON{ID: fmt.Sprint(id), Did: didNoted, Next: noteNext(e, id)}
+	said := fmt.Sprintf("noted %d in %s", id, p.Name)
 	if strings.ContainsAny(strings.TrimSpace(a.pos[0]), "\n\t") {
 		said += " (joined onto one line)" // a note is one line; say so
+		c.Joined = true
 	}
 	if existed {
-		did, said = didAlreadyNoted, fmt.Sprintf("already noted as %d in %s", id, p.Name)
+		c.Did, said = didAlreadyNoted, fmt.Sprintf("already noted as %d in %s", id, p.Name)
 		if th, err := thread.Get(e.store(), id); err == nil && th.Kind != kind {
 			said += fmt.Sprintf(" (%s; sous kind %d %s to change it)", th.Kind, id, kind)
+			c.Kind = string(th.Kind)
 		}
 	}
-	c := changedJSON{ID: fmt.Sprint(id), Did: did, Next: noteNext(e, id)}
 	if !a.has("file") {
 		return e.changed(c, said)
 	}
@@ -155,24 +157,28 @@ func cmdDone(e *Env, a argv) int {
 	}
 	// Each step is safe to repeat, so done again (or with --close or
 	// --clean after a plain done) does what is left, and says so.
-	finished, c := stopRun(e, id, a.has("clean"))
-	if c != 0 {
-		return c
+	finished, code := stopRun(e, id, a.has("clean"))
+	if code != 0 {
+		return code
 	}
 	if a.has("close") {
-		if c := closeUpstream(e, id); c != 0 {
-			return c
+		if code := closeUpstream(e, id); code != 0 {
+			return code
 		}
+	}
+	c := changedJSON{ID: fmt.Sprint(id), Did: didClosed, Ref: th.Ref}
+	said := fmt.Sprintf("closed %d", id)
+	if finished == runs.CantClean {
+		c.Error = "its runner cannot clean up; the worktree stays"
 	}
 	if th.Closed != nil {
-		did, said := didAlreadyClosed, fmt.Sprintf("%d was closed %s", id, text.Ago(time.Now(), *th.Closed))
+		c.Did, said = didAlreadyClosed, fmt.Sprintf("%d was closed %s", id, text.Ago(time.Now(), *th.Closed))
 		if finished == runs.Cleaned {
-			did, said = didCleaned, fmt.Sprintf("cleaned up run %d (closed %s)", id, text.Ago(time.Now(), *th.Closed))
+			c.Did, said = didCleaned, fmt.Sprintf("cleaned up run %d (closed %s)", id, text.Ago(time.Now(), *th.Closed))
 		}
-		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: did, Ref: th.Ref, Next: []string{"sous"}}, said)
-	}
-	if err := thread.Done(e.store(), id, time.Now()); err != nil {
+	} else if err := thread.Done(e.store(), id, time.Now()); err != nil {
 		return threadErr(e, err)
 	}
-	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didClosed, Ref: th.Ref, Next: []string{"sous"}}, fmt.Sprintf("closed %d", id))
+	c.Next = noteNext(e, id)
+	return e.changed(c, said)
 }

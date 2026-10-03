@@ -18,7 +18,7 @@ import (
 type runLook struct {
 	label  string                     // what the board says first: "run needs you"
 	detail func(r *thread.Run) string // what follows the note: its question, its branch
-	next   []string                   // commands, with %d for the note's number
+	next   []string                   // commands, with {n} for the note's number and {project} its org/name
 }
 
 var runLooks = map[thread.RunState]runLook{
@@ -55,11 +55,12 @@ func runLine(r *thread.Run, note string) string {
 func Next(v thread.View) []string {
 	switch {
 	case v.Closed != nil:
-		return []string{}
+		return []string{"sous"} // it is done: back to what else waits
 	case v.Run == nil:
 		return []string{fmt.Sprintf("sous done %d", v.ID)}
 	}
-	fill := strings.NewReplacer("{n}", fmt.Sprint(v.ID), "{project}", filepath.Base(v.Project))
+	// org/name: a folder name alone may match more than one project.
+	fill := strings.NewReplacer("{n}", fmt.Sprint(v.ID), "{project}", project.OrgName(v.Project))
 	var out []string
 	for _, c := range look(v.Run).next {
 		out = append(out, fill.Replace(c))

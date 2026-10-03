@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -126,7 +125,7 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 			fmt.Fprintln(w, line+suffix)
 		}
 		if len(shown) < len(rows) {
-			fmt.Fprintf(w, "  … and %d more (sous %s)\n", len(rows)-len(shown), filepath.Base(d.Project))
+			fmt.Fprintf(w, "  … and %d more (sous %s)\n", len(rows)-len(shown), project.OrgName(d.Project))
 		}
 	}
 	list(s.Me, "")
