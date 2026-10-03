@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.6.0]
+
 ### Changed
 * A run reads the same everywhere: the board, `sous show`, `--json` and
   what an agent hears at session start use one wording and one list of
