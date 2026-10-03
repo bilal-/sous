@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.8.1]
+
 ### Fixed
 * The tests no longer reach the developer's own setup: with `ZDOTDIR`
   set, the setup tests wrote sous's line into that person's real
