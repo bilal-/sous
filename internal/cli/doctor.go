@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/doctor"
+	"github.com/bilal-/sous/internal/text"
 )
 
 // cmdDoctor checks that sous is set up and working, and says how to fix
@@ -27,7 +28,7 @@ func cmdDoctor(e *Env, _ argv) int {
 		}
 		return code
 	}
-	fmt.Fprintf(e.Stdout, "sous doctor · %d checks · %s · %d to look at\n\n", len(checks), doctor.Plural(problems, "problem"), warnings)
+	fmt.Fprintf(e.Stdout, "sous doctor · %d checks · %s · %d to look at\n\n", len(checks), text.Plural(problems, "problem"), warnings)
 	for _, c := range checks {
 		mark := map[doctor.Status]string{doctor.OK: "✓", doctor.Warn: "!", doctor.Bad: "✗"}[c.Status]
 		fmt.Fprintf(e.Stdout, "  %s %s: %s\n", mark, c.Name, c.Detail)

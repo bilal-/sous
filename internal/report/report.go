@@ -13,6 +13,7 @@ import (
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
+	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
 	"github.com/bilal-/sous/internal/tracker"
@@ -232,7 +233,7 @@ func render(w io.Writer, r Report) {
 		fmt.Fprintln(w, "\n  closed")
 		for _, row := range r.Closed {
 			by := ""
-			if row.ClosedBy == "upstream" {
+			if row.ClosedBy == thread.ClosedByUpstream {
 				by = " (upstream)"
 			}
 			fmt.Fprintf(w, "  ✓ %-12s  %-22.22s  %-58.58s  %s%s\n", row.ID, filepath.Base(row.Project), row.Shown, row.Age, by)
@@ -273,7 +274,7 @@ var reportTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 	"base": filepath.Base,
 	"url":  WebURL,
 	"isThread": func(id string) bool {
-		return id != "" && !strings.HasPrefix(id, "s:")
+		return id != "" && !signal.IsID(id)
 	},
 	"when": text.When,
 }).Parse(reportHTML))

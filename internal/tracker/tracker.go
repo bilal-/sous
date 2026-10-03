@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/text"
 )
 
 // InstallID is a random id created once per $SOUS_HOME. It goes into remote
@@ -229,7 +230,7 @@ func Output(cmd *exec.Cmd) ([]byte, error) {
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		if msg := strings.Join(strings.Fields(stderr.String()), " "); msg != "" {
+		if msg := text.OneLine(stderr.String()); msg != "" {
 			return out, errors.New(msg) // one line, however the tool wrapped it
 		}
 		return out, err

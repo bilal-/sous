@@ -36,6 +36,12 @@ const (
 	KeyGitHubAccount = "github_account"
 )
 
+// The top-level settings whose value names a plugin.
+const (
+	KeyAgent  = "agent"
+	KeyRunner = "runner"
+)
+
 // ProjectKeys are the per-project settings sous reads.
 var ProjectKeys = []string{KeyBackend, KeyGitHubAccount}
 

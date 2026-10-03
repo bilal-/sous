@@ -3,6 +3,7 @@ package project
 import (
 	"errors"
 	"fmt"
+	"github.com/bilal-/sous/internal/text"
 	"io"
 	"strings"
 )
@@ -101,11 +102,7 @@ func Resolve(roots, ignore []string, term, cwd, home string, warn io.Writer) (Pr
 		ps, unavailable := Discover(roots, ignore, warn)
 		p, err := Match(ps, term)
 		if errors.Is(err, ErrNoMatch) && unavailable > 0 {
-			folders := "folders"
-			if unavailable == 1 {
-				folders = "folder"
-			}
-			err = fmt.Errorf("%w; %d project %s could not be read", err, unavailable, folders)
+			err = fmt.Errorf("%w; %s could not be read", err, text.Plural(unavailable, "project folder"))
 		}
 		return p, err
 	}

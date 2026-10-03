@@ -38,11 +38,19 @@ type Signal struct {
 	State string `json:"state,omitempty"`
 }
 
-// ID is stable across runs and machines: "s:" + 12 hex of sha256(project\tkey).
+// IDPrefix starts every signal's id, so it is never taken for a note's
+// number.
+const IDPrefix = "s:"
+
+// ID is stable across runs and machines: IDPrefix + 12 hex of
+// sha256(project\tkey).
 func ID(project, key string) string {
 	sum := sha256.Sum256([]byte(project + "\t" + key))
-	return "s:" + hex.EncodeToString(sum[:])[:12]
+	return IDPrefix + hex.EncodeToString(sum[:])[:12]
 }
+
+// IsID: id names a signal, not a note.
+func IsID(id string) bool { return strings.HasPrefix(id, IDPrefix) }
 
 func WriteLine(w io.Writer, s Signal) error {
 	s.V = 0

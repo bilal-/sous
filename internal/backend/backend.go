@@ -96,7 +96,7 @@ func ByRef(bs []Backend, ref string) (Backend, error) {
 	if !strings.Contains(ref, ":") {
 		return Backend{}, fmt.Errorf("%w: malformed ref %q", ErrUnknownBackend, ref)
 	}
-	if rest, ok := strings.CutPrefix(ref, "md:"); ok {
+	if rest, ok := strings.CutPrefix(ref, mdPrefix); ok {
 		ref = "markdown:" + rest
 	}
 	if b, ok := plugin.ByRef(bs, ref); ok {

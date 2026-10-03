@@ -181,50 +181,49 @@ func (d *Dispatcher) Reply(ctx context.Context, id int, answer string) error {
 	return thread.SetRun(d.Store, id, func(run *thread.Run) { run.State, run.Text = runner.Running, "" })
 }
 
-// Stop ends the run, if it is still going.
-func (d *Dispatcher) Stop(ctx context.Context, id int) error {
+// on makes one call to a note's run through its runner.
+func (d *Dispatcher) on(ctx context.Context, id int, call func(context.Context, runner.Runner, string, string) error) error {
 	th, r, err := d.run(id)
 	if err != nil {
 		return err
 	}
-	return runner.Stop(ctx, r, th.Project, th.Run.Ref)
+	return call(ctx, r, th.Project, th.Run.Ref)
 }
+
+// Finished is what closing a note did to its run.
+type Finished int
+
+const (
+	NoRun     Finished = iota // not a run, or one that never started: nothing to do
+	Stopped                   // the run is stopped
+	Cleaned                   // stopped, and what it left behind removed
+	CantClean                 // stopped; the runner cannot clean up, so its files stay
+)
 
 // Finish is what closing a note does to its run first: stop it, and with
 // clean remove what it left behind, keeping its work. A note that is not a
-// run is left alone (and asking to clean it is ErrNotARun); a run that
-// never started has nothing to stop. cleaned is false when the runner
-// cannot clean up; its files stay.
-func (d *Dispatcher) Finish(ctx context.Context, id int, clean bool) (cleaned bool, err error) {
+// run is left alone (and asking to clean it is ErrNotARun).
+func (d *Dispatcher) Finish(ctx context.Context, id int, clean bool) (Finished, error) {
 	th, err := thread.Get(d.Store, id)
 	switch {
 	case err != nil:
-		return false, err
+		return NoRun, err
 	case th.Run == nil && clean:
-		return false, fmt.Errorf("note %d %w; --clean is for runs", id, ErrNotARun)
+		return NoRun, fmt.Errorf("note %d %w; --clean is for runs", id, ErrNotARun)
 	case th.Run == nil || th.Run.Ref == "":
-		return false, nil
+		return NoRun, nil
 	}
-	if err := d.Stop(ctx, id); err != nil {
-		return false, fmt.Errorf("stopping run %d: %w", id, err)
+	if err := d.on(ctx, id, runner.Stop); err != nil {
+		return NoRun, fmt.Errorf("stopping run %d: %w", id, err)
 	}
 	if !clean {
-		return false, nil
+		return Stopped, nil
 	}
-	switch err := d.Clean(ctx, id); {
+	switch err := d.on(ctx, id, runner.Clean); {
 	case errors.Is(err, runner.ErrUnsupported):
-		return false, nil
+		return CantClean, nil
 	case err != nil:
-		return false, fmt.Errorf("cleaning up run %d: %w", id, err)
+		return Stopped, fmt.Errorf("cleaning up run %d: %w", id, err)
 	}
-	return true, nil
-}
-
-// Clean removes what the run left behind, keeping its work.
-func (d *Dispatcher) Clean(ctx context.Context, id int) error {
-	th, r, err := d.run(id)
-	if err != nil {
-		return err
-	}
-	return runner.Clean(ctx, r, th.Project, th.Run.Ref)
+	return Cleaned, nil
 }

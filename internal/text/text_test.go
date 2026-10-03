@@ -59,3 +59,15 @@ func TestAgo(t *testing.T) {
 		t.Fatal(Ago(now, now.Add(time.Minute)), Ago(now, now.Add(-3*time.Hour)))
 	}
 }
+
+func TestOneLineCutPlural(t *testing.T) {
+	if got := OneLine("  fix\n the   index \t"); got != "fix the index" {
+		t.Fatal(got)
+	}
+	if Cut("ééé", 2) != "éé" || Cut("ab", 5) != "ab" || Cut("ab", -1) != "" {
+		t.Fatal(Cut("ééé", 2))
+	}
+	if Plural(1, "project") != "1 project" || Plural(0, "project") != "0 projects" {
+		t.Fatal(Plural(0, "project"))
+	}
+}

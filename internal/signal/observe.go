@@ -174,7 +174,7 @@ func Snooze(s *store.Store, id string) error {
 			}
 			sort.Strings(hits)
 			switch {
-			case len(id) < len("s:")+3:
+			case len(id) < len(IDPrefix)+3:
 				return fmt.Errorf("%s is too short; give at least 3 characters of the id after s", id)
 			case len(hits) == 0:
 				return fmt.Errorf("%w: %s", ErrUnknownSignal, id)

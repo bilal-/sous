@@ -43,7 +43,7 @@ func MarkdownDetect(project string) bool {
 // ("md:FOLLOWUPS.md:0123456789ab"), or, for refs written before uids,
 // "<id>:<tag>" ("md:FOLLOWUPS.md:7:abcd1234").
 func refKey(ref string) (string, bool) {
-	key, found := strings.CutPrefix(ref, "md:"+MarkdownFile+":")
+	key, found := strings.CutPrefix(ref, mdPrefix+MarkdownFile+":")
 	if !found || key == "" {
 		return "", false
 	}
@@ -55,7 +55,10 @@ func refKey(ref string) (string, bool) {
 	return key, true
 }
 
-func refFor(key string) string { return "md:" + MarkdownFile + ":" + key }
+// mdPrefix starts a markdown ref, short for the backend's name.
+const mdPrefix = "md:"
+
+func refFor(key string) string { return mdPrefix + MarkdownFile + ":" + key }
 
 // existingRef finds an item already filed for this note, so a retry after
 // a crash never files it twice: by its uid marker, or by the marker a sous

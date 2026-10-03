@@ -111,14 +111,14 @@ func TestFinish(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cleaned, err := d.Finish(context.Background(), id, true); err != nil || !cleaned {
-		t.Fatal(cleaned, err)
+	if done, err := d.Finish(context.Background(), id, true); err != nil || done != Cleaned {
+		t.Fatal(done, err)
 	}
 	if b, _ := os.ReadFile(calls); string(b) != "stopped\ncleaned\n" {
 		t.Fatalf("%q", b)
 	}
 	note, _ := thread.Note(s, project.Project{Path: "/code/acme/billing"}, thread.Me, "not a run", "human", time.Now())
-	if _, err := d.Finish(context.Background(), note, false); err != nil {
+	if done, err := d.Finish(context.Background(), note, false); err != nil || done != NoRun {
 		t.Fatal("a note without a run has nothing to finish:", err)
 	}
 	if _, err := d.Finish(context.Background(), note, true); !errors.Is(err, ErrNotARun) {
@@ -127,8 +127,8 @@ func TestFinish(t *testing.T) {
 	noclean := fakeRunner(t, `start) echo fake:2;; stop) exit 0;; clean) exit 2;;`)
 	d.Runners = []runner.Runner{noclean}
 	id, _, _ = d.Start(context.Background(), project.Project{Path: "/code/acme/billing"}, "fix that", "", "fake", "human", "")
-	if cleaned, err := d.Finish(context.Background(), id, true); err != nil || cleaned {
-		t.Fatal("a runner that cannot clean still finishes:", cleaned, err)
+	if done, err := d.Finish(context.Background(), id, true); err != nil || done != CantClean {
+		t.Fatal("a runner that cannot clean still finishes:", done, err)
 	}
 	stuck := fakeRunner(t, `start) echo fake:3;; stop) echo "still busy" >&2; exit 1;;`)
 	d.Runners = []runner.Runner{stuck}

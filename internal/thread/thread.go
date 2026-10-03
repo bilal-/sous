@@ -14,6 +14,7 @@ import (
 
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/text"
 )
 
 type Kind string
@@ -49,6 +50,12 @@ type Thread struct {
 	// Run: the note was handed to a runner (sous go --run).
 	Run *Run `json:"run,omitempty"`
 }
+
+// Who wrote a note, and who closed it, besides the person.
+const (
+	SourceHuman      = "human"    // the person, at the command line or through their agent's hand
+	ClosedByUpstream = "upstream" // its tracker closed it
+)
 
 // RunState is how a run is going.
 type RunState string
@@ -167,7 +174,7 @@ func migrateV0(raw []byte) ([]byte, error) {
 	max := 0
 	for i := range d.Threads {
 		if d.Threads[i].Source == "" {
-			d.Threads[i].Source = "human"
+			d.Threads[i].Source = SourceHuman
 		}
 		if d.Threads[i].ID > max {
 			max = d.Threads[i].ID
@@ -177,17 +184,17 @@ func migrateV0(raw []byte) ([]byte, error) {
 	return json.Marshal(d)
 }
 
-func Note(s *store.Store, p project.Project, kind Kind, text, source string, now time.Time) (int, error) {
+func Note(s *store.Store, p project.Project, kind Kind, note, source string, now time.Time) (int, error) {
 	if !kind.Valid() {
 		return 0, ValidationError("kind must be me, them, or idea")
 	}
-	text = oneLine(text)
-	if text == "" {
+	note = text.OneLine(note)
+	if note == "" {
 		return 0, ValidationError("note text is empty")
 	}
 	var id int
 	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
-		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: text, Kind: kind, Since: now.UTC(), Source: source})
+		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: note, Kind: kind, Since: now.UTC(), Source: source})
 		return nil
 	})
 	return id, err
@@ -199,7 +206,7 @@ func (d *Doc) add(t Thread) int {
 	t.ID, t.UID = d.NextID, newUID()
 	d.NextID++
 	if t.Source == "" {
-		t.Source = "human"
+		t.Source = SourceHuman
 	}
 	d.Threads = append(d.Threads, t)
 	return t.ID
@@ -211,8 +218,8 @@ func (d *Doc) add(t Thread) int {
 // starts a second run.
 func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source string, now time.Time) (int, bool, error) {
 	first, _, _ := strings.Cut(strings.TrimSpace(brief), "\n")
-	text := oneLine(first)
-	if text == "" {
+	title := text.OneLine(first)
+	if title == "" {
 		return 0, false, ValidationError("the brief is empty")
 	}
 	remote := ""
@@ -229,7 +236,7 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 				return nil
 			}
 		}
-		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: text, Kind: Them,
+		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: title, Kind: Them,
 			Since: now.UTC(), Source: source, Run: &Run{Runner: runnerName, Key: key, State: RunStarting}})
 		return nil
 	})
@@ -270,15 +277,12 @@ func touch(s *store.Store, id int, fn func(*Thread)) error {
 	return err
 }
 
-// oneLine: a thread is one line. Newlines and runs of whitespace collapse.
-func oneLine(text string) string { return strings.Join(strings.Fields(text), " ") }
-
-func Edit(s *store.Store, id int, text string) error {
-	text = oneLine(text)
-	if text == "" {
+func Edit(s *store.Store, id int, note string) error {
+	note = text.OneLine(note)
+	if note == "" {
 		return ValidationError("text is empty")
 	}
-	return touch(s, id, func(t *Thread) { t.Text = text })
+	return touch(s, id, func(t *Thread) { t.Text = note })
 }
 
 func SetKind(s *store.Store, id int, kind Kind) error {
@@ -388,14 +392,14 @@ func FileAtomically(s *store.Store, id int, refile bool, do func(Thread) (string
 
 func CloseUpstreamClosed(s *store.Store, id int, now time.Time) error {
 	c := now.UTC()
-	return touch(s, id, func(t *Thread) { t.Closed = &c; t.ClosedBy = "upstream" })
+	return touch(s, id, func(t *Thread) { t.Closed = &c; t.ClosedBy = ClosedByUpstream })
 }
 
 // RecentlyClosedUpstream: what the tracker closed for this project lately,
 // so the user sees it happened.
 func RecentlyClosedUpstream(s *store.Store, path, remote string, now time.Time, within time.Duration) ([]View, error) {
 	return filter(s, now, func(t Thread) bool {
-		return t.ClosedBy == "upstream" && t.Closed != nil && now.Sub(*t.Closed) <= within && t.Belongs(path, remote)
+		return t.ClosedBy == ClosedByUpstream && t.Closed != nil && now.Sub(*t.Closed) <= within && t.Belongs(path, remote)
 	})
 }
 

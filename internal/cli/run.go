@@ -135,27 +135,26 @@ func cmdReply(e *Env, a argv) int {
 // stopRun stops a note's run before done closes it; with clean, its
 // worktree goes too (runs.Dispatcher.Finish decides what that means).
 func stopRun(e *Env, id int, clean bool) int {
-	// Closing a plain note must work even when config.toml is broken; only
-	// a run needs the runners config lists.
-	if th, err := thread.Get(e.store(), id); err == nil && th.Run == nil && !clean {
+	th, err := thread.Get(e.store(), id)
+	switch {
+	case err != nil:
+		return threadErr(e, err)
+	case th.Run == nil && !clean:
+		// A plain note closes even when config.toml is broken; only a run
+		// needs the runners config lists.
 		return 0
 	}
 	if _, code := e.config(); code != 0 {
 		return code
 	}
-	d := e.dispatcher()
-	cleaned, err := d.Finish(e.ctx(), id, clean)
+	done, err := e.dispatcher().Finish(e.ctx(), id, clean)
 	switch {
 	case errors.Is(err, runs.ErrNotARun):
 		return fail(e, exitUsage, "%v", err)
-	case errors.Is(err, thread.ErrNotFound):
-		return threadErr(e, err)
 	case err != nil:
 		return fail(e, exitFailed, "%v (it stays open)", err)
-	case clean && !cleaned:
-		if th, err := thread.Get(e.store(), id); err == nil && th.Run != nil && th.Run.Ref != "" {
-			fmt.Fprintf(e.Stderr, "sous: %s cannot clean up after its runs; its files stay\n", th.Run.Runner)
-		}
+	case done == runs.CantClean:
+		fmt.Fprintf(e.Stderr, "sous: %s cannot clean up after its runs; its files stay\n", th.Run.Runner)
 	}
 	return 0
 }

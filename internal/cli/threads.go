@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/bilal-/sous/internal/signal"
@@ -84,7 +83,7 @@ func cmdKind(e *Env, a argv) int {
 // cmdSnooze hides a thread for N days, or a signal (s:…) until it changes.
 func cmdSnooze(e *Env, a argv) int {
 	args := a.pos
-	if strings.HasPrefix(args[0], "s:") {
+	if signal.IsID(args[0]) {
 		if len(args) != 1 {
 			return fail(e, exitUsage, "a signal is snoozed until it changes; days do not apply")
 		}

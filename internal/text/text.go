@@ -4,6 +4,7 @@ package text
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -66,4 +67,24 @@ func Suffix(s string) string {
 		return ""
 	}
 	return " · " + s
+}
+
+// OneLine collapses newlines and runs of spaces in s to single spaces.
+func OneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// Cut shortens s to at most n runes, without a mark: for text stored or
+// passed on, where the cut is not shown. Ellipsize is for text shown.
+func Cut(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:max(n, 0)])
+	}
+	return s
+}
+
+// Plural is n and its noun: "1 project", "2 projects".
+func Plural(n int, noun string) string {
+	if n != 1 {
+		noun += "s"
+	}
+	return fmt.Sprintf("%d %s", n, noun)
 }

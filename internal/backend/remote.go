@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bilal-/sous/internal/plugin"
+	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/tracker"
 )
 
@@ -75,11 +76,11 @@ func (r Remote) Detect(project string) error {
 }
 
 // title: an issue title from note text, capped the way trackers render it.
-func title(text string) string {
-	if utf8.RuneCountInString(text) <= 120 {
-		return text
+func title(note string) string {
+	if utf8.RuneCountInString(note) <= 120 {
+		return note
 	}
-	return string([]rune(text)[:117]) + "…"
+	return text.Ellipsize(note, 118)
 }
 
 // markers are what a retry looks for in issues already filed: the note's

@@ -134,8 +134,8 @@ func said(e *Env, project, key string, value any) int {
 // named are the settings whose value names a plugin, and the names there
 // are: a typo must be caught before it is written.
 var named = map[string]func(e *Env) []plugin.Plugin{
-	"agent":           func(e *Env) []plugin.Plugin { return launcher.Registry.All(e.Exe, e.Cfg.Plugins) },
-	"runner":          func(e *Env) []plugin.Plugin { return runner.Registry.All(e.Exe, e.Cfg.Plugins) },
+	config.KeyAgent:   func(e *Env) []plugin.Plugin { return launcher.Registry.All(e.Exe, e.Cfg.Plugins) },
+	config.KeyRunner:  func(e *Env) []plugin.Plugin { return runner.Registry.All(e.Exe, e.Cfg.Plugins) },
 	config.KeyBackend: func(e *Env) []plugin.Plugin { return backend.Registry.All(e.Exe, e.Cfg.Plugins) },
 }
 
@@ -191,7 +191,7 @@ func showConfig(e *Env) int {
 			shown = strings.Join(tilded, ", ")
 		}
 		switch {
-		case k.Name == "runner" && shown == "":
+		case k.Name == config.KeyRunner && shown == "":
 			shown = e.Cfg.RunAgent() + " (the agent)"
 		case shown == "" || shown == "0":
 			shown = "(none)"

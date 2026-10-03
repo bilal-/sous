@@ -141,7 +141,7 @@ func configChecks(in Inputs) []Check {
 		return append(out, Check{Name: "project folders", Status: Bad, Detail: "none set", Fix: "sous setup, or sous setup ~/path/to/your/projects"})
 	}
 	ps, unavailable := project.Discover(in.Cfg.Roots, in.Cfg.Ignore, io.Discard)
-	c := Check{Name: "project folders", Status: OK, Detail: Plural(len(ps), "project") + " in " + shown(in, in.Cfg.Roots)}
+	c := Check{Name: "project folders", Status: OK, Detail: text.Plural(len(ps), "project") + " in " + shown(in, in.Cfg.Roots)}
 	switch {
 	case unavailable > 0:
 		var unreadable []string
@@ -156,14 +156,6 @@ func configChecks(in Inputs) []Check {
 		c.Status, c.Fix = Warn, "sous setup ~/path/to/your/projects"
 	}
 	return append(out, c)
-}
-
-// Plural: "1 project", "2 projects".
-func Plural(n int, noun string) string {
-	if n != 1 {
-		noun += "s"
-	}
-	return fmt.Sprintf("%d %s", n, noun)
 }
 
 func shown(in Inputs, roots []string) string {

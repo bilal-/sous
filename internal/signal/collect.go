@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/plugin"
+	"github.com/bilal-/sous/internal/text"
 )
 
 type Plugin = plugin.Plugin
@@ -85,16 +86,14 @@ func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) 
 		if res.Code == plugin.ExitNotSetUp {
 			r.st.Status = StatusOff
 		}
-		msg := strings.Join(strings.Fields(res.Stderr), " ")
+		msg := text.OneLine(res.Stderr)
 		if msg == "" && res.Err != nil {
 			msg = res.Err.Error()
 		}
 		if msg == "" {
 			msg = fmt.Sprintf("exit %d", res.Code)
 		}
-		if r := []rune(msg); len(r) > 200 {
-			msg = string(r[:200])
-		}
+		msg = text.Cut(msg, 200)
 		r.st.Error = &msg
 	}
 	// Whatever the plugin managed to emit is kept, even on failure: a

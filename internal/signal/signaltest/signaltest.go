@@ -35,7 +35,7 @@ func Run(t *testing.T, argv []string, projects []string) {
 	seen := map[string]bool{}
 	for _, s := range first {
 		switch {
-		case !strings.HasPrefix(s.ID, "s:"):
+		case !signal.IsID(s.ID):
 			t.Errorf("id %q does not start with s:", s.ID)
 		case seen[s.ID]:
 			t.Errorf("id %q appears twice in one scan", s.ID)
