@@ -145,3 +145,18 @@ func TestShowReadsAFailedRunsLog(t *testing.T) {
 		t.Fatalf("%q %v", v.LogTail, err)
 	}
 }
+
+// A run closed by a plain done can still be cleaned up after.
+func TestFinishAClosedRun(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	r := runnertest.Fake(t, `start) echo fake:1;; stop) exit 0;; clean) echo cleaned > "$(dirname "$0")/calls";;`)
+	d := &Dispatcher{Store: s, Runners: []runner.Runner{r}, Now: time.Now}
+	id, _, _ := d.Start(context.Background(), project.Project{Path: "/code/acme/api"}, "fix it", "", "fake", "human", "")
+	thread.Done(s, id, time.Now())
+	if done, err := d.Finish(context.Background(), id, true); err != nil || done != Cleaned {
+		t.Fatal(done, err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(filepath.Dir(r.Argv[0]), "calls")); string(b) != "cleaned\n" {
+		t.Fatalf("%q", b)
+	}
+}

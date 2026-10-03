@@ -27,22 +27,28 @@ func cmdNote(e *Env, a argv) int {
 	if err != nil {
 		return threadErr(e, err)
 	}
-	noted := func() int {
-		did, said := "noted", fmt.Sprintf("noted %d in %s", id, p.Name)
-		if existed {
-			did, said = "already_noted", fmt.Sprintf("already noted as %d in %s", id, p.Name)
-		}
-		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: did, Next: noteNext(e, id)}, said)
+	did, said := "noted", fmt.Sprintf("noted %d in %s", id, p.Name)
+	if existed {
+		did, said = "already_noted", fmt.Sprintf("already noted as %d in %s", id, p.Name)
 	}
+	c := changedJSON{ID: fmt.Sprint(id), Did: did, Next: noteNext(e, id)}
 	if !a.has("file") {
-		return noted()
+		return e.changed(c, said)
 	}
-	if c := fileThread(e, id, proj != ""); c != 0 {
-		noted() // saved all the same
-		fmt.Fprintf(e.Stderr, "sous: note saved as %d but not filed\n", id)
-		return c
+	ref, code, msg := fileNote(e, id, proj != "")
+	if code != 0 {
+		// Saved all the same: one answer says so, and why it is not filed.
+		c.Error = "not filed: " + msg
+		if e.JSON {
+			e.writeJSON(c)
+			return code
+		}
+		e.changed(c, said)
+		fmt.Fprintf(e.Stderr, "sous: %s\nsous: note saved as %d but not filed\n", msg, id)
+		return code
 	}
-	return 0
+	c.Did, c.Ref, c.Next = "filed", &ref, noteNext(e, id)
+	return e.changed(c, fmt.Sprintf("filed %d as %s", id, ref))
 }
 
 func threadID(e *Env, s string) (int, int) {
@@ -135,11 +141,12 @@ func cmdDone(e *Env, a argv) int {
 	if code != 0 {
 		return code
 	}
-	// Closing twice is fine: a retry hears that it is closed, and when.
-	if th, err := thread.Get(e.store(), id); err == nil && th.Closed != nil {
-		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "already_closed", Ref: th.Ref, Next: []string{"sous"}},
-			fmt.Sprintf("%d was closed %s", id, text.Ago(time.Now(), *th.Closed)))
+	th, err := thread.Get(e.store(), id)
+	if err != nil {
+		return threadErr(e, err)
 	}
+	// Each step is safe to repeat, so done again (or with --close or
+	// --clean after a plain done) does what is left, and says so.
 	if c := stopRun(e, id, a.has("clean")); c != 0 {
 		return c
 	}
@@ -148,8 +155,12 @@ func cmdDone(e *Env, a argv) int {
 			return c
 		}
 	}
+	if th.Closed != nil {
+		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "already_closed", Ref: th.Ref, Next: []string{"sous"}},
+			fmt.Sprintf("%d was closed %s", id, text.Ago(time.Now(), *th.Closed)))
+	}
 	if err := thread.Done(e.store(), id, time.Now()); err != nil {
 		return threadErr(e, err)
 	}
-	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "closed", Next: []string{"sous"}}, fmt.Sprintf("closed %d", id))
+	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "closed", Ref: th.Ref, Next: []string{"sous"}}, fmt.Sprintf("closed %d", id))
 }

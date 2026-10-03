@@ -232,10 +232,11 @@ func (d *Doc) add(t Thread) int {
 	return t.ID
 }
 
-// NoteRun makes the note for a new run: kind them (waiting on the runner),
-// its text the brief's first line. With a key, an open run in the same
-// project with that key is returned instead (existed), so a retry never
-// starts a second run.
+// NoteRun makes the note for a new run, kind them, its text the brief's
+// first line. A run with the same key (the brief, when none is given) that
+// is open in the project is returned instead (existed), so a retry never
+// starts a second run; one whose start failed is started again on the same
+// note.
 func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source string, now time.Time) (int, bool, error) {
 	first, _, _ := strings.Cut(strings.TrimSpace(brief), "\n")
 	title := text.OneLine(first)
@@ -249,12 +250,20 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 	var id int
 	var existed bool
 	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
-		for _, t := range d.Threads {
-			started := t.Run != nil && !(t.Run.Ref == "" && t.Run.State == RunFailed) // a failed start keeps no key
-			if key != "" && t.Closed == nil && started && t.Run.Key == key && t.Belongs(p.Path, remote) {
-				id, existed = t.ID, true
+		for i := range d.Threads {
+			t := &d.Threads[i]
+			if t.Closed != nil || t.Run == nil || t.Run.Key != key || !t.Belongs(p.Path, remote) {
+				continue
+			}
+			id = t.ID
+			if t.Run.Ref == "" && t.Run.State == RunFailed {
+				// It never started: this retry starts it, on the same note,
+				// with whichever runner was asked this time.
+				t.Run.Runner, t.Run.State, t.Run.Text = runnerName, RunStarting, ""
 				return nil
 			}
+			existed = true
+			return nil
 		}
 		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: title, Kind: Them,
 			Since: now.UTC(), Source: source, Run: &Run{Runner: runnerName, Key: key, State: RunStarting}})

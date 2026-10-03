@@ -84,3 +84,24 @@ func TestErrorsUnderJSON(t *testing.T) {
 		t.Fatalf("without --json stdout stays empty: %q", out)
 	}
 }
+
+// Under --json every answer is one JSON value, failures included: a
+// program reads it whole. A note that is saved but not filed says both.
+func TestJSONIsOneValueEvenWhenItFails(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	for _, args := range [][]string{{"note", "--file", "kept here", "--json"}, {"show", "99", "--json"}, {"done", "99", "--json"}, {"go", "nope", "--run", "x", "--json"}} {
+		out, _, code := f.runIn(p, args...)
+		dec := json.NewDecoder(strings.NewReader(out))
+		var first map[string]any
+		if err := dec.Decode(&first); err != nil || dec.More() || code == 0 {
+			t.Errorf("%v: %d, want one JSON value:\n%s", args, code, out)
+		}
+	}
+	out, _, _ := f.runIn(p, "note", "--file", "kept here too", "--json")
+	var c changedJSON
+	json.Unmarshal([]byte(out), &c)
+	if c.ID == "" || c.Did != "noted" || !strings.Contains(c.Error, "not filed") {
+		t.Fatalf("%+v", c)
+	}
+}

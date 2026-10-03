@@ -182,6 +182,14 @@ func (d *Dispatcher) run(id int) (thread.Thread, runner.Runner, error) {
 		return th, runner.Runner{}, err
 	case th.Closed != nil:
 		return th, runner.Runner{}, fmt.Errorf("%w %d", thread.ErrNotFound, id)
+	}
+	return d.runOf(th)
+}
+
+// runOf is a note's run and its runner, open or closed.
+func (d *Dispatcher) runOf(th thread.Thread) (thread.Thread, runner.Runner, error) {
+	id := th.ID
+	switch {
 	case th.Run == nil:
 		return th, runner.Runner{}, fmt.Errorf("note %d %w", id, ErrNotARun)
 	case th.Run.Ref == "":
@@ -203,9 +211,10 @@ func (d *Dispatcher) Reply(ctx context.Context, id int, answer string) error {
 	return thread.SetRun(d.Store, id, func(run *thread.Run) { run.State, run.Text = runner.Running, "" })
 }
 
-// on makes one call to a note's run through its runner.
-func (d *Dispatcher) on(ctx context.Context, id int, call func(context.Context, runner.Runner, string, string) error) error {
-	th, r, err := d.run(id)
+// on makes one call to a note's run through its runner, open or closed:
+// stopping and cleaning are safe to repeat after the note is closed.
+func (d *Dispatcher) on(ctx context.Context, th thread.Thread, call func(context.Context, runner.Runner, string, string) error) error {
+	th, r, err := d.runOf(th)
 	if err != nil {
 		return err
 	}
@@ -224,7 +233,8 @@ const (
 
 // Finish is what closing a note does to its run first: stop it, and with
 // clean remove what it left behind, keeping its work. A note that is not a
-// run is left alone (and asking to clean it is ErrNotARun).
+// run is left alone (and asking to clean it is ErrNotARun). It works on a
+// closed note too, so done --clean after done still cleans up.
 func (d *Dispatcher) Finish(ctx context.Context, id int, clean bool) (Finished, error) {
 	th, err := thread.Get(d.Store, id)
 	switch {
@@ -235,13 +245,13 @@ func (d *Dispatcher) Finish(ctx context.Context, id int, clean bool) (Finished, 
 	case th.Run == nil || th.Run.Ref == "":
 		return NoRun, nil
 	}
-	if err := d.on(ctx, id, runner.Stop); err != nil {
+	if err := d.on(ctx, th, runner.Stop); err != nil {
 		return NoRun, fmt.Errorf("stopping run %d: %w", id, err)
 	}
 	if !clean {
 		return Stopped, nil
 	}
-	switch err := d.on(ctx, id, runner.Clean); {
+	switch err := d.on(ctx, th, runner.Clean); {
 	case errors.Is(err, runner.ErrUnsupported):
 		return CantClean, nil
 	case err != nil:

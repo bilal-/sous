@@ -430,3 +430,24 @@ func TestExamplePluginKeepsOddFolderNames(t *testing.T) {
 	example, _ := filepath.Abs(filepath.Join("..", "..", "examples", "sous-signal-todo"))
 	signaltest.Run(t, []string{example, "scan"}, []string{p})
 }
+
+// done is safe to repeat and does what is left: --close after a plain done
+// still closes the filed item, and says the note was already closed.
+func TestDoneThenCloseStillClosesUpstream(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("a/r", true)
+	os.WriteFile(filepath.Join(p, "FOLLOWUPS.md"), []byte("# F\n"), 0o644)
+	if _, errs, code := f.runIn(p, "note", "--file", "-k", "me", "wire the export"); code != 0 {
+		t.Fatal(errs)
+	}
+	if _, errs, code := f.run("done", "1"); code != 0 {
+		t.Fatal(errs)
+	}
+	out, errs, code := f.run("done", "1", "--close")
+	if code != 0 || !strings.HasPrefix(out, "1 was closed ") {
+		t.Fatalf("%d %q %q", code, out, errs)
+	}
+	if md, _ := os.ReadFile(filepath.Join(p, "FOLLOWUPS.md")); !strings.Contains(string(md), "- [x] wire the export") {
+		t.Fatalf("the filed item was not closed:\n%s", md)
+	}
+}

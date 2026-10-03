@@ -7,6 +7,21 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+* `sous done <n> --close` (or `--clean`) after a plain `done` closes the
+  filed item (or removes the run's worktree) again, as it did before
+  0.7.0; the answer still says the note was already closed.
+* `note --file --json` that saves the note but cannot file it prints one
+  JSON answer, with the note's id and why it was not filed, instead of
+  two.
+* Retrying `go --run` while its runner is not set up starts the same note
+  again instead of leaving a failed note for every try.
+
+### Changed
+* `go --run --json` answers like every other change: `did` is `started`
+  or `already_started`, and the run is under `run`. When the run it finds
+  already failed or finished, the text says so.
+
 ## [0.7.0]
 
 ### Changed

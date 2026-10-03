@@ -22,15 +22,6 @@ func (e *Env) dispatcher() *runs.Dispatcher {
 	return &runs.Dispatcher{Store: e.store(), Runners: runner.Registry.All(e.Exe, e.Cfg.Plugins), Now: time.Now}
 }
 
-// startedJSON is sous go --run --json.
-type startedJSON struct {
-	ID      string          `json:"id"`
-	Runner  string          `json:"runner"`
-	State   thread.RunState `json:"state"`
-	Existed bool            `json:"existed"` // a run with this --key was already started
-	Next    []string        `json:"next"`
-}
-
 // goRun: sous go <project> --run <brief|-> [-a <runner>] [--key <text>].
 // Hands the brief to a runner in the background and returns at once.
 func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
@@ -78,15 +69,15 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 	if err != nil || th.Run == nil {
 		return fail(e, exitFailed, "run %d started, but reading it back failed: %v (sous show %d)", id, err, id)
 	}
-	if e.JSON {
-		return e.writeJSON(startedJSON{ID: fmt.Sprint(id), Runner: th.Run.Runner, State: th.Run.State, Existed: existed, Next: []string{fmt.Sprintf("sous show %d --json", id)}})
-	}
-	verb := "started"
+	v := thread.View{Thread: th}
+	item := board.ThreadRow(v, time.Now()).Item()
+	c := changedJSON{ID: fmt.Sprint(id), Did: "started", Run: item.Run, Next: noteNext(e, id)}
+	said := fmt.Sprintf("started run %d in %s (%s)", id, p.Name, th.Run.Runner)
 	if existed {
-		verb = "already started as"
+		c.Did = "already_started"
+		said = fmt.Sprintf("run %d in %s was already started (%s, %s)", id, p.Name, th.Run.Runner, strings.ReplaceAll(string(th.Run.State), "_", " "))
 	}
-	fmt.Fprintf(e.Stdout, "%s run %d in %s (%s) · sous show %d to check\n", verb, id, p.Name, th.Run.Runner, id)
-	return 0
+	return e.changed(c, said)
 }
 
 // cmdShow: one note in full; for a run, how it is going right now.

@@ -279,11 +279,11 @@ func TestNoteRunIsIdempotentByKey(t *testing.T) {
 	if len(rs) != 2 {
 		t.Fatalf("open runs: %d", len(rs))
 	}
-	// A run that never started does not hold its key: a retry retries.
+	// A run that never started is started again by a retry, on its note.
 	failed, _, _ := NoteRun(s, p, "x", "retry", "claude", "", now)
 	SetRun(s, failed, func(r *Run) { r.State, r.Text = "failed", "did not start: no claude" })
-	if again, existed, _ := NoteRun(s, p, "x", "retry", "claude", "", now); existed || again == failed {
-		t.Fatalf("a failed start kept its key: %d %v", again, existed)
+	if again, existed, _ := NoteRun(s, p, "x", "retry", "claude", "", now); existed || again != failed {
+		t.Fatalf("a retry starts the failed start again: %d %v", again, existed)
 	}
 	if _, _, err := NoteRun(s, p, "  \n ", "", "claude", "", now); err == nil {
 		t.Fatal("an empty brief is refused")
@@ -335,5 +335,19 @@ func TestNoteRunWithoutAKeyUsesTheBrief(t *testing.T) {
 	}
 	if other, existed, _ := NoteRun(s, p, "fix another test", "", "fake", "human", time.Now()); other == id || existed {
 		t.Fatal("another brief is another run")
+	}
+}
+
+// A run whose start failed is started again by a retry, on the same note,
+// rather than leaving a failed note behind for every try.
+func TestNoteRunRetriesAFailedStart(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	p := project.Project{Path: "/code/acme/api"}
+	id, _, _ := NoteRun(s, p, "fix it", "", "claude", "human", time.Now())
+	SetRun(s, id, func(r *Run) { r.State, r.Text = RunFailed, "did not start: claude is not installed" })
+	again, existed, err := NoteRun(s, p, "fix it", "", "codex", "human", time.Now())
+	th, _ := Get(s, id)
+	if err != nil || again != id || existed || th.Run.State != RunStarting || th.Run.Runner != "codex" || th.Run.Text != "" {
+		t.Fatalf("%d %d %v %+v", id, again, existed, th.Run)
 	}
 }

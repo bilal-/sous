@@ -13,9 +13,13 @@ import (
 // sense next. Retrying a change gives the same answer.
 type changedJSON struct {
 	ID   string   `json:"id"`
-	Did  string   `json:"did"` // noted, edited, kind, snoozed, closed, already_closed, filed, replied
+	Did  string   `json:"did"` // see docs/commands.md: noted, already_noted, edited, kind, snoozed, closed, already_closed, filed, replied, started, already_started
 	Ref  *string  `json:"ref"` // where it is filed, when it is
 	Next []string `json:"next"`
+	// Run: for go --run, the run it started or found.
+	Run *board.RunItem `json:"run,omitempty"`
+	// Error: part of it could not be done (noted, but not filed: why).
+	Error string `json:"error,omitempty"`
 }
 
 // changed prints c: as JSON, or as what it did and what to do next on

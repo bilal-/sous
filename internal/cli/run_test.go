@@ -21,14 +21,9 @@ stop) echo stopped > "$d/stopped";;
 clean) echo cleaned > "$d/cleaned";;
 esac`)
 	out, errs, code := f.runStdin("Fix the flaky test\nmore context", "go", "billing", "--run", "-", "-a", "fake", "--json")
-	var started struct {
-		ID      string
-		Runner  string
-		State   string
-		Existed bool
-		Next    []string
-	}
-	if code != 0 || json.Unmarshal([]byte(out), &started) != nil || started.ID != "1" || started.State != "running" || len(started.Next) != 1 || started.Next[0] != "sous show 1 --json" {
+	var started changedJSON
+	if code != 0 || json.Unmarshal([]byte(out), &started) != nil || started.ID != "1" || started.Did != "started" || started.Run == nil ||
+		started.Run.Runner != "fake" || started.Run.State != "running" || started.Next[0] != "sous show 1" {
 		t.Fatalf("%d %s %s", code, out, errs)
 	}
 	out, _, _ = f.run("go", "billing", "--run", "second task", "-a", "fake")
@@ -135,5 +130,21 @@ func TestRunnerSetting(t *testing.T) {
 	out, _, _ = f.run("go", "billing", "--run", "fix it too", "--json")
 	if !strings.Contains(out, `"runner": "queue"`) || !strings.Contains(out, `"id": "2"`) {
 		t.Fatalf("with no runner set, agent picks it: %s", out)
+	}
+}
+
+// Retrying the same brief while its runner is not set up keeps one note,
+// started again each time, not a failed note per try.
+func TestRunRetryWhileNotSetUp(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("acme/billing", true)
+	f.plugin("sous-runner-off", `echo "off: install it first" >&2; exit 3`)
+	for i := 0; i < 2; i++ {
+		if _, _, code := f.run("go", "billing", "--run", "fix it", "-a", "off"); code != 3 {
+			t.Fatalf("try %d: %d", i, code)
+		}
+	}
+	if _, _, code := f.run("show", "2"); code != 1 {
+		t.Fatal("a second try made a second note")
 	}
 }
