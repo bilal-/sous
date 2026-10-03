@@ -129,3 +129,18 @@ func TestBriefWhereItMeansNothing(t *testing.T) {
 		t.Errorf("here --brief: %d", code)
 	}
 }
+
+// Help is wherever an agent asks for it: --help anywhere before --, and
+// for the commands plugins and hooks call too.
+func TestHelpAnywhere(t *testing.T) {
+	f := fixture(t)
+	for _, args := range [][]string{{"show", "2", "--help"}, {"note", "x", "-h"}, {"hook", "--help"}, {"help", "hook"}, {"help", "runner"}} {
+		out, errs, code := f.run(args...)
+		if code != 0 || !strings.HasPrefix(out, "usage: sous "+args[0]) && !strings.HasPrefix(out, "usage: sous "+args[1]) {
+			t.Errorf("%v: %d %q %q", args, code, out, errs)
+		}
+	}
+	if out, _, _ := f.run("note", "--", "--help"); strings.HasPrefix(out, "usage:") {
+		t.Errorf("after -- it is a note's text: %q", out)
+	}
+}

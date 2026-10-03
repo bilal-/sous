@@ -171,10 +171,24 @@ func cmdHelp(e *Env, a argv) int {
 		return 0
 	}
 	v, ok := findVerb(a.pos[0])
-	if !ok || v.usage == "" {
+	if !ok {
 		return unknownCommand(e, a.pos[0])
 	}
 	return verbHelp(e, v)
+}
+
+// asksHelp: --help or -h anywhere among args, before any "--" (after it,
+// they are text).
+func asksHelp(args []string) bool {
+	for _, a := range args {
+		switch a {
+		case "--":
+			return false
+		case "--help", "-h":
+			return true
+		}
+	}
+	return false
 }
 
 // unknownCommand says word is not a command, and which one it may mean.
@@ -408,11 +422,11 @@ func dispatch(e *Env, cmd string, rest []string) int {
 	case e.Brief && !v.brief:
 		return fail(e, exitUsage, "%s does not take --brief", cmd)
 	}
+	if asksHelp(rest) {
+		return verbHelp(e, v)
+	}
 	if v.args == nil {
 		return v.run(e, argv{pos: rest})
-	}
-	if len(rest) > 0 && (rest[0] == "--help" || rest[0] == "-h") {
-		return verbHelp(e, v)
 	}
 	a, err := parseArgs(*v.args, rest)
 	if err != nil {

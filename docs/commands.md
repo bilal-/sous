@@ -33,7 +33,8 @@ everyday flow, start with the [README](../README.md). Run
   something says what it did, `{"id", "did", "next"}` (see `sous note`). `here` also takes
   **`--brief`**. Both work anywhere on the line; a command they mean
   nothing to stops with exit code `2`.
-* `sous <command> --help` (or `-h`) prints that command's usage.
+* `--help` (or `-h`) anywhere after a command prints that command's usage
+  (after `--` it is text). `sous help <command>` does the same.
 * sous never stops to ask a question. It is safe to run from scripts and
   agents.
 
