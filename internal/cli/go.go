@@ -7,6 +7,7 @@ import (
 
 	"github.com/bilal-/sous/internal/launcher"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/session"
 )
 
 // cmdGo: sous go <project> [-a <launcher>]. Writes the resume context to a
@@ -57,10 +58,13 @@ func cmdGo(e *Env, a argv) int {
 	defer sub.close()
 	cmdHere(sub, argv{pos: []string{p.Path}})
 	var env []string
-	if name, err := launcher.WriteContext(e.Home, p.Path, here.Bytes()); err == nil {
+	if name, err := session.WriteContext(e.Home, p.Path, here.Bytes()); err == nil {
 		env = append(env, "SOUS_HERE_FILE="+name)
 	}
 	fmt.Fprintf(e.Stderr, "→ %s in %s\n", agent, p.Path)
 	e.Stdout.Write(here.Bytes())
-	return execIn(e, p.Path, argv0, cmdline, env...)
+	if err := execIn(p.Path, argv0, cmdline, env...); err != nil {
+		return fail(e, 1, "starting %s: %v", agent, err)
+	}
+	return 0
 }

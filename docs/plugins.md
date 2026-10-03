@@ -41,11 +41,25 @@ sous runs a plugin only when it is listed in its settings:
 
 (or `plugins = [...]` in `~/.sous/config.toml`).
 
-Each run has a time limit (15 seconds for most calls). When time is up, sous
-stops your program and any programs it started.
+Each run has a time limit: 15 seconds, or 3 for a `status` call, which sous
+makes for many items at once while someone waits. When time is up, sous
+stops your program and any programs it started. A launcher has no limit:
+sous hands the terminal over to it.
 
-The built in git, GitHub and GitLab support work through this same door.
-You can call them by hand to see real input and output:
+Every kind of plugin ends every call with the same exit codes:
+
+| Code | Means |
+|---|---|
+| `0` | done, or yes; the answer is on standard output |
+| `1` | failed: say why on standard error. Exit `1` with nothing on standard error is a plain no |
+| `2` | refused: the request was not understood, or the call is an optional one you do not have. Say why on standard error |
+| `3` | not set up: what you need (a tool, a login, a token) is missing on this machine. Say what |
+
+The sections below say which of these each call may use.
+
+The built ins (git, GitHub, GitLab, FOLLOWUPS.md, and the Claude Code and
+Codex launchers and runners) work through this same door. You can call them
+by hand to see real input and output:
 
     echo ~/code/acme/api | sous signal git scan
     sous backend github status ~/code/acme/api github:acme/api#12
@@ -96,7 +110,7 @@ five commands.
 
 | Call | Input | Output | Exit codes |
 |---|---|---|---|
-| `detect <project>` | | | `0` this project is mine, `1` it is not (say why on standard error if it is close, like "not logged in") |
+| `detect <project>` | | | `0` this project is mine, `1` it is not (say why on standard error if it is close), `3` I would be, but am not set up here (say what is missing) |
 | `file` | JSON on standard input | the new item's ref | `0` filed, `1` failed, `2` request not understood (say why on standard error) |
 | `status <project> <ref>` | | `open`, `closed` or `unknown` | `0` answered, `1` could not find out |
 | `close <project> <ref>` | | | `0` closed (closing twice is fine), `1` failed |
@@ -139,7 +153,8 @@ the first that says yes. A person can pick one for a project in
 sous runs `sous-launcher-<name> run <project>` in place of itself, with the
 person's terminal. Start your tool in that folder. The environment variable
 `SOUS_HERE_FILE` names a file with a short summary of where the person left
-off, which you can pass to an agent as its first message.
+off, which you can pass to an agent as its first message. If you cannot
+start, exit `1` (or `3` when your tool is not installed) and say why.
 
 ## Runners
 

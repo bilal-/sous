@@ -17,13 +17,14 @@ import (
 
 	"github.com/bilal-/sous/internal/backend"
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/thread"
 )
 
 // StatusTimeout bounds each upstream status probe during reconciliation.
-const StatusTimeout = 3 * time.Second
+const StatusTimeout = plugin.StatusTimeout
 
 // Filer holds what every filing operation needs. Build one per invocation.
 type Filer struct {
@@ -167,7 +168,7 @@ func (f *Filer) Reconcile(ctx context.Context, views []thread.View, now time.Tim
 				v.Upstream, v.UpstreamErr = "error", fmt.Sprintf("backend %s not configured", strings.SplitN(*v.Ref, ":", 2)[0])
 				return
 			}
-			if f.Offline && !b.Offline() {
+			if f.Offline && !b.Offline {
 				return
 			}
 			sctx, cancel := context.WithTimeout(ctx, StatusTimeout)

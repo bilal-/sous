@@ -6,19 +6,16 @@
 package runner
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/bilal-/sous/internal/plugin"
 )
 
 // Timeout bounds every call; start must detach its work to answer in time.
-const Timeout = 15 * time.Second
+const Timeout = plugin.Timeout
 
 var timeout = Timeout // overridable in tests
 
@@ -56,39 +53,30 @@ type Status struct {
 
 var (
 	// ErrUnsupported: an optional call (reply, clean) this runner does not have.
-	ErrUnsupported = errors.New("this runner does not support that")
+	ErrUnsupported = plugin.ErrUnsupported
 	// ErrNotSetUp: start exited 3; the reason says what is missing.
-	ErrNotSetUp = errors.New("not set up")
+	ErrNotSetUp = plugin.ErrNotSetUp
 )
 
-type Runner struct {
-	Name string
-	Argv []string
-}
+// Runner is a runner as sous calls it. A built in runner is Offline: it
+// reads files on this machine, so sous may ask it while a session starts.
+type Runner = plugin.Plugin
 
+// Runners lists the named built ins, then the runner programs among
+// thirdParty.
 func Runners(exe string, builtins, thirdParty []string) []Runner {
-	var out []Runner
-	for _, p := range plugin.Discover(exe, "runner", builtins, thirdParty) {
-		out = append(out, Runner(p))
-	}
-	return out
+	return Registry.Discover(exe, builtins, thirdParty)
 }
 
-func Find(rs []Runner, name string) (Runner, bool) {
-	for _, r := range rs {
-		if r.Name == name {
-			return r, true
-		}
-	}
-	return Runner{}, false
-}
+// Find is the runner called name.
+func Find(rs []Runner, name string) (Runner, bool) { return plugin.Find(rs, name) }
 
 // ByRef: refs name their runner, "claude:…".
 func ByRef(rs []Runner, ref string) (Runner, error) {
-	name, _, ok := strings.Cut(ref, ":")
-	if r, found := Find(rs, name); ok && found {
+	if r, ok := plugin.ByRef(rs, ref); ok {
 		return r, nil
 	}
+	name, _, _ := strings.Cut(ref, ":")
 	return Runner{}, fmt.Errorf("no runner for %q (is sous-runner-%s listed in plugins?)", ref, name)
 }
 
@@ -99,17 +87,13 @@ func call(ctx context.Context, r Runner, stdin []byte, op string, args ...string
 
 // Start hands a task to r and returns the run's ref.
 func Start(ctx context.Context, r Runner, req Request) (string, error) {
-	var body bytes.Buffer
-	enc := json.NewEncoder(&body)
-	enc.SetEscapeHTML(false)
-	enc.Encode(req)
-	a, err := call(ctx, r, body.Bytes(), "start", req.Project)
+	a, err := call(ctx, r, plugin.Request(req), "start", req.Project)
 	switch {
-	case a.Code == 3:
+	case a.Code == plugin.ExitNotSetUp:
 		return "", fmt.Errorf("%s: %w: %v", r.Name, ErrNotSetUp, err)
 	case err != nil:
 		return "", fmt.Errorf("%s start: %w", r.Name, err)
-	case a.Code == 2:
+	case a.Code == plugin.ExitRefused:
 		return "", plugin.Refused(r.Name, "start", a)
 	case a.Out == "":
 		return "", fmt.Errorf("%s start: printed no ref", r.Name)
@@ -163,7 +147,7 @@ func optional(r Runner, op string) func(plugin.Answer, error) error {
 		switch {
 		case err != nil:
 			return err
-		case a.Code == 2:
+		case a.Code == plugin.ExitRefused:
 			return fmt.Errorf("%s %s: %w", r.Name, op, ErrUnsupported)
 		}
 		return nil

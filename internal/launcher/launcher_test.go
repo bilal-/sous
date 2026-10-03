@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bilal-/sous/internal/plugin"
 )
 
 func TestLaunchersAndExecArgv(t *testing.T) {
@@ -15,21 +17,21 @@ func TestLaunchersAndExecArgv(t *testing.T) {
 	if len(ls) != 3 || ls[0].Name != "claude" || ls[0].Argv[1] != "launcher" || ls[2].Name != "editor" || ls[2].Argv[0] != third {
 		t.Fatalf("%+v", ls)
 	}
-	l, _ := Find(ls, "editor")
+	l, _ := plugin.Find(ls, "editor")
 	argv0, argv, err := ExecArgv(l, "/proj")
 	if err != nil || argv0 != third || strings.Join(argv, " ") != third+" run /proj" {
 		t.Fatalf("%q %v %v", argv0, argv, err)
 	}
 	t.Setenv("PATH", bin)
 	os.WriteFile(filepath.Join(bin, "sous"), []byte("#!/bin/sh\n"), 0o755)
-	l, _ = Find(Launchers("sous", []string{"claude"}, nil), "claude")
+	l, _ = plugin.Find(Launchers("sous", []string{"claude"}, nil), "claude")
 	if _, argv, err := ExecArgv(l, "/proj"); err != nil || strings.Join(argv[1:], " ") != "launcher claude run /proj" {
 		t.Fatalf("%v %v", argv, err)
 	}
 	if _, _, err := ExecArgv(Launcher{Name: "gone", Argv: []string{"/nope/bin"}}, "/p"); err == nil || !strings.Contains(err.Error(), "gone") {
 		t.Fatalf("missing binary must name the launcher: %v", err)
 	}
-	if _, ok := Find(ls, "nope"); ok {
+	if _, ok := plugin.Find(ls, "nope"); ok {
 		t.Fatal("unknown")
 	}
 }

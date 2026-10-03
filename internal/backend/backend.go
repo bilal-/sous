@@ -4,27 +4,23 @@
 package backend
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/plugin"
 )
 
-const Timeout = 15 * time.Second
-
-// ErrUnsupported: an optional op (url) this backend does not implement.
-var ErrUnsupported = errors.New("unsupported")
+// ErrUnsupported: an optional call (url) this backend does not have.
+var ErrUnsupported = plugin.ErrUnsupported
 
 // Implementation is what every built-in backend provides. Third-party
-// backends implement the same five ops as an executable; Ops turns an
-// Implementation into that executable's behaviour so built-ins take the
+// backends implement the same five calls as a program; Ops turns an
+// Implementation into that program's behaviour so built-ins take the
 // identical door.
 type Implementation interface {
 	Detect(project string, warn io.Writer) bool
@@ -34,170 +30,99 @@ type Implementation interface {
 	URL(project, ref string) (string, error) // ErrUnsupported if none
 }
 
-// Op is one contract operation as seen from argv/stdin/stdout.
-type Op = plugin.Op
-
-// Ops adapts an Implementation to the contract's op table. Usage errors are
-// exit 2, failures exit 1 with the reason on stderr, unsupported url exit 2.
-func Ops(b Implementation) map[string]Op {
-	return map[string]Op{
+// Ops adapts an Implementation to the contract's calls.
+func Ops(b Implementation) map[string]plugin.Op {
+	return map[string]plugin.Op{
 		"detect": func(args []string, _ io.Reader, _, stderr io.Writer) int {
 			if len(args) != 1 {
-				fmt.Fprintln(stderr, "usage: detect <project>")
-				return 2
+				return plugin.Usage(stderr, "detect <project>")
 			}
 			if b.Detect(args[0], stderr) {
-				return 0
+				return plugin.ExitOK
 			}
-			return 1
+			return plugin.ExitFailed
 		},
 		"file": func(_ []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			var req Request
 			if err := json.NewDecoder(stdin).Decode(&req); err != nil || req.Project == "" || req.ID <= 0 {
 				fmt.Fprintln(stderr, "file: need JSON with id, project, text, kind on stdin")
-				return 2
+				return plugin.ExitRefused
 			}
 			if req.V != 0 {
 				fmt.Fprintf(stderr, "file: contract v%d is newer than this backend speaks (v0)\n", req.V)
-				return 2
+				return plugin.ExitRefused
 			}
 			ref, err := b.File(req)
-			if err != nil {
-				fmt.Fprintln(stderr, err)
-				return 1
+			if err == nil {
+				fmt.Fprintln(stdout, ref)
 			}
-			fmt.Fprintln(stdout, ref)
-			return 0
+			return plugin.Exit(err, stderr)
 		},
-		"status": func(args []string, _ io.Reader, stdout, stderr io.Writer) int {
-			if len(args) != 2 {
-				fmt.Fprintln(stderr, "usage: status <project> <ref>")
-				return 2
+		"status": plugin.RefCall("status", func(project, ref string, _ io.Reader, stdout io.Writer) error {
+			st, err := b.Status(project, ref)
+			if err == nil {
+				fmt.Fprintln(stdout, st)
 			}
-			st, err := b.Status(args[0], args[1])
-			if err != nil {
-				fmt.Fprintln(stderr, err)
-				return 1
+			return err
+		}),
+		"close": plugin.RefCall("close", func(project, ref string, _ io.Reader, _ io.Writer) error {
+			return b.Close(project, ref)
+		}),
+		"url": plugin.RefCall("url", func(project, ref string, _ io.Reader, stdout io.Writer) error {
+			u, err := b.URL(project, ref)
+			if err == nil {
+				fmt.Fprintln(stdout, u)
 			}
-			fmt.Fprintln(stdout, st)
-			return 0
-		},
-		"close": func(args []string, _ io.Reader, _, stderr io.Writer) int {
-			if len(args) != 2 {
-				fmt.Fprintln(stderr, "usage: close <project> <ref>")
-				return 2
-			}
-			if err := b.Close(args[0], args[1]); err != nil {
-				fmt.Fprintln(stderr, err)
-				return 1
-			}
-			return 0
-		},
-		"url": func(args []string, _ io.Reader, stdout, stderr io.Writer) int {
-			if len(args) != 2 {
-				fmt.Fprintln(stderr, "usage: url <project> <ref>")
-				return 2
-			}
-			u, err := b.URL(args[0], args[1])
-			if errors.Is(err, ErrUnsupported) {
-				return 2
-			}
-			if err != nil {
-				fmt.Fprintln(stderr, err)
-				return 1
-			}
-			fmt.Fprintln(stdout, u)
-			return 0
-		},
+			return err
+		}),
 	}
 }
 
-// builtins are the built-in backends, in detection order: a project's own
-// follow-ups file before any remote host. offline: its items live in the
-// project, so asking about them never leaves the machine.
-var builtins = []struct {
-	name    string
-	offline bool
-	make    func(home string, cfg *config.Config) Implementation
-}{
-	{"markdown", true, func(string, *config.Config) Implementation { return Markdown{} }},
-	{"github", false, func(home string, cfg *config.Config) Implementation { return GitHub(home, cfg) }},
-	{"gitlab", false, func(home string, cfg *config.Config) Implementation { return GitLab(home, cfg) }},
+// Deps is what every built in backend is made from.
+type Deps struct {
+	Home string
+	Cfg  *config.Config
 }
 
-// Builtin constructs one built-in backend.
-func Builtin(name, home string, cfg *config.Config) (Implementation, bool) {
-	for _, b := range builtins {
-		if b.name == name {
-			return b.make(home, cfg), true
-		}
-	}
-	return nil, false
+func builtin(make func(Deps) Implementation) func(Deps) map[string]plugin.Op {
+	return func(d Deps) map[string]plugin.Op { return Ops(make(d)) }
 }
 
-// BuiltinNames, in detection order.
-func BuiltinNames() []string {
-	names := make([]string, len(builtins))
-	for i, b := range builtins {
-		names[i] = b.name
-	}
-	return names
-}
+// Registry is the built in backends, in detection order: a project's own
+// follow-ups file before any remote host. markdown is offline: its items
+// live in the project, so asking about them never leaves the machine.
+var Registry = plugin.Registry[Deps]{Axis: "backend", Builtins: []plugin.Builtin[Deps]{
+	{Name: "markdown", Offline: true, Ops: builtin(func(Deps) Implementation { return Markdown{} })},
+	{Name: "github", Ops: builtin(func(d Deps) Implementation { return GitHub(d.Home, d.Cfg) })},
+	{Name: "gitlab", Ops: builtin(func(d Deps) Implementation { return GitLab(d.Home, d.Cfg) })},
+}}
 
-var timeout = Timeout // overridable in tests
+var timeout = plugin.Timeout // overridable in tests
 
-type Backend struct {
-	Name string
-	Argv []string
-}
-
-// Offline: a built-in whose items live in the project itself (FOLLOWUPS.md),
-// so asking about them never leaves the machine.
-func (b Backend) Offline() bool {
-	for _, bi := range builtins {
-		if bi.name == b.Name {
-			return bi.offline
-		}
-	}
-	return false
-}
+// Backend is a backend as sous calls it.
+type Backend = plugin.Plugin
 
 // Local is the sentinel for "no upstream": the note stays in threads.json.
 var Local = Backend{Name: "local"}
 
 var ErrUnknownBackend = errors.New("backend not available")
 
-// errNotApplicable: exit 1 with nothing on stderr — a silent "no".
-var errNotApplicable = plugin.ErrNo
-
+// Backends lists the named built ins, then the backend programs among
+// thirdParty.
 func Backends(exe string, builtins, thirdParty []string) []Backend {
-	var out []Backend
-	for _, p := range plugin.Discover(exe, "backend", builtins, thirdParty) {
-		out = append(out, Backend(p))
-	}
-	return out
-}
-
-func Find(bs []Backend, name string) (Backend, bool) {
-	for _, b := range bs {
-		if b.Name == name {
-			return b, true
-		}
-	}
-	return Backend{}, false
+	return Registry.Discover(exe, builtins, thirdParty)
 }
 
 // ByRef routes an existing ref to the backend that owns it. Refs are
 // self-describing: "md:" is markdown, "<name>:" is that backend.
 func ByRef(bs []Backend, ref string) (Backend, error) {
-	prefix, _, ok := strings.Cut(ref, ":")
-	if !ok {
+	if !strings.Contains(ref, ":") {
 		return Backend{}, fmt.Errorf("%w: malformed ref %q", ErrUnknownBackend, ref)
 	}
-	if prefix == "md" {
-		prefix = "markdown"
+	if rest, ok := strings.CutPrefix(ref, "md:"); ok {
+		ref = "markdown:" + rest
 	}
-	if b, ok := Find(bs, prefix); ok {
+	if b, ok := plugin.ByRef(bs, ref); ok {
 		return b, nil
 	}
 	return Backend{}, fmt.Errorf("%w: no backend for ref %q", ErrUnknownBackend, ref)
@@ -223,7 +148,7 @@ func run(ctx context.Context, b Backend, stdin []byte, op string, args ...string
 // crashes is warned and skipped.
 func Detect(ctx context.Context, bs []Backend, project, override string, warn io.Writer) (Backend, error) {
 	if override != "" {
-		if b, ok := Find(bs, override); ok {
+		if b, ok := plugin.Find(bs, override); ok {
 			return b, nil
 		}
 		return Backend{}, fmt.Errorf("%w: %q is declared but no sous-backend-%s is listed in config plugins", ErrUnknownBackend, override, override)
@@ -231,12 +156,16 @@ func Detect(ctx context.Context, bs []Backend, project, override string, warn io
 	for _, b := range bs {
 		r := run(ctx, b, nil, "detect", project)
 		switch {
-		case r.err == nil && r.Code == 0:
+		case r.err == nil && r.Code == plugin.ExitOK:
 			return b, nil
-		case r.Code == 1:
+		case r.Code == plugin.ExitNotSetUp:
+			if warn != nil {
+				fmt.Fprintf(warn, "sous: backend %s not set up: %v\n", b.Name, r.err)
+			}
+		case r.Code == plugin.ExitFailed:
 			// Not applicable — but a stated reason (auth, missing tool) must
 			// reach the user, or "no tracker" is a mystery.
-			if warn != nil && r.err != nil && !errors.Is(r.err, errNotApplicable) {
+			if warn != nil && r.err != nil && !errors.Is(r.err, plugin.ErrNo) {
 				fmt.Fprintf(warn, "sous: backend %s: %v\n", b.Name, r.err)
 			}
 			continue
@@ -264,11 +193,7 @@ type Request struct {
 }
 
 func File(ctx context.Context, b Backend, req Request) (string, error) {
-	var body bytes.Buffer
-	enc := json.NewEncoder(&body)
-	enc.SetEscapeHTML(false)
-	enc.Encode(req)
-	r := run(ctx, b, body.Bytes(), "file")
+	r := run(ctx, b, plugin.Request(req), "file")
 	if r.err != nil {
 		return "", r.err
 	}
@@ -301,7 +226,7 @@ func Close(ctx context.Context, b Backend, project, ref string) error {
 	if r.err != nil {
 		return r.err
 	}
-	if r.Code == 2 {
+	if r.Code == plugin.ExitRefused {
 		return plugin.Refused(b.Name, "close "+ref, r.Answer)
 	}
 	return nil
@@ -313,7 +238,7 @@ func URL(ctx context.Context, b Backend, project, ref string) (string, bool, err
 	if r.err != nil {
 		return "", false, r.err
 	}
-	if r.Code == 2 {
+	if r.Code == plugin.ExitRefused {
 		return "", false, nil
 	}
 	return r.Out, true, nil

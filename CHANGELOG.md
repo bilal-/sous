@@ -7,6 +7,20 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+* Every kind of plugin speaks the same exit codes for every call: `0`
+  done, `1` failed, `2` refused, `3` not set up. The plugin guide now has
+  one table for them. A backend's `detect` may exit `3` to say it would
+  handle a project but is not set up here; sous shows the reason and asks
+  the next backend.
+* Inside sous, each kind of plugin keeps its built ins in one list that
+  discovery, `sous <kind> <name> <call>` and the session start all read.
+  A built in is one entry there (see AGENTS.md).
+
+### Fixed
+* A signal plugin's error message is cut at 200 characters without
+  splitting a character in two.
+
 ## [0.3.2]
 
 ### Fixed

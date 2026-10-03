@@ -17,9 +17,15 @@ import (
 	"time"
 )
 
+// Plugin is one plugin as sous calls it: its name (the prefix of the refs
+// it makes), the program and arguments that start a call, and whether it
+// stays on this machine.
 type Plugin struct {
 	Name string
 	Argv []string
+	// Offline: a built in that never leaves this machine, so sous may ask
+	// it while a session starts. Plugin programs are never assumed to be.
+	Offline bool
 }
 
 // Axes are the kinds of plugin, each named sous-<axis>-<name>.
@@ -36,21 +42,23 @@ func Named(path string) bool {
 	return false
 }
 
-// Discover lists built-ins (as [exe, axis, name]) then third-party
-// executables named sous-<axis>-<name>.
-func Discover(exe, axis string, builtins, thirdParty []string) []Plugin {
-	var out []Plugin
-	for _, n := range builtins {
-		out = append(out, Plugin{Name: n, Argv: []string{exe, axis, n}})
-	}
-	prefix := "sous-" + axis + "-"
-	for _, p := range thirdParty {
-		base := filepath.Base(p)
-		if strings.HasPrefix(base, prefix) {
-			out = append(out, Plugin{Name: strings.TrimPrefix(base, prefix), Argv: []string{p}})
+// Find is the plugin called name.
+func Find(ps []Plugin, name string) (Plugin, bool) {
+	for _, p := range ps {
+		if p.Name == name {
+			return p, true
 		}
 	}
-	return out
+	return Plugin{}, false
+}
+
+// ByRef is the plugin that made ref: refs start with its name, "jira:OPS-12".
+func ByRef(ps []Plugin, ref string) (Plugin, bool) {
+	name, _, ok := strings.Cut(ref, ":")
+	if !ok {
+		return Plugin{}, false
+	}
+	return Find(ps, name)
 }
 
 type Result struct {

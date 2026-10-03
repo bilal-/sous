@@ -26,7 +26,7 @@ func cmdHere(e *Env, a argv) int {
 	now := time.Now()
 	ctx := e.ctx()
 	d, err := board.BuildHere(ctx, board.Inputs{
-		Store: e.store(), Cfg: e.Cfg, Exe: e.Exe, Builtins: signal.LocalBuiltins(),
+		Store: e.store(), Cfg: e.Cfg, Exe: e.Exe, Builtins: signal.Registry.OfflineNames(),
 		Timeout: e.pluginTimeout(), Warn: e.Stderr, Now: now,
 		Reconcile: func(ctx context.Context, v []thread.View) []thread.View { return reconcile(e, ctx, v, now, true) },
 	}, root)

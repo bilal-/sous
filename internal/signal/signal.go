@@ -6,12 +6,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"time"
 
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/plugin"
 )
 
 type Kind string
@@ -85,46 +87,36 @@ func ReadLinesLenient(r io.Reader) ([]Signal, int) {
 // failed (partial output is still kept by the runner).
 type Scanner func(paths []string, w, warn io.Writer, now time.Time) error
 
-// builtins are the built-in scanners, in order. Construction is deferred
-// until a scanner is actually run: building the gitlab scanner asks glab
-// which hosts it knows, and a local-only caller must never pay for that.
-// local: never touches the network, so the resume view (and so the
-// session hook and sous go) may run it; the board runs them all, and here
-// reads what the rest last found from observed.json.
-var builtins = []struct {
-	name  string
-	local bool
-	make  func(*config.Config) Scanner
-}{
-	{"git", true, func(*config.Config) Scanner { return ScanGit }},
-	{"github", false, ScanGitHub},
-	{"gitlab", false, ScanGitLab},
-}
+// Registry is the built-in scanners, in order. A scanner is only built
+// when it runs: building the gitlab scanner asks glab which hosts it knows,
+// and a local-only caller must never pay for that. git is offline: it never
+// touches the network, so the resume view (and so the session hook and sous
+// go) may run it; the board runs them all, and here reads what the rest
+// last found from observed.json.
+var Registry = plugin.Registry[*config.Config]{Axis: "signal", Builtins: []plugin.Builtin[*config.Config]{
+	{Name: "git", Offline: true, Ops: scanOps(func(*config.Config) Scanner { return ScanGit })},
+	{Name: "github", Ops: scanOps(ScanGitHub)},
+	{Name: "gitlab", Ops: scanOps(ScanGitLab)},
+}}
 
-// Builtin constructs one built-in scanner.
-func Builtin(name string, cfg *config.Config) (Scanner, bool) {
-	for _, b := range builtins {
-		if b.name == name {
-			return b.make(cfg), true
-		}
+// scanOps is a built-in scanner's one call, `scan`: paths on stdin, JSON
+// Lines out. The scanner says what went wrong on stderr itself.
+func scanOps(make func(*config.Config) Scanner) func(*config.Config) map[string]plugin.Op {
+	return func(cfg *config.Config) map[string]plugin.Op {
+		return map[string]plugin.Op{"scan": func(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+			if len(args) != 0 {
+				return plugin.Usage(stderr, "scan  (paths on stdin)")
+			}
+			err := make(cfg)(ReadPaths(stdin), stdout, stderr, time.Now().UTC())
+			switch {
+			case err == nil:
+				return plugin.ExitOK
+			case errors.Is(err, ErrNotSetUp):
+				return plugin.ExitNotSetUp
+			}
+			return plugin.ExitFailed
+		}}
 	}
-	return nil, false
-}
-
-// BuiltinNames, for the board's plugin list.
-func BuiltinNames() []string { return builtinNames(false) }
-
-// LocalBuiltins, for the resume view's plugin list.
-func LocalBuiltins() []string { return builtinNames(true) }
-
-func builtinNames(localOnly bool) []string {
-	var names []string
-	for _, b := range builtins {
-		if b.local || !localOnly {
-			names = append(names, b.name)
-		}
-	}
-	return names
 }
 
 // ReadPaths reads one path per line from stdin, skipping blanks.

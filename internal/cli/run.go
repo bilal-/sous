@@ -9,18 +9,12 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/config"
-	"github.com/bilal-/sous/internal/launcher"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
 	"github.com/bilal-/sous/internal/runs"
+	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/thread"
 )
-
-// cmdRunner: `sous runner <name> <call> [args]`, the door to the built in
-// runners, and their watcher.
-func cmdRunner(e *Env, a argv) int {
-	return runner.Door(e.Home, e.Exe, e.Cfg.RunLimit(), a.pos, e.Stdin, e.Stdout, e.Stderr)
-}
 
 // dispatcher builds the runs use case layer for this invocation.
 func (e *Env) dispatcher() *runs.Dispatcher {
@@ -54,7 +48,7 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 	sub := e.child(&here, io.Discard, true)
 	cmdHere(sub, argv{pos: []string{p.Path}})
 	sub.close()
-	if f, err := launcher.WriteContext(e.Home, p.Path, here.Bytes()); err == nil {
+	if f, err := session.WriteContext(e.Home, p.Path, here.Bytes()); err == nil {
 		hereFile = f
 	}
 	id, existed, err := d.Start(e.ctx(), p, brief, a.value("key"), name, e.Source, hereFile)

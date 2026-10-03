@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/tracker"
 )
@@ -44,12 +45,9 @@ type Query struct {
 }
 
 // ErrNotSetUp: the tool this plugin needs is missing or logged out and
-// nothing in config asks for it. A plugin exits ExitNotSetUp; the board
-// treats that as quiet unless the plugin found things before.
-var ErrNotSetUp = errors.New("not set up")
-
-// ExitNotSetUp is the exit code for ErrNotSetUp in the signal contract.
-const ExitNotSetUp = 3
+// nothing in config asks for it. A plugin exits plugin.ExitNotSetUp; the
+// board treats that as quiet unless the plugin found things before.
+var ErrNotSetUp = plugin.ErrNotSetUp
 
 type RemoteScanner struct {
 	Name       string       // "github" / "gitlab": ref prefix and messages

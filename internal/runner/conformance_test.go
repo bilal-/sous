@@ -16,7 +16,7 @@ import (
 // built ins are driven through the same door as a plugin program.
 func TestMain(m *testing.M) {
 	if len(os.Args) > 3 && os.Args[1] == "runner" {
-		os.Exit(runner.Door(os.Getenv("SOUS_HOME"), os.Args[0], time.Minute, os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
+		os.Exit(runner.Registry.Serve(runner.Deps{Home: os.Getenv("SOUS_HOME"), Exe: os.Args[0], Limit: time.Minute}, os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
 	}
 	os.Exit(m.Run())
 }

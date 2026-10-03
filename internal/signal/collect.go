@@ -12,10 +12,11 @@ import (
 
 type Plugin = plugin.Plugin
 
-// Plugins lists built-ins (re-exec'd through `sous signal <name> scan`) then
-// config-listed third-party executables. Built-ins get no special path.
+// Plugins lists the named built-ins (re-exec'd through `sous signal <name>
+// scan`) then config-listed third-party executables. Built-ins get no
+// special path.
 func Plugins(exe string, builtins, thirdParty []string) []Plugin {
-	ps := plugin.Discover(exe, "signal", builtins, thirdParty)
+	ps := Registry.Discover(exe, builtins, thirdParty)
 	for i := range ps {
 		ps[i].Argv = append(ps[i].Argv, "scan")
 	}
@@ -91,7 +92,7 @@ func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) 
 		r.st.Error = &msg
 	case res.Err != nil || res.Code != 0:
 		r.st.Status = StatusFailed
-		if res.Code == ExitNotSetUp {
+		if res.Code == plugin.ExitNotSetUp {
 			r.st.Status = StatusOff
 		}
 		msg := strings.Join(strings.Fields(res.Stderr), " ")
@@ -101,8 +102,8 @@ func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) 
 		if msg == "" {
 			msg = fmt.Sprintf("exit %d", res.Code)
 		}
-		if len(msg) > 200 {
-			msg = msg[:200]
+		if r := []rune(msg); len(r) > 200 {
+			msg = string(r[:200])
 		}
 		r.st.Error = &msg
 	}

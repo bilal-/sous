@@ -7,10 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"sync"
 	"time"
 
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
 	"github.com/bilal-/sous/internal/store"
@@ -18,7 +18,7 @@ import (
 )
 
 // StatusTimeout bounds each runner's status during a refresh.
-const StatusTimeout = 3 * time.Second
+const StatusTimeout = plugin.StatusTimeout
 
 var (
 	// ErrNoRunner: no runner by that name.
@@ -94,7 +94,7 @@ func (d *Dispatcher) Refresh(ctx context.Context, views []thread.View, local boo
 			v.RunErr = err.Error()
 			continue
 		}
-		if local && !slices.Contains(runner.BuiltinNames(), r.Name) {
+		if local && !r.Offline {
 			continue
 		}
 		wg.Add(1)

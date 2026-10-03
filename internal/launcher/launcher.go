@@ -6,30 +6,24 @@
 package launcher
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"os/exec"
 	"path/filepath"
 	"slices"
 
 	"github.com/bilal-/sous/internal/plugin"
-	"github.com/bilal-/sous/internal/store"
 )
 
-type Launcher struct {
-	Name string
-	Argv []string
-}
+// Launcher is a launcher as sous calls it.
+type Launcher = plugin.Plugin
 
+// Launchers lists the named built ins, then the launcher programs among
+// thirdParty.
 func Launchers(exe string, builtins, thirdParty []string) []Launcher {
-	var out []Launcher
-	for _, p := range plugin.Discover(exe, "launcher", builtins, thirdParty) {
-		out = append(out, Launcher(p))
-	}
-	return out
+	return Registry.Discover(exe, builtins, thirdParty)
 }
 
 // Builtins: the agent CLIs the user already runs, by launcher name → binary.
@@ -39,13 +33,31 @@ var Builtins = map[string]string{"claude": "claude", "codex": "codex"}
 // BuiltinNames, sorted, from Builtins.
 func BuiltinNames() []string { return slices.Sorted(maps.Keys(Builtins)) }
 
-func Find(ls []Launcher, name string) (Launcher, bool) {
-	for _, l := range ls {
-		if l.Name == name {
-			return l, true
-		}
+// Deps is what the built in launchers are given: Exec replaces sous with
+// the program in dir, and returns only when it could not.
+type Deps struct {
+	Exec func(dir, path string, argv []string) error
+}
+
+// Registry is the built in launchers, one per agent in Builtins. Each has
+// one call, `run <path>`.
+var Registry = plugin.Registry[Deps]{Axis: "launcher"}
+
+func init() {
+	for _, name := range BuiltinNames() {
+		Registry.Builtins = append(Registry.Builtins, plugin.Builtin[Deps]{Name: name, Ops: func(d Deps) map[string]plugin.Op {
+			return map[string]plugin.Op{"run": func(args []string, _ io.Reader, _, stderr io.Writer) int {
+				if len(args) != 1 {
+					return plugin.Usage(stderr, "run <path>")
+				}
+				path, err := BuiltinPath(name)
+				if err == nil {
+					err = d.Exec(args[0], path, []string{filepath.Base(path)})
+				}
+				return plugin.Exit(err, stderr)
+			}}
+		}})
 	}
-	return Launcher{}, false
 }
 
 // ExecArgv resolves the executable and builds the argv for syscall.Exec.
@@ -58,21 +70,12 @@ func ExecArgv(l Launcher, path string) (string, []string, error) {
 	return argv0, argv, nil
 }
 
-// WriteContext saves the resume summary handed to an agent started in
-// project, as SOUS_HERE_FILE: one file per project under home/here,
-// replaced each time, so nothing piles up.
-func WriteContext(home, project string, body []byte) (string, error) {
-	sum := sha256.Sum256([]byte(project))
-	name := filepath.Join(home, "here", hex.EncodeToString(sum[:6])+".txt")
-	return name, store.WriteFile(name, body, 0o600)
-}
-
 // Prepare finds the launcher named agent (a built-in or a listed plugin)
 // and returns the program and arguments that start it in project. Anything
 // missing is an error now, so it reads as a sous message rather than a
 // failed exec.
 func Prepare(exe string, plugins []string, agent, project string) (string, []string, error) {
-	l, ok := Find(Launchers(exe, BuiltinNames(), plugins), agent)
+	l, ok := plugin.Find(Launchers(exe, BuiltinNames(), plugins), agent)
 	if !ok {
 		return "", nil, fmt.Errorf("%w: %s", ErrUnknown, agent)
 	}

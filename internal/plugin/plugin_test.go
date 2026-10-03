@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,10 +18,82 @@ func script(t *testing.T, dir, name, body string) string {
 	return p
 }
 
-func TestDiscover(t *testing.T) {
-	got := Discover("/bin/sous", "backend", []string{"markdown"}, []string{"/x/sous-backend-jira", "/x/sous-signal-git", "/x/plain"})
-	if len(got) != 2 || got[0].Name != "markdown" || strings.Join(got[0].Argv, " ") != "/bin/sous backend markdown" || got[1].Name != "jira" || got[1].Argv[0] != "/x/sous-backend-jira" {
-		t.Fatalf("%+v", got)
+var reg = Registry[string]{Axis: "backend", Builtins: []Builtin[string]{
+	{Name: "markdown", Offline: true, Ops: func(d string) map[string]Op {
+		return map[string]Op{"status": func(args []string, _ io.Reader, stdout, _ io.Writer) int {
+			fmt.Fprintln(stdout, d, strings.Join(args, " "))
+			return ExitOK
+		}}
+	}},
+	{Name: "github"},
+}}
+
+func TestRegistryDiscover(t *testing.T) {
+	got := reg.Discover("/bin/sous", reg.Names(), []string{"/x/sous-backend-jira", "/x/sous-signal-git", "/x/plain", "/x/sous-backend-"})
+	want := []Plugin{
+		{Name: "markdown", Argv: []string{"/bin/sous", "backend", "markdown"}, Offline: true},
+		{Name: "github", Argv: []string{"/bin/sous", "backend", "github"}},
+		{Name: "jira", Argv: []string{"/x/sous-backend-jira"}},
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("got %+v", got)
+	}
+	if fmt.Sprint(reg.OfflineNames()) != "[markdown]" {
+		t.Fatal(reg.OfflineNames())
+	}
+	if p, ok := ByRef(got, "jira:OPS-12"); !ok || p.Name != "jira" {
+		t.Fatal(p, ok)
+	}
+	for _, ref := range []string{"beads:1", "no-colon"} {
+		if _, ok := ByRef(got, ref); ok {
+			t.Errorf("%s matched", ref)
+		}
+	}
+}
+
+// The door answers a built in's call as a program would, and refuses
+// anything else with exit 2 and a usage line naming what there is.
+func TestRegistryServe(t *testing.T) {
+	var out, errb strings.Builder
+	if code := reg.Serve("dep", []string{"markdown", "status", "/p", "md:1"}, nil, &out, &errb); code != 0 || out.String() != "dep /p md:1\n" {
+		t.Fatalf("%d %q %q", code, out.String(), errb.String())
+	}
+	for _, args := range [][]string{{}, {"markdown"}, {"jira", "status"}, {"markdown", "close"}} {
+		errb.Reset()
+		if code := reg.Serve("dep", args, nil, &out, &errb); code != ExitRefused || !strings.Contains(errb.String(), "usage: sous backend") {
+			t.Errorf("%v: %d %q", args, code, errb.String())
+		}
+	}
+	errb.Reset()
+	reg.Serve("dep", []string{"markdown", "close"}, nil, &out, &errb)
+	if !strings.Contains(errb.String(), "markdown status") {
+		t.Errorf("an unknown call lists the calls there are: %q", errb.String())
+	}
+}
+
+func TestExit(t *testing.T) {
+	for _, tc := range []struct {
+		err    error
+		code   int
+		stderr string
+	}{
+		{nil, 0, ""},
+		{ErrUnsupported, 2, ""},
+		{fmt.Errorf("reply: %w", ErrUnsupported), 2, ""},
+		{ErrNo, 1, ""},
+		{errors.New("boom"), 1, "boom\n"},
+		{fmt.Errorf("%w: claude is not installed", ErrNotSetUp), 3, "not set up: claude is not installed\n"},
+	} {
+		var errb strings.Builder
+		if code := Exit(tc.err, &errb); code != tc.code || errb.String() != tc.stderr {
+			t.Errorf("%v: %d %q", tc.err, code, errb.String())
+		}
+	}
+}
+
+func TestRequestDoesNotEscapeHTML(t *testing.T) {
+	if got := string(Request(map[string]string{"text": "a <b> & c"})); got != `{"text":"a <b> & c"}`+"\n" {
+		t.Fatal(got)
 	}
 }
 

@@ -36,7 +36,7 @@ type HereData struct {
 // plugins run here (through the same door as the board, no in-process
 // shortcut); everything the board observed from remote trackers is read
 // back from observed.json. in.Builtins is the list to run, normally
-// signal.LocalBuiltins().
+// signal.Registry.OfflineNames().
 func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 	p := project.Describe(root)
 	d := &HereData{Project: root, Name: p.Name, Remote: p.Remote, RenderedAt: in.Now.UTC()}

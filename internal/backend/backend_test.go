@@ -178,3 +178,15 @@ func TestStatusRefusesAnythingButAnAnswer(t *testing.T) {
 		t.Fatalf("unknown is an answer: %q %v", st, err)
 	}
 }
+
+// detect speaks the shared exit codes: 3 is "not set up here", said in its
+// own words, and the next backend is asked.
+func TestDetectNotSetUp(t *testing.T) {
+	dir := t.TempDir()
+	off := script(t, dir, "sous-backend-jira", `echo "jira: no token in JIRA_TOKEN" >&2; exit 3`)
+	var warn bytes.Buffer
+	b, err := Detect(context.Background(), Backends("", nil, []string{off}), "/proj", "", &warn)
+	if err != nil || b.Name != "local" || warn.String() != "sous: backend jira not set up: jira: no token in JIRA_TOKEN\n" {
+		t.Fatalf("%+v %v %q", b, err, warn.String())
+	}
+}

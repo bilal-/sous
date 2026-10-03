@@ -153,7 +153,7 @@ func launcherNames(e *Env) []string {
 
 func backendNames(e *Env) []string {
 	var names []string
-	for _, b := range backend.Backends(e.Exe, backend.BuiltinNames(), e.Cfg.Plugins) {
+	for _, b := range backend.Backends(e.Exe, backend.Registry.Names(), e.Cfg.Plugins) {
 		names = append(names, b.Name)
 	}
 	return names

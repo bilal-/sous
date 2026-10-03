@@ -47,7 +47,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/filing     filing a note, closing it upstream, and checking filed notes
     internal/board      builds the board and the here view, sorts rows into sections, draws text and the menu bar, keeps the cache
     internal/report     what changed since the last report, as text and as a page
-    internal/session    the last agent session in each project
+    internal/session    the last agent session in each project, and the summary handed to an agent sous starts
     internal/thread     the person's notes
     internal/signal     the signal contract, running signal plugins, what has been seen before, and the git, GitHub and GitLab signals
     internal/backend    the backend contract, FOLLOWUPS.md, and GitHub and GitLab issues
@@ -55,11 +55,12 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/signal/signaltest     the rules every signal must pass
     examples/sous-signal-todo      a small plugin in plain shell, for people starting their own
     internal/tracker    gh and glab: which account or host a project uses, running them safely, and the ref format
+    internal/tracker/trackertest   fake gh and glab for tests
     internal/launcher   the launcher contract, and Claude Code and Codex
     internal/runs       starting runs, asking runners how they are going, replies, stop and clean
     internal/runner     the runner contract, the built in Claude Code and Codex runners and their watcher
     internal/runner/runnertest     the rules every runner must pass
-    internal/plugin     the one way sous runs another program: find it by name, run it with a time limit
+    internal/plugin     the one way sous runs another program: find it by name, run it with a time limit; the exit codes every plugin speaks; the registry of each axis's built ins and the door to them
     internal/project    finding projects, reading git facts, matching rough names
     internal/store      saving data files safely: locked, written whole, upgraded in place
     internal/config     config.toml: reading it, the list of settings (from Config's fields), and safe editing (Set), checked to change only what was asked
@@ -79,6 +80,14 @@ and passes on a reply. Retrying, reviewing and scheduling belong to a
 runner plugin such as orchid, never to sous. Only `cli` reads the
 environment. If a function decides something or owns a
 data file, it does not belong in `cli`.
+
+**Built ins.** Each axis has one `Registry` (`signal.Registry`,
+`backend.Registry`, `launcher.Registry`, `runner.Registry`): a list of its
+built ins, each a name, whether it stays on this machine (`Offline`), and
+its calls as `plugin.Op`s. The list drives everything else: discovery, the
+door `sous <axis> <name> <call>` (`internal/cli/door.go`), and which
+built ins a session start may ask. A built in ends every call with
+`plugin.Exit`, so it speaks the same exit codes as a plugin program.
 
 **Adding a tracker** (Jira, say) usually means two small tables: one for
 filing in `internal/backend/<name>.go`, one for finding work in
