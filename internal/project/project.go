@@ -205,59 +205,6 @@ func samePath(a, b string) bool {
 	return err1 == nil && err2 == nil && ra == rb
 }
 
-// Ago is Age as a phrase: "3h ago", or "just now" (also for times a
-// little in the future, from clock skew).
-func Ago(now, t time.Time) string {
-	if now.Sub(t) < time.Minute {
-		return "just now"
-	}
-	return Age(now, t) + " ago"
-}
-
-// Age formats a duration since t the way the board does: 5m, 3h, 6d, 3mo, 1y.
-func Age(now, t time.Time) string {
-	s := now.Sub(t).Seconds()
-	switch {
-	case s < 0:
-		return "now"
-	case s < 3600:
-		return fmt.Sprintf("%dm", int(s/60))
-	case s < 86400:
-		return fmt.Sprintf("%dh", int(s/3600))
-	case s < 2592000:
-		return fmt.Sprintf("%dd", int(s/86400))
-	case s < 31536000:
-		return fmt.Sprintf("%dmo", int(s/2592000))
-	}
-	return fmt.Sprintf("%dy", int(s/31536000))
-}
-
-func RenderTable(w io.Writer, ps []Project, now time.Time) {
-	ow, nw := 3, 4
-	for _, p := range ps {
-		if len(p.Org) > ow {
-			ow = len(p.Org)
-		}
-		if len(p.Name) > nw {
-			nw = len(p.Name)
-		}
-	}
-	fmt.Fprintf(w, "%-*s   %-*s   %-8s   %s\n", ow, "org", nw, "name", "host", "last commit")
-	for _, p := range ps {
-		host, last := "local", "no commits"
-		if p.Remote != nil {
-			host = strings.TrimSuffix(strings.SplitN(*p.Remote, "/", 2)[0], ".com")
-			if host == "" {
-				host = "other" // a path or other non-URL remote
-			}
-		}
-		if p.LastCommit != nil {
-			last = Age(now, *p.LastCommit)
-		}
-		fmt.Fprintf(w, "%-*s   %-*s   %-8s   %s\n", ow, p.Org, nw, p.Name, host, last)
-	}
-}
-
 // Facts are the git facts a person wants when landing in a repo. They are
 // not signals (nothing is "waiting" in them); they set the scene.
 type Facts struct {

@@ -15,6 +15,7 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -98,16 +99,6 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 	return &Data{Projects: ps, Signals: sigs, Threads: ths, Plugins: col.Plugins, Checked: len(ps), Unavailable: unavailable, RenderedAt: in.Now.UTC()}, nil
 }
 
-// asOf is the time of day for a board made today, and the date too for an
-// older one, so a days old cache is never mistaken for this morning's.
-func asOf(t, now time.Time) string {
-	lt, ln := t.Local(), now.Local()
-	if lt.Year() == ln.Year() && lt.YearDay() == ln.YearDay() {
-		return lt.Format("15:04")
-	}
-	return lt.Format("Mon 2 Jan 15:04")
-}
-
 func (r Row) line() string {
 	return fmt.Sprintf("  %-14s  %-24.24s  %-60.60s  %s", r.ID, filepath.Base(r.Project), r.Shown, r.Age) + r.upstreamNote()
 }
@@ -159,7 +150,7 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 	section("unfinished", s.Unfinished)
 
 	fmt.Fprintf(w, "\n  %d checked · %d unavailable%s · as of %s · sous snooze <id> to hide a row\n",
-		d.Checked, d.Unavailable, PluginFailures(d), asOf(d.RenderedAt, now))
+		d.Checked, d.Unavailable, PluginFailures(d), text.AsOf(d.RenderedAt, now))
 }
 
 // Cache: the last rendered board, so the zsh surface can print in ~5 ms and

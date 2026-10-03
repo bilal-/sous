@@ -3,10 +3,13 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/text"
 )
 
 // loadProjects applies --root overrides else config roots. Errors are exit codes.
@@ -56,7 +59,7 @@ func cmdProjects(e *Env, a argv) int {
 		fmt.Fprintln(e.Stdout, "0 projects in your project folders")
 		return 0
 	}
-	project.RenderTable(e.Stdout, ps, time.Now().UTC())
+	renderProjects(e.Stdout, ps, time.Now().UTC())
 	return 0
 }
 
@@ -86,4 +89,30 @@ func resolveProject(e *Env, term string) (project.Project, int) {
 		return project.Project{}, fail(e, 2, "not inside a project; use -p <project>")
 	}
 	return project.Project{}, fail(e, 2, "%v", err)
+}
+
+func renderProjects(w io.Writer, ps []project.Project, now time.Time) {
+	ow, nw := 3, 4
+	for _, p := range ps {
+		if len(p.Org) > ow {
+			ow = len(p.Org)
+		}
+		if len(p.Name) > nw {
+			nw = len(p.Name)
+		}
+	}
+	fmt.Fprintf(w, "%-*s   %-*s   %-8s   %s\n", ow, "org", nw, "name", "host", "last commit")
+	for _, p := range ps {
+		host, last := "local", "no commits"
+		if p.Remote != nil {
+			host = strings.TrimSuffix(strings.SplitN(*p.Remote, "/", 2)[0], ".com")
+			if host == "" {
+				host = "other" // a path or other non-URL remote
+			}
+		}
+		if p.LastCommit != nil {
+			last = text.Age(now, *p.LastCommit)
+		}
+		fmt.Fprintf(w, "%-*s   %-*s   %-8s   %s\n", ow, p.Org, nw, p.Name, host, last)
+	}
 }

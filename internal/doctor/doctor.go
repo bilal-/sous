@@ -22,6 +22,7 @@ import (
 	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
 	"github.com/bilal-/sous/internal/tracker"
 )
@@ -247,7 +248,7 @@ func boardChecks(in Inputs) []Check {
 	if in.Cfg != nil {
 		window = in.Cfg.RefreshWindow()
 	}
-	detail := "built " + project.Ago(in.Now, *c.RenderedAt)
+	detail := "built " + text.Ago(in.Now, *c.RenderedAt)
 	board := Check{Name: "saved board", Status: OK, Detail: detail}
 	if age > 2*window {
 		board = Check{Name: "saved board", Status: Warn, Detail: detail + ", longer ago than it should be", Fix: "sous --refresh"}

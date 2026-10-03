@@ -14,6 +14,7 @@ import (
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/signal"
+	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -126,7 +127,7 @@ func cmdCached(e *Env) int {
 	} else {
 		fmt.Fprint(e.Stdout, *c.Board) // saved by a sous before cached data
 	}
-	fmt.Fprintf(e.Stdout, "  (cached · %s)\n", project.Ago(now, *c.RenderedAt))
+	fmt.Fprintf(e.Stdout, "  (cached · %s)\n", text.Ago(now, *c.RenderedAt))
 	if now.Sub(*c.RenderedAt) > e.Cfg.RefreshWindow() {
 		spawnRefresh(e)
 	}

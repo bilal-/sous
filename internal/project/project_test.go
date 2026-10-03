@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/bilal-/sous/internal/testutil"
 )
@@ -136,32 +135,6 @@ func TestDiscoverAbsoluteAndRootRepo(t *testing.T) {
 	}
 }
 
-func TestAgeBuckets(t *testing.T) {
-	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
-	cases := map[time.Duration]string{
-		-time.Hour: "now", 0: "0m", 59 * time.Minute: "59m", time.Hour: "1h", 23 * time.Hour: "23h",
-		24 * time.Hour: "1d", 29 * 24 * time.Hour: "29d", 30 * 24 * time.Hour: "1mo",
-		364 * 24 * time.Hour: "12mo", 365 * 24 * time.Hour: "1y",
-	}
-	for d, want := range cases {
-		if got := Age(now, now.Add(-d)); got != want {
-			t.Errorf("Age(-%v)=%q want %q", d, got, want)
-		}
-	}
-}
-
-func TestRenderTable(t *testing.T) {
-	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
-	r := "gitlab.com/o/r"
-	lc := now.Add(-2 * 24 * time.Hour)
-	var b bytes.Buffer
-	RenderTable(&b, []Project{{Org: "o", Name: "r", Remote: &r, LastCommit: &lc}, {Org: "personal", Name: "local-only"}}, now)
-	out := b.String()
-	if !strings.Contains(out, "gitlab") || !strings.Contains(out, "2d") || !strings.Contains(out, "local") || !strings.Contains(out, "no commits") {
-		t.Fatalf("%s", out)
-	}
-}
-
 func TestAmbiguousErrorLists(t *testing.T) {
 	err := &AmbiguousError{Term: "na", Hits: fake("a/app", "b/nabu")}
 	if !strings.Contains(err.Error(), "na matches 2 projects") || !strings.Contains(err.Error(), "a/app") || !strings.Contains(err.Error(), "b/nabu") {
@@ -207,23 +180,6 @@ func TestForPathIgnoresARepoAtHome(t *testing.T) {
 	testutil.Repo(t, inner, true, "")
 	if root, ok := ForPath(inner, home); !ok || filepath.Base(root) != "api" {
 		t.Fatalf("a real project under home still resolves: %q %v", root, ok)
-	}
-}
-
-func TestRenderTableHasHeaderAndNeverBlankHost(t *testing.T) {
-	odd := "/srv/mirrors/api"
-	var b bytes.Buffer
-	RenderTable(&b, []Project{{Org: "acme", Name: "api", Remote: &odd}}, time.Now())
-	lines := strings.Split(strings.TrimSpace(b.String()), "\n")
-	if len(lines) != 2 || !strings.HasPrefix(lines[0], "org") || !strings.Contains(lines[0], "host") || !strings.Contains(lines[1], "other") {
-		t.Fatalf("%q", b.String())
-	}
-}
-
-func TestAgo(t *testing.T) {
-	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
-	if Ago(now, now.Add(time.Minute)) != "just now" || Ago(now, now.Add(-3*time.Hour)) != "3h ago" {
-		t.Fatal(Ago(now, now.Add(time.Minute)), Ago(now, now.Add(-3*time.Hour)))
 	}
 }
 

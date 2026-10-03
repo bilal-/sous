@@ -94,27 +94,6 @@ func TestRenderHonestHeadlineAndStale(t *testing.T) {
 	}
 }
 
-func TestEllipsizeIsRuneSafe(t *testing.T) {
-	for _, c := range []struct {
-		in   string
-		n    int
-		want string
-	}{
-		{"short", 10, "short"},
-		{"exactly10!", 10, "exactly10!"},
-		{"eleven chars", 10, "eleven ch…"},
-		{"ééééé", 3, "éé…"},
-	} {
-		if got := Ellipsize(c.in, c.n); got != c.want {
-			t.Errorf("Ellipsize(%q, %d) = %q, want %q", c.in, c.n, got, c.want)
-		}
-	}
-	msg := "gh: réseau indisponible — la connexion a échoué après trois tentatives"
-	if got := PluginFailures(&Data{Plugins: []signal.PluginStatus{{Name: "github", Status: "failed", Error: &msg}}}); !utf8.ValidString(got) {
-		t.Fatalf("plugin failure line split a rune: %q", got)
-	}
-}
-
 // Review F7: missing data never looks like zero. Any reason in Why — not
 // only a failed plugin — puts a "?" in the headline.
 func TestHeadlineCarriesEveryWhy(t *testing.T) {
@@ -151,12 +130,6 @@ func TestItemHasNoDisplayText(t *testing.T) {
 	}
 }
 
-func TestEllipsizeTinyBudget(t *testing.T) {
-	if Ellipsize("abc", 0) != "" || Ellipsize("abc", 1) != "…" {
-		t.Fatal(Ellipsize("abc", 1))
-	}
-}
-
 // A source that was never set up is not a gap. One that found things
 // before and now is not set up is: its old rows are stale, and it is named.
 func TestNotSetUpIsOnlyAGapWhenItHadData(t *testing.T) {
@@ -172,19 +145,6 @@ func TestNotSetUpIsOnlyAGapWhenItHadData(t *testing.T) {
 	Render(&b, &Data{Checked: 2, RenderedAt: now, Plugins: off, Signals: stale})
 	if head := strings.SplitN(b.String(), "\n", 2)[0]; !strings.Contains(head, "? on you (github not set up, stale rows)") {
 		t.Fatalf("%s", head)
-	}
-}
-
-// "as of 09:02" is ambiguous on a board that is days old: it shows the day
-// unless the board is from today.
-func TestAsOf(t *testing.T) {
-	at := time.Date(2026, 9, 24, 9, 2, 0, 0, time.Local)
-	for seen, want := range map[time.Duration]string{3 * time.Hour: "as of 09:02 ·", 72 * time.Hour: "as of Thu 24 Sep 09:02 ·"} {
-		var b bytes.Buffer
-		RenderSaved(&b, &Data{Checked: 1, RenderedAt: at}, at.Add(seen))
-		if !strings.Contains(b.String(), want) {
-			t.Errorf("seen after %v: %s", seen, b.String())
-		}
 	}
 }
 
@@ -259,5 +219,26 @@ func TestRunStatusUnavailableIsAGap(t *testing.T) {
 	s := Classify(&Data{Checked: 1, RenderedAt: now, Threads: []thread.View{v}})
 	if !slices.Contains(s.Why, "run status unavailable") {
 		t.Fatalf("%q", s.Why)
+	}
+}
+
+// A plugin's error is cut without splitting a character.
+func TestPluginFailuresIsRuneSafe(t *testing.T) {
+	msg := "gh: réseau indisponible — la connexion a échoué après trois tentatives"
+	if got := PluginFailures(&Data{Plugins: []signal.PluginStatus{{Name: "github", Status: "failed", Error: &msg}}}); !utf8.ValidString(got) {
+		t.Fatalf("plugin failure line split a rune: %q", got)
+	}
+}
+
+// "as of 09:02" is ambiguous on a board that is days old: it shows the day
+// unless the board is from today.
+func TestBoardSaysWhichDay(t *testing.T) {
+	at := time.Date(2026, 9, 24, 9, 2, 0, 0, time.Local)
+	for seen, want := range map[time.Duration]string{3 * time.Hour: "as of 09:02 ·", 72 * time.Hour: "as of Thu 24 Sep 09:02 ·"} {
+		var b bytes.Buffer
+		RenderSaved(&b, &Data{Checked: 1, RenderedAt: at}, at.Add(seen))
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("seen after %v: %s", seen, b.String())
+		}
 	}
 }

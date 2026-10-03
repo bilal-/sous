@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/signal"
+	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -169,26 +169,18 @@ func working(state string) bool { return state == "running" || state == "startin
 
 // runText is how a run reads on the board: its state first, then the
 // note, then what the runner said.
-func runText(run *thread.Run, text string) string {
+func runText(run *thread.Run, note string) string {
 	switch run.State {
 	case "needs_you":
-		return fmt.Sprintf("run needs you · %s · %q", text, run.Text)
+		return fmt.Sprintf("run needs you · %s · %q", note, run.Text)
 	case "done":
-		return "run done, review it · " + text + Suffix(run.Branch)
+		return "run done, review it · " + note + text.Suffix(run.Branch)
 	case "failed":
-		return "run failed · " + text + Suffix(run.Text)
+		return "run failed · " + note + text.Suffix(run.Text)
 	case "starting":
-		return "run starting · " + text
+		return "run starting · " + note
 	}
-	return "running · " + text
-}
-
-// Suffix is " · s", or nothing for an empty s.
-func Suffix(s string) string {
-	if s == "" {
-		return ""
-	}
-	return " · " + s
+	return "running · " + note
 }
 
 // ThreadRow is a note as a row. Ages are computed here, against the
@@ -197,7 +189,7 @@ func Suffix(s string) string {
 // waits on the person (done, needs you, failed) its row is kind me, and
 // that is the section it goes in.
 func ThreadRow(t thread.View, now time.Time) Row {
-	r := Row{ID: fmt.Sprint(t.ID), Project: t.Project, Text: t.Text, Shown: t.Text, Age: project.Age(now, t.Since), Since: t.Since, Kind: string(t.Kind), Source: t.Source,
+	r := Row{ID: fmt.Sprint(t.ID), Project: t.Project, Text: t.Text, Shown: t.Text, Age: text.Age(now, t.Since), Since: t.Since, Kind: string(t.Kind), Source: t.Source,
 		Ref: t.Ref, Upstream: t.Upstream, UpstreamErr: t.UpstreamErr, Snoozed: t.Snoozed, ClosedAt: t.Closed, ClosedBy: t.ClosedBy}
 	if t.Run != nil {
 		r.Shown, r.Run, r.RunErr = runText(t.Run, t.Text), t.Run, t.RunErr
@@ -214,13 +206,13 @@ func ThreadRow(t thread.View, now time.Time) Row {
 func ClosedRow(t thread.View, now time.Time) Row {
 	r := ThreadRow(t, now)
 	if t.Closed != nil {
-		r.Age = project.Age(now, *t.Closed)
+		r.Age = text.Age(now, *t.Closed)
 	}
 	return r
 }
 
 func signalRow(o signal.Observed, now time.Time) Row {
-	age := project.Age(now, o.FirstSeen)
+	age := text.Age(now, o.FirstSeen)
 	if o.Stale {
 		age += " (stale)" // in the age column so text truncation can't eat it
 	}
@@ -248,7 +240,7 @@ func PluginFailures(d *Data) string {
 		}
 		fmt.Fprintf(&b, " · %s: %s", p.Name, p.Status)
 		if p.Error != nil {
-			fmt.Fprintf(&b, " (%s)", Ellipsize(*p.Error, 40))
+			fmt.Fprintf(&b, " (%s)", text.Ellipsize(*p.Error, 40))
 		}
 	}
 	return b.String()

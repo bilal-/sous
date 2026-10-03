@@ -12,6 +12,7 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
+	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -97,19 +98,6 @@ func hereSignals(in Inputs, col signal.Collected, root string) ([]signal.Observe
 	return out, nil
 }
 
-// Ellipsize shortens s to at most n runes, ending in "…" when cut. Counting
-// runes, not bytes, keeps a cut from splitting a character.
-func Ellipsize(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	if n <= 0 {
-		return ""
-	}
-	return string(r[:n-1]) + "…"
-}
-
 // RenderHere lays out the resume view: facts, session, then sections.
 func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 	s := ClassifyHere(d)
@@ -144,7 +132,7 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 func renderHereHeader(w io.Writer, d *HereData, s Sections, now time.Time, brief bool) {
 	title := d.Name + " · " + d.Facts.Branch
 	if d.Facts.LastCommit != nil {
-		title += " · last commit " + project.Ago(now, *d.Facts.LastCommit)
+		title += " · last commit " + text.Ago(now, *d.Facts.LastCommit)
 	}
 	fmt.Fprintln(w, title)
 	if d.Facts.LastSubject != "" {
@@ -174,7 +162,7 @@ func sessionLine(sess *session.Session, brief bool) string {
 	if sess.LastMessage != nil && *sess.LastMessage != "" {
 		msg := *sess.LastMessage
 		if brief {
-			msg = Ellipsize(msg, session.LastMessageRunes)
+			msg = text.Ellipsize(msg, session.LastMessageRunes)
 		}
 		line += fmt.Sprintf(" · ended: %q", msg)
 	}

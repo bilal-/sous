@@ -13,6 +13,7 @@ import (
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
+	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
 	"github.com/bilal-/sous/internal/tracker"
 )
@@ -124,7 +125,7 @@ func worked(sessions map[string]session.Session, projects []project.Project, sin
 		}
 		w := &Worked{Name: filepath.Base(path), Project: path, Agent: sess.Agent, When: sess.Ended}
 		if sess.LastMessage != nil {
-			w.Note = board.Ellipsize(*sess.LastMessage, 120)
+			w.Note = text.Ellipsize(*sess.LastMessage, 120)
 		}
 		byPath[path] = w
 	}
@@ -142,7 +143,7 @@ func worked(sessions map[string]session.Session, projects []project.Project, sin
 	}
 	var out []Worked
 	for _, w := range byPath {
-		w.Age = project.Age(now, w.When)
+		w.Age = text.Age(now, w.When)
 		out = append(out, *w)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].When.After(out[j].When) })
@@ -175,7 +176,7 @@ func (r Report) IdeaGroups() []IdeaGroup {
 	return out
 }
 
-func (r Report) sinceLabel() string { return r.Since.Local().Format("Mon 2 Jan 15:04") }
+func (r Report) sinceLabel() string { return text.When(r.Since) }
 
 // RenderReport is the terminal layout.
 func Render(w io.Writer, r Report) error {
@@ -274,7 +275,7 @@ var reportTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 	"isThread": func(id string) bool {
 		return id != "" && !strings.HasPrefix(id, "s:")
 	},
-	"when": func(t time.Time) string { return t.Local().Format("Mon 2 Jan 15:04") },
+	"when": text.When,
 }).Parse(reportHTML))
 
 // RenderReportHTML writes one self-contained page: inline CSS (Material

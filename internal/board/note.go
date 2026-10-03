@@ -8,6 +8,7 @@ import (
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -32,9 +33,9 @@ func Next(v thread.View) []string {
 // RenderNote is sous show: one note in full, and for a run how it is
 // going, with what to do next. home shortens paths for reading.
 func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
-	state := string(v.Kind) + " · " + project.Ago(now, v.Since)
+	state := string(v.Kind) + " · " + text.Ago(now, v.Since)
 	if v.Closed != nil {
-		state = "closed " + project.Ago(now, *v.Closed)
+		state = "closed " + text.Ago(now, *v.Closed)
 	}
 	fmt.Fprintf(w, "%d  %s  %s  (%s)\n", v.ID, project.Describe(v.Project).Name, v.Text, state)
 	if v.Ref != nil {
@@ -78,9 +79,9 @@ func RunsWaiting(views []thread.View) string {
 		case "needs_you":
 			fmt.Fprintf(&b, "  %d %s: needs you · %s · answer with: sous reply %d \"<answer>\"\n", v.ID, name, v.Run.Text, v.ID)
 		case "done":
-			fmt.Fprintf(&b, "  %d %s: done, review it%s · then: sous done %d\n", v.ID, name, Suffix(v.Run.Branch), v.ID)
+			fmt.Fprintf(&b, "  %d %s: done, review it%s · then: sous done %d\n", v.ID, name, text.Suffix(v.Run.Branch), v.ID)
 		case "failed":
-			fmt.Fprintf(&b, "  %d %s: failed%s · sous show %d\n", v.ID, name, Suffix(v.Run.Text), v.ID)
+			fmt.Fprintf(&b, "  %d %s: failed%s · sous show %d\n", v.ID, name, text.Suffix(v.Run.Text), v.ID)
 		}
 	}
 	if b.Len() == 0 {

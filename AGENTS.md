@@ -45,7 +45,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     cmd/sous            main, which calls cli.Run
     internal/cli        the list of commands (verbs.go), argument parsing, output, exit codes. One file per command. No decisions about the data.
     internal/filing     filing a note, closing it upstream, and checking filed notes
-    internal/board      builds the board and the here view, sorts rows into sections, draws text and the menu bar, keeps the cache
+    internal/board      builds the board and the here view, sorts rows into sections, draws text and the menu bar, keeps the cache; item.go is the --json read model
     internal/report     what changed since the last report, as text and as a page
     internal/session    the last agent session in each project, and the summary handed to an agent sous starts
     internal/thread     the person's notes
@@ -68,12 +68,13 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/hook       what the session hooks do: the project a session is in, and recording how it ended
     internal/install    setup's steps: agent hooks and skills, and the shell line, and Check for each
     internal/doctor     sous doctor: every check, in one list, with how to fix it
+    internal/text       how sous writes things for people: ages, times, lines cut to fit
     internal/testutil   helpers shared by every package's tests
 
 Code only depends downward, in this order: `cli`, then `doctor`, then
 `report` and `install`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
-`tracker`, `plugin`, `harness`, `thread`, `session` and `project`, then `store` and
-`config`. `board` never imports `filing` or `backend`; it is handed a
+`tracker`, `plugin`, `harness`, `thread`, `session` and `project`, then `store`,
+`config` and `text`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.
 `thread` uses `project` for a project's path and remote; they share a tier.
 A built in runner starts one agent in a worktree, records how it ended,

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/text"
 )
 
 // sanitize keeps SwiftBar from reading a row as a separator/submenu/param.
@@ -22,7 +23,7 @@ func sanitize(s string) string {
 // the on-you count; a trailing ? means some of the picture is missing and the
 // first dropdown line says which part.
 func RenderMenubar(w io.Writer, d *Data, exe string, now time.Time, window time.Duration) {
-	cacheAge, cacheStale := project.Age(now, d.RenderedAt), now.Sub(d.RenderedAt) > window
+	cacheAge, cacheStale := text.Age(now, d.RenderedAt), now.Sub(d.RenderedAt) > window
 	s := Classify(d)
 	why := s.Why
 	if cacheStale {
@@ -47,5 +48,5 @@ func RenderMenubar(w io.Writer, d *Data, exe string, now time.Time, window time.
 		}
 	}
 	fmt.Fprintln(w, "---")
-	fmt.Fprintf(w, "%d checked · as of %s · cached %s ago\n", d.Checked, asOf(d.RenderedAt, now), cacheAge)
+	fmt.Fprintf(w, "%d checked · as of %s · cached %s ago\n", d.Checked, text.AsOf(d.RenderedAt, now), cacheAge)
 }
