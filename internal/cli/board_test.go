@@ -230,24 +230,29 @@ func TestAmbientPrintsOncePerWindow(t *testing.T) {
 	}
 }
 
-// The board asks trackers and runners at once: a slow one of each costs
-// the time of one, not both.
+// The board asks trackers and runners at once: each fake waits, up to five
+// seconds, for the other to have been asked too, which only happens when
+// they are asked together. (No timing: it holds however slow the machine.)
 func TestBoardAsksTrackersAndRunnersAtOnce(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("acme/api", true)
-	be := testutil.Script(t, t.TempDir(), "sous-backend-slow", `case "$1" in status) sleep 2; echo open;; *) exit 1;; esac`)
-	ru := testutil.Script(t, t.TempDir(), "sous-runner-slow", `case "$1" in start) echo slow:1;; status) sleep 2; echo '{"v":0,"state":"running"}';; esac`)
+	meet := t.TempDir()
+	wait := func(me, other string) string {
+		return `touch ` + meet + `/` + me + `; i=0; while [ ! -e ` + meet + `/` + other + ` ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; [ -e ` + meet + `/` + other + ` ] && touch ` + meet + `/` + me + `-met`
+	}
+	be := testutil.Script(t, t.TempDir(), "sous-backend-slow", `case "$1" in status) `+wait("tracker", "runner")+`; echo open;; *) exit 1;; esac`)
+	ru := testutil.Script(t, t.TempDir(), "sous-runner-slow", `case "$1" in start) echo slow:1;; status) `+wait("runner", "tracker")+`; echo '{"v":0,"state":"running"}';; esac`)
 	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + be + "\", \"" + ru + "\"]\n")
 	f.runIn(p, "note", "-k", "me", "filed on the slow tracker")
 	f.fileAs(1, "slow:1")
 	if _, errs, code := f.run("go", "acme/api", "--run", "a slow task", "-a", "slow"); code != 0 {
 		t.Fatal(errs)
 	}
-	start := time.Now()
 	out, _, _ := f.run()
-	// Two seconds each: at once is two and a bit, one after the other four.
-	if took := time.Since(start); took > 3500*time.Millisecond {
-		t.Fatalf("one slow tracker and one slow runner took %v:\n%s", took, out)
+	for _, who := range []string{"tracker", "runner"} {
+		if _, err := os.Stat(filepath.Join(meet, who+"-met")); err != nil {
+			t.Errorf("the %s was asked alone:\n%s", who, out)
+		}
 	}
 	testutil.Contains(t, out, "filed on the slow tracker", "running · a slow task")
 }
