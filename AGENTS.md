@@ -57,6 +57,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     examples/sous-signal-todo      a small plugin in plain shell, for people starting their own
     internal/tracker    gh and glab: which account or host a project uses, running them safely, and the ref format
     internal/tracker/trackertest   fake gh and glab for tests
+    internal/harness/harnesstest   a fake agent that ends a run the way every built in agent does
     internal/harness    every agent tool sous works with (Claude Code, Codex, Antigravity, opencode), one file each: skills, hooks and their file layout, hook input, transcripts, headless runs
     internal/launcher   the launcher contract; every harness is a built in launcher
     internal/runs       starting runs, asking runners how they are going, replies, stop and clean
@@ -81,9 +82,12 @@ function instead. `signal` never imports `backend`; both use `tracker`.
 `thread` uses `project` for a project's path and remote; they share a tier.
 A built in runner starts one agent in a worktree, records how it ended,
 and passes on a reply. Retrying, reviewing and scheduling belong to a
-runner plugin such as orchid, never to sous. Only `cli` reads the
-environment. If a function decides something or owns a
-data file, it does not belong in `cli`.
+runner plugin such as orchid, never to sous. Only `cli` reads settings
+from the environment (`HOME`, `SOUS_*`); the rest take them as arguments.
+Finding a program on `PATH`, and handing a child process the environment
+sous runs in, are fine anywhere. If a function decides something or owns a
+data file, it does not belong in `cli`. `internal/layers_test.go` holds the
+code to these rules: a new package takes its place in the order there.
 
 **Built ins.** Each axis has one `Registry` (`signal.Registry`,
 `backend.Registry`, `launcher.Registry`, `runner.Registry`): a list of its
