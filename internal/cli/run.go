@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
 	"github.com/bilal-/sous/internal/runs"
-	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -44,14 +42,7 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 		name = cfg.RunAgent()
 	}
 	d := e.dispatcher()
-	hereFile := ""
-	var here bytes.Buffer
-	sub := e.child(&here, io.Discard, true)
-	cmdHere(sub, argv{pos: []string{p.Path}})
-	sub.close()
-	if f, err := session.WriteContext(e.Home, p.Path, here.Bytes()); err == nil {
-		hereFile = f
-	}
+	_, hereFile := hereContext(e, p, io.Discard)
 	id, existed, err := d.Start(e.ctx(), p, brief, a.value("key"), name, e.Source, hereFile)
 	switch {
 	case errors.Is(err, runs.ErrNoRunner):

@@ -8,9 +8,10 @@ import (
 )
 
 // verb is one entry in the closed verb set. The table is the single source
-// of truth for dispatch, for which verbs accept the read-side flags, and for
-// the usage text — so a new verb (say, digest) is one line here and its
-// handler, nothing else.
+// of truth for dispatch, for which verbs take --json and --brief, and for
+// the usage text. A new verb is its line here, its handler, and its
+// section in docs/commands.md, which is also its --help (a test holds
+// every verb to having one).
 type verb struct {
 	name  string
 	run   func(e *Env, a argv) int
@@ -39,9 +40,9 @@ func init() {
 		{"here", cmdHere, true, true, &argSpec{max: 1}, "sous here [path]  where was I, for the current project"},
 		{"report", cmdReport, true, false, exactly(0, []string{"week", "open"}, nil), "sous report [--week] [--open]   what changed since the last report; --open shows the page"},
 		{"projects", cmdProjects, true, false, &argSpec{values: []string{"root", "path"}, max: 1}, "sous projects [term] [--root <dir>] [--path <term>]   every discovered project; --path prints one path"},
-		{"note", cmdNote, true, false, exactly(1, []string{"file"}, []string{"p", "k"}), `sous note [-p <project>] [-k me|them|idea] [--file] "<text>"`},
-		{"edit", cmdEdit, true, false, &argSpec{min: 2, max: 2, raw: true}, `sous edit <n> "<text>"`},
-		{"kind", cmdKind, true, false, &argSpec{min: 2, max: 2, raw: true}, "sous kind <n> me|them|idea"},
+		{"note", cmdNote, true, false, exactly(1, []string{"file"}, []string{"p", "k"}), `sous note [-p <project>] [-k me|them|idea] [--file] "<text>"   save a note; --file files it in the project's tracker too`},
+		{"edit", cmdEdit, true, false, &argSpec{min: 2, max: 2, raw: true}, `sous edit <n> "<text>"   change a note's text`},
+		{"kind", cmdKind, true, false, &argSpec{min: 2, max: 2, raw: true}, "sous kind <n> me|them|idea   whose move a note is"},
 		{"snooze", cmdSnooze, true, false, &argSpec{min: 1, max: 2}, "sous snooze <n|s:id> [days]"},
 		{"done", cmdDone, true, false, exactly(1, []string{"close", "clean"}, nil), "sous done <n> [--close] [--clean]   close a note; --close in its tracker too, --clean removes a run's worktree"},
 		{"file", cmdFile, true, false, exactly(1, []string{"force"}, nil), "sous file <n> [--force]    file a note in the project's tracker"},

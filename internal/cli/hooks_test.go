@@ -314,12 +314,20 @@ func TestSetupGivesEveryAgentTheSkill(t *testing.T) {
 // output.
 func TestSessionStartIntroducesSous(t *testing.T) {
 	f := fixture(t)
+	testutil.OnlyGit(t) // only the fixture's programs and git: no sous of this machine's
+	t.Setenv("PATH", filepath.Join(f.Home, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 	p := f.mkrepo("acme/api", true)
 	out, _, _ := f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "startup"}), "hook", "session-start", "claude")
 	exe, _ := os.Executable()
 	first := strings.SplitN(out, "\n", 2)[0]
 	if !strings.HasPrefix(first, "[sous] ") || !strings.Contains(first, "Run "+exe+" help") || !strings.Contains(out, "api · main") {
 		t.Fatalf("with no sous on PATH it names this one by its path: %q", out)
+	}
+	// With this sous on PATH, its name is enough.
+	os.Symlink(exe, filepath.Join(f.Home, "bin", "sous"))
+	out, _, _ = f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "startup"}), "hook", "session-start", "claude")
+	if first := strings.SplitN(out, "\n", 2)[0]; !strings.Contains(first, "Run sous help") {
+		t.Fatalf("with sous on PATH: %q", first)
 	}
 }
 

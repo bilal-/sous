@@ -109,37 +109,36 @@ func Hooks(home, exe string, flags []string) ([]string, error) {
 	return done, nil
 }
 
-// skillPlace is one folder agents read skills from, and what setup says
-// once the skill is there ("" when the agent's hook line says it).
-type skillPlace struct{ Who, Dir, report string }
-
-// skillPlaces: each harness's own folder, then the shared ones that apply
-// here.
-func skillPlaces(home string) []skillPlace {
-	var places []skillPlace
+// skillPlaces: each harness's own skill folder (its hook line already
+// says it has the skill), then the shared ones that apply here.
+func skillPlaces(home string) []harness.SkillFolder {
+	var places []harness.SkillFolder
 	for _, h := range harness.All {
-		places = append(places, skillPlace{Who: h.Display, Dir: h.SkillDir(home)})
+		places = append(places, harness.SkillFolder{Who: h.Display, Dir: h.SkillDir})
 	}
 	for _, f := range harness.SharedSkills {
 		if f.When == nil || f.When(home) {
-			places = append(places, skillPlace{f.Who, f.Dir(home), f.Says})
+			places = append(places, f)
 		}
 	}
 	return places
 }
 
-func (p skillPlace) file() string { return filepath.Join(p.Dir, "sous", "SKILL.md") }
+// skillFile is where the sous skill goes in a skill folder.
+func skillFile(home string, f harness.SkillFolder) string {
+	return filepath.Join(f.Dir(home), "sous", "SKILL.md")
+}
 
 // Skills writes the sous skill in every skill folder, and reports the agents
 // not already covered by Hooks.
 func Skills(home string, skill []byte) ([]string, error) {
 	var done []string
 	for _, p := range skillPlaces(home) {
-		if err := store.WriteFile(p.file(), skill, 0o644); err != nil {
+		if err := store.WriteFile(skillFile(home, p), skill, 0o644); err != nil {
 			return nil, fmt.Errorf("writing the skill: %w", err)
 		}
-		if p.report != "" {
-			done = append(done, p.report)
+		if p.Says != "" {
+			done = append(done, p.Says)
 		}
 	}
 	return done, nil

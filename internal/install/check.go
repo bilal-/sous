@@ -71,16 +71,16 @@ func checkHook(home string, h hookSpec, exe string) Result {
 	return r
 }
 
-func checkSkill(home string, p skillPlace) Result {
+func checkSkill(home string, p harness.SkillFolder) Result {
 	r := Result{Name: "skill for " + p.Who, Fix: "sous setup"}
-	b, err := os.ReadFile(p.file())
+	b, err := os.ReadFile(skillFile(home, p))
 	switch {
 	case err != nil:
 		r.Detail = "not installed"
 	case !bytes.Equal(b, []byte(Skill)):
 		r.Detail = "out of date"
 	default:
-		return Result{Name: r.Name, OK: true, Detail: "installed, " + config.Tilde(home, p.file())}
+		return Result{Name: r.Name, OK: true, Detail: "installed, " + config.Tilde(home, skillFile(home, p))}
 	}
 	return r
 }

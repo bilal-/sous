@@ -85,13 +85,18 @@ func resolveProject(e *Env, term string) (project.Project, int) {
 		roots, ignore = cfg.Roots, cfg.Ignore
 	}
 	p, err := project.Resolve(roots, ignore, term, e.Cwd, e.UserHome, e.Stderr)
-	switch {
-	case err == nil:
-		return p, 0
-	case errors.Is(err, project.ErrNotInProject):
-		return project.Project{}, fail(e, exitUsage, "not inside a project; use -p <project>")
+	if err != nil {
+		return project.Project{}, projectErr(e, err)
 	}
-	return project.Project{}, fail(e, exitUsage, "%v", err)
+	return p, 0
+}
+
+// projectErr says why no single project could be found.
+func projectErr(e *Env, err error) int {
+	if errors.Is(err, project.ErrNotInProject) {
+		return fail(e, exitUsage, "not inside a project; use -p <project>")
+	}
+	return fail(e, exitUsage, "%v", err)
 }
 
 func renderProjects(w io.Writer, ps []project.Project, now time.Time) {

@@ -9,7 +9,22 @@ import (
 	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
+	"io"
 )
+
+// hereContext is where the person left off in p, short, as an agent is
+// handed it, and the file it is saved in ("" when it could not be).
+func hereContext(e *Env, p project.Project, stderr io.Writer) ([]byte, string) {
+	var here bytes.Buffer
+	sub := e.child(&here, stderr, true)
+	defer sub.close()
+	cmdHere(sub, argv{pos: []string{p.Path}})
+	file, err := session.WriteContext(e.Home, p.Path, here.Bytes())
+	if err != nil {
+		file = ""
+	}
+	return here.Bytes(), file
+}
 
 // installHint follows "not set up": where the person learns what is missing.
 const installHint = "sous doctor says what to install"
@@ -59,16 +74,13 @@ func cmdGo(e *Env, a argv) int {
 		return fail(e, exitFailed, "%v", err)
 	}
 	// Resume context: shown to the human, and handed to launchers via a file.
-	var here bytes.Buffer
-	sub := e.child(&here, e.Stderr, true)
-	defer sub.close()
-	cmdHere(sub, argv{pos: []string{p.Path}})
+	here, file := hereContext(e, p, e.Stderr)
 	var env []string
-	if name, err := session.WriteContext(e.Home, p.Path, here.Bytes()); err == nil {
-		env = append(env, "SOUS_HERE_FILE="+name)
+	if file != "" {
+		env = append(env, "SOUS_HERE_FILE="+file)
 	}
 	fmt.Fprintf(e.Stderr, "→ %s in %s\n", agent, p.Path)
-	e.Stdout.Write(here.Bytes())
+	e.Stdout.Write(here)
 	if err := execIn(p.Path, argv0, cmdline, env...); err != nil {
 		return fail(e, exitFailed, "starting %s: %v", agent, err)
 	}

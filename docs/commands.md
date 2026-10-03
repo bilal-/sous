@@ -144,9 +144,9 @@ reads what the board learned last about GitHub and GitLab.
 
 Options:
 
-* `--brief`: a shorter version (the last message is cut to 300 characters
-  and only five ideas are listed). This is what agents see when a session
-  starts.
+* `--brief`: a shorter version, what agents see when a session starts:
+  five rows of each kind with where the rest are, and every note and the
+  last message cut to one line, ending in `…` when cut.
 * `--json`: the sections, with `facts` (branch, last commit), `session`
   (how the last agent session here ended, or `null`), `recently_closed`,
   and `plugins`.
@@ -329,6 +329,8 @@ Options:
   twice; a key is only needed to start the same brief twice on purpose.
 
 ## Handing work to an agent
+
+### `sous go <project> --run`
 
 You, or your agent, can hand a task to an agent that works on it in the
 background. The run shows on the board: waiting on others while it works,

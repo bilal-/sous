@@ -84,16 +84,21 @@ func cmdPath(e *Env, arg string) int {
 		}
 		return fail(e, exitUsage, "%s is neither a repo nor a folder of repos", arg)
 	}
-	if e.cfgErr == nil && !strings.ContainsAny(arg, "/.") {
-		if _, err := project.Resolve(e.Cfg.Roots, e.Cfg.Ignore, arg, e.Cwd, e.UserHome, io.Discard); errors.Is(err, project.ErrNoMatch) {
-			// A word that is neither a command nor a project is most likely
-			// a command misremembered.
-			return fail(e, exitUsage, "%q is not a command or a project; sous help lists the commands, sous projects the projects", arg)
-		}
-	}
-	p, code := resolveProject(e, arg)
+	cfg, code := e.config()
 	if code != 0 {
 		return code
+	}
+	if len(cfg.Roots) == 0 {
+		return fail(e, exitFailed, "%s", config.NoRootsHint)
+	}
+	p, err := project.Resolve(cfg.Roots, cfg.Ignore, arg, e.Cwd, e.UserHome, e.Stderr)
+	if errors.Is(err, project.ErrNoMatch) && !strings.ContainsAny(arg, "/.") {
+		// A word that is neither a command nor a project is most likely a
+		// command misremembered.
+		return fail(e, exitUsage, "%q is not a command or a project; sous help lists the commands, sous projects the projects", arg)
+	}
+	if err != nil {
+		return projectErr(e, err)
 	}
 	return cmdHere(e, argv{pos: []string{p.Path}})
 }

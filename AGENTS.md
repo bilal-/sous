@@ -75,7 +75,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
 Code only depends downward, in this order: `cli`, then `doctor`, then
 `report` and `install`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
 `tracker`, `plugin`, `harness`, `thread`, `session` and `project`, then `store`,
-`config` and `text`. `board` never imports `filing` or `backend`; it is handed a
+`config`, `text` and `docs`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.
 `thread` uses `project` for a project's path and remote; they share a tier.
 A built in runner starts one agent in a worktree, records how it ended,
@@ -93,6 +93,14 @@ a session start may ask), and the door `sous <axis> <name> <call>`
 (`internal/cli/door.go`). The launcher and runner lists are built from
 `harness.All`. A built in ends every call with
 `plugin.Exit`, so it speaks the same exit codes as a plugin program.
+
+**Adding a command** is its line in `verbs.go` (which says what flags
+it takes, how many arguments, and whether it takes `--json`), its
+handler in a file of its own, and its section in docs/commands.md,
+headed ``### `sous <name>` ``, which is also its `--help`. A command that
+changes something answers with `e.changed` (and a `did` the docs list); a
+command that shows something answers with `--json` too, never `null`.
+The AXI tests loop over every verb, so they check a new one as it lands.
 
 **Adding a tracker** as a built in (Jira, say) is three pieces, each
 named after it:

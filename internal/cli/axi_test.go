@@ -278,6 +278,10 @@ func TestAXIMisses(t *testing.T) {
 	if out, _, code := f.run("--version"); code != 0 || out != "sous "+Version+"\n" {
 		t.Fatalf("%d %q", code, out)
 	}
+	f.writeConfig("roots = [\n")
+	if _, errs, code := f.run("api"); code != 1 || !strings.Contains(errs, "config") {
+		t.Fatalf("a broken config is said, not a crash: %d %q", code, errs)
+	}
 }
 
 // AXI 10: a command's --help is what the docs say about it, so help and

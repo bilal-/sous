@@ -18,6 +18,7 @@ import (
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
+	"io"
 )
 
 // StatusTimeout bounds each runner's status during a refresh.
@@ -161,7 +162,17 @@ func (d *Dispatcher) Show(ctx context.Context, id int) (thread.View, error) {
 // lastLines is the last n lines of the file at path that hold anything;
 // none when it cannot be read.
 func lastLines(path string, n int) []string {
-	b, err := os.ReadFile(path)
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	// An agent's log can run long; its end is all that is wanted.
+	const tail = 16 << 10
+	if st, err := f.Stat(); err == nil && st.Size() > tail {
+		f.Seek(st.Size()-tail, io.SeekStart)
+	}
+	b, err := io.ReadAll(f)
 	if err != nil {
 		return nil
 	}

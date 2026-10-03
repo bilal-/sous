@@ -89,7 +89,7 @@ func Flags() []string {
 	var out []string
 	for _, h := range All {
 		for _, k := range h.Hooks {
-			if k.Flag != "" {
+			if k.Flag != "" && !slices.Contains(out, k.Flag) {
 				out = append(out, k.Flag)
 			}
 		}

@@ -117,7 +117,7 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 		}
 		for _, r := range shown {
 			line, c := r.hereLine()
-			cut = cut || c
+			cut = cut || c && !signal.IsID(r.ID) // only a note can be shown whole
 			fmt.Fprintln(w, line+suffix)
 		}
 		if len(shown) < len(rows) {
@@ -173,7 +173,7 @@ func sessionLine(sess *session.Session, brief bool) string {
 	if sess.LastMessage != nil && *sess.LastMessage != "" {
 		msg := *sess.LastMessage
 		if brief {
-			msg = text.Ellipsize(msg, session.LastMessageRunes)
+			msg = text.Ellipsize(msg, text.LineRunes)
 		}
 		line += fmt.Sprintf(" · ended: %q", msg)
 	}

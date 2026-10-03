@@ -19,6 +19,7 @@ import (
 	"github.com/bilal-/sous/internal/thread"
 
 	"github.com/bilal-/sous/internal/testutil"
+	"github.com/bilal-/sous/internal/text"
 )
 
 func TestRenderHere(t *testing.T) {
@@ -57,7 +58,7 @@ func TestRenderHere(t *testing.T) {
 	}
 	b.Reset()
 	RenderHere(&b, d, now, true)
-	if strings.Count(b.String(), "x") != 299 || !strings.Contains(b.String(), "x…\"") || !strings.Contains(b.String(), "… and 4 more") {
+	if strings.Count(b.String(), "x") != text.LineRunes-1 || !strings.Contains(b.String(), "x…\"") || !strings.Contains(b.String(), "… and 4 more") {
 		t.Errorf("brief caps:\n%s", b.String())
 	}
 }
