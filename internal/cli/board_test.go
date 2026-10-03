@@ -235,8 +235,8 @@ func TestAmbientPrintsOncePerWindow(t *testing.T) {
 func TestBoardAsksTrackersAndRunnersAtOnce(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("acme/api", true)
-	be := testutil.Script(t, t.TempDir(), "sous-backend-slow", `case "$1" in status) sleep 1; echo open;; *) exit 1;; esac`)
-	ru := testutil.Script(t, t.TempDir(), "sous-runner-slow", `case "$1" in start) echo slow:1;; status) sleep 1; echo '{"v":0,"state":"running"}';; esac`)
+	be := testutil.Script(t, t.TempDir(), "sous-backend-slow", `case "$1" in status) sleep 2; echo open;; *) exit 1;; esac`)
+	ru := testutil.Script(t, t.TempDir(), "sous-runner-slow", `case "$1" in start) echo slow:1;; status) sleep 2; echo '{"v":0,"state":"running"}';; esac`)
 	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + be + "\", \"" + ru + "\"]\n")
 	f.runIn(p, "note", "-k", "me", "filed on the slow tracker")
 	f.fileAs(1, "slow:1")
@@ -245,7 +245,8 @@ func TestBoardAsksTrackersAndRunnersAtOnce(t *testing.T) {
 	}
 	start := time.Now()
 	out, _, _ := f.run()
-	if took := time.Since(start); took > 1800*time.Millisecond {
+	// Two seconds each: at once is two and a bit, one after the other four.
+	if took := time.Since(start); took > 3500*time.Millisecond {
 		t.Fatalf("one slow tracker and one slow runner took %v:\n%s", took, out)
 	}
 	testutil.Contains(t, out, "filed on the slow tracker", "running · a slow task")
