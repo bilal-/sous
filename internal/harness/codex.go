@@ -23,7 +23,7 @@ var codex = Harness{
 		{Role: RoleEnd, Event: "SessionEnd", Flag: "codex-session-end"},
 	},
 	Parse: parseHookJSON,
-	Last:  func(transcript string, max int) string { return lastLine(transcript, max, codexText) },
+	Last:  func(transcript string, max int) string { return lastLine(transcript, max, `"assistant"`, codexText) },
 	// Codex runs in its workspace-write sandbox; no permission check is
 	// skipped.
 	Headless: &Headless{

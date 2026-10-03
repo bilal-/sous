@@ -138,7 +138,7 @@ sous is young. Here is an honest list.
 |---|---|
 | macOS and Linux, on Intel and Apple silicon | Windows |
 | the board in new **zsh**, **bash** and **fish** shells | other shells (run `sous --ambient` from their startup file) |
-| session hooks for **Claude Code** and **Codex**; the sous skill for them and for **Gemini CLI, Kimi, Cursor, Antigravity** and other agents that read `~/.agents/skills` | session hooks for other agents (see below) |
+| session hooks for **Claude Code**, **Codex** and **Antigravity**; the sous skill for them and for **Gemini CLI, Kimi, Cursor** and other agents that read `~/.agents/skills` | session hooks for other agents (see below) |
 | git: uncommitted files, unpushed commits, stashes, branches with no upstream | |
 | **GitHub**: reviews asked of you, changes asked on your pull requests, failing checks on your pull requests, unread notifications that mention or assign you; filing and closing issues | CI on branches without a pull request |
 | **GitLab**: merge requests to review, yours awaiting review; filing and closing issues | GitLab to do items |
@@ -179,9 +179,9 @@ To remove sous, delete:
 
 * `~/.local/bin/sous` (or `brew uninstall sous`) and `~/.sous`
 * the `sous` skill folders in `~/.claude/skills`, `~/.codex/skills`,
-  `~/.agents/skills` and `~/.gemini/antigravity/skills`
+  `~/.agents/skills` and `~/.gemini/config/skills`
 * the `sous hook` entries in `~/.claude/settings.json` and
-  `~/.codex/hooks.json`
+  `~/.codex/hooks.json`, and the `sous` group in `~/.gemini/config/hooks.json`
 * the `# sous:` comment and the line under it in your shell's startup
   files (for fish, the file `~/.config/fish/conf.d/sous.fish`)
 * the `sous` folder in your cache folder (`~/Library/Caches/sous` on macOS,
@@ -197,9 +197,10 @@ There is nothing else to do: installing runs `sous setup`, which
 * finds your projects by looking in the usual places (`~/code`, `~/src`,
   `~/projects`, `~/workspace`, `~/Developer` and a few more). It looks two
   folders deep, so `~/code` finds `~/code/acme/api`.
-* adds session hooks for Claude Code and Codex, and the `sous` skill for
-  them and for any agent that reads the shared `~/.agents/skills` folder
-  (Gemini CLI, Kimi, Cursor and others) or Antigravity's
+* adds session hooks for Claude Code, Codex and Antigravity (when it is
+  installed), and the `sous` skill for them and for any agent that reads
+  the shared `~/.agents/skills` folder (Gemini CLI, Kimi, Cursor and
+  others)
 * adds one line to your shell's startup file (zsh, bash or fish), so new
   terminals show the board
 * writes a menu bar script for [SwiftBar](https://swiftbar.app)
@@ -344,14 +345,21 @@ versions also report when a session ends: run
 session ended, as it does for Claude Code. Without it, `sous here` still
 shows the last commit and your notes.
 
-**Gemini CLI, Kimi, Cursor, Antigravity and others.** Many agents now
-read skills from a shared folder, `~/.agents/skills`, and `sous setup` puts
-the sous skill there, and in Antigravity's own folder when Antigravity is
-installed. These agents then know sous is there and when to use it. What
-they do not get yet is the start of session summary, because sous only
-installs hooks for Claude Code and Codex. To get it, add a line to the
-agent's instructions file (such as `AGENTS.md` or `GEMINI.md`) asking it to
-run `sous here --brief` at the start of a session.
+**Antigravity.** The skill, and hooks in `~/.gemini/config/hooks.json`,
+which both the Antigravity app and the `agy` command read: a new
+conversation starts knowing where you left off, and the end of each turn is
+recorded, so `sous here` shows how your last Antigravity session ended.
+`sous go --run -a agy` hands a task to Antigravity in the background. A run
+has the command permissions you gave Antigravity in its settings and no
+more: a command it is not allowed shows the run as needing you, naming
+what was refused.
+
+**Gemini CLI, Kimi, Cursor and others.** Many agents now read skills from a
+shared folder, `~/.agents/skills`, and `sous setup` puts the sous skill
+there. These agents then know sous is there and when to use it. What they
+do not get yet is the start of session summary. To get it, add a line to
+the agent's instructions file (such as `AGENTS.md` or `GEMINI.md`) asking it
+to run `sous here --brief` at the start of a session.
 
 For an agent that reads no skills folder, `sous setup --print-skill` prints
 the skill so you can paste it into its instructions.

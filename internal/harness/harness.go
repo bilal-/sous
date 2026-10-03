@@ -1,5 +1,5 @@
 // Package harness is every agent tool sous works with (Claude Code, Codex,
-// ...), one file each: where its skills go, which hooks sous puts in its
+// Antigravity, ...), one file each: where its skills go, which hooks sous puts in its
 // settings and how that file is laid out, what its hooks send, how to read
 // its transcript, and how to run it headless for a run. install, hook,
 // launcher, runner and doctor read this table; adding an agent is one file
@@ -8,6 +8,7 @@ package harness
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 )
@@ -17,6 +18,9 @@ type Harness struct {
 	Name    string // the hook's agent argument, and the launcher and runner name: "claude"
 	Display string // how people know it: "Claude Code"
 	Bin     string // its program on PATH
+	// Present says whether it is on this machine, so setup does not make
+	// its folders when it is not; nil means always set it up.
+	Present func(home string) bool
 	// SkillDir is the folder it reads skills from.
 	SkillDir func(home string) string
 	// HookFile is the settings file its hooks live in; Format is how that
@@ -27,6 +31,10 @@ type Harness struct {
 	// Parse reads what its hook sends on standard input. It never fails:
 	// what it cannot read is left empty.
 	Parse func(stdin []byte) Input
+	// Reply is what the hook prints for role, given what sous has to say
+	// ("" when nothing): the text as it is (nil), or wrapped the way the
+	// harness reads it.
+	Reply func(role, say string) string
 	// Last is the last thing it said in a transcript, at most max runes;
 	// "" when there is none.
 	Last func(transcript string, max int) string
@@ -73,7 +81,31 @@ type Headless struct {
 }
 
 // All is every harness sous knows, in the order setup reports them.
-var All = []Harness{claude, codex}
+var All = []Harness{claude, codex, antigravity}
+
+// Here: h is on this machine, as far as setup and doctor are concerned.
+func (h Harness) Here(home string) bool { return h.Present == nil || h.Present(home) }
+
+// Installed: bin is on PATH, or one of dirs (under home) exists.
+func Installed(home, bin string, dirs ...string) bool {
+	if _, err := exec.LookPath(bin); err == nil {
+		return true
+	}
+	for _, d := range dirs {
+		if st, err := os.Stat(filepath.Join(home, d)); err == nil && st.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
+// ReplyTo is what h's hook prints for role, given what sous has to say.
+func (h Harness) ReplyTo(role, say string) string {
+	if h.Reply == nil {
+		return say
+	}
+	return h.Reply(role, say)
+}
 
 // Find is the harness called name.
 func Find(name string) (Harness, bool) {
@@ -103,12 +135,6 @@ func Flags() []string {
 var SharedSkills = []SkillFolder{
 	{Who: "Gemini CLI, Kimi, Cursor and other agents", Dir: func(home string) string { return filepath.Join(home, ".agents", "skills") },
 		Says: "Gemini CLI, Kimi, Cursor and other agents: have the sous skill (in ~/.agents/skills, the shared folder they read)"},
-	{Who: "Antigravity", Dir: func(home string) string { return filepath.Join(home, ".gemini", "antigravity", "skills") },
-		When: func(home string) bool {
-			st, err := os.Stat(filepath.Join(home, ".gemini", "antigravity"))
-			return err == nil && st.IsDir()
-		},
-		Says: "Antigravity: has the sous skill"},
 }
 
 // SkillFolder is a folder agents read skills from.

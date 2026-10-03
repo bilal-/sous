@@ -64,7 +64,7 @@ func Run(in Inputs) []Check {
 	if in.Cfg != nil {
 		out = append(out, trackerChecks(in.Cfg)...)
 		out = append(out, pluginChecks(in.Cfg.Plugins)...)
-		out = append(out, runnerChecks()...)
+		out = append(out, runnerChecks(in.UserHome)...)
 	}
 	out = append(out, dataChecks(in.SousHome, in.Now)...)
 	return append(out, boardChecks(in)...)
@@ -187,10 +187,10 @@ func pluginChecks(plugins []string) []Check {
 // runnerChecks: the agent CLI each built in runner starts. Runs are
 // optional, so a missing one is worth a look, not broken; sous go --run
 // says the same, with exit 3, when it is tried.
-func runnerChecks() []Check {
+func runnerChecks(home string) []Check {
 	var out []Check
 	for _, h := range harness.All {
-		if h.Headless == nil {
+		if h.Headless == nil || !h.Here(home) {
 			continue
 		}
 		c := Check{Name: "runner " + h.Name, Status: OK, Detail: h.Bin + " installed"}

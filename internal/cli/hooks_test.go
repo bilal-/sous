@@ -295,7 +295,7 @@ func TestSetupGivesEveryAgentTheSkill(t *testing.T) {
 	if code != 0 {
 		t.Fatal(code)
 	}
-	for _, dir := range []string{".claude/skills/sous", ".codex/skills/sous", ".agents/skills/sous", ".gemini/antigravity/skills/sous"} {
+	for _, dir := range []string{".claude/skills/sous", ".codex/skills/sous", ".agents/skills/sous", ".gemini/config/skills/sous"} {
 		if b, err := os.ReadFile(filepath.Join(f.Home, dir, "SKILL.md")); err != nil || !strings.HasPrefix(string(b), "---\nname: sous") {
 			t.Errorf("%s: %v", dir, err)
 		}
@@ -304,6 +304,9 @@ func TestSetupGivesEveryAgentTheSkill(t *testing.T) {
 		t.Fatalf("%s", out)
 	}
 	g := fixture(t)
+	os.Remove(filepath.Join(g.Home, "bin", "agy")) // Antigravity is not here
+	testutil.OnlyGit(t)
+	t.Setenv("PATH", filepath.Join(g.Home, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 	g.run("setup", "--no-shell")
 	if _, err := os.Stat(filepath.Join(g.Home, ".gemini")); err == nil {
 		t.Fatal("no Antigravity folder is created when Antigravity is not installed")
@@ -368,5 +371,34 @@ func TestSessionStartRuns(t *testing.T) {
 	}
 	if out, _, _ := f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "resume"}), "hook", "session-start", "claude"); out != "" {
 		t.Errorf("a resumed session hears nothing:\n%s", out)
+	}
+}
+
+// Antigravity's hooks: the first model call of a new conversation gets
+// where the person left off, as JSON Antigravity reads; every other call,
+// and the end of each turn, gets {}; a turn's end is recorded.
+func TestAntigravityHooks(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	tr := filepath.Join(t.TempDir(), "transcript_full.jsonl")
+	os.WriteFile(tr, []byte(`{"source":"MODEL","type":"PLANNER_RESPONSE","content":"wired the export"}`+"\n"), 0o644)
+	first := `{"conversationId":"c1","workspacePaths":["` + p + `"],"transcriptPath":"` + tr + `","invocationNum":0,"initialNumSteps":1}`
+	out, errs, code := f.runStdin(first, "hook", "session-start", "agy")
+	var reply struct {
+		InjectSteps []struct{ EphemeralMessage string } `json:"injectSteps"`
+	}
+	if code != 0 || errs != "" || json.Unmarshal([]byte(out), &reply) != nil || len(reply.InjectSteps) != 1 || !strings.Contains(reply.InjectSteps[0].EphemeralMessage, "api · main") {
+		t.Fatalf("%d %q %q", code, out, errs)
+	}
+	later := `{"conversationId":"c1","workspacePaths":["` + p + `"],"invocationNum":3,"initialNumSteps":1}`
+	if out, _, _ := f.runStdin(later, "hook", "session-start", "agy"); strings.TrimSpace(out) != "{}" {
+		t.Fatalf("a later model call hears nothing: %q", out)
+	}
+	stop := `{"conversationId":"c1","workspacePaths":["` + p + `"],"transcriptPath":"` + tr + `","executionNum":0,"terminationReason":"NO_TOOL_CALL"}`
+	if out, _, _ := f.runStdin(stop, "hook", "session-end", "agy"); strings.TrimSpace(out) != "{}" {
+		t.Fatalf("%q", out)
+	}
+	if out, _, _ := f.run("here", p); !strings.Contains(out, `last session · agy`) || !strings.Contains(out, "wired the export") {
+		t.Fatalf("the turn's end is recorded:\n%s", out)
 	}
 }

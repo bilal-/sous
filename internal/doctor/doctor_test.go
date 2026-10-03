@@ -99,7 +99,7 @@ func TestLastRefreshFailuresAreListed(t *testing.T) {
 func TestRunnerChecks(t *testing.T) {
 	testutil.OnlyGit(t)
 	testutil.FakeBin(t, "codex", "")
-	cs := runnerChecks()
+	cs := runnerChecks(t.TempDir())
 	got := map[string]Check{}
 	for _, c := range cs {
 		got[c.Name] = c

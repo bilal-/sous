@@ -14,7 +14,8 @@ import (
 // reads as said by the agent, capped at max runes; "" when there is none or
 // the file is odd. It reads backwards from the end and stops at that line,
 // so a transcript of any size costs only what comes after it.
-func lastLine(path string, max int, said func([]byte) string) string {
+// mark is a few bytes every such line holds, to skip the rest cheaply.
+func lastLine(path string, max int, mark string, said func([]byte) string) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
@@ -26,7 +27,7 @@ func lastLine(path string, max int, said func([]byte) string) string {
 	}
 	var last string
 	eachLineFromEnd(f, st.Size(), func(line []byte) bool {
-		if !bytes.Contains(line, []byte(`"assistant"`)) {
+		if !bytes.Contains(line, []byte(mark)) {
 			return true
 		}
 		last = said(line)

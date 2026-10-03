@@ -29,7 +29,7 @@ type Result struct {
 // changing anything: each agent hook, each skill folder, and the shell line.
 func Check(home, sousHome, exe, shell, goos, zdotdir string) []Result {
 	var out []Result
-	for _, h := range hookSpecs() {
+	for _, h := range hookSpecs(home) {
 		r := checkHook(home, h, exe)
 		if h.Flag != "" && r.Detail == "not installed" { // asked for with a flag
 			r = Result{Name: r.Name, OK: true, Detail: "not installed (optional)"}

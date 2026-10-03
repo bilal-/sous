@@ -75,12 +75,12 @@ func TestSkillsGoWhereAgentsLook(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, d := range []string{".claude/skills/sous", ".codex/skills/sous", ".agents/skills/sous", ".gemini/antigravity/skills/sous"} {
+	for _, d := range []string{".claude/skills/sous", ".codex/skills/sous", ".agents/skills/sous", ".gemini/config/skills/sous"} {
 		if _, err := os.Stat(filepath.Join(home, d, "SKILL.md")); err != nil {
 			t.Error(d, err)
 		}
 	}
-	if len(done) != 2 { // Claude Code and Codex are reported with their hooks
+	if len(done) != 1 { // the agents with hooks are reported with them; the shared folder here
 		t.Fatalf("%v", done)
 	}
 }

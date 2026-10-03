@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/bilal-/sous/internal/board"
@@ -36,6 +37,7 @@ func cmdHook(e *Env, a argv) int {
 	}
 	stdin, _ := io.ReadAll(io.LimitReader(e.Stdin, 1<<20))
 	in := h.Parse(stdin)
+	say := ""
 	switch args[0] {
 	case harness.RoleStart:
 		// Plugins and tracker probes must finish inside the guard; when it
@@ -61,12 +63,18 @@ func cmdHook(e *Env, a argv) int {
 				runs = runsWaiting(sub)
 			}
 		}) && buf.Len()+len(runs) > 0 {
-			fmt.Fprintln(e.Stdout, sessionIntro(e))
-			fmt.Fprint(e.Stdout, runs)
-			io.Copy(e.Stdout, &buf)
+			say = sessionIntro(e) + "\n" + runs + buf.String()
 		}
 	case harness.RoleEnd:
 		guarded(func() { hook.RecordEnd(e.store(), in, h, e.Cwd, e.UserHome, time.Now()) })
+	}
+	// Each agent reads the reply its own way (plain text, or JSON); one
+	// that wants an answer gets one even when there is nothing to say.
+	if reply := h.ReplyTo(args[0], say); reply != "" {
+		fmt.Fprint(e.Stdout, reply)
+		if !strings.HasSuffix(reply, "\n") {
+			fmt.Fprintln(e.Stdout)
+		}
 	}
 	return 0
 }

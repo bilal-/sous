@@ -273,18 +273,29 @@ func TestUncommittedWorkIsKeptAndShown(t *testing.T) {
 	}
 }
 
-// A brief or answer that starts with a dash is text, never a flag.
+// fakeAgent records its arguments and says it needs the person, in each
+// built in agent's own words (Claude Code's result, Codex's thread,
+// Antigravity's conversation), so every runner finds a session to resume.
+const fakeAgent = `for x in "$@"; do echo "$x"; done > args
+printf '{"result":"SOUS: needs you q","session_id":"s"}\n'
+echo '{"thread_id":"s"}'
+echo '{"conversation_id":"s","response":"SOUS: needs you q"}'`
+
+// A brief or answer that starts with a dash is text, never a flag: it
+// follows "--", or is the value of a flag (-p=…).
 func TestPromptsAreNeverFlags(t *testing.T) {
 	for _, name := range Registry.Names() {
 		a, ref, dir := startedRun(t, name, time.Minute)
-		testutil.FakeBin(t, name, `for x in "$@"; do echo "$x"; done > args; printf '{"result":"SOUS: needs you q","session_id":"s"}\n'; echo '{"thread_id":"s"}'`)
+		testutil.FakeBin(t, name, fakeAgent)
 		a.Watch(dir, false)
 		a.Reply("", ref, "--help is fine")
 		var m runMeta
 		readJSON(dir, "run.json", &m)
 		a.Watch(dir, true)
 		args := strings.Split(readString(m.Worktree, "args"), "\n")
-		if n := len(args); n < 2 || args[n-2] != "--" && args[n-3] != "--" || args[n-1] != "--help is fine" {
+		n := len(args)
+		afterDashes := n >= 2 && args[n-1] == "--help is fine" && (args[n-2] == "--" || args[n-3] == "--")
+		if !afterDashes && args[n-1] != "-p=--help is fine" {
 			t.Errorf("%s: %q", name, args)
 		}
 	}
@@ -348,7 +359,7 @@ func TestConcurrentStartsOfOneRun(t *testing.T) {
 func TestAgentsMayCommitAndNoMore(t *testing.T) {
 	for _, name := range Registry.Names() {
 		a, ref, dir := startedRun(t, name, time.Minute)
-		testutil.FakeBin(t, name, `for x in "$@"; do echo "$x"; done > args; printf '{"result":"SOUS: needs you q","session_id":"s"}\n'; echo '{"thread_id":"s"}'`)
+		testutil.FakeBin(t, name, fakeAgent)
 		var m runMeta
 		readJSON(dir, "run.json", &m)
 		for _, resume := range []bool{false, true} {
@@ -367,6 +378,13 @@ func TestAgentsMayCommitAndNoMore(t *testing.T) {
 				if !strings.Contains(args, "sandbox_workspace_write.writable_roots") || !strings.Contains(args, common+"/objects") || strings.Contains(args, common+"/hooks") || strings.Contains(args, `"`+common+`"`) {
 					t.Errorf("codex resume=%v: %s", resume, args)
 				}
+			case "agy":
+				// Edits accepted; commands only as the person's settings allow.
+				if !strings.Contains(args, "accept-edits") || strings.Contains(args, "dangerously") {
+					t.Errorf("agy resume=%v: %s", resume, args)
+				}
+			default:
+				t.Errorf("%s: say here what a run of it may do", name)
 			}
 		}
 	}

@@ -7,6 +7,23 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+* **Antigravity.** `sous setup` sets Antigravity up when it is installed:
+  the skill in `~/.gemini/config/skills` (the folder the app and `agy`
+  read), and hooks in `~/.gemini/config/hooks.json`, in a group of their
+  own. A new conversation starts knowing where you left off, and each
+  turn's end is recorded for `sous here`. `sous go -a agy` starts it in a
+  project, and `sous go --run -a agy` hands it a task in the background,
+  with the command permissions you gave Antigravity and no more: what it
+  refused shows the run as needing you. `sous doctor` checks all of it.
+
+### Changed
+* The sous skill for Antigravity moves from `~/.gemini/antigravity/skills`,
+  which Antigravity does not read, to `~/.gemini/config/skills`. You can
+  remove the old `sous` folder there.
+* Setup and doctor only set up and check the agents that are installed
+  (Claude Code and Codex are always set up, as before).
+
 ## [0.9.0]
 
 ### Changed

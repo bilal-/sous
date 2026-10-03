@@ -242,7 +242,7 @@ func TestEveryHarnessIsComplete(t *testing.T) {
 // fresh: resume, clear, compact and fork are not. Nothing, or something
 // unreadable, is a fresh session in the hook's own folder.
 func TestParseHookJSON(t *testing.T) {
-	for _, h := range All {
+	for _, h := range []Harness{claude, codex} {
 		in := h.Parse([]byte(`{"session_id":"s1","cwd":"/code/acme/api","transcript_path":"/t.jsonl","source":"startup"}`))
 		if in != (Input{SessionID: "s1", CWD: "/code/acme/api", TranscriptPath: "/t.jsonl", Fresh: true}) {
 			t.Errorf("%s: %+v", h.Name, in)
@@ -276,5 +276,87 @@ func TestCodexLast(t *testing.T) {
 	}
 	if got := codex.Last(p, 4); got != "Done" {
 		t.Fatalf("cap: %q", got)
+	}
+}
+
+// Antigravity's hooks send camelCase JSON, the project first among the
+// workspace paths. Its first model call in a new conversation is the
+// session start; later calls, and the first call of a resumed one, are not.
+func TestParseAgy(t *testing.T) {
+	in := parseAgy([]byte(`{"conversationId":"c1","workspacePaths":["/code/acme/api","/x"],"transcriptPath":"/t.jsonl","invocationNum":0,"initialNumSteps":1}`))
+	if in != (Input{SessionID: "c1", CWD: "/code/acme/api", TranscriptPath: "/t.jsonl", Fresh: true}) {
+		t.Fatalf("%+v", in)
+	}
+	for _, b := range []string{`{"invocationNum":1,"initialNumSteps":1}`, `{"invocationNum":0,"initialNumSteps":4}`, `{"executionNum":0,"terminationReason":"NO_TOOL_CALL"}`} {
+		if parseAgy([]byte(b)).Fresh {
+			t.Errorf("%s is not a new session", b)
+		}
+	}
+	if in := parseAgy([]byte("not json")); !in.Fresh {
+		t.Fatal("unreadable input is a new session in the hook's folder")
+	}
+}
+
+// Antigravity reads every hook's answer as JSON: context to add before the
+// model runs, or nothing.
+func TestAgyReply(t *testing.T) {
+	if got := antigravity.ReplyTo(RoleStart, "[sous] hello"); got != `{"injectSteps":[{"ephemeralMessage":"[sous] hello"}]}` {
+		t.Fatal(got)
+	}
+	for _, c := range [][2]string{{RoleStart, ""}, {RoleEnd, ""}} {
+		if got := antigravity.ReplyTo(c[0], c[1]); got != "{}" {
+			t.Errorf("%v: %q", c, got)
+		}
+	}
+	if claude.ReplyTo(RoleStart, "") != "" || claude.ReplyTo(RoleStart, "x") != "x" {
+		t.Fatal("Claude Code takes plain text")
+	}
+}
+
+// The last thing Antigravity said is the model's last planner response; a
+// run that was refused a command says so, as needing the person.
+func TestAgyLastAndRunAnswer(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "transcript_full.jsonl")
+	os.WriteFile(p, []byte(`{"step_index":0,"source":"USER_EXPLICIT","type":"USER_INPUT","content":"fix it"}
+{"step_index":1,"source":"MODEL","type":"PLANNER_RESPONSE","content":"Done: the index is rebuilt."}
+{"step_index":2,"source":"SYSTEM_SDK","type":"EPHEMERAL_MESSAGE","content":"[sous] ..."}
+`), 0o644)
+	if got := antigravity.Last(p, 300); got != "Done: the index is rebuilt." {
+		t.Fatalf("%q", got)
+	}
+	log := []byte(`{"conversation_id":"c9","status":"SUCCESS","response":"","denied_actions":[{"action":"command","display_name":"RunCommand"}]}`)
+	if s := antigravity.Headless.Session(log); s != "c9" {
+		t.Fatal(s)
+	}
+	if got := antigravity.Headless.Last(Run{}, log); !strings.Contains(got, "SOUS: needs you Antigravity refused RunCommand (command)") {
+		t.Fatalf("%q", got)
+	}
+	args := antigravity.Headless.Start(Run{Prompt: "-x starts with a dash"})
+	if args[len(args)-1] != "-p=-x starts with a dash" {
+		t.Fatalf("a prompt is never read as a flag: %q", args)
+	}
+}
+
+// sous's hooks live in a group of their own in Antigravity's hooks.json;
+// another group (herdr's) is left as it is; placing twice changes nothing.
+func TestNamedHooksJSON(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "hooks.json")
+	os.WriteFile(p, []byte(`{"herdr":{"PreInvocation":[{"command":"bash herdr.sh","type":"command"}]}}`), 0o644)
+	cmd := Cmd{Exe: "/bin/sous", Role: RoleStart, Agent: "agy"}
+	for i, want := range []bool{true, false} {
+		if changed, err := (NamedHooksJSON{}).Place(p, "PreInvocation", cmd); err != nil || changed != want {
+			t.Fatalf("place %d: %v %v", i, changed, err)
+		}
+	}
+	got, err := (NamedHooksJSON{}).Commands(p, "PreInvocation")
+	if err != nil || len(got) != 2 || got[0] != "bash herdr.sh" || got[1] != "/bin/sous hook session-start agy" {
+		t.Fatalf("%q %v", got, err)
+	}
+	moved := Cmd{Exe: "/opt/sous", Role: RoleStart, Agent: "agy"}
+	if changed, _ := (NamedHooksJSON{}).Place(p, "PreInvocation", moved); !changed {
+		t.Fatal("a sous that moved replaces its old hook")
+	}
+	if got, _ := (NamedHooksJSON{}).Commands(p, "PreInvocation"); len(got) != 2 || got[1] != "/opt/sous hook session-start agy" {
+		t.Fatalf("%q", got)
 	}
 }

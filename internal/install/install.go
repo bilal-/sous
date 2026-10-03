@@ -73,11 +73,23 @@ type hookSpec struct {
 
 func (x hookSpec) file(home string) string { return x.HookFile(home) }
 
-// hookSpecs are every harness's hooks, optional ones included. Setup
-// installs the ones it should (want); doctor checks them all.
-func hookSpecs() []hookSpec {
-	var hs []hookSpec
+// here are the harnesses on this machine: setup sets them up, and doctor
+// checks them.
+func here(home string) []harness.Harness {
+	var hs []harness.Harness
 	for _, h := range harness.All {
+		if h.Here(home) {
+			hs = append(hs, h)
+		}
+	}
+	return hs
+}
+
+// hookSpecs are the hooks of every harness here, optional ones included.
+// Setup installs the ones it should; doctor checks them all.
+func hookSpecs(home string) []hookSpec {
+	var hs []hookSpec
+	for _, h := range here(home) {
 		for _, k := range h.Hooks {
 			hs = append(hs, hookSpec{h, k})
 		}
@@ -89,7 +101,7 @@ func hookSpecs() []hookSpec {
 // the optional ones only when their flag is in flags.
 func Hooks(home, exe string, flags []string) ([]string, error) {
 	extra := map[string]bool{} // harness → an optional end hook is on
-	for _, x := range hookSpecs() {
+	for _, x := range hookSpecs(home) {
 		if x.Flag != "" && !slices.Contains(flags, x.Flag) {
 			continue
 		}
@@ -99,7 +111,7 @@ func Hooks(home, exe string, flags []string) ([]string, error) {
 		extra[x.Name] = extra[x.Name] || x.Flag != "" && x.Role == harness.RoleEnd
 	}
 	var done []string
-	for _, h := range harness.All {
+	for _, h := range here(home) {
 		note := ""
 		if extra[h.Name] {
 			note = " and when it ends"
@@ -113,7 +125,7 @@ func Hooks(home, exe string, flags []string) ([]string, error) {
 // says it has the skill), then the shared ones that apply here.
 func skillPlaces(home string) []harness.SkillFolder {
 	var places []harness.SkillFolder
-	for _, h := range harness.All {
+	for _, h := range here(home) {
 		places = append(places, harness.SkillFolder{Who: h.Display, Dir: h.SkillDir})
 	}
 	for _, f := range harness.SharedSkills {
