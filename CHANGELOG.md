@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.5.0]
+
 ### Changed
 * `--json` has one shape for anything waiting, an **item**, whichever
   command shows it, and the board, `here` and `report` list items in the
