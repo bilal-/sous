@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/testutil"
 	"github.com/bilal-/sous/internal/thread"
@@ -37,12 +38,16 @@ func fixture(t *testing.T) *fx {
 	t.Setenv("GIT_COMMITTER_EMAIL", "sous-tests@example.invalid")
 	// Built-in plugins re-exec this binary as `sous`; TestMain honours this.
 	t.Setenv("SOUS_TEST_AS_BINARY", "1")
-	// Built-in plugins re-exec this binary as `sous`; TestMain honours this.
 	// No test may reach GitHub: gh is stubbed as "not logged in" unless a test
 	// installs its own fake. This is also why fixtures always show
 	// "github failed" in headlines.
 	os.WriteFile(filepath.Join(home, "bin", "gh"), []byte("#!/bin/sh\necho 'You are not logged into any GitHub hosts' >&2; exit 1\n"), 0o755)
 	os.WriteFile(filepath.Join(home, "bin", "glab"), []byte("#!/bin/sh\necho 'No hosts are configured' >&2; exit 1\n"), 0o755)
+	// Nor may a test start a real agent: every harness's program is a fake
+	// that does nothing, unless a test installs its own.
+	for _, h := range harness.All {
+		os.WriteFile(filepath.Join(home, "bin", h.Bin), []byte("#!/bin/sh\nexit 0\n"), 0o755)
+	}
 	f.writeConfig("roots = [\"" + f.WS + "\"]\n")
 	return f
 }
