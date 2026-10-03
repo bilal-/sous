@@ -43,15 +43,15 @@ func (a *Agent) Watch(dir string, resume bool) error {
 	}
 	defer logf.Close()
 	start, _ := logf.Seek(0, io.SeekEnd)
-	args := a.cli.start(m)
+	args := a.h.Headless.Start(m.run())
 	if resume {
-		args = a.cli.resume(m)
+		args = a.h.Headless.Resume(m.run())
 	}
 	limited, cancel := context.WithTimeout(context.Background(), m.Limit)
 	defer cancel()
 	ctx, unhook := signal.NotifyContext(limited, syscall.SIGTERM, syscall.SIGINT) // sous done: stop
 	defer unhook()
-	cmd := exec.CommandContext(ctx, a.cli.bin, args...)
+	cmd := exec.CommandContext(ctx, a.h.Bin, args...)
 	cmd.Dir = m.Worktree
 	cmd.Env = append(os.Environ(), pushBlock(m.Project)...)
 	cmd.Stdout, cmd.Stderr = logf, logf
@@ -79,8 +79,8 @@ func (a *Agent) Watch(dir string, resume bool) error {
 	}
 	out, _ := os.ReadFile(filepath.Join(dir, "log"))
 	out = out[min(int(start), len(out)):] // this attempt's output only
-	r.Session = a.cli.session(out)
-	r.Message = a.cli.last(m.Worktree, out)
+	r.Session = a.h.Headless.Session(out)
+	r.Message = a.h.Headless.Last(m.run(), out)
 	if r.Session != "" {
 		m.Session, m.Answer = r.Session, ""
 		if err := writeJSON(dir, "run.json", m); err != nil {

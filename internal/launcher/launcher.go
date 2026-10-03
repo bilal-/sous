@@ -9,11 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"os/exec"
 	"path/filepath"
-	"slices"
 
+	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/plugin"
 )
 
@@ -26,12 +25,9 @@ func Launchers(exe string, builtins, thirdParty []string) []Launcher {
 	return Registry.Discover(exe, builtins, thirdParty)
 }
 
-// Builtins: the agent CLIs the user already runs, by launcher name → binary.
-// Each is exec'd in the project directory with the user's terminal.
-var Builtins = map[string]string{"claude": "claude", "codex": "codex"}
-
-// BuiltinNames, sorted, from Builtins.
-func BuiltinNames() []string { return slices.Sorted(maps.Keys(Builtins)) }
+// BuiltinNames: every harness is a built in launcher, its program exec'd in
+// the project directory with the user's terminal.
+func BuiltinNames() []string { return harness.Names() }
 
 // Deps is what the built in launchers are given: Exec replaces sous with
 // the program in dir, and returns only when it could not.
@@ -39,7 +35,7 @@ type Deps struct {
 	Exec func(dir, path string, argv []string) error
 }
 
-// Registry is the built in launchers, one per agent in Builtins. Each has
+// Registry is the built in launchers, one per harness. Each has
 // one call, `run <path>`.
 var Registry = plugin.Registry[Deps]{Axis: "launcher"}
 
@@ -90,13 +86,13 @@ var ErrUnknown = errors.New("no launcher named")
 
 // BuiltinPath is where the program a built-in launcher starts is found.
 func BuiltinPath(name string) (string, error) {
-	bin, ok := Builtins[name]
+	h, ok := harness.Find(name)
 	if !ok {
 		return "", fmt.Errorf("%w: %s", ErrUnknown, name)
 	}
-	path, err := exec.LookPath(bin)
+	path, err := exec.LookPath(h.Bin)
 	if err != nil {
-		return "", fmt.Errorf("%s not found on PATH", bin)
+		return "", fmt.Errorf("%s not found on PATH", h.Bin)
 	}
 	return path, nil
 }

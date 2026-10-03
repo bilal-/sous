@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/bilal-/sous/internal/harness"
 )
 
 // Agent is a built in runner: it starts one agent CLI in a worktree, and
@@ -21,16 +23,16 @@ type Agent struct {
 	Home  string // SOUS_HOME: runs live in Home/runs/<uid>
 	Exe   string // this sous, which runs the watcher
 	Limit time.Duration
-	cli   cli
+	h     harness.Harness // its Headless is set
 }
 
 // Builtin is the built in runner name, if there is one.
 func Builtin(name, home, exe string, limit time.Duration) (*Agent, bool) {
-	c, ok := clis[name]
-	if !ok {
+	h, ok := harness.Find(name)
+	if !ok || h.Headless == nil {
 		return nil, false
 	}
-	return &Agent{Name: name, Home: home, Exe: exe, Limit: limit, cli: c}, true
+	return &Agent{Name: name, Home: home, Exe: exe, Limit: limit, h: h}, true
 }
 
 // runMeta is run.json: what the watcher needs to start or resume the agent.
@@ -81,8 +83,8 @@ func (a *Agent) Start(req Request) (string, error) {
 	if _, err := os.Stat(filepath.Join(dir, "run.json")); err == nil {
 		return ref, nil // started before: safe to repeat
 	}
-	if _, err := exec.LookPath(a.cli.bin); err != nil {
-		return "", fmt.Errorf("%w: %s is not installed", ErrNotSetUp, a.cli.bin)
+	if _, err := exec.LookPath(a.h.Bin); err != nil {
+		return "", fmt.Errorf("%w: %s is not installed", ErrNotSetUp, a.h.Bin)
 	}
 	if out, err := exec.Command("git", "-C", req.Project, "rev-parse", "--show-toplevel").CombinedOutput(); err != nil {
 		return "", fmt.Errorf("%s is not a git repository, so there is nowhere safe to work: %s", req.Project, strings.TrimSpace(string(out)))

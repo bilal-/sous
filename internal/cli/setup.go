@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/install"
 )
 
@@ -28,7 +29,7 @@ func cmdSetup(e *Env, a argv) int {
 		return fail(e, 1, "%v", err)
 	}
 	done = append(done, skills...)
-	hooks, err := install.Hooks(e.UserHome, e.Exe, a.has("codex-session-end"))
+	hooks, err := install.Hooks(e.UserHome, e.Exe, func(h harness.Harness, _ harness.Hook) bool { return h.Name == "codex" && a.has("codex-session-end") })
 	if err != nil {
 		return fail(e, 1, "%v", err)
 	}

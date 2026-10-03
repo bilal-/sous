@@ -56,22 +56,23 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     examples/sous-signal-todo      a small plugin in plain shell, for people starting their own
     internal/tracker    gh and glab: which account or host a project uses, running them safely, and the ref format
     internal/tracker/trackertest   fake gh and glab for tests
-    internal/launcher   the launcher contract, and Claude Code and Codex
+    internal/harness    every agent tool sous works with (Claude Code, Codex), one file each: skills, hooks and their file layout, hook input, transcripts, headless runs
+    internal/launcher   the launcher contract; every harness is a built in launcher
     internal/runs       starting runs, asking runners how they are going, replies, stop and clean
-    internal/runner     the runner contract, the built in Claude Code and Codex runners and their watcher
+    internal/runner     the runner contract, a built in runner for each harness that runs headless, and their watcher
     internal/runner/runnertest     the rules every runner must pass
     internal/plugin     the one way sous runs another program: find it by name, run it with a time limit; the exit codes every plugin speaks; the registry of each axis's built ins and the door to them
     internal/project    finding projects, reading git facts, matching rough names
     internal/store      saving data files safely: locked, written whole, upgraded in place
     internal/config     config.toml: reading it, the list of settings (from Config's fields), and safe editing (Set), checked to change only what was asked
-    internal/hook       agent hook input, the hook command format, and adding hooks to an agent's settings
+    internal/hook       what the session hooks do: the project a session is in, and recording how it ended
     internal/install    setup's steps: agent hooks and skills, and the shell line, and Check for each
     internal/doctor     sous doctor: every check, in one list, with how to fix it
     internal/testutil   helpers shared by every package's tests
 
 Code only depends downward, in this order: `cli`, then `doctor`, then
 `report` and `install`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
-`tracker`, `plugin`, `thread`, `session` and `project`, then `store` and
+`tracker`, `plugin`, `harness`, `thread`, `session` and `project`, then `store` and
 `config`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.
 `thread` uses `project` for a project's path and remote; they share a tier.
@@ -97,6 +98,15 @@ review closely. Every backend must pass `backendtest.Run` and
 `RunUnreachable` against a fake of its command line tool that keeps state
 (`internal/backend/conformance_test.go`), and `RunDoor` when run as a
 separate program.
+
+**Adding an agent** (Gemini CLI, say) is a file in `internal/harness`,
+like `claude.go`, and its line in `All`: where its skills and hook settings
+live, which events sous hooks and how that file is laid out (`Format`;
+`HooksJSON` when it copied Claude Code's), how to read what its hooks send
+(`Parse`, which decides what a fresh session is) and its transcript
+(`Last`), and, if it can run headless, `Headless`. setup, doctor, the
+hooks, `sous go` and runs all read the table. Its tests use fake input and
+transcripts written the way the agent writes them, never the real tool.
 
 ## Rules that are easy to break
 

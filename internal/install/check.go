@@ -2,15 +2,16 @@ package install
 
 import (
 	"bytes"
-	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/bilal-/sous/internal/config"
-	"github.com/bilal-/sous/internal/hook"
+	"github.com/bilal-/sous/internal/harness"
 )
 
 // Result is one thing setup put in place, and whether it is still there.
@@ -28,10 +29,9 @@ type Result struct {
 // changing anything: each agent hook, each skill folder, and the shell line.
 func Check(home, sousHome, exe, shell, goos, zdotdir string) []Result {
 	var out []Result
-	always := len(hookSpecs(home, false))
-	for i, h := range hookSpecs(home, true) {
-		r := checkHook(h, exe)
-		if i >= always && r.Detail == "not installed" { // asked for with a flag
+	for _, h := range hookSpecs() {
+		r := checkHook(home, h, exe)
+		if h.Optional && r.Detail == "not installed" { // asked for with a flag
 			r = Result{Name: r.Name, OK: true, Detail: "not installed (optional)"}
 		}
 		out = append(out, r)
@@ -42,38 +42,30 @@ func Check(home, sousHome, exe, shell, goos, zdotdir string) []Result {
 	return append(out, checkShell(home, sousHome, exe, shell, goos, zdotdir))
 }
 
-func checkHook(h hookSpec, exe string) Result {
+func checkHook(home string, h hookSpec, exe string) Result {
 	moment := "session start"
-	if h.Role == hook.RoleEnd {
+	if h.Role == harness.RoleEnd {
 		moment = "session end"
 	}
-	r := Result{Name: h.Agent + " hook (" + moment + ")", Fix: "sous setup"}
-	b, err := os.ReadFile(h.File)
-	if err != nil {
+	r := Result{Name: h.Display + " hook (" + moment + ")", Fix: "sous setup"}
+	file := h.file(home)
+	cmds, err := h.Format.Commands(file, h.Event)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
 		r.Detail = "not installed"
 		return r
-	}
-	var doc struct {
-		Hooks map[string][]struct {
-			Hooks []struct {
-				Command string `json:"command"`
-			} `json:"hooks"`
-		} `json:"hooks"`
-	}
-	if json.Unmarshal(b, &doc) != nil {
-		r.Detail, r.Fix = h.File+" is not valid JSON", "fix "+h.File+" by hand, then sous setup"
+	case err != nil:
+		r.Detail, r.Fix = err.Error(), "fix "+file+" by hand, then sous setup"
 		return r
 	}
-	want := hook.Command(exe, h.Role, h.name)
+	want := harness.Command(exe, h.Role, h.Name)
 	r.Detail = "not installed"
-	for _, g := range doc.Hooks[h.Event] {
-		for _, c := range g.Hooks {
-			switch {
-			case c.Command == want:
-				return Result{Name: r.Name, OK: true, Detail: "installed"}
-			case hook.IsOurs(c.Command, h.Role, h.name):
-				r.Detail = "runs another sous: " + strings.TrimSuffix(c.Command, " hook "+h.Role+" "+h.name)
-			}
+	for _, c := range cmds {
+		switch {
+		case c == want:
+			return Result{Name: r.Name, OK: true, Detail: "installed"}
+		case harness.IsOurs(c, h.Role, h.Name):
+			r.Detail = "runs another sous: " + harness.Program(c)
 		}
 	}
 	return r

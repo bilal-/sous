@@ -7,6 +7,21 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+* With `sous setup --codex-session-end`, a Codex session that ends now
+  records its last message, so `sous here` says where it stopped. sous read
+  Codex's transcript as if Claude Code had written it and found nothing.
+* A session hook that is sent nothing, or something it cannot read, now
+  treats it as a new session in the folder the hook runs in, instead of
+  doing nothing.
+
+### Changed
+* Inside sous, every agent tool it works with is one file in
+  `internal/harness`: its skills, hooks and their file layout, what its
+  hooks send, its transcript, and how to run it headless. setup, doctor,
+  the hooks, `sous go` and runs all read that table (see AGENTS.md,
+  Adding an agent).
+
 ## [0.3.3]
 
 ### Changed

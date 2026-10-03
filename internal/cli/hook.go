@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/board"
+	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/hook"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/thread"
@@ -23,12 +24,14 @@ func cmdHook(e *Env, a argv) int {
 	if len(args) != 2 {
 		return 0
 	}
-	in, ok := hook.Parse(e.Stdin)
+	h, ok := harness.Find(args[1])
 	if !ok {
 		return 0
 	}
+	stdin, _ := io.ReadAll(io.LimitReader(e.Stdin, 1<<20))
+	in := h.Parse(stdin)
 	switch args[0] {
-	case hook.RoleStart:
+	case harness.RoleStart:
 		// Plugins and tracker probes must finish inside the guard; when it
 		// fires first, cancelling kills their process groups.
 		var buf bytes.Buffer
@@ -42,7 +45,7 @@ func cmdHook(e *Env, a argv) int {
 			if root, ok := hook.StartRoot(in, e.Cwd, e.UserHome); ok {
 				cmdHere(sub, argv{pos: []string{root}})
 			}
-			if hook.Fresh(in) {
+			if in.Fresh {
 				runs = runsWaiting(sub)
 			}
 		}) && buf.Len()+len(runs) > 0 {
@@ -50,8 +53,8 @@ func cmdHook(e *Env, a argv) int {
 			fmt.Fprint(e.Stdout, runs)
 			io.Copy(e.Stdout, &buf)
 		}
-	case hook.RoleEnd:
-		guarded(func() { hook.RecordEnd(e.store(), in, args[1], e.Cwd, e.UserHome, time.Now()) })
+	case harness.RoleEnd:
+		guarded(func() { hook.RecordEnd(e.store(), in, h, e.Cwd, e.UserHome, time.Now()) })
 	}
 	return 0
 }
