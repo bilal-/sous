@@ -45,9 +45,14 @@ const (
 	didReplied        = "replied"
 	didStarted        = "started"
 	didAlreadyStarted = "already_started"
+	// What sous config did to a setting.
+	didSet       = "set"
+	didUnset     = "unset"
+	didUnchanged = "unchanged"
 )
 
-var dids = []string{didNoted, didAlreadyNoted, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didCleaned, didFiled, didReplied, didStarted, didAlreadyStarted}
+var dids = []string{didNoted, didAlreadyNoted, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didCleaned, didFiled, didReplied, didStarted, didAlreadyStarted,
+	didSet, didUnset, didUnchanged}
 
 // changed prints c: as JSON, or as what it did and what to do next on
 // one line.

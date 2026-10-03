@@ -140,3 +140,34 @@ func TestConfigWarnsAboutUnknownProjectKeys(t *testing.T) {
 		t.Fatalf("a known key says nothing: %q", errs)
 	}
 }
+
+// A change to a setting answers as every change does, with did and next,
+// and says when it changed nothing, so a retry can tell.
+func TestConfigChangesSayWhatTheyDid(t *testing.T) {
+	f := fixture(t)
+	f.mkrepo("acme/api", true)
+	for _, c := range []struct {
+		args []string
+		did  string
+	}{
+		{[]string{"config", "agent", "codex"}, didSet},
+		{[]string{"config", "agent", "codex"}, didUnchanged},
+		{[]string{"config", "--unset", "agent"}, didUnset},
+		{[]string{"config", "--unset", "agent"}, didUnchanged},
+		{[]string{"config", "-p", "api", "agent", "codex"}, didSet},
+		{[]string{"config", "-p", "api", "agent", "codex"}, didUnchanged},
+		{[]string{"config", "-p", "api", "--unset", "agent"}, didUnset},
+	} {
+		out, errs, code := f.run(append(c.args, "--json")...)
+		var got settingJSON
+		if code != 0 || json.Unmarshal([]byte(out), &got) != nil || got.Did != c.did || len(got.Next) == 0 {
+			t.Errorf("%v: want %s: %d %q %q", c.args, c.did, code, out, errs)
+		}
+	}
+	if out, _, _ := f.run("config", "agent", "claude"); out != "agent = claude\n" {
+		t.Errorf("%q", out)
+	}
+	if out, _, _ := f.run("config", "agent", "claude"); out != "agent = claude (unchanged)\n" {
+		t.Errorf("%q", out)
+	}
+}

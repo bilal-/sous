@@ -485,7 +485,8 @@ Options:
   instead.
 * `--add`, `--remove`: add to or take from a list setting (roots, ignore,
   plugins, gitlab_hosts) instead of replacing it.
-* `--json`
+* `--json`: a change answers `{"did", "project", "key", "value", "next"}`,
+  `did` being `set`, `unset` or `unchanged` (it was so already).
 
 ### `sous doctor`
 

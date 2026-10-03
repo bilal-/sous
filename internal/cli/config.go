@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -60,20 +61,22 @@ func setConfig(e *Env, a argv) int {
 	} else if k.Name == "roots" {
 		return fail(e, exitUsage, "sous needs roots; change them with sous setup <folder> or sous config roots <folder...>")
 	}
-	if k.Name == "roots" && value != nil {
-		return setRoots(e, value.([]string))
+	did, code := settingDid(e, func(set map[string]bool, _ map[string]map[string]string) (any, bool) {
+		return k.Value(e.Cfg), set[k.Name]
+	}, value)
+	if code != 0 {
+		return code
 	}
-	if err := config.Set(e.Home, nil, k.Name, value); err != nil {
+	var err error
+	if k.Name == "roots" {
+		err = config.SetRoots(e.Home, e.UserHome, value.([]string))
+	} else {
+		err = config.Set(e.Home, nil, k.Name, value)
+	}
+	if err != nil {
 		return fail(e, exitFailed, "%v", err)
 	}
-	return said(e, "", k.Name, value)
-}
-
-func setRoots(e *Env, roots []string) int {
-	if err := config.SetRoots(e.Home, e.UserHome, roots); err != nil {
-		return fail(e, exitFailed, "%v", err)
-	}
-	return said(e, "", "roots", roots)
+	return said(e, "", k.Name, value, did)
 }
 
 func setProjectConfig(e *Env, a argv) int {
@@ -103,31 +106,68 @@ func setProjectConfig(e *Env, a argv) int {
 	default:
 		return fail(e, exitUsage, "usage: sous config -p <project> <key> <value>, or -p <project> --unset <key>")
 	}
+	did, code := settingDid(e, func(_ map[string]bool, projects map[string]map[string]string) (any, bool) {
+		v, ok := projects[key][a.pos[0]]
+		return v, ok
+	}, value)
+	if code != 0 {
+		return code
+	}
 	if err := config.Set(e.Home, []string{"projects", key}, a.pos[0], value); err != nil {
 		return fail(e, exitFailed, "%v", err)
 	}
 	if value != nil && !slices.Contains(config.ProjectKeys, a.pos[0]) {
 		fmt.Fprintf(e.Stderr, "sous: note: sous itself does not read %q (it reads %s); a plugin may\n", a.pos[0], strings.Join(config.ProjectKeys, ", "))
 	}
-	return said(e, key, a.pos[0], value)
+	return said(e, key, a.pos[0], value, did)
+}
+
+// settingDid is what writing value (nil: removing it) over a setting will
+// do: set, unset, or nothing (unchanged). was reads the setting as written
+// now, and whether it is written at all.
+func settingDid(e *Env, was func(set map[string]bool, projects map[string]map[string]string) (any, bool), value any) (string, int) {
+	set, projects, err := config.Written(e.Home)
+	if err != nil {
+		return "", fail(e, exitFailed, "%v", err)
+	}
+	old, written := was(set, projects)
+	switch {
+	case value == nil && !written, value != nil && written && reflect.DeepEqual(old, value):
+		return didUnchanged, 0
+	case value == nil:
+		return didUnset, 0
+	}
+	return didSet, 0
+}
+
+// settingJSON is what a change to a setting answers under --json.
+type settingJSON struct {
+	Did     string   `json:"did"` // set, unset or unchanged
+	Project string   `json:"project"`
+	Key     string   `json:"key"`
+	Value   any      `json:"value"`
+	Next    []string `json:"next"`
 }
 
 // said confirms a change in one line, or as JSON.
-func said(e *Env, project, key string, value any) int {
+func said(e *Env, project, key string, value any, did string) int {
 	if e.JSON {
-		return e.writeJSON(map[string]any{"project": project, "key": key, "value": value})
+		return e.writeJSON(settingJSON{Did: did, Project: project, Key: key, Value: value, Next: []string{"sous config"}})
 	}
 	if project != "" {
 		key = project + ": " + key
 	}
-	if value == nil {
-		fmt.Fprintf(e.Stdout, "%s removed\n", key)
-		return 0
+	line := key + " removed"
+	if value != nil {
+		if list, ok := value.([]string); ok {
+			value = strings.Join(list, ", ")
+		}
+		line = fmt.Sprintf("%s = %v", key, value)
 	}
-	if list, ok := value.([]string); ok {
-		value = strings.Join(list, ", ")
+	if did == didUnchanged {
+		line += " (unchanged)"
 	}
-	fmt.Fprintf(e.Stdout, "%s = %v\n", key, value)
+	fmt.Fprintln(e.Stdout, line)
 	return 0
 }
 
