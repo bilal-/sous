@@ -184,7 +184,7 @@ func pluginChecks(plugins []string) []Check {
 		if _, err := exec.LookPath(p); err != nil {
 			c.Status, c.Detail, c.Fix = Bad, p+" is missing or cannot run", "sous config plugins --remove "+p
 		} else if !plugin.Named(p) {
-			c.Status, c.Detail = Bad, "sous skips it: a plugin's name must be sous-signal-, sous-backend-, sous-launcher- or sous-runner- and then its own name"
+			c.Status, c.Detail = Bad, "sous skips it: a plugin's name must be "+plugin.Names()+" and then its own name"
 			c.Fix = "rename it, then sous config plugins --remove " + p + " and --add the new path"
 		}
 		out = append(out, c)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -83,4 +84,68 @@ func RefCall(call string, fn func(project, ref string, stdin io.Reader, stdout i
 		}
 		return Exit(fn(args[0], args[1], stdin, stdout), stderr)
 	}
+}
+
+// Version is the contract version sous and its built ins speak.
+const Version = 0
+
+// Newer is the error for a message in a contract version newer than
+// Version: who read it, and the version it carried.
+func Newer(who string, v int) error {
+	return fmt.Errorf("%s: contract v%d is newer than this one speaks (v%d)", who, v, Version)
+}
+
+// DecodeRequest reads a call's JSON request from stdin into req, and says
+// whether to go on: a request that is not JSON, or fails valid, is refused
+// with usage; one in a newer contract version is refused with Newer. v is
+// the version the request carried.
+func DecodeRequest(stdin io.Reader, req any, v func() int, valid func() bool, call, usage string, stderr io.Writer) (code int, ok bool) {
+	if err := json.NewDecoder(stdin).Decode(req); err != nil || !valid() {
+		return Usage(stderr, usage), false
+	}
+	if n := v(); n != Version {
+		fmt.Fprintln(stderr, Newer(call, n))
+		return ExitRefused, false
+	}
+	return ExitOK, true
+}
+
+// PrintCall is a built in's call made as `<call> <project> <ref>` that
+// prints one answer: fn's string on success.
+func PrintCall(call string, fn func(project, ref string) (string, error)) Op {
+	return RefCall(call, func(project, ref string, _ io.Reader, stdout io.Writer) error {
+		out, err := fn(project, ref)
+		if err == nil {
+			fmt.Fprintln(stdout, out)
+		}
+		return err
+	})
+}
+
+// RefAnswer reads the answer to a call that makes something and prints its
+// ref (backend file, runner start): refused on exit 2, and an error when it
+// printed nothing.
+func RefAnswer(name, call string, a Answer, err error) (string, error) {
+	switch {
+	case err != nil:
+		return "", err
+	case a.Code == ExitRefused:
+		return "", Refused(name, call, a)
+	case a.Out == "":
+		return "", fmt.Errorf("%s %s: printed no ref", name, call)
+	}
+	return a.Out, nil
+}
+
+// Prefix is the start of every plugin program's name on axis: "sous-runner-".
+func Prefix(axis string) string { return "sous-" + axis + "-" }
+
+// Names is how a plugin's file is named, for messages: "sous-signal-,
+// sous-backend-, sous-launcher- or sous-runner-".
+func Names() string {
+	var p []string
+	for _, a := range Axes {
+		p = append(p, Prefix(a))
+	}
+	return strings.Join(p[:len(p)-1], ", ") + " or " + p[len(p)-1]
 }

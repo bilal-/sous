@@ -61,7 +61,7 @@ func (r Registry[D]) Discover(exe string, builtins, thirdParty []string) []Plugi
 		i := slices.IndexFunc(r.Builtins, func(b Builtin[D]) bool { return b.Name == n })
 		out = append(out, Plugin{Name: n, Argv: []string{exe, r.Axis, n}, Offline: i >= 0 && r.Builtins[i].Offline})
 	}
-	prefix := "sous-" + r.Axis + "-"
+	prefix := Prefix(r.Axis)
 	for _, p := range thirdParty {
 		if name, ok := strings.CutPrefix(filepath.Base(p), prefix); ok && name != "" {
 			out = append(out, Plugin{Name: name, Argv: []string{p}})

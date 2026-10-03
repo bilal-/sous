@@ -5,7 +5,6 @@ package backend
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -44,13 +43,9 @@ func Ops(b Implementation) map[string]plugin.Op {
 		},
 		"file": func(_ []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			var req Request
-			if err := json.NewDecoder(stdin).Decode(&req); err != nil || req.Project == "" || req.ID <= 0 {
-				fmt.Fprintln(stderr, "file: need JSON with id, project, text, kind on stdin")
-				return plugin.ExitRefused
-			}
-			if req.V != 0 {
-				fmt.Fprintf(stderr, "file: contract v%d is newer than this backend speaks (v0)\n", req.V)
-				return plugin.ExitRefused
+			if code, ok := plugin.DecodeRequest(stdin, &req, func() int { return req.V }, func() bool { return req.Project != "" && req.ID > 0 },
+				"file", "file, with JSON on stdin: v, id, uid, project, text, kind", stderr); !ok {
+				return code
 			}
 			ref, err := b.File(req)
 			if err == nil {
@@ -58,23 +53,11 @@ func Ops(b Implementation) map[string]plugin.Op {
 			}
 			return plugin.Exit(err, stderr)
 		},
-		"status": plugin.RefCall("status", func(project, ref string, _ io.Reader, stdout io.Writer) error {
-			st, err := b.Status(project, ref)
-			if err == nil {
-				fmt.Fprintln(stdout, st)
-			}
-			return err
-		}),
+		"status": plugin.PrintCall("status", b.Status),
 		"close": plugin.RefCall("close", func(project, ref string, _ io.Reader, _ io.Writer) error {
 			return b.Close(project, ref)
 		}),
-		"url": plugin.RefCall("url", func(project, ref string, _ io.Reader, stdout io.Writer) error {
-			u, err := b.URL(project, ref)
-			if err == nil {
-				fmt.Fprintln(stdout, u)
-			}
-			return err
-		}),
+		"url": plugin.PrintCall("url", b.URL),
 	}
 }
 
@@ -145,7 +128,7 @@ func Detect(ctx context.Context, bs []Backend, project, override string, warn io
 		if b, ok := plugin.Find(bs, override); ok {
 			return b, nil
 		}
-		return Backend{}, fmt.Errorf("%w: %q is declared but no sous-backend-%s is listed in config plugins", ErrUnknownBackend, override, override)
+		return Backend{}, fmt.Errorf("%w: %q is declared but no %s%s is listed in config plugins", ErrUnknownBackend, override, plugin.Prefix("backend"), override)
 	}
 	for _, b := range bs {
 		r := run(ctx, b, nil, "detect", project)
@@ -188,16 +171,7 @@ type Request struct {
 
 func File(ctx context.Context, b Backend, req Request) (string, error) {
 	r := run(ctx, b, plugin.Request(req), "file")
-	if r.err != nil {
-		return "", r.err
-	}
-	if r.Code == plugin.ExitRefused {
-		return "", plugin.Refused(b.Name, "file", r.Answer)
-	}
-	if r.Out == "" {
-		return "", fmt.Errorf("%s file: printed no ref", b.Name)
-	}
-	return r.Out, nil
+	return plugin.RefAnswer(b.Name, "file", r.Answer, r.err)
 }
 
 func Status(ctx context.Context, b Backend, project, ref string) (string, error) {

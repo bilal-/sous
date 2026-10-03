@@ -159,3 +159,43 @@ func TestRunnerIsAnAxis(t *testing.T) {
 		t.Fatal("runner plugins are named sous-runner-<name>")
 	}
 }
+
+// A request is refused with usage when it is not JSON or not valid, and
+// with the version when it is newer than this contract.
+func TestDecodeRequest(t *testing.T) {
+	type req struct {
+		V  int    `json:"v"`
+		ID string `json:"id"`
+	}
+	for _, tc := range []struct {
+		in, stderr string
+		ok         bool
+	}{
+		{`{"v":0,"id":"a"}`, "", true},
+		{`not json`, "usage: file", false},
+		{`{"v":0}`, "usage: file", false},
+		{`{"v":1,"id":"a"}`, "file: contract v1 is newer than this one speaks (v0)", false},
+	} {
+		var r req
+		var errb strings.Builder
+		code, ok := DecodeRequest(strings.NewReader(tc.in), &r, func() int { return r.V }, func() bool { return r.ID != "" }, "file", "file", &errb)
+		if ok != tc.ok || ok != (code == ExitOK) || !strings.Contains(errb.String(), tc.stderr) {
+			t.Errorf("%s: %d %v %q", tc.in, code, ok, errb.String())
+		}
+	}
+}
+
+func TestRefAnswer(t *testing.T) {
+	if ref, err := RefAnswer("jira", "file", Answer{Out: "jira:OPS-1"}, nil); err != nil || ref != "jira:OPS-1" {
+		t.Fatal(ref, err)
+	}
+	if _, err := RefAnswer("jira", "file", Answer{Code: 2, Reason: "no project key"}, nil); err == nil || !strings.Contains(err.Error(), "no project key") {
+		t.Fatal(err)
+	}
+	if _, err := RefAnswer("jira", "file", Answer{}, nil); err == nil || !strings.Contains(err.Error(), "printed no ref") {
+		t.Fatal(err)
+	}
+	if Names() != "sous-signal-, sous-backend-, sous-launcher- or sous-runner-" {
+		t.Fatal(Names())
+	}
+}

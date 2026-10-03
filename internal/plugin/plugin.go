@@ -35,7 +35,7 @@ var Axes = []string{"signal", "backend", "launcher", "runner"}
 // axis; Discover skips any other.
 func Named(path string) bool {
 	for _, a := range Axes {
-		if name, ok := strings.CutPrefix(filepath.Base(path), "sous-"+a+"-"); ok && name != "" {
+		if name, ok := strings.CutPrefix(filepath.Base(path), Prefix(a)); ok && name != "" {
 			return true
 		}
 	}

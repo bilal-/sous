@@ -71,7 +71,7 @@ func ByRef(rs []Runner, ref string) (Runner, error) {
 		return r, nil
 	}
 	name, _, _ := strings.Cut(ref, ":")
-	return Runner{}, fmt.Errorf("no runner for %q (is sous-runner-%s listed in plugins?)", ref, name)
+	return Runner{}, fmt.Errorf("no runner for %q (is %s%s listed in plugins?)", ref, plugin.Prefix("runner"), name)
 }
 
 func call(ctx context.Context, r Runner, stdin []byte, op string, args ...string) (plugin.Answer, error) {
@@ -87,12 +87,8 @@ func Start(ctx context.Context, r Runner, req Request) (string, error) {
 		return "", fmt.Errorf("%s: %w: %v", r.Name, ErrNotSetUp, err)
 	case err != nil:
 		return "", fmt.Errorf("%s start: %w", r.Name, err)
-	case a.Code == plugin.ExitRefused:
-		return "", plugin.Refused(r.Name, "start", a)
-	case a.Out == "":
-		return "", fmt.Errorf("%s start: printed no ref", r.Name)
 	}
-	return a.Out, nil
+	return plugin.RefAnswer(r.Name, "start", a, nil)
 }
 
 // GetStatus never guesses: anything but a readable v0 line with a known
@@ -108,8 +104,8 @@ func GetStatus(ctx context.Context, r Runner, project, ref string) (Status, erro
 		return Status{}, plugin.Refused(r.Name, "status", a)
 	case json.Unmarshal([]byte(a.Out), &st) != nil:
 		return Status{}, fmt.Errorf("%s status: not a JSON line: %.60q", r.Name, a.Out)
-	case st.V != 0:
-		return Status{}, fmt.Errorf("%s status: contract v%d is newer than this sous speaks (v0)", r.Name, st.V)
+	case st.V != plugin.Version:
+		return Status{}, plugin.Newer(r.Name+" status", st.V)
 	case !valid(st.State):
 		return Status{}, fmt.Errorf("%s status: unknown state %q", r.Name, st.State)
 	}
