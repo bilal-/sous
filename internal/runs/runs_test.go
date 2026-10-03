@@ -50,7 +50,7 @@ func TestRefreshNeverGuesses(t *testing.T) {
 	hang := fakeRunner(t, `start) echo fake:1;; status) sleep 30;;`)
 	d := &Dispatcher{Store: s, Runners: []runner.Runner{hang}, Now: time.Now}
 	id, _, _ := d.Start(context.Background(), project.Project{Path: "/p"}, "b", "", "fake", "", "")
-	views, _ := thread.Runs(s)
+	views, _ := thread.Runs(s, time.Now())
 	start := time.Now()
 	got := d.Refresh(context.Background(), views, false)
 	if time.Since(start) > 5*time.Second || got[0].Run.State != "running" || got[0].RunErr == "" {
@@ -67,14 +67,14 @@ func TestRefreshRecordsTheAnswer(t *testing.T) {
 	r := fakeRunner(t, `start) echo fake:1;; status) echo '{"v":0,"state":"done","text":"fixed","branch":"sous/run-1"}';;`)
 	d := &Dispatcher{Store: s, Runners: []runner.Runner{r}, Now: time.Now}
 	id, _, _ := d.Start(context.Background(), project.Project{Path: "/p"}, "b", "", "fake", "", "")
-	views, _ := thread.Runs(s)
+	views, _ := thread.Runs(s, time.Now())
 	got := d.Refresh(context.Background(), views, false)
 	th, _ := thread.Get(s, id)
 	if got[0].Run.State != "done" || th.Run.State != "done" || th.Run.Text != "fixed" || th.Run.Branch != "sous/run-1" || th.Run.Checked == nil {
 		t.Fatalf("%+v %+v", got[0].Run, th.Run)
 	}
 	// local: only built ins are asked; a plugin's run is left as it was.
-	views, _ = thread.Runs(s)
+	views, _ = thread.Runs(s, time.Now())
 	views[0].Run.State = "running"
 	if got := d.Refresh(context.Background(), views, true); got[0].Run.State != "running" || got[0].RunErr != "" {
 		t.Fatalf("local refresh asked a plugin: %+v", got[0])
@@ -89,7 +89,7 @@ func TestStuckStartEndsAsFailed(t *testing.T) {
 	id, _, _ := thread.NoteRun(s, project.Project{Path: "/p"}, "b", "k", "fake", "", then)
 	fresh, _, _ := thread.NoteRun(s, project.Project{Path: "/p"}, "c", "", "fake", "", time.Now())
 	d := &Dispatcher{Store: s, Now: time.Now}
-	views, _ := thread.Runs(s)
+	views, _ := thread.Runs(s, time.Now())
 	d.Refresh(context.Background(), views, true)
 	if th, _ := thread.Get(s, id); th.Run.State != "failed" || !strings.Contains(th.Run.Text, "did not start") {
 		t.Fatalf("%+v", th.Run)

@@ -171,17 +171,24 @@ func Note(s *store.Store, p project.Project, kind Kind, text, source string, now
 	if text == "" {
 		return 0, ValidationError("note text is empty")
 	}
-	if source == "" {
-		source = "human"
-	}
 	var id int
 	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
-		id = d.NextID
-		d.NextID++
-		d.Threads = append(d.Threads, Thread{ID: id, UID: newUID(), Project: p.Path, Remote: p.Remote, Text: text, Kind: kind, Since: now.UTC(), Source: source})
+		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: text, Kind: kind, Since: now.UTC(), Source: source})
 		return nil
 	})
 	return id, err
+}
+
+// add appends t as a new note, with the next number, a new uid, and human
+// as its source unless it says otherwise. It returns the number.
+func (d *Doc) add(t Thread) int {
+	t.ID, t.UID = d.NextID, newUID()
+	d.NextID++
+	if t.Source == "" {
+		t.Source = "human"
+	}
+	d.Threads = append(d.Threads, t)
+	return t.ID
 }
 
 // NoteRun makes the note for a new run: kind them (waiting on the runner),
@@ -193,9 +200,6 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 	text := oneLine(first)
 	if text == "" {
 		return 0, false, ValidationError("the brief is empty")
-	}
-	if source == "" {
-		source = "human"
 	}
 	remote := ""
 	if p.Remote != nil {
@@ -211,9 +215,7 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 				return nil
 			}
 		}
-		id = d.NextID
-		d.NextID++
-		d.Threads = append(d.Threads, Thread{ID: id, UID: newUID(), Project: p.Path, Remote: p.Remote, Text: text, Kind: Them,
+		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: text, Kind: Them,
 			Since: now.UTC(), Source: source, Run: &Run{Runner: runnerName, Key: key, State: "starting"}})
 		return nil
 	})
@@ -237,18 +239,8 @@ func SetRun(s *store.Store, id int, fn func(*Run)) error {
 }
 
 // Runs: every open run, snoozed or not.
-func Runs(s *store.Store) ([]View, error) {
-	d, err := store.Load[Doc](s, name, Migrator{})
-	if err != nil {
-		return nil, err
-	}
-	var out []View
-	for _, t := range d.Threads {
-		if t.Closed == nil && t.Run != nil {
-			out = append(out, View{Thread: t})
-		}
-	}
-	return out, nil
+func Runs(s *store.Store, now time.Time) ([]View, error) {
+	return filter(s, now, func(t Thread) bool { return t.Closed == nil && t.Run != nil })
 }
 
 func touch(s *store.Store, id int, fn func(*Thread)) error {
@@ -296,38 +288,31 @@ func view(t Thread, now time.Time) View {
 	return View{Thread: t, Snoozed: t.SnoozedUntil != nil && t.SnoozedUntil.After(now)}
 }
 
-// Open: every open note, for the board. A snoozed one is marked Snoozed:
-// the board hides it, and --json lists it as snoozed.
-func Open(s *store.Store, now time.Time) ([]View, error) {
+// filter is every note keep says yes to, as seen at now, in the order they
+// were made. Never nil.
+func filter(s *store.Store, now time.Time, keep func(Thread) bool) ([]View, error) {
 	d, err := store.Load[Doc](s, name, Migrator{})
 	if err != nil {
 		return nil, err
 	}
 	out := []View{}
 	for _, t := range d.Threads {
-		if t.Closed == nil {
+		if keep(t) {
 			out = append(out, view(t, now))
 		}
 	}
 	return out, nil
 }
 
+// Open: every open note, for the board. A snoozed one is marked Snoozed:
+// the board hides it, and --json lists it as snoozed.
+func Open(s *store.Store, now time.Time) ([]View, error) {
+	return filter(s, now, func(t Thread) bool { return t.Closed == nil })
+}
+
 // ForProject: all open threads for a project, by path or remote, incl. snoozed.
 func ForProject(s *store.Store, path, remote string, now time.Time) ([]View, error) {
-	d, err := store.Load[Doc](s, name, Migrator{})
-	if err != nil {
-		return nil, err
-	}
-	out := []View{}
-	for _, t := range d.Threads {
-		if t.Closed != nil {
-			continue
-		}
-		if t.Belongs(path, remote) {
-			out = append(out, view(t, now))
-		}
-	}
-	return out, nil
+	return filter(s, now, func(t Thread) bool { return t.Closed == nil && t.Belongs(path, remote) })
 }
 
 // Get returns a thread whether open or closed.
@@ -386,35 +371,15 @@ func CloseUpstreamClosed(s *store.Store, id int, now time.Time) error {
 // RecentlyClosedUpstream: what the tracker closed for this project lately,
 // so the user sees it happened.
 func RecentlyClosedUpstream(s *store.Store, path, remote string, now time.Time, within time.Duration) ([]View, error) {
-	d, err := store.Load[Doc](s, name, Migrator{})
-	if err != nil {
-		return nil, err
-	}
-	out := []View{}
-	for _, t := range d.Threads {
-		if t.ClosedBy != "upstream" || t.Closed == nil || now.Sub(*t.Closed) > within {
-			continue
-		}
-		if t.Belongs(path, remote) {
-			out = append(out, view(t, now))
-		}
-	}
-	return out, nil
+	return filter(s, now, func(t Thread) bool {
+		return t.ClosedBy == "upstream" && t.Closed != nil && now.Sub(*t.Closed) <= within && t.Belongs(path, remote)
+	})
 }
 
 // ClosedSince: every thread closed at or after since, newest first — by
 // the user (done) or by the tracker (closed_by upstream).
 func ClosedSince(s *store.Store, since, now time.Time) ([]View, error) {
-	d, err := store.Load[Doc](s, name, Migrator{})
-	if err != nil {
-		return nil, err
-	}
-	out := []View{}
-	for _, t := range d.Threads {
-		if t.Closed != nil && !t.Closed.Before(since) {
-			out = append(out, view(t, now))
-		}
-	}
+	out, err := filter(s, now, func(t Thread) bool { return t.Closed != nil && !t.Closed.Before(since) })
 	sort.Slice(out, func(i, j int) bool { return out[i].Closed.After(*out[j].Closed) })
-	return out, nil
+	return out, err
 }

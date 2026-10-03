@@ -273,7 +273,7 @@ func TestNoteRunIsIdempotentByKey(t *testing.T) {
 	if err := SetRun(s, id, func(*Run) {}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("closed: %v", err)
 	}
-	rs, _ := Runs(s)
+	rs, _ := Runs(s, time.Now())
 	if len(rs) != 2 {
 		t.Fatalf("open runs: %d", len(rs))
 	}

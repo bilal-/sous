@@ -60,7 +60,7 @@ func cmdHook(e *Env, a argv) int {
 // runsWaiting: the runs waiting on the user, asked of the built in runners
 // only (the hook must stay quick); the rest show as last known.
 func runsWaiting(e *Env) string {
-	views, err := thread.Runs(e.store())
+	views, err := thread.Runs(e.store(), time.Now())
 	if err != nil || len(views) == 0 {
 		return ""
 	}
