@@ -116,16 +116,9 @@ func (r agyRun) said() string {
 		": allow it under permissions.allow in Antigravity's settings, then reply"))
 }
 
-// agyResult is the last JSON object agy printed.
+// agyResult is the last result agy printed.
 func agyResult(log []byte) agyRun {
-	lines := strings.Split(strings.TrimSpace(string(log)), "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		var r agyRun
-		if json.Unmarshal([]byte(lines[i]), &r) == nil && r.ConversationID != "" {
-			return r
-		}
-	}
-	return agyRun{}
+	return lastJSON(log, func(r agyRun) bool { return r.ConversationID != "" })
 }
 
 // NamedHooksJSON is Antigravity's hooks.json: named groups, each mapping

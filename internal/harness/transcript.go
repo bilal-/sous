@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/bilal-/sous/internal/text"
 	"io"
 	"os"
+	"regexp"
 	"strings"
+
+	"github.com/bilal-/sous/internal/text"
 )
 
 // lastLine is the text of the last line in a JSONL transcript that said
@@ -117,4 +119,39 @@ func eachLineFromEnd(r io.ReaderAt, size int64, fn func([]byte) bool) {
 		end = start
 	}
 	flush(nil)
+}
+
+// lastJSON is the last JSON value in a run's log that decodes as a T and
+// ok accepts; the zero T when there is none. Values may span lines (pretty
+// printed) or share none; whatever else the log holds is passed over a line
+// at a time.
+func lastJSON[T any](log []byte, ok func(T) bool) (last T) {
+	for rest := log; len(bytes.TrimSpace(rest)) > 0; {
+		d := json.NewDecoder(bytes.NewReader(rest))
+		var v T
+		if d.Decode(&v) != nil {
+			i := bytes.IndexByte(rest, '\n')
+			if i < 0 {
+				break
+			}
+			rest = rest[i+1:]
+			continue
+		}
+		if ok(v) {
+			last = v
+		}
+		rest = rest[d.InputOffset():]
+	}
+	return last
+}
+
+// firstMatch reads a run's session from its log: re's first group, at its
+// first match.
+func firstMatch(re *regexp.Regexp) func(log []byte) string {
+	return func(log []byte) string {
+		if m := re.FindSubmatch(log); m != nil {
+			return string(m[1])
+		}
+		return ""
+	}
 }

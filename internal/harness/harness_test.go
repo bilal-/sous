@@ -511,3 +511,23 @@ func TestHookFilesThatAreOdd(t *testing.T) {
 		t.Fatalf("%q %v", got, err)
 	}
 }
+
+func TestLastJSONReadsAnyLayout(t *testing.T) {
+	type out struct {
+		ID string `json:"id"`
+	}
+	has := func(o out) bool { return o.ID != "" }
+	for log, want := range map[string]string{
+		"":                                     "",
+		"warming up\n{\"id\":\"a\"}\n":         "a",
+		"{\"id\":\"a\"}\n{\"id\":\"b\"}":       "b",
+		"{\n  \"id\": \"a\"\n}\nbye\n":         "a",
+		"{\"id\":\"a\"}{\"other\":1}\n[1,2]\n": "a",
+		"{\"id\":\"a\"}\n{\"id\": \"cut sho":   "a",
+		"note: {\"id\":\"x\"} in a line\n":     "",
+	} {
+		if got := lastJSON([]byte(log), has).ID; got != want {
+			t.Errorf("%q: %q, want %q", log, got, want)
+		}
+	}
+}

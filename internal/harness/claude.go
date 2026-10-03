@@ -3,7 +3,6 @@ package harness
 import (
 	"encoding/json"
 	"path/filepath"
-	"strings"
 )
 
 // Claude Code: hooks in ~/.claude/settings.json, a JSONL transcript, and
@@ -56,16 +55,13 @@ func claudeArgs() []string {
 		"--allowedTools", "Bash(git add:*)", "Bash(git commit:*)", "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)"}
 }
 
-// claudeResult: the last JSON object Claude printed (--output-format json).
-func claudeResult(log []byte) (r struct {
+// claudeRun is what Claude prints when it is done (--output-format json).
+type claudeRun struct {
 	Result    string `json:"result"`
 	SessionID string `json:"session_id"`
-}) {
-	lines := strings.Split(strings.TrimSpace(string(log)), "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		if json.Unmarshal([]byte(lines[i]), &r) == nil && r.SessionID != "" {
-			return r
-		}
-	}
-	return r
+}
+
+// claudeResult is the last result Claude printed.
+func claudeResult(log []byte) claudeRun {
+	return lastJSON(log, func(r claudeRun) bool { return r.SessionID != "" })
 }

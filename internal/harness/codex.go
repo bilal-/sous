@@ -33,12 +33,7 @@ var codex = Harness{
 		Resume: func(r Run) []string {
 			return append([]string{"exec", "resume"}, append(codexArgs(r), "--", r.Session, r.Answer)...)
 		},
-		Session: func(log []byte) string {
-			if m := codexThread.FindSubmatch(log); m != nil {
-				return string(m[1])
-			}
-			return ""
-		},
+		Session: firstMatch(codexThread),
 		Last: func(r Run, _ []byte) string {
 			b, _ := os.ReadFile(codexLastFile(r))
 			return strings.TrimSpace(string(b))

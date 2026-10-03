@@ -32,19 +32,17 @@ var opencode = Harness{
 	// opencode run asks nobody: a run has the permissions the person's
 	// opencode config gives, as an opencode session of theirs would.
 	Headless: &Headless{
-		// --dir: opencode works where it is told, not where PWD says.
-		Start: func(r Run) []string { return []string{"run", "--format", "json", "--dir", r.Worktree, "--", r.Prompt} },
-		Resume: func(r Run) []string {
-			return []string{"run", "--format", "json", "--dir", r.Worktree, "--session", r.Session, "--", r.Answer}
-		},
-		Session: func(log []byte) string {
-			if m := opencodeSession.FindSubmatch(log); m != nil {
-				return string(m[1])
-			}
-			return ""
-		},
-		Last: func(_ Run, log []byte) string { return opencodeLast(log) },
+		Start:   func(r Run) []string { return opencodeArgs(r, "--", r.Prompt) },
+		Resume:  func(r Run) []string { return opencodeArgs(r, "--session", r.Session, "--", r.Answer) },
+		Session: firstMatch(opencodeSession),
+		Last:    func(_ Run, log []byte) string { return opencodeLast(log) },
 	},
+}
+
+// opencodeArgs: one run, its events as JSON, in the worktree. --dir because
+// opencode works where it is told, not where PWD says.
+func opencodeArgs(r Run, then ...string) []string {
+	return append([]string{"run", "--format", "json", "--dir", r.Worktree}, then...)
 }
 
 var opencodeSession = regexp.MustCompile(`"sessionID"\s*:\s*"([^"]+)"`)
