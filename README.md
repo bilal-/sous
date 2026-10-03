@@ -138,7 +138,7 @@ sous is young. Here is an honest list.
 |---|---|
 | macOS and Linux, on Intel and Apple silicon | Windows |
 | the board in new **zsh**, **bash** and **fish** shells | other shells (run `sous --ambient` from their startup file) |
-| session hooks for **Claude Code**, **Codex** and **Antigravity**; the sous skill for them and for **Gemini CLI, Kimi, Cursor** and other agents that read `~/.agents/skills` | session hooks for other agents (see below) |
+| session hooks for **Claude Code**, **Codex**, **Antigravity** and **opencode**; the sous skill for them and for **Gemini CLI, Kimi, Cursor** and other agents that read `~/.agents/skills` | session hooks for other agents (see below) |
 | git: uncommitted files, unpushed commits, stashes, branches with no upstream | |
 | **GitHub**: reviews asked of you, changes asked on your pull requests, failing checks on your pull requests, unread notifications that mention or assign you; filing and closing issues | CI on branches without a pull request |
 | **GitLab**: merge requests to review, yours awaiting review; filing and closing issues | GitLab to do items |
@@ -181,7 +181,8 @@ To remove sous, delete:
 * the `sous` skill folders in `~/.claude/skills`, `~/.codex/skills`,
   `~/.agents/skills` and `~/.gemini/config/skills`
 * the `sous hook` entries in `~/.claude/settings.json` and
-  `~/.codex/hooks.json`, and the `sous` group in `~/.gemini/config/hooks.json`
+  `~/.codex/hooks.json`, the `sous` group in `~/.gemini/config/hooks.json`,
+  and `~/.config/opencode/plugins/sous.js`
 * the `# sous:` comment and the line under it in your shell's startup
   files (for fish, the file `~/.config/fish/conf.d/sous.fish`)
 * the `sous` folder in your cache folder (`~/Library/Caches/sous` on macOS,
@@ -353,6 +354,13 @@ recorded, so `sous here` shows how your last Antigravity session ended.
 has the command permissions you gave Antigravity in its settings and no
 more: a command it is not allowed shows the run as needing you, naming
 what was refused.
+
+**opencode.** opencode has no hooks, so `sous setup` writes a small plugin,
+`~/.config/opencode/plugins/sous.js`, that does what they would: a session
+starts knowing where you left off, and what the agent said last is recorded
+when the session goes idle. The skill comes from `~/.agents/skills`.
+`sous go --run -a opencode` hands it a task in the background, with the
+permissions your opencode config gives.
 
 **Gemini CLI, Kimi, Cursor and others.** Many agents now read skills from a
 shared folder, `~/.agents/skills`, and `sous setup` puts the sous skill

@@ -11,6 +11,7 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/text"
 )
 
 // StartRoot: the repo to inject for, only on a fresh session.
@@ -46,10 +47,12 @@ func RecordEnd(s *store.Store, in harness.Input, h harness.Harness, fallback, ho
 	if sess.SessionID == "" {
 		sess.SessionID = "unknown"
 	}
-	if in.TranscriptPath != "" && h.Last != nil {
-		if m := h.Last(in.TranscriptPath, session.LastMessageRunes); m != "" {
-			sess.LastMessage = &m
-		}
+	m := text.Cut(text.OneLine(in.LastMessage), session.LastMessageRunes)
+	if m == "" && in.TranscriptPath != "" && h.Last != nil {
+		m = h.Last(in.TranscriptPath, session.LastMessageRunes)
+	}
+	if m != "" {
+		sess.LastMessage = &m
 	}
 	return session.Record(s, root, sess)
 }

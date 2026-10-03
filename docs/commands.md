@@ -325,7 +325,7 @@ terminals, but have no `sous go` wrapper yet.)
 
 Options:
 
-* `-a <agent>` (or `--agent`): which agent to start: `claude`, `codex`, `agy`, or
+* `-a <agent>` (or `--agent`): which agent to start: `claude`, `codex`, `agy`, `opencode`, or
   the name of a launcher plugin. The default is `agent` in configuration,
   or `claude`.
 * `--where`: only print the project folder `go` would use, and start
@@ -356,7 +356,7 @@ EOF
 ```
 
 `--run -` reads the brief from standard input; write what to do, why, and
-what done means. `-a` picks the runner (`claude`, `codex`, `agy`, or a runner
+what done means. `-a` picks the runner (`claude`, `codex`, `agy`, `opencode`, or a runner
 plugin); the default is `runner` in configuration, or `agent` when that is
 not set. The answer names the
 run's number, and the command to check on it:
@@ -419,8 +419,9 @@ it did.
   `~/dev`, `~/projects`, `~/workspace`, `~/repos`, `~/git`, `~/Developer`,
   `~/Projects`, `~/Documents/GitHub`) and uses those that hold git repos.
 * **Agents.** Adds session hooks for Claude Code (session start and end),
-  Codex (session start), and Antigravity when it is installed (the first
-  model call of a conversation, and each turn's end). Puts the `sous` skill
+  Codex (session start), and when they are installed Antigravity (the
+  first model call of a conversation, and each turn's end) and opencode (a
+  plugin that does the same). Puts the `sous` skill
   where agents look for skills: each of those agents' own folders, and the
   shared `~/.agents/skills` folder that Gemini CLI, Kimi, Cursor and others
   read. A sous that moved updates its hooks rather than adding a second
@@ -493,7 +494,7 @@ settings. It checks:
 * `gh` and `glab`: installed, logged in, each configured account or host,
   and whether each GitHub login can read notifications
 * each plugin you listed, and that its name is one sous will use
-* the agent each built in runner starts (`claude`, `codex`, `agy`): a missing one
+* the agent each built in runner starts (`claude`, `codex`, `agy`, `opencode`): a missing one
   is worth a look, since `go --run` cannot use it
 * your notes, sessions and observations files
 * how old the saved board is, and each source its last refresh could not
@@ -552,8 +553,8 @@ plugin. See [plugins.md](plugins.md).
 |---|---|
 | `sous signal <name> scan` | Run a built in signal (`git`, `github`, `gitlab`). Project folders on standard input, one JSON line per finding out. |
 | `sous backend <name> <call> ...` | Run a built in backend (`markdown`, `github`, `gitlab`): `detect`, `file`, `status`, `close` or `url`. |
-| `sous launcher <name> run <folder>` | Start a built in launcher (`claude`, `codex`, `agy`) in a folder. |
-| `sous runner <name> <call> ...` | Run a built in runner (`claude`, `codex`, `agy`): `start`, `status`, `reply`, `stop` or `clean`. |
+| `sous launcher <name> run <folder>` | Start a built in launcher (`claude`, `codex`, `agy`, `opencode`) in a folder. |
+| `sous runner <name> <call> ...` | Run a built in runner (`claude`, `codex`, `agy`, `opencode`): `start`, `status`, `reply`, `stop` or `clean`. |
 | `sous hook session-start\|session-end <agent>` | What the agent hooks run. Always exits `0` and never holds up a session. |
 
 ## How project names are matched
@@ -619,7 +620,7 @@ backend = "markdown"           # always file to FOLLOWUPS.md, creating it if nee
 | `roots` | none | Folders to look for projects in, two folders deep. A root that is itself a repo counts. |
 | `ignore` | none | Patterns like `scratch/*` or `*/tmp`, matched against `org/name`. |
 | `agent` | `claude` | The agent `sous go` starts when `-a` is not given. |
-| `runner` | `agent` | The runner `sous go --run` hands work to when `-a` is not given: `claude`, `codex`, `agy`, or a runner plugin's name. |
+| `runner` | `agent` | The runner `sous go --run` hands work to when `-a` is not given: `claude`, `codex`, `agy`, `opencode`, or a runner plugin's name. |
 | `refresh_hours` | `4` | How old the saved board may get, and how often new shells print it. |
 | `run_minutes` | `60` | How long a run by a built in runner may take before it is stopped. |
 | `gitlab_hosts` | none | GitLab servers to use, beyond the ones `glab` is logged in to. |

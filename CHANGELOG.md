@@ -7,6 +7,20 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+* **opencode.** When opencode is installed, `sous setup` writes a plugin,
+  `~/.config/opencode/plugins/sous.js`: a session starts knowing where you
+  left off, and what the agent said last is recorded when it goes idle.
+  `sous go -a opencode` starts it in a project, and
+  `sous go --run -a opencode` hands it a task, with the permissions your
+  opencode config gives.
+
+### Fixed
+* A background run's agent is told it is in its worktree in every way,
+  including `PWD`. An agent that trusts `PWD` over the folder it starts in
+  (opencode does) could otherwise work in whatever folder `sous go --run`
+  was typed in. Claude Code, Codex and Antigravity were not affected.
+
 ## [0.10.0]
 
 ### Added

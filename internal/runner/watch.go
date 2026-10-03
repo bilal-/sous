@@ -55,7 +55,7 @@ func (a *Agent) Watch(dir string, resume bool) error {
 	defer unhook()
 	cmd := plugin.GroupCommand(ctx, a.h.Bin, args...)
 	cmd.Dir = m.Worktree
-	cmd.Env = append(os.Environ(), pushBlock(m.Project)...)
+	cmd.Env = agentEnv(m)
 	cmd.Stdout, cmd.Stderr = logf, logf
 	runErr := cmd.Start()
 	if runErr == nil {
@@ -161,4 +161,18 @@ func tail(path string) string {
 		b = b[len(b)-4096:]
 	}
 	return string(b)
+}
+
+// agentEnv is the agent's environment: the watcher's, with pushes blocked
+// and PWD its worktree, said once. Some agents (opencode) trust PWD over
+// the folder they are started in, and the watcher's own PWD is wherever
+// sous was run from.
+func agentEnv(m runMeta) []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "PWD=") {
+			env = append(env, kv)
+		}
+	}
+	return append(append(env, pushBlock(m.Project)...), "PWD="+m.Worktree)
 }

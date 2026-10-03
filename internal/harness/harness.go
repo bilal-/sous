@@ -21,7 +21,8 @@ type Harness struct {
 	// Present says whether it is on this machine, so setup does not make
 	// its folders when it is not; nil means always set it up.
 	Present func(home string) bool
-	// SkillDir is the folder it reads skills from.
+	// SkillDir is the folder it reads skills from; nil when it reads them
+	// from a shared folder (SharedSkills) sous fills anyway.
 	SkillDir func(home string) string
 	// HookFile is the settings file its hooks live in; Format is how that
 	// file is laid out.
@@ -56,6 +57,9 @@ type Input struct {
 	SessionID      string
 	CWD            string // "" when it sent none: the hook's own folder is used
 	TranscriptPath string
+	// LastMessage: what it said last, when it sends that rather than a
+	// transcript to read it from.
+	LastMessage string
 	// Fresh: a new session, not one resumed, cleared or compacted, so what
 	// sous says at its start is news.
 	Fresh bool
@@ -81,7 +85,7 @@ type Headless struct {
 }
 
 // All is every harness sous knows, in the order setup reports them.
-var All = []Harness{claude, codex, antigravity}
+var All = []Harness{claude, codex, antigravity, opencode}
 
 // Here: h is on this machine, as far as setup and doctor are concerned.
 func (h Harness) Here(home string) bool { return h.Present == nil || h.Present(home) }

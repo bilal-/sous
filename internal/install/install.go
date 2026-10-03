@@ -126,7 +126,9 @@ func Hooks(home, exe string, flags []string) ([]string, error) {
 func skillPlaces(home string) []harness.SkillFolder {
 	var places []harness.SkillFolder
 	for _, h := range here(home) {
-		places = append(places, harness.SkillFolder{Who: h.Display, Dir: h.SkillDir})
+		if h.SkillDir != nil {
+			places = append(places, harness.SkillFolder{Who: h.Display, Dir: h.SkillDir})
+		}
 	}
 	for _, f := range harness.SharedSkills {
 		if f.When == nil || f.When(home) {

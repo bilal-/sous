@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -275,11 +276,13 @@ func TestUncommittedWorkIsKeptAndShown(t *testing.T) {
 
 // fakeAgent records its arguments and says it needs the person, in each
 // built in agent's own words (Claude Code's result, Codex's thread,
-// Antigravity's conversation), so every runner finds a session to resume.
+// Antigravity's conversation, opencode's events), so every runner finds a
+// session to resume.
 const fakeAgent = `for x in "$@"; do echo "$x"; done > args
 printf '{"result":"SOUS: needs you q","session_id":"s"}\n'
 echo '{"thread_id":"s"}'
-echo '{"conversation_id":"s","response":"SOUS: needs you q"}'`
+echo '{"conversation_id":"s","response":"SOUS: needs you q"}'
+echo '{"type":"text","sessionID":"s","part":{"type":"text","text":"SOUS: needs you q"}}'`
 
 // A brief or answer that starts with a dash is text, never a flag: it
 // follows "--", or is the value of a flag (-p=…).
@@ -383,6 +386,11 @@ func TestAgentsMayCommitAndNoMore(t *testing.T) {
 				if !strings.Contains(args, "accept-edits") || strings.Contains(args, "dangerously") {
 					t.Errorf("agy resume=%v: %s", resume, args)
 				}
+			case "opencode":
+				// What the person's opencode config allows; nothing added.
+				if strings.Contains(args, "dangerously") || strings.Contains(args, "--auto") {
+					t.Errorf("opencode resume=%v: %s", resume, args)
+				}
 			default:
 				t.Errorf("%s: say here what a run of it may do", name)
 			}
@@ -436,5 +444,28 @@ func TestAWatcherThatFailsSaysWhy(t *testing.T) {
 	}
 	if st.State != Failed || !strings.Contains(st.Text, "permission denied") {
 		t.Fatalf("%+v", st)
+	}
+}
+
+// An agent runs in its worktree whatever folder sous was started from,
+// and is told so by PWD too, since some agents (opencode) trust PWD over
+// the folder they were started in. (A shell resets PWD itself, so the
+// environment is checked as the watcher builds it.)
+func TestAgentsRunInTheirWorktree(t *testing.T) {
+	t.Setenv("PWD", "/somewhere/else")
+	for _, name := range Registry.Names() {
+		a, _, dir := startedRun(t, name, time.Minute)
+		testutil.FakeBin(t, name, `pwd -P > where; `+fakeAgent)
+		a.Watch(dir, false)
+		var m runMeta
+		readJSON(dir, "run.json", &m)
+		wt, _ := filepath.EvalSymlinks(m.Worktree)
+		if got := readString(m.Worktree, "where"); got != wt {
+			t.Errorf("%s ran in %q", name, got)
+		}
+		env := agentEnv(m)
+		if i := slices.IndexFunc(env, func(kv string) bool { return strings.HasPrefix(kv, "PWD=") }); i < 0 || slices.ContainsFunc(env[i+1:], func(kv string) bool { return strings.HasPrefix(kv, "PWD=") }) || env[i] != "PWD="+m.Worktree {
+			t.Errorf("%s: PWD in %q", name, env)
+		}
 	}
 }

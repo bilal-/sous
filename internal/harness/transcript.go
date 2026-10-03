@@ -68,11 +68,12 @@ func parseHookJSON(b []byte) Input {
 		CWD            string `json:"cwd"`
 		Source         string `json:"source"` // startup | resume | clear | compact | fork
 		TranscriptPath string `json:"transcript_path"`
+		LastMessage    string `json:"last_message"` // sous's own plugins send it
 	}
 	if json.Unmarshal(b, &in) != nil {
 		return Input{Fresh: true}
 	}
-	return Input{SessionID: in.SessionID, CWD: in.CWD, TranscriptPath: in.TranscriptPath, Fresh: in.Source == "" || in.Source == "startup"}
+	return Input{SessionID: in.SessionID, CWD: in.CWD, TranscriptPath: in.TranscriptPath, LastMessage: in.LastMessage, Fresh: in.Source == "" || in.Source == "startup"}
 }
 
 // eachLineFromEnd calls fn for each line of r, last line first, until fn

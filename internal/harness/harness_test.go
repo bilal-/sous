@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -218,11 +219,11 @@ func TestIsOursRejectsLookalikes(t *testing.T) {
 func TestEveryHarnessIsComplete(t *testing.T) {
 	seen := map[string]bool{}
 	for _, h := range All {
-		if h.Name == "" || seen[h.Name] || h.Display == "" || h.Bin == "" || h.SkillDir == nil || h.HookFile == nil || h.Format == nil || h.Parse == nil || h.Last == nil {
+		if h.Name == "" || seen[h.Name] || h.Display == "" || h.Bin == "" || h.HookFile == nil || h.Format == nil || h.Parse == nil || h.Last == nil {
 			t.Errorf("incomplete: %+v", h)
 		}
 		seen[h.Name] = true
-		if !strings.HasPrefix(h.SkillDir("/h"), "/h/") || !strings.HasPrefix(h.HookFile("/h"), "/h/") {
+		if h.SkillDir != nil && !strings.HasPrefix(h.SkillDir("/h"), "/h/") || !strings.HasPrefix(h.HookFile("/h"), "/h/") {
 			t.Errorf("%s: skills and hooks live under home", h.Name)
 		}
 		var start bool
@@ -358,5 +359,57 @@ func TestNamedHooksJSON(t *testing.T) {
 	}
 	if got, _ := (NamedHooksJSON{}).Commands(p, "PreInvocation"); len(got) != 2 || got[1] != "/opt/sous hook session-start agy" {
 		t.Fatalf("%q", got)
+	}
+}
+
+// sous owns its opencode plugin whole: placing a hook writes the file with
+// every command sous gave it, and reads them back; a second place of the
+// same changes nothing; a file sous did not write is not taken for one.
+func TestOpencodePlugin(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "plugins", "sous.js")
+	start := Cmd{Exe: "/opt/my sous/sous", Role: RoleStart, Agent: "opencode"}
+	end := Cmd{Exe: "/opt/my sous/sous", Role: RoleEnd, Agent: "opencode"}
+	for _, c := range []Cmd{start, end} {
+		if changed, err := (OpencodePlugin{}).Place(p, c.Role, c); err != nil || !changed {
+			t.Fatal(changed, err)
+		}
+	}
+	if changed, _ := (OpencodePlugin{}).Place(p, RoleStart, start); changed {
+		t.Fatal("placing again changes nothing")
+	}
+	for _, c := range []Cmd{start, end} {
+		got, err := (OpencodePlugin{}).Commands(p, c.Role)
+		if err != nil || len(got) != 1 || got[0] != c.String() {
+			t.Fatalf("%s: %q %v", c.Role, got, err)
+		}
+	}
+	b, _ := os.ReadFile(p)
+	if !strings.Contains(string(b), `const start = "'/opt/my sous/sous' hook session-start opencode"`) {
+		t.Fatalf("the command is a JS string:\n%s", b)
+	}
+	other := filepath.Join(t.TempDir(), "mine.js")
+	os.WriteFile(other, []byte("export const Mine = async () => ({})\n"), 0o644)
+	if _, err := (OpencodePlugin{}).Commands(other, RoleStart); err == nil {
+		t.Fatal("someone else's plugin is not sous's")
+	}
+}
+
+// opencode run's JSON events give the session and the last thing said.
+func TestOpencodeRunAnswer(t *testing.T) {
+	log := []byte(`{"type":"step_start","sessionID":"ses_1","part":{}}
+{"type":"text","sessionID":"ses_1","part":{"type":"text","text":"working on it"}}
+{"type":"tool_use","sessionID":"ses_1","part":{"tool":"bash"}}
+{"type":"text","sessionID":"ses_1","part":{"type":"text","text":"SOUS: done added hello.txt"}}
+`)
+	if s := opencode.Headless.Session(log); s != "ses_1" {
+		t.Fatal(s)
+	}
+	if got := opencode.Headless.Last(Run{}, log); got != "SOUS: done added hello.txt" {
+		t.Fatal(got)
+	}
+	for _, args := range [][]string{opencode.Headless.Start(Run{Prompt: "-x", Worktree: "/runs/u1/worktree"}), opencode.Headless.Resume(Run{Answer: "-y", Session: "ses_1", Worktree: "/runs/u1/worktree"})} {
+		if args[len(args)-2] != "--" || !slices.Contains(args, "--dir") || args[slices.Index(args, "--dir")+1] != "/runs/u1/worktree" {
+			t.Fatalf("a prompt is never a flag, and opencode is told where to work: %q", args)
+		}
 	}
 }
