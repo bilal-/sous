@@ -25,7 +25,7 @@ func Command(exe, role, agent string) string  { return Cmd{exe, role, agent}.Str
 func IsOurs(command, role, agent string) bool { return Cmd{Role: role, Agent: agent}.Ours(command) }
 
 // LastAssistantText reads a Claude Code transcript.
-func LastAssistantText(path string, max int) string { return claude.Last(path, max) }
+func LastAssistantText(path string) string { return claude.Last(path) }
 
 func TestLastAssistantText(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "t.jsonl")
@@ -33,17 +33,14 @@ func TestLastAssistantText(t *testing.T) {
 {"type":"assistant","message":{"content":[{"type":"text","text":"Done. Tests pass; next is the widget template."}]}}
 {"type":"system","subtype":"x"}
 `), 0o644)
-	if got := LastAssistantText(p, 300); got != "Done. Tests pass; next is the widget template." {
+	if got := LastAssistantText(p); got != "Done. Tests pass; next is the widget template." {
 		t.Fatalf("%q", got)
 	}
-	if got := LastAssistantText(p, 10); got != "Done. Test" {
-		t.Fatalf("cap: %q", got)
-	}
-	if LastAssistantText("/nope", 300) != "" {
+	if LastAssistantText("/nope") != "" {
 		t.Fatal("missing file → empty")
 	}
 	os.WriteFile(p, []byte("garbage\n"), 0o644)
-	if LastAssistantText(p, 300) != "" {
+	if LastAssistantText(p) != "" {
 		t.Fatal("garbage → empty")
 	}
 }
@@ -84,7 +81,7 @@ func TestLastAssistantTextSurvivesHugeLines(t *testing.T) {
 	body := `{"type":"assistant","message":{"content":[{"type":"text","text":"old"}]}}` + "\n" + huge + "\n" +
 		`{"type":"assistant","message":{"content":[{"type":"text","text":"the real last words"}]}}` + "\n"
 	os.WriteFile(p, []byte(body), 0o644)
-	if got := LastAssistantText(p, 300); got != "the real last words" {
+	if got := LastAssistantText(p); got != "the real last words" {
 		t.Fatalf("%q", got)
 	}
 }
@@ -146,7 +143,7 @@ func TestLastAssistantTextReadsOnlyTheTail(t *testing.T) {
 	f.WriteString(`{"type":"user","message":{"content":"` + strings.Repeat("y", 3<<20) + `"}}` + "\n")
 	f.Close()
 	start := time.Now()
-	got := LastAssistantText(p, 300)
+	got := LastAssistantText(p)
 	if got != "done for today" {
 		t.Fatalf("%q", got)
 	}
@@ -189,7 +186,7 @@ func TestLastAssistantTextIsLinearOnALongLine(t *testing.T) {
 	f.Close()
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	got := LastAssistantText(p, 300)
+	got := LastAssistantText(p)
 	runtime.ReadMemStats(&after)
 	if got != "before the long line" {
 		t.Fatalf("%q", got)
@@ -274,11 +271,8 @@ func TestCodexLast(t *testing.T) {
 {"type":"response_item","payload":{"type":"reasoning","summary":[]}}
 {"type":"event_msg","payload":{"type":"task_complete","last_agent_message":"Done"}}
 `), 0o644)
-	if got := codex.Last(p, 300); got != "Done: the index is rebuilt." {
+	if got := codex.Last(p); got != "Done: the index is rebuilt." {
 		t.Fatalf("%q", got)
-	}
-	if got := codex.Last(p, 4); got != "Done" {
-		t.Fatalf("cap: %q", got)
 	}
 }
 
@@ -324,7 +318,7 @@ func TestAgyLastAndRunAnswer(t *testing.T) {
 {"step_index":1,"source":"MODEL","type":"PLANNER_RESPONSE","content":"Done: the index is rebuilt."}
 {"step_index":2,"source":"SYSTEM_SDK","type":"EPHEMERAL_MESSAGE","content":"[sous] ..."}
 `), 0o644)
-	if got := antigravity.Last(p, 300); got != "Done: the index is rebuilt." {
+	if got := antigravity.Last(p); got != "Done: the index is rebuilt." {
 		t.Fatalf("%q", got)
 	}
 	log := []byte(`{"conversation_id":"c9","status":"SUCCESS","response":"","denied_actions":[{"action":"command","display_name":"RunCommand"}]}`)

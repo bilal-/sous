@@ -36,9 +36,9 @@ type Harness struct {
 	// ("" when nothing): the text as it is (nil), or wrapped the way the
 	// harness reads it.
 	Reply func(role, say string) string
-	// Last is the last thing it said in a transcript, at most max runes;
-	// "" when there is none. nil when its hook says it instead.
-	Last func(transcript string, max int) string
+	// Last is the last thing it said in a transcript, as it said it; ""
+	// when there is none. nil when its hook says it instead.
+	Last func(transcript string) string
 	// Headless runs it on a task with nobody watching; nil when it cannot.
 	Headless *Headless
 }

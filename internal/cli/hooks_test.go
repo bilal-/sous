@@ -402,3 +402,26 @@ func TestAntigravityHooks(t *testing.T) {
 		t.Fatalf("the turn's end is recorded:\n%s", out)
 	}
 }
+
+// opencode's plugin speaks the common hook input: a new session gets where
+// the person left off as plain text, a resumed one nothing, and the end
+// brings what the agent said last itself, there being no transcript.
+func TestOpencodeHooks(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	start := `{"session_id":"ses_1","cwd":"` + p + `","source":"startup"}`
+	if out, errs, code := f.runStdin(start, "hook", "session-start", "opencode"); code != 0 || errs != "" || !strings.Contains(out, "api · main") {
+		t.Fatalf("%d %q %q", code, out, errs)
+	}
+	resumed := `{"session_id":"ses_1","cwd":"` + p + `","source":"resume"}`
+	if out, _, _ := f.runStdin(resumed, "hook", "session-start", "opencode"); out != "" {
+		t.Fatalf("a resumed session hears nothing: %q", out)
+	}
+	end := `{"session_id":"ses_1","cwd":"` + p + `","last_message":"wired the export\n\nand its test"}`
+	if out, errs, code := f.runStdin(end, "hook", "session-end", "opencode"); code != 0 || out != "" || errs != "" {
+		t.Fatalf("%d %q %q", code, out, errs)
+	}
+	if out, _, _ := f.run("here", p); !strings.Contains(out, `last session · opencode`) || !strings.Contains(out, "wired the export and its test") {
+		t.Fatalf("the session's end is recorded, on one line:\n%s", out)
+	}
+}

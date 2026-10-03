@@ -297,7 +297,7 @@ func TestPromptsAreNeverFlags(t *testing.T) {
 		a.Watch(dir, true)
 		args := strings.Split(readString(m.Worktree, "args"), "\n")
 		n := len(args)
-		afterDashes := n >= 2 && args[n-1] == "--help is fine" && (args[n-2] == "--" || args[n-3] == "--")
+		afterDashes := args[n-1] == "--help is fine" && slices.Contains(args[max(n-3, 0):n-1], "--")
 		if !afterDashes && args[n-1] != "-p=--help is fine" {
 			t.Errorf("%s: %q", name, args)
 		}
@@ -383,13 +383,21 @@ func TestAgentsMayCommitAndNoMore(t *testing.T) {
 				}
 			case "agy":
 				// Edits accepted; commands only as the person's settings allow.
-				if !strings.Contains(args, "accept-edits") || strings.Contains(args, "dangerously") {
-					t.Errorf("agy resume=%v: %s", resume, args)
+				want := lines("--output-format", "json", "--mode", "accept-edits", "-p=")
+				if resume {
+					want = lines("--output-format", "json", "--mode", "accept-edits", "--conversation", "s", "-p=go on")
+				}
+				if !strings.HasPrefix(args, want) || resume && args != want {
+					t.Errorf("agy resume=%v: %q", resume, args)
 				}
 			case "opencode":
 				// What the person's opencode config allows; nothing added.
-				if strings.Contains(args, "dangerously") || strings.Contains(args, "--auto") {
-					t.Errorf("opencode resume=%v: %s", resume, args)
+				want := lines("run", "--format", "json", "--dir", m.Worktree, "--", "")
+				if resume {
+					want = lines("run", "--format", "json", "--dir", m.Worktree, "--session", "s", "--", "go on")
+				}
+				if !strings.HasPrefix(args, want) || resume && args != want {
+					t.Errorf("opencode resume=%v: %q", resume, args)
 				}
 			default:
 				t.Errorf("%s: say here what a run of it may do", name)
@@ -469,3 +477,7 @@ func TestAgentsRunInTheirWorktree(t *testing.T) {
 		}
 	}
 }
+
+// lines is args as the fake agent writes them, one to a line; a last ""
+// leaves the prompt that follows open.
+func lines(args ...string) string { return strings.Join(args, "\n") }

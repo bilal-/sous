@@ -3,8 +3,11 @@ package hook
 import (
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/session"
@@ -32,22 +35,32 @@ func TestStartRoot(t *testing.T) {
 // Recording a session end, with its guard, lives here, not in the CLI.
 // The last message is read the way the agent's harness writes it.
 func TestRecordEndStoresTheLastMessage(t *testing.T) {
-	for _, tc := range []struct{ agent, line string }{
-		{"claude", `{"type":"assistant","message":{"content":[{"type":"text","text":"all green"}]}}`},
-		{"codex", `{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"all green"}]}}`},
+	long := "all\n\ngreen " + strings.Repeat("and more ", 100)
+	for _, tc := range []struct{ agent, line, said string }{
+		{agent: "claude", line: `{"type":"assistant","message":{"content":[{"type":"text","text":"all green"}]}}`},
+		{agent: "codex", line: `{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"all green"}]}}`},
+		{agent: "agy", line: `{"source":"MODEL","type":"PLANNER_RESPONSE","content":"all green"}`},
+		{agent: "opencode", said: "all green"}, // its plugin says it; no transcript
+		{agent: "claude", line: `{"type":"assistant","message":{"content":[{"type":"text","text":` + strconv.Quote(long) + `}]}}`},
+		{agent: "opencode", said: long},
 	} {
 		repo := testutil.Repo(t, filepath.Join(t.TempDir(), "api"), true, "")
-		tr := filepath.Join(t.TempDir(), "t.jsonl")
-		os.WriteFile(tr, []byte(tc.line+"\n"), 0o644)
+		in := harness.Input{CWD: repo, LastMessage: tc.said}
+		if tc.line != "" {
+			in.TranscriptPath = filepath.Join(t.TempDir(), "t.jsonl")
+			os.WriteFile(in.TranscriptPath, []byte(tc.line+"\n"), 0o644)
+		}
 		s := &store.Store{Home: t.TempDir()}
 		h, _ := harness.Find(tc.agent)
-		RecordEnd(s, harness.Input{CWD: repo, TranscriptPath: tr}, h, "", "", time.Now())
+		RecordEnd(s, in, h, "", "", time.Now())
 		all, _ := session.All(s)
 		if len(all) != 1 {
 			t.Fatalf("%s: %v", tc.agent, all)
 		}
 		for _, sess := range all {
-			if sess.LastMessage == nil || *sess.LastMessage != "all green" || sess.SessionID != "unknown" || sess.Agent != tc.agent {
+			// However it was said, it is kept on one line, cut short.
+			if sess.LastMessage == nil || !strings.HasPrefix(*sess.LastMessage, "all green") || strings.Contains(*sess.LastMessage, "\n") ||
+				utf8.RuneCountInString(*sess.LastMessage) > session.LastMessageRunes || sess.SessionID != "unknown" || sess.Agent != tc.agent {
 				t.Fatalf("%s: %+v", tc.agent, sess)
 			}
 		}

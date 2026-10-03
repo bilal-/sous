@@ -39,8 +39,8 @@ var antigravity = Harness{
 		b, _ := json.Marshal(map[string]any{"injectSteps": []any{map[string]string{"ephemeralMessage": say}}})
 		return string(b)
 	},
-	Last: func(transcript string, max int) string {
-		return lastLine(transcript, max, `"PLANNER_RESPONSE"`, agyText)
+	Last: func(transcript string) string {
+		return lastLine(transcript, `"PLANNER_RESPONSE"`, agyText)
 	},
 	// agy -p runs one prompt with nobody there: file edits are accepted,
 	// and a command the person's Antigravity settings do not allow is

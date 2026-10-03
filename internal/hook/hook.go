@@ -47,11 +47,11 @@ func RecordEnd(s *store.Store, in harness.Input, h harness.Harness, fallback, ho
 	if sess.SessionID == "" {
 		sess.SessionID = "unknown"
 	}
-	m := text.Cut(text.OneLine(in.LastMessage), session.LastMessageRunes)
+	m := in.LastMessage
 	if m == "" && in.TranscriptPath != "" && h.Last != nil {
-		m = h.Last(in.TranscriptPath, session.LastMessageRunes)
+		m = h.Last(in.TranscriptPath)
 	}
-	if m != "" {
+	if m = text.Cut(text.OneLine(m), session.LastMessageRunes); m != "" {
 		sess.LastMessage = &m
 	}
 	return session.Record(s, root, sess)

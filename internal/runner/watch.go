@@ -61,7 +61,9 @@ func (a *Agent) Watch(dir string, resume bool) error {
 	runErr := cmd.Start()
 	if runErr == nil {
 		// Recorded so stop can reach the agent even if this watcher dies.
-		os.WriteFile(filepath.Join(dir, "agent.pgid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0o600)
+		if err := os.WriteFile(filepath.Join(dir, "agent.pgid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0o600); err != nil {
+			fmt.Fprintf(os.Stderr, "stop reaches the agent only through this watcher: %v\n", err) // into watcher.log
+		}
 		runErr = cmd.Wait()
 		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) // anything it left running ends with it
 	}
@@ -107,7 +109,7 @@ func (a *Agent) Status(_, ref string) (Status, error) {
 		} else {
 			st.State, st.Text = Failed, "stopped without a result"
 			if why := tail(filepath.Join(dir, watcherLog)); why != "" {
-				st.Text += ": " + lastLine(why)
+				st.Text += ": " + finalLine(why)
 			}
 		}
 		return st, nil
@@ -121,9 +123,9 @@ func (a *Agent) Status(_, ref string) (Status, error) {
 	case state != "":
 		st.State, st.Text = state, text
 	case r.Exit == 0:
-		st.State, st.Text = Done, lastLine(r.Message)
+		st.State, st.Text = Done, finalLine(r.Message)
 	default: // the agent's own last words, else the log's
-		st.State, st.Text = Failed, fmt.Sprintf("exit %d: %s", r.Exit, lastLine(cmp.Or(r.Message, tail(filepath.Join(dir, "log")))))
+		st.State, st.Text = Failed, fmt.Sprintf("exit %d: %s", r.Exit, finalLine(cmp.Or(r.Message, tail(filepath.Join(dir, "log")))))
 	}
 	if st.State != Failed && uncommitted(m.Worktree) {
 		st.Text += " (changes not committed, in the worktree)"
@@ -143,7 +145,8 @@ func parseMarker(msg string) (State, string) {
 	return Done, said
 }
 
-func lastLine(s string) string {
+// finalLine is the last line of what an agent or its watcher said.
+func finalLine(s string) string {
 	lines := strings.Split(strings.TrimSpace(s), "\n")
 	return strings.TrimSpace(lines[len(lines)-1])
 }

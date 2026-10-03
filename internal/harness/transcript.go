@@ -8,16 +8,13 @@ import (
 	"os"
 	"regexp"
 	"strings"
-
-	"github.com/bilal-/sous/internal/text"
 )
 
 // lastLine is the text of the last line in a JSONL transcript that said
-// reads as said by the agent, capped at max runes; "" when there is none or
-// the file is odd. It reads backwards from the end and stops at that line,
+// reads as said by the agent; "" when there is none or the file is odd. It reads backwards from the end and stops at that line,
 // so a transcript of any size costs only what comes after it.
 // mark is a few bytes every such line holds, to skip the rest cheaply.
-func lastLine(path string, max int, mark string, said func([]byte) string) string {
+func lastLine(path string, mark string, said func([]byte) string) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
@@ -35,7 +32,7 @@ func lastLine(path string, max int, mark string, said func([]byte) string) strin
 		last = said(line)
 		return last == ""
 	})
-	return text.Cut(text.OneLine(last), max)
+	return last
 }
 
 // contentText joins the parts of a message's content that are of kind

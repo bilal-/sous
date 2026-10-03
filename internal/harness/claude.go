@@ -19,7 +19,7 @@ var claude = Harness{
 		{Role: RoleEnd, Event: "SessionEnd"},
 	},
 	Parse: parseHookJSON,
-	Last:  func(transcript string, max int) string { return lastLine(transcript, max, `"assistant"`, claudeText) },
+	Last:  func(transcript string) string { return lastLine(transcript, `"assistant"`, claudeText) },
 	// Every prompt follows "--", so text that starts with a dash is never
 	// read as a flag. The permissions are the person's own: file edits
 	// accepted and the tools its settings allow; no permission check is
