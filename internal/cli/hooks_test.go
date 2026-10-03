@@ -331,7 +331,7 @@ func TestSessionStartOutsideAProject(t *testing.T) {
 	f.runIn(p, "note", "-k", "me", "check the index")
 	f.run() // saves the board
 	out, _, _ := f.runStdin(hookJSON(map[string]any{"cwd": f.Home, "source": "startup"}), "hook", "session-start", "claude")
-	testutil.Contains(t, out, "[sous] ", "1 on you · 0 on others · 0 unfinished across 1 project", "sous for the board")
+	testutil.Contains(t, out, "[sous] ", "1 on you · 0 on others · 0 unfinished across 1 project", "as of just now", "sous for the board")
 }
 
 // Runs that need the user are what an agent hears first at session start,

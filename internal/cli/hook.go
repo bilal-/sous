@@ -54,7 +54,7 @@ func cmdHook(e *Env, a argv) int {
 				// Outside any project: what waits across them, from the
 				// saved board (never built here: this must stay quick).
 				if c, err := board.ReadCache(sub.store()); err == nil && c.Data != nil {
-					fmt.Fprintln(&buf, board.Summary(c.Data))
+					fmt.Fprintln(&buf, board.Summary(c.Data, time.Now()))
 				}
 			}
 			if in.Fresh {

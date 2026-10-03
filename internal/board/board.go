@@ -211,13 +211,14 @@ func (a Ambient) Run(now time.Time, window time.Duration, show func() bool) {
 	})
 }
 
-// Summary is the board in one line, for an agent starting a session
-// outside any project: how much waits, where, and how to see it.
-func Summary(d *Data) string {
+// Summary is the saved board in one line, for an agent starting a session
+// outside any project: how much waits, where, as of when, and how to see
+// it now.
+func Summary(d *Data, now time.Time) string {
 	s := Classify(d)
 	line := fmt.Sprintf("%d on you · %d on others · %d unfinished across %s", len(s.Me), len(s.Them), len(s.Unfinished), text.Plural(d.Checked, "project"))
 	if len(s.Why) > 0 {
 		line += " (" + strings.Join(s.Why, ", ") + ")"
 	}
-	return line + " · sous for the board"
+	return line + " · as of " + text.Ago(now, d.RenderedAt) + " · sous for the board"
 }
