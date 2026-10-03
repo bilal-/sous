@@ -28,7 +28,7 @@ func init() {
 		}
 		Registry.Builtins = append(Registry.Builtins, plugin.Builtin[Deps]{Name: h.Name, Offline: true, Ops: func(d Deps) map[string]plugin.Op {
 			a, _ := Builtin(h.Name, d.Home, d.Exe, d.Limit)
-			ops := Ops(a)
+			ops := ops(a)
 			ops["watch"] = watchOp(a)
 			return ops
 		}})

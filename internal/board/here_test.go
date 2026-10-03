@@ -97,7 +97,7 @@ func TestBuildHereUsesThePluginDoor(t *testing.T) {
 }
 
 func TestMigratorsRefuseUnknownVersions(t *testing.T) {
-	if _, err := CacheFile.Migrate(0, nil); err == nil {
+	if _, err := cacheFile.Migrate(0, nil); err == nil {
 		t.Fatal("cache")
 	}
 }

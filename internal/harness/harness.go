@@ -37,7 +37,7 @@ type Harness struct {
 	// harness reads it.
 	Reply func(role, say string) string
 	// Last is the last thing it said in a transcript, at most max runes;
-	// "" when there is none.
+	// "" when there is none. nil when its hook says it instead.
 	Last func(transcript string, max int) string
 	// Headless runs it on a task with nobody watching; nil when it cannot.
 	Headless *Headless
@@ -90,8 +90,8 @@ var All = []Harness{claude, codex, antigravity, opencode}
 // Here: h is on this machine, as far as setup and doctor are concerned.
 func (h Harness) Here(home string) bool { return h.Present == nil || h.Present(home) }
 
-// Installed: bin is on PATH, or one of dirs (under home) exists.
-func Installed(home, bin string, dirs ...string) bool {
+// installed: bin is on PATH, or one of dirs (under home) exists.
+func installed(home, bin string, dirs ...string) bool {
 	if _, err := exec.LookPath(bin); err == nil {
 		return true
 	}
@@ -145,6 +145,5 @@ var SharedSkills = []SkillFolder{
 type SkillFolder struct {
 	Who  string
 	Dir  func(home string) string
-	When func(home string) bool // nil: always
-	Says string                 // what setup reports once the skill is there
+	Says string // what setup reports once the skill is there
 }

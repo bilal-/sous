@@ -18,7 +18,7 @@ esac`)
 	Init("", t.TempDir(), os.Environ())
 	t.Cleanup(func() { Init("", "", nil) })
 	var lines []string
-	for _, r := range CheckGitHub([]string{"work-account", "gone"}) {
+	for _, r := range checkGitHub([]string{"work-account", "gone"}) {
 		lines = append(lines, r.Name+"|"+map[bool]string{true: "ok", false: "no"}[r.OK]+"|"+map[bool]string{true: "optional", false: "needed"}[r.Optional]+"|"+r.Fix)
 	}
 	got := strings.Join(lines, "\n")
@@ -35,7 +35,7 @@ esac`)
 // Not logged in, with no accounts configured, is not set up: optional.
 func TestCheckGitHubNotLoggedInIsOptional(t *testing.T) {
 	fakeTool(t, "gh", `echo "You are not logged into any GitHub hosts." >&2; exit 1`)
-	r := CheckGitHub(nil)
+	r := checkGitHub(nil)
 	if len(r) != 1 || r[0].OK || !r[0].Optional || r[0].Fix != "gh auth login" {
 		t.Fatalf("%+v", r)
 	}
@@ -45,11 +45,11 @@ func TestCheckGitHubNotInstalledIsOptional(t *testing.T) {
 	testutil.OnlyGit(t)
 	Init("", t.TempDir(), os.Environ())
 	t.Cleanup(func() { Init("", "", nil) })
-	r := CheckGitHub(nil)
+	r := checkGitHub(nil)
 	if len(r) != 1 || !r[0].OK || !strings.Contains(r[0].Detail, "not installed") {
 		t.Fatalf("%+v", r)
 	}
-	if r := CheckGitHub([]string{"work-account"}); r[0].OK || r[0].Optional {
+	if r := checkGitHub([]string{"work-account"}); r[0].OK || r[0].Optional {
 		t.Fatalf("configured accounts need gh: %+v", r)
 	}
 }

@@ -167,7 +167,7 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 	}
 
 	fmt.Fprintf(w, "\n  %d checked · %d unavailable%s · as of %s · sous snooze <id> to hide a row\n",
-		d.Checked, d.Unavailable, PluginFailures(d), text.AsOf(d.RenderedAt, now))
+		d.Checked, d.Unavailable, pluginFailures(d), text.AsOf(d.RenderedAt, now))
 }
 
 // Cache: the last rendered board, so the zsh surface can print in ~5 ms and
@@ -179,19 +179,19 @@ type CacheDoc struct {
 	Data       *Data      `json:"data,omitempty"` // additive: --menubar renders from it
 }
 
-// CacheFile is how the file is read and upgraded.
-var CacheFile = store.V1(`{"version":1,"rendered_at":null,"board":null}`)
+// cacheFile is how the file is read and upgraded.
+var cacheFile = store.V1(`{"version":1,"rendered_at":null,"board":null}`)
 
 // ReadCache is the last board written (empty before the first).
 func ReadCache(s *store.Store) (*CacheDoc, error) {
-	return store.Load[CacheDoc](s, "cache", CacheFile)
+	return store.Load[CacheDoc](s, "cache", cacheFile)
 }
 
 func WriteCache(s *store.Store, d *Data) error {
 	var b strings.Builder
 	Render(&b, d)
 	text := b.String()
-	_, err := store.Modify[CacheDoc](s, "cache", CacheFile, func(c *CacheDoc) error {
+	_, err := store.Modify[CacheDoc](s, "cache", cacheFile, func(c *CacheDoc) error {
 		c.RenderedAt = &d.RenderedAt
 		c.Board = &text
 		c.Data = d

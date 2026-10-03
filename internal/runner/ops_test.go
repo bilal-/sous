@@ -27,7 +27,7 @@ func (m *memRunner) Clean(string, string) error            { return errors.New("
 
 func TestOpsSpeakTheContract(t *testing.T) {
 	m := &memRunner{started: map[string]string{}, state: Status{State: Done, Text: "fixed"}}
-	ops := Ops(m)
+	ops := ops(m)
 	do := func(op string, in string, args ...string) (string, string, int) {
 		var out, errb bytes.Buffer
 		code := ops[op](args, strings.NewReader(in), &out, &errb)

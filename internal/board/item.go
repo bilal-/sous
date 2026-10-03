@@ -162,7 +162,7 @@ type SessionItem struct {
 
 // JSON is the resume view as --json shows it.
 func (h *HereData) JSON() HereJSON {
-	s := ClassifyHere(h)
+	s := classifyHere(h)
 	out := HereJSON{Project: h.Project, Name: h.Name, Remote: h.Remote, Facts: h.Facts, Waiting: s.waiting(),
 		RecentlyClosed: Items(s.RecentlyClosed), Plugins: h.Plugins, AsOf: h.RenderedAt}
 	if h.Session != nil {

@@ -147,7 +147,7 @@ func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 	case 1: // no note had a uid yet: every one is legacy
 		return edit(raw, 2, func(t *Thread) { t.UID, t.Legacy = newUID(), true })
 	case 2: // upgraded by 0.1.1 to 0.1.6, which gave uids without saying which were new
-		return edit(raw, 3, func(t *Thread) { t.Legacy = t.Legacy || t.Since.Before(UIDSince) })
+		return edit(raw, 3, func(t *Thread) { t.Legacy = t.Legacy || t.Since.Before(uidSince) })
 	}
 	return nil, fmt.Errorf("unknown version %d", from)
 }
@@ -165,9 +165,9 @@ func edit(raw []byte, version int, fn func(*Thread)) ([]byte, error) {
 	return json.Marshal(d)
 }
 
-// UIDSince is when notes began carrying a uid (sous 0.1.1). It is used only
+// uidSince is when notes began carrying a uid (sous 0.1.1). It is used only
 // to upgrade files that 0.1.1 to 0.1.6 upgraded without recording Legacy.
-var UIDSince = time.Date(2026, 9, 29, 3, 25, 0, 0, time.UTC)
+var uidSince = time.Date(2026, 9, 29, 3, 25, 0, 0, time.UTC)
 
 // newUID: 12 random hex characters.
 func newUID() string {

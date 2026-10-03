@@ -160,7 +160,7 @@ func TestCloseUpstreamAndReconcile(t *testing.T) {
 
 	now := time.Now()
 	views, _ := thread.Open(e.s, now)
-	got := e.f.Reconcile(context.Background(), views, now)
+	got := reconcile(e.f, views, now)
 	var ids []int
 	for _, v := range got {
 		ids = append(ids, v.ID)
@@ -187,7 +187,7 @@ func TestReconcileReportsErrorsAndHonoursDeadline(t *testing.T) {
 	os.WriteFile(filepath.Join(e.s.Home, "threads.json"), []byte(strings.Replace(string(raw), `"ref": "fake:1"`, `"ref": "jira:X-1"`, 1)), 0o644)
 	now := time.Now()
 	views, _ := thread.Open(e.s, now)
-	got := e.f.Reconcile(context.Background(), views, now)
+	got := reconcile(e.f, views, now)
 	if len(got) != 1 || got[0].Upstream != "error" || !strings.Contains(got[0].UpstreamErr, "jira not configured") {
 		t.Fatalf("%+v", got)
 	}
@@ -195,7 +195,7 @@ func TestReconcileReportsErrorsAndHonoursDeadline(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	start := time.Now()
-	got = e.f.Reconcile(ctx, views, now)
+	got = reconcileIn(ctx, e.f, views, now)
 	if time.Since(start) > 2*time.Second || len(got) != 1 {
 		t.Fatalf("expired ctx: %v %+v", time.Since(start), got)
 	}
@@ -226,7 +226,7 @@ func TestReconcileKeepsANoteItCouldNotClose(t *testing.T) {
 	now := time.Now()
 	views := []thread.View{{Thread: thread.Thread{ID: 99, Text: "x", Kind: thread.Me, Ref: &ref}}} // 99 is not in the store
 	f := &Filer{Store: st, Backends: []backend.Backend{{Name: "fake", Argv: []string{"/bin/sh", "-c", `echo closed`, "sh"}}}}
-	out := f.Reconcile(context.Background(), views, now)
+	out := reconcile(f, views, now)
 	if len(out) != 1 || out[0].Upstream != "error" || !strings.Contains(out[0].UpstreamErr, "could not be closed here") {
 		t.Fatalf("%+v", out)
 	}
@@ -256,4 +256,16 @@ func TestAskWorksOnACopy(t *testing.T) {
 	if got := e.f.Settle(views, answers, time.Now()); got[0].Upstream != "open" {
 		t.Fatalf("%+v", got[0])
 	}
+}
+
+// reconcile is the whole round as sous does it: ask about the filed notes,
+// then settle what came back. "closed" closes the note here too, with
+// provenance, and drops it; a backend that fails or is missing is reported
+// as such, never as "ref missing" and never as closed.
+func reconcile(f *Filer, views []thread.View, now time.Time) []thread.View {
+	return reconcileIn(context.Background(), f, views, now)
+}
+
+func reconcileIn(ctx context.Context, f *Filer, views []thread.View, now time.Time) []thread.View {
+	return f.Settle(views, f.Ask(ctx, Filed(views)), now)
 }

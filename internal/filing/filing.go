@@ -23,16 +23,13 @@ import (
 	"github.com/bilal-/sous/internal/thread"
 )
 
-// StatusTimeout bounds each upstream status probe during reconciliation.
-const StatusTimeout = plugin.StatusTimeout
-
 // Filer holds what every filing operation needs. Build one per invocation.
 type Filer struct {
 	Store    *store.Store
 	Cfg      *config.Config
 	Backends []backend.Backend
 	Warn     io.Writer // detect-probe warnings; nil = discard
-	// Offline limits Reconcile to offline backends: the resume view (and so
+	// Offline limits Ask to offline backends: the resume view (and so
 	// the session hook and sous go) never touches the network. Remote
 	// items keep no upstream state there; the board reconciles them.
 	Offline bool
@@ -76,7 +73,7 @@ func (f *Filer) CurrentPath(th thread.Thread) string {
 	return th.Project
 }
 
-func IsGitFileCheckout(path string) bool {
+func isGitFileCheckout(path string) bool {
 	st, err := os.Lstat(filepath.Join(path, ".git"))
 	return err == nil && !st.IsDir()
 }
@@ -96,7 +93,7 @@ func (f *Filer) File(ctx context.Context, id int, explicit bool) (string, error)
 		return "", err
 	}
 	path := f.CurrentPath(th)
-	if !explicit && IsGitFileCheckout(path) {
+	if !explicit && isGitFileCheckout(path) {
 		return "", fmt.Errorf("%w: %s", ErrWorktree, path)
 	}
 	override := f.Cfg.Project(project.OrgName(path)).Backend
@@ -110,7 +107,7 @@ func (f *Filer) File(ctx context.Context, id int, explicit bool) (string, error)
 	refile := false
 	if th.Ref != nil {
 		if ob, err := backend.ByRef(f.Backends, *th.Ref); err == nil {
-			sctx, cancel := context.WithTimeout(ctx, StatusTimeout)
+			sctx, cancel := context.WithTimeout(ctx, plugin.StatusTimeout)
 			st, serr := backend.Status(sctx, ob, path, *th.Ref)
 			cancel()
 			refile = serr == nil && st == "unknown"
@@ -148,15 +145,6 @@ func (f *Filer) CloseUpstream(ctx context.Context, id int) error {
 	return nil
 }
 
-// Reconcile asks each filed thread's backend for its state, concurrently
-// under one deadline. "closed" means the system of record closed it: the
-// thread is closed here too, with provenance, and dropped from the result.
-// A backend that fails or is missing is reported as such — never as "ref
-// missing", and never as closed.
-func (f *Filer) Reconcile(ctx context.Context, views []thread.View, now time.Time) []thread.View {
-	return f.Settle(views, f.Ask(ctx, Filed(views)), now)
-}
-
 // Upstream is what a filed note's tracker said about it.
 type Upstream struct {
 	ID         int    // the note
@@ -176,7 +164,9 @@ func Filed(views []thread.View) []thread.Thread {
 }
 
 // Ask asks each note's backend for its state, concurrently under one
-// deadline, and returns the answers; it changes nothing.
+// deadline, and returns the answers; it changes nothing. A backend that
+// fails or is missing is answered as such, never as "ref missing" and never
+// as closed.
 func (f *Filer) Ask(ctx context.Context, filed []thread.Thread) []Upstream {
 	out := make([]Upstream, len(filed))
 	var wg sync.WaitGroup
@@ -193,7 +183,7 @@ func (f *Filer) Ask(ctx context.Context, filed []thread.Thread) []Upstream {
 			if f.Offline && !b.Offline {
 				return
 			}
-			sctx, cancel := context.WithTimeout(ctx, StatusTimeout)
+			sctx, cancel := context.WithTimeout(ctx, plugin.StatusTimeout)
 			st, err := backend.Status(sctx, b, f.CurrentPath(th), *th.Ref)
 			cancel()
 			if err != nil {

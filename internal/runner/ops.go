@@ -19,10 +19,10 @@ type Implementation interface {
 	Clean(project, ref string) error
 }
 
-// Ops adapts an Implementation to the contract: usage errors exit 2,
+// ops adapts an Implementation to the contract: usage errors exit 2,
 // failures exit 1 with the reason, unsupported optional calls exit 2, not
 // set up exits 3.
-func Ops(impl Implementation) map[string]plugin.Op {
+func ops(impl Implementation) map[string]plugin.Op {
 	return map[string]plugin.Op{
 		"start": func(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			var req Request

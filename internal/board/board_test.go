@@ -213,7 +213,7 @@ func TestRunStatusUnavailableIsAGap(t *testing.T) {
 // A plugin's error is cut without splitting a character.
 func TestPluginFailuresIsRuneSafe(t *testing.T) {
 	msg := "gh: réseau indisponible — la connexion a échoué après trois tentatives"
-	if got := PluginFailures(&Data{Plugins: []signal.PluginStatus{{Name: "github", Status: "failed", Error: &msg}}}); !utf8.ValidString(got) {
+	if got := pluginFailures(&Data{Plugins: []signal.PluginStatus{{Name: "github", Status: "failed", Error: &msg}}}); !utf8.ValidString(got) {
 		t.Fatalf("plugin failure line split a rune: %q", got)
 	}
 }

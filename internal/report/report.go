@@ -254,8 +254,8 @@ func render(w io.Writer, r Report) {
 	fmt.Fprintf(w, "\n  now: %s · sous report --open for the page\n", board.Counts(r.OnYouNow, r.OnOthersNow, r.UnfinishedNow))
 }
 
-// WebURL turns a ref into a link, when the tracker has one.
-func WebURL(ref *string) string {
+// webURL turns a ref into a link, when the tracker has one.
+func webURL(ref *string) string {
 	if ref == nil {
 		return ""
 	}
@@ -271,7 +271,7 @@ var reportHTML string
 
 var reportTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 	"base": filepath.Base,
-	"url":  WebURL,
+	"url":  webURL,
 	"isThread": func(id string) bool {
 		return id != "" && !signal.IsID(id)
 	},
@@ -281,4 +281,4 @@ var reportTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 
 // RenderReportHTML writes one self-contained page: inline CSS (Material
 // Design 3 color roles and type scale), no scripts, no external loads.
-func RenderHTML(w io.Writer, r Report) error { return reportTmpl.Execute(w, r) }
+func renderHTML(w io.Writer, r Report) error { return reportTmpl.Execute(w, r) }

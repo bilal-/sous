@@ -221,7 +221,7 @@ func TestIsOursRejectsLookalikes(t *testing.T) {
 func TestEveryHarnessIsComplete(t *testing.T) {
 	seen := map[string]bool{}
 	for _, h := range All {
-		if h.Name == "" || seen[h.Name] || h.Display == "" || h.Bin == "" || h.HookFile == nil || h.Format == nil || h.Parse == nil || h.Last == nil {
+		if h.Name == "" || seen[h.Name] || h.Display == "" || h.Bin == "" || h.HookFile == nil || h.Format == nil || h.Parse == nil {
 			t.Errorf("incomplete: %+v", h)
 		}
 		seen[h.Name] = true

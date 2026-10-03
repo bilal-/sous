@@ -225,14 +225,14 @@ func TestMigratedUIDIsTheSameOnEveryRead(t *testing.T) {
 // them one, not guessed from the date.
 func TestLegacyIsRecordedByTheUpgrade(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
-	late := UIDSince.Add(48 * time.Hour).Format(time.RFC3339) // an old binary, used after 0.1.1 came out
+	late := uidSince.Add(48 * time.Hour).Format(time.RFC3339) // an old binary, used after 0.1.1 came out
 	v1 := `{"version":1,"next_id":2,"threads":[{"id":1,"project":"/p","text":"a","kind":"me","since":"` + late + `","source":"human"}]}`
 	os.WriteFile(filepath.Join(s.Home, "threads.json"), []byte(v1), 0o644)
 	d, _ := store.Load[Doc](s, "threads", Migrator{})
 	if !d.Threads[0].Legacy {
 		t.Fatal("a note upgraded from v1 had no uid, so it is legacy whatever its date")
 	}
-	id, _, _ := Note(s, project.Project{Path: "/p"}, Me, "new", "", UIDSince.Add(-time.Hour))
+	id, _, _ := Note(s, project.Project{Path: "/p"}, Me, "new", "", uidSince.Add(-time.Hour))
 	if th, _ := Get(s, id); th.Legacy {
 		t.Fatal("a note made with a uid is never legacy")
 	}

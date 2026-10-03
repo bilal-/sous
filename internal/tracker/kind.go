@@ -37,10 +37,10 @@ var Kinds = []Kind{
 		URL: func(r Ref) string {
 			return "https://github.com/" + r.Repo + "/issues/" + r.Number // GitHub redirects PR numbers
 		},
-		Check: func(cfg *config.Config) []Result { return CheckGitHub(cfg.Identities(config.KeyGitHubAccount)) },
+		Check: func(cfg *config.Config) []Result { return checkGitHub(cfg.Identities(config.KeyGitHubAccount)) },
 	},
 	{
-		Name: GitLab, Tool: "glab", PublicHosts: []string{"gitlab.com"}, Ready: GLabReady,
+		Name: GitLab, Tool: "glab", PublicHosts: []string{"gitlab.com"}, Ready: glabReady,
 		URL: func(r Ref) string {
 			kind := "issues"
 			if r.MR {
@@ -48,7 +48,7 @@ var Kinds = []Kind{
 			}
 			return "https://" + r.Host + "/" + r.Repo + "/-/" + kind + "/" + r.Number
 		},
-		Check: func(cfg *config.Config) []Result { return CheckGitLab(cfg.GitLabHosts) },
+		Check: func(cfg *config.Config) []Result { return checkGitLab(cfg.GitLabHosts) },
 	},
 }
 

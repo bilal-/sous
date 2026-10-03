@@ -53,7 +53,7 @@ func Take(s *store.Store, now time.Time, week bool) error {
 // path. The page is a static file: no scripts, nothing loaded.
 func WritePage(home string, r Report) (string, error) {
 	var b bytes.Buffer
-	if err := RenderHTML(&b, r); err != nil {
+	if err := renderHTML(&b, r); err != nil {
 		return "", err
 	}
 	p := filepath.Join(home, "report.html")

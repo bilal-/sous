@@ -19,7 +19,7 @@ var opencode = Harness{
 	Name:     "opencode",
 	Display:  "opencode",
 	Bin:      "opencode",
-	Present:  func(home string) bool { return Installed(home, "opencode", ".config/opencode") },
+	Present:  func(home string) bool { return installed(home, "opencode", ".config/opencode") },
 	HookFile: func(home string) string { return filepath.Join(home, ".config", "opencode", "plugins", "sous.js") },
 	Format:   OpencodePlugin{},
 	Hooks: []Hook{
@@ -27,8 +27,8 @@ var opencode = Harness{
 		{Role: RoleEnd, Event: RoleEnd},
 	},
 	Parse: parseHookJSON,
-	// The plugin sends what the agent said last; there is no transcript.
-	Last: func(string, int) string { return "" },
+	// No Last: the plugin sends what the agent said last; there is no
+	// transcript.
 	// opencode run asks nobody: a run has the permissions the person's
 	// opencode config gives, as an opencode session of theirs would.
 	Headless: &Headless{

@@ -101,7 +101,7 @@ func hereSignals(in Inputs, col signal.Collected, root string) ([]signal.Observe
 
 // RenderHere lays out the resume view: facts, session, then sections.
 func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
-	s := ClassifyHere(d)
+	s := classifyHere(d)
 	renderHereHeader(w, d, s, now, brief)
 	fmt.Fprintf(w, "on you: %d · on others: %d · ideas: %d\n", len(s.Me), len(s.Them), len(s.Ideas))
 	// What an agent hears at session start stays short: a few rows of each

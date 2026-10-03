@@ -54,12 +54,12 @@ func GitHubAccount(cfg *config.Config, orgName string) string {
 	return cfg.Project(orgName).GitHubAccount
 }
 
-// GH builds a non-interactive gh command. With an account, the token for
+// gh builds a non-interactive gh command. With an account, the token for
 // that account comes from gh's own keyring (`gh auth token --user`), which
 // is how a multi-account user switches without touching gh's global state.
 // A configured account whose token cannot be fetched is an error: running
 // as whoever happens to be active would write under the wrong identity.
-func GH(account string, args ...string) (*exec.Cmd, error) {
+func gh(account string, args ...string) (*exec.Cmd, error) {
 	cmd := exec.Command("gh", args...)
 	cmd.Env = childEnv("GH_PROMPT_DISABLED=1", "GH_NO_UPDATE_NOTIFIER=1")
 	if account != "" {
@@ -163,7 +163,7 @@ func glabHosts() ([]string, error) {
 	if GLabInstalled() != nil {
 		return []string{}, nil
 	}
-	out, err := GLab("", "auth", "status").CombinedOutput()
+	out, err := glab("", "auth", "status").CombinedOutput()
 	found := []string{}
 	lines := hostLine.FindAllStringSubmatchIndex(string(out), -1)
 	for i, m := range lines {
@@ -196,7 +196,7 @@ func GHNotifications(account string) ([]byte, error) {
 	if err != nil {
 		switch msg := err.Error(); {
 		case strings.Contains(msg, "403"), strings.Contains(msg, "404"):
-			return nil, fmt.Errorf("notifications: %v (they need a classic token with the notifications scope: %s)", err, NotificationsFix)
+			return nil, fmt.Errorf("notifications: %v (they need a classic token with the notifications scope: %s)", err, notificationsFix)
 		case strings.Contains(msg, "slurp"):
 			return nil, fmt.Errorf("notifications: %v (they need gh 2.48 or newer)", err)
 		}
@@ -205,27 +205,27 @@ func GHNotifications(account string) ([]byte, error) {
 	return out, nil
 }
 
-// NotificationsFix gives gh's token the scope notifications need.
-const NotificationsFix = "gh auth refresh -s notifications"
+// notificationsFix gives gh's token the scope notifications need.
+const notificationsFix = "gh auth refresh -s notifications"
 
 // GHRun runs gh as account and returns stdout only; see Output.
 func GHRun(account string, args ...string) ([]byte, error) {
-	cmd, err := GH(account, args...)
+	cmd, err := gh(account, args...)
 	if err != nil {
 		return nil, err
 	}
-	return Output(cmd)
+	return output(cmd)
 }
 
 // GLabRun runs glab for a host and returns stdout only; see Output.
 func GLabRun(host string, args ...string) ([]byte, error) {
-	return Output(GLab(host, args...))
+	return output(glab(host, args...))
 }
 
-// Output runs a tracker CLI and returns stdout only. Both CLIs print update
+// output runs a tracker CLI and returns stdout only. Both CLIs print update
 // and deprecation notices on stderr next to valid JSON, so stderr is never
 // parsed; it becomes the error message when the command fails.
-func Output(cmd *exec.Cmd) ([]byte, error) {
+func output(cmd *exec.Cmd) ([]byte, error) {
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
@@ -238,8 +238,8 @@ func Output(cmd *exec.Cmd) ([]byte, error) {
 	return out, nil
 }
 
-// GLab builds a non-interactive glab command for a host.
-func GLab(host string, args ...string) *exec.Cmd {
+// glab builds a non-interactive glab command for a host.
+func glab(host string, args ...string) *exec.Cmd {
 	if host != "" {
 		args = append([]string{"--hostname", host}, args...)
 	}
@@ -489,9 +489,9 @@ func GHReady(account string) error {
 	return nil
 }
 
-// GLabReady says why glab cannot be used for host: not installed, or not
+// glabReady says why glab cannot be used for host: not installed, or not
 // logged in there. nil when it can.
-func GLabReady(host string) error {
+func glabReady(host string) error {
 	if err := installed("glab"); err != nil {
 		return err
 	}

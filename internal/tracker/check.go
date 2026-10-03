@@ -19,11 +19,11 @@ type Result struct {
 	Optional bool
 }
 
-// CheckGitHub says whether gh can do what the board asks of it, with the
+// checkGitHub says whether gh can do what the board asks of it, with the
 // same calls: installed, logged in, each configured account usable, and
 // each login's notifications readable. It asks GitHub, so it is for sous
 // doctor, never for the board's hot path.
-func CheckGitHub(accounts []string) []Result {
+func checkGitHub(accounts []string) []Result {
 	if r, missing := missingTool("gh", "GitHub", "https://cli.github.com", "accounts", len(accounts) > 0); missing {
 		return r
 	}
@@ -44,18 +44,18 @@ func CheckGitHub(accounts []string) []Result {
 			name += " (" + a + ")"
 		}
 		_, err := GHNotifications(a)
-		r := readyResult(name, err, NotificationsFix, "gh api notifications")
-		if err != nil && strings.Contains(err.Error(), NotificationsFix) {
-			r.Fix = NotificationsFix
+		r := readyResult(name, err, notificationsFix, "gh api notifications")
+		if err != nil && strings.Contains(err.Error(), notificationsFix) {
+			r.Fix = notificationsFix
 		}
 		out = append(out, r)
 	}
 	return out
 }
 
-// CheckGitLab says whether glab can reach each GitLab host the board asks:
+// checkGitLab says whether glab can reach each GitLab host the board asks:
 // the ones config.toml names and the ones glab is logged in to.
-func CheckGitLab(configured []string) []Result {
+func checkGitLab(configured []string) []Result {
 	if r, missing := missingTool("glab", "GitLab", "https://gitlab.com/gitlab-org/cli", "hosts", len(configured) > 0); missing {
 		return r
 	}
@@ -68,7 +68,7 @@ func CheckGitLab(configured []string) []Result {
 	}
 	out := []Result{{Name: "glab", OK: true, Detail: "installed"}}
 	for _, h := range hosts {
-		out = append(out, readyResult("GitLab host "+h, GLabReady(h), "glab auth login --hostname "+h, "glab auth status --hostname "+h))
+		out = append(out, readyResult("GitLab host "+h, glabReady(h), "glab auth login --hostname "+h, "glab auth status --hostname "+h))
 	}
 	return out
 }

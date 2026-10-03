@@ -85,7 +85,7 @@ func TestRenderReportTextAndHTML(t *testing.T) {
 	testutil.Contains(t, out, "since Fri 25 Sep 17:00", "2 new on you", "2 closed", "needs attention", "gitlab failed",
 		"new on you", "need pricing copy", "review requested · PR #14", "closed", "✓ 8", "filed and ticked", "(upstream)", "worked", "ios-app")
 	b.Reset()
-	if err := RenderHTML(&b, r); err != nil {
+	if err := renderHTML(&b, r); err != nil {
 		t.Fatal(err)
 	}
 	h := b.String()
@@ -104,7 +104,7 @@ func TestReportHTMLEscapesText(t *testing.T) {
 	now := time.Now()
 	d := &board.Data{RenderedAt: now, Checked: 1, Threads: []thread.View{{Thread: thread.Thread{ID: 1, Project: "/p", Kind: thread.Me, Text: "<script>alert(1)</script>", Since: now}}}}
 	var b bytes.Buffer
-	RenderHTML(&b, Build(d, nil, nil, now.Add(-time.Hour), now))
+	renderHTML(&b, Build(d, nil, nil, now.Add(-time.Hour), now))
 	if strings.Contains(b.String(), "<script>alert") {
 		t.Fatal("note text must be HTML-escaped")
 	}
@@ -128,7 +128,7 @@ func TestIdeasAreGroupedPerProject(t *testing.T) {
 		t.Fatalf("ideas counted, not listed:\n%s", b.String())
 	}
 	b.Reset()
-	RenderHTML(&b, r)
+	renderHTML(&b, r)
 	if !strings.Contains(b.String(), "<details") {
 		t.Fatal("ideas collapse on the page")
 	}

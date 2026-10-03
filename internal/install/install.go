@@ -130,12 +130,7 @@ func skillPlaces(home string) []harness.SkillFolder {
 			places = append(places, harness.SkillFolder{Who: h.Display, Dir: h.SkillDir})
 		}
 	}
-	for _, f := range harness.SharedSkills {
-		if f.When == nil || f.When(home) {
-			places = append(places, f)
-		}
-	}
-	return places
+	return append(places, harness.SharedSkills...)
 }
 
 // skillFile is where the sous skill goes in a skill folder.

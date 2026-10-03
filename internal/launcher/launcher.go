@@ -37,7 +37,7 @@ func init() {
 				if len(args) != 1 {
 					return plugin.Usage(stderr, "run <path>")
 				}
-				path, err := BuiltinPath(name)
+				path, err := builtinPath(name)
 				if err == nil {
 					err = d.Exec(args[0], path, []string{filepath.Base(path)})
 				}
@@ -47,8 +47,8 @@ func init() {
 	}
 }
 
-// ExecArgv resolves the executable and builds the argv for syscall.Exec.
-func ExecArgv(l Launcher, path string) (string, []string, error) {
+// execArgv resolves the executable and builds the argv for syscall.Exec.
+func execArgv(l Launcher, path string) (string, []string, error) {
 	argv0, err := exec.LookPath(l.Argv[0])
 	if err != nil {
 		return "", nil, fmt.Errorf("launcher %s: %s not found on PATH", l.Name, l.Argv[0])
@@ -66,17 +66,17 @@ func Prepare(exe string, plugins []string, agent, project string) (string, []str
 	if !ok {
 		return "", nil, fmt.Errorf("%w: %s", ErrUnknown, agent)
 	}
-	if _, err := BuiltinPath(l.Name); err != nil && !errors.Is(err, ErrUnknown) {
+	if _, err := builtinPath(l.Name); err != nil && !errors.Is(err, ErrUnknown) {
 		return "", nil, fmt.Errorf("launcher %s: %w", l.Name, err)
 	}
-	return ExecArgv(l, project)
+	return execArgv(l, project)
 }
 
 // ErrUnknown: no launcher by that name.
 var ErrUnknown = errors.New("no launcher named")
 
-// BuiltinPath is where the program a built-in launcher starts is found.
-func BuiltinPath(name string) (string, error) {
+// builtinPath is where the program a built-in launcher starts is found.
+func builtinPath(name string) (string, error) {
 	h, ok := harness.Find(name)
 	if !ok {
 		return "", fmt.Errorf("%w: %s", ErrUnknown, name)

@@ -19,12 +19,12 @@ func StartRoot(in harness.Input, fallback, home string) (string, bool) {
 	if !in.Fresh {
 		return "", false
 	}
-	return Root(in, fallback, home)
+	return rootOf(in, fallback, home)
 }
 
-// Root is the repo the hook's cwd is in — the input's cwd, or fallback
+// rootOf is the repo the hook's cwd is in — the input's cwd, or fallback
 // (the hook process's own directory) when the agent sent none.
-func Root(in harness.Input, fallback, home string) (string, bool) {
+func rootOf(in harness.Input, fallback, home string) (string, bool) {
 	cwd := in.CWD
 	if cwd == "" {
 		cwd = fallback
@@ -39,7 +39,7 @@ func Root(in harness.Input, fallback, home string) (string, bool) {
 // agent, when, and its last message. fallback is the hook's own folder when
 // the agent sent none.
 func RecordEnd(s *store.Store, in harness.Input, h harness.Harness, fallback, home string, now time.Time) error {
-	root, ok := Root(in, fallback, home)
+	root, ok := rootOf(in, fallback, home)
 	if !ok {
 		return nil
 	}

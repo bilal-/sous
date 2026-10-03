@@ -25,12 +25,12 @@ type Doc struct {
 	Sessions map[string]Session `json:"sessions"`
 }
 
-// File is how the file is read and upgraded.
-var File = store.V1(`{"version":1,"sessions":{}}`)
+// sessionsFile is how the file is read and upgraded.
+var sessionsFile = store.V1(`{"version":1,"sessions":{}}`)
 
 // Record upserts the pointer for a repo root. Deterministic; infers nothing.
 func Record(s *store.Store, root string, sess Session) error {
-	_, err := store.Modify[Doc](s, "sessions", File, func(d *Doc) error {
+	_, err := store.Modify[Doc](s, "sessions", sessionsFile, func(d *Doc) error {
 		if d.Sessions == nil {
 			d.Sessions = map[string]Session{}
 		}
@@ -43,7 +43,7 @@ func Record(s *store.Store, root string, sess Session) error {
 
 // All reads every recorded session, keyed by repo root.
 func All(s *store.Store) (map[string]Session, error) {
-	d, err := store.Load[Doc](s, "sessions", File)
+	d, err := store.Load[Doc](s, "sessions", sessionsFile)
 	if err != nil {
 		return nil, err
 	}

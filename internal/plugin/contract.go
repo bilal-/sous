@@ -144,7 +144,7 @@ func Prefix(axis string) string { return "sous-" + axis + "-" }
 // sous-backend-, sous-launcher- or sous-runner-".
 func Names() string {
 	var p []string
-	for _, a := range Axes {
+	for _, a := range axes {
 		p = append(p, Prefix(a))
 	}
 	return strings.Join(p[:len(p)-1], ", ") + " or " + p[len(p)-1]

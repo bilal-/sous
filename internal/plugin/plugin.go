@@ -28,8 +28,8 @@ type Plugin struct {
 	Offline bool
 }
 
-// Axes are the kinds of plugin, each named sous-<axis>-<name>.
-var Axes = []string{AxisSignal, AxisBackend, AxisLauncher, AxisRunner}
+// axes are the kinds of plugin, each named sous-<axis>-<name>.
+var axes = []string{AxisSignal, AxisBackend, AxisLauncher, AxisRunner}
 
 // The kinds of plugin.
 const (
@@ -42,7 +42,7 @@ const (
 // Named reports whether path's file name is sous-<axis>-<name> for a known
 // axis; Discover skips any other.
 func Named(path string) bool {
-	for _, a := range Axes {
+	for _, a := range axes {
 		if name, ok := strings.CutPrefix(filepath.Base(path), Prefix(a)); ok && name != "" {
 			return true
 		}

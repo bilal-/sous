@@ -20,7 +20,7 @@ var antigravity = Harness{
 	Bin:     "agy",
 	Present: func(home string) bool {
 		// Not ~/.gemini/config: other tools write there too.
-		return Installed(home, "agy", ".gemini/antigravity", ".gemini/antigravity-cli")
+		return installed(home, "agy", ".gemini/antigravity", ".gemini/antigravity-cli")
 	},
 	SkillDir: func(home string) string { return filepath.Join(home, ".gemini", "config", "skills") },
 	HookFile: func(home string) string { return filepath.Join(home, ".gemini", "config", "hooks.json") },
@@ -105,14 +105,14 @@ type agyRun struct {
 // said is the run's last word. When the settings refused something and the
 // agent did not say how it ended, that is what it needs from the person.
 func (r agyRun) said() string {
-	if len(r.Denied) == 0 || HasMarker(r.Response) {
+	if len(r.Denied) == 0 || hasMarker(r.Response) {
 		return r.Response
 	}
 	var refused []string
 	for _, d := range r.Denied {
 		refused = append(refused, fmt.Sprintf("%s (%s)", d.Display, d.Action))
 	}
-	return strings.TrimSpace(r.Response + "\n" + NeedsYou("Antigravity refused "+strings.Join(refused, ", ")+
+	return strings.TrimSpace(r.Response + "\n" + needsYou("Antigravity refused "+strings.Join(refused, ", ")+
 		": allow it under permissions.allow in Antigravity's settings, then reply"))
 }
 

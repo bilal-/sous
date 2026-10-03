@@ -18,11 +18,11 @@ var EndWith = "End your last message with one line:\n" +
 	marker + " " + markDone + " <one line summary of what you did>\nor\n" +
 	marker + " " + markNeedsYou + " <one question for the person>\n"
 
-// HasMarker: msg already says how the run ended.
-func HasMarker(msg string) bool { return strings.Contains(msg, marker) }
+// hasMarker: msg already says how the run ended.
+func hasMarker(msg string) bool { return strings.Contains(msg, marker) }
 
-// NeedsYou is the line saying the run needs the person, asking question.
-func NeedsYou(question string) string { return marker + " " + markNeedsYou + " " + question }
+// needsYou is the line saying the run needs the person, asking question.
+func needsYou(question string) string { return marker + " " + markNeedsYou + " " + question }
 
 // ReadMarker is how msg says the run ended, from its last marker line:
 // done or needs you (needsYou), and the summary or question; ok is false

@@ -21,9 +21,6 @@ import (
 	"io"
 )
 
-// StatusTimeout bounds each runner's status during a refresh.
-const StatusTimeout = plugin.StatusTimeout
-
 var (
 	// ErrNoRunner: no runner by that name.
 	ErrNoRunner = errors.New("no runner named")
@@ -78,10 +75,10 @@ func (d *Dispatcher) Start(ctx context.Context, p project.Project, brief, key, n
 }
 
 // Refresh asks the runner of each open run how it is going, concurrently,
-// each within StatusTimeout. An answer is stored; a failure keeps the last
-// known state and says why (RunErr), never guessing. With local, only the
-// built in runners are asked: the session hook and here must not wait on
-// plugins.
+// each within plugin.StatusTimeout. An answer is stored; a failure keeps
+// the last known state and says why (RunErr), never guessing. With local,
+// only the built in runners are asked: the session hook and here must not
+// wait on plugins.
 func (d *Dispatcher) Refresh(ctx context.Context, views []thread.View, local bool) []thread.View {
 	var wg sync.WaitGroup
 	for i := range views {
@@ -104,7 +101,7 @@ func (d *Dispatcher) Refresh(ctx context.Context, views []thread.View, local boo
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sctx, cancel := context.WithTimeout(ctx, StatusTimeout)
+			sctx, cancel := context.WithTimeout(ctx, plugin.StatusTimeout)
 			defer cancel()
 			st, err := runner.GetStatus(sctx, r, v.Project, v.Run.Ref)
 			if err != nil {
@@ -322,7 +319,7 @@ func (d *Dispatcher) Tidy(ctx context.Context) error {
 			errs = append(errs, err)
 			continue
 		}
-		sctx, cancel := context.WithTimeout(ctx, StatusTimeout)
+		sctx, cancel := context.WithTimeout(ctx, plugin.StatusTimeout)
 		if err := d.clean(sctx, v.Thread); errors.Is(err, errNotRecorded) {
 			errs = append(errs, err)
 		}

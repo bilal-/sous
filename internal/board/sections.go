@@ -208,11 +208,11 @@ func signalRow(o signal.Observed, now time.Time) Row {
 	return Row{ID: o.ID, Project: o.Project, Text: o.Text, Shown: o.Text, Age: age, Since: o.FirstSeen, Kind: string(o.Kind), Source: o.Plugin, Ref: o.Ref, Snoozed: o.Snoozed, Stale: o.Stale}
 }
 
-// ClassifyHere is Classify for one project: ideas and snoozed obligations
+// classifyHere is Classify for one project: ideas and snoozed obligations
 // are shown (this is where they belong), obligations come from the same
 // observed signals the board uses, and recently upstream-closed threads
 // appear so the person sees it happened.
-func ClassifyHere(h *HereData) Sections {
+func classifyHere(h *HereData) Sections {
 	s := classify(hereView, h.RenderedAt, h.Threads, h.Signals, h.Plugins)
 	for _, t := range h.RecentlyClosed {
 		s.RecentlyClosed = append(s.RecentlyClosed, ClosedRow(t, h.RenderedAt))
@@ -220,8 +220,8 @@ func ClassifyHere(h *HereData) Sections {
 	return s
 }
 
-// PluginFailures: the failed-plugin part of Why, with error detail, for footers.
-func PluginFailures(d *Data) string {
+// pluginFailures: the failed-plugin part of Why, with error detail, for footers.
+func pluginFailures(d *Data) string {
 	var b strings.Builder
 	for _, p := range d.Plugins {
 		if !p.Gap() {
