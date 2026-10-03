@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.10.1]
+
 ### Added
 * **opencode.** When opencode is installed, `sous setup` writes a plugin,
   `~/.config/opencode/plugins/sous.js`: a session starts knowing where you
