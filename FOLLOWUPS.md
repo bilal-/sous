@@ -34,3 +34,13 @@ Tracked with `sous note --file`; tick a box to close it in sous too.
 - [x] goRun ignores thread.Get's error before using th.Run <!-- sous:7a76ec6b3392 -->
 - [x] the run watcher's own stderr goes nowhere; an early watcher failure shows only as stopped without a result <!-- sous:d3c75ad21198 -->
 - [x] ~/.sous/runs folders are never pruned; drop them some time after their note closes <!-- sous:a8229154353a -->
+- [ ] harness: Qwen Code (hooks in ~/.qwen/settings.json, Claude Code's layout; skills in ~/.qwen/skills; qwen -p --approval-mode auto-edit). Installed; verify live once logged in <!-- sous:ade1b0506cb0 -->
+- [ ] harness: pi (TypeScript extension in ~/.pi/agent/extensions: session_start, session_shutdown; pi -p --mode json, --session). Installed; verify live once logged in <!-- sous:33aecfa50d3e -->
+- [ ] harness: Gemini CLI (hooks in ~/.gemini/settings.json, JSON output hookSpecificOutput.additionalContext, timeouts in ms; gemini -p --approval-mode auto_edit). Free tier retired, so docs only: say untested <!-- sous:e79ff6253cc3 -->
+- [ ] harness: Factory Droid (~/.factory/hooks.json, Claude Code's layout; droid exec --auto low -o json). Docs only <!-- sous:c8f3fe2d8569 -->
+- [ ] harness: Cursor (~/.cursor/hooks.json, sessionStart answers additional_context, no cwd: workspace_roots). Docs only <!-- sous:0743b7f5d680 -->
+- [ ] harness: Copilot CLI (~/.copilot/hooks/sous.json, camelCase input, additionalContext; sessionEnd has no transcript). Docs only <!-- sous:3cfc8a53d900 -->
+- [ ] harness: Kimi Code (~/.kimi-code/config.toml [[hooks]]; SessionStart cannot add context, so inject once on UserPromptSubmit). Docs only <!-- sous:0275e8018b1b -->
+- [ ] harness: Amp (TypeScript plugin in ~/.config/amp/plugins; agent.start returns a message). Docs only <!-- sous:a0ba73a9fc41 -->
+- [ ] harness: Goose and Cline cannot add context at session start: a line in their global AGENTS.md asking them to run sous here --brief <!-- sous:7856df15f47b -->
+- [ ] setup: remove the sous skill sous left in ~/.gemini/antigravity/skills before 0.10 (Antigravity never read it) <!-- sous:12a2f8f5cefb -->
