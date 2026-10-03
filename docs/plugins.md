@@ -180,7 +180,9 @@ The `start` request:
 
 `brief` is the whole task, as the person or their agent wrote it. `id` is
 the note's short number, handy for naming a branch. `here_file`, when
-present, names a file with a short summary of where the person left off.
+present, names a file with a short summary of where the person left off;
+read it when you start, as it is replaced the next time sous writes one.
+The built in runners put it in the agent's prompt, before the task.
 
 The `status` answer:
 

@@ -11,6 +11,9 @@ upgraded, never broken.
 * The board asks trackers about filed notes and runners about runs at
   the same time, instead of one after the other: a slow one of each
   costs the time of one.
+* A run by the built in Claude Code or Codex runner now starts knowing
+  where you left off in the project: the summary `go --run` writes is in
+  the agent's prompt, before the task. It was written and then ignored.
 
 ## [0.8.1]
 

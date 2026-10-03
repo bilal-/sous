@@ -365,3 +365,28 @@ func TestAgentsMayCommitAndNoMore(t *testing.T) {
 		}
 	}
 }
+
+// A built in run hands its agent where the person left off (here_file),
+// in the prompt itself: the file may be outside what the agent may read.
+func TestStartPutsWhereThePersonLeftOffInThePrompt(t *testing.T) {
+	testutil.FakeBin(t, "claude", "")
+	repo := gitRepo(t)
+	exe, _ := fakeSous(t)
+	here := filepath.Join(t.TempDir(), "here.txt")
+	os.WriteFile(here, []byte("api · main · last commit 2h ago\n  1  check the index  2h\n"), 0o600)
+	a, _ := Builtin("claude", t.TempDir(), exe, time.Hour)
+	a.Start(Request{ID: 8, UID: "u8", Project: repo, Brief: "Fix it.", HereFile: here})
+	var m runMeta
+	b, _ := os.ReadFile(filepath.Join(a.Home, "runs", "u8", "run.json"))
+	json.Unmarshal(b, &m)
+	i, j := strings.Index(m.Prompt, "check the index"), strings.Index(m.Prompt, "Fix it.")
+	if i < 0 || j < i {
+		t.Fatalf("the context comes before the task:\n%s", m.Prompt)
+	}
+	a.Start(Request{ID: 9, UID: "u9", Project: repo, Brief: "No context.", HereFile: filepath.Join(t.TempDir(), "gone")})
+	b, _ = os.ReadFile(filepath.Join(a.Home, "runs", "u9", "run.json"))
+	json.Unmarshal(b, &m)
+	if !strings.HasSuffix(m.Prompt, "The task:\n\nNo context.") {
+		t.Fatalf("a missing file adds nothing:\n%s", m.Prompt)
+	}
+}

@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -99,7 +100,13 @@ func (a *Agent) Start(req Request) (string, error) {
 		return "", err
 	}
 	m := runMeta{Name: a.Name, ID: req.ID, Project: req.Project, Worktree: filepath.Join(dir, "worktree"), Branch: fmt.Sprintf("sous/run-%d", req.ID), Limit: a.Limit}
-	m.Prompt = fmt.Sprintf(preamble, m.Branch) + req.Brief
+	m.Prompt = fmt.Sprintf(preamble, m.Branch)
+	if here, err := os.ReadFile(req.HereFile); req.HereFile != "" && err == nil && len(bytes.TrimSpace(here)) > 0 {
+		// Where the person left off, inline: the file may be outside what
+		// the agent is allowed to read.
+		m.Prompt = strings.Replace(m.Prompt, "The task:", "Where the person left off in this project:\n\n"+strings.TrimSpace(string(here))+"\n\nThe task:", 1)
+	}
+	m.Prompt += req.Brief
 	if out, err := exec.Command("git", "-C", req.Project, "worktree", "add", "-q", "-b", m.Branch, m.Worktree, "HEAD").CombinedOutput(); err != nil {
 		os.RemoveAll(dir)
 		return "", fmt.Errorf("making the worktree: %s", strings.TrimSpace(string(out)))
