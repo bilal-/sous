@@ -57,21 +57,31 @@ esac`)
 
 func itoa(n int) string { return strconv.Itoa(n) }
 
-// Completeness is about the pull requests GitHub had, not the
-// failing ones found: 100 pull requests with one failing is a full page.
-func TestFailingChecksWithMorePagesIsIncomplete(t *testing.T) {
+// failingScan scans one GitHub project, acme/api, whose one pull request
+// has failing checks, with gh answering the GraphQL search with graphql
+// (the pull request goes where NODE is) and its exit.
+func failingScan(t *testing.T, graphql string) (string, error) {
+	t.Helper()
 	app := repo(t, filepath.Join(t.TempDir(), "acme/api"), true)
 	git(t, app, "remote", "add", "origin", "git@github.com:acme/api.git")
 	node := `{"number":1,"title":"x","updatedAt":"2026-09-25T10:00:00Z","repository":{"nameWithOwner":"acme/api"},"commits":{"nodes":[{"commit":{"oid":"aaa","statusCheckRollup":{"state":"FAILURE"}}}]}}`
 	trackertest.Fake(t, "gh", `case "$*" in
   "auth status") exit 0;;
-  "api --hostname github.com graphql"*) printf '%s' '{"data":{"search":{"pageInfo":{"hasNextPage":true},"nodes":[`+node+`]}}}';;
+  *graphql*) `+strings.Replace(graphql, "NODE", node, 1)+`;;
+  *notifications*) printf '[[]]';;
   *) printf '[]';;
 esac`)
 	var out bytes.Buffer
 	err := ScanGitHub(&config.Config{})([]string{app}, &out, io.Discard, time.Now())
-	if err == nil || !strings.Contains(err.Error(), "more") || !strings.Contains(out.String(), "checks failing") {
-		t.Fatalf("%v %q", err, out.String())
+	return out.String(), err
+}
+
+// Completeness is about the pull requests GitHub had, not the
+// failing ones found: 100 pull requests with one failing is a full page.
+func TestFailingChecksWithMorePagesIsIncomplete(t *testing.T) {
+	out, err := failingScan(t, `printf '%s' '{"data":{"search":{"pageInfo":{"hasNextPage":true},"nodes":[NODE]}}}'`)
+	if err == nil || !strings.Contains(err.Error(), "more") || !strings.Contains(out, "checks failing") {
+		t.Fatalf("%v %q", err, out)
 	}
 }
 
@@ -79,18 +89,8 @@ esac`)
 // SAML-protected org); the rows it did return are kept, and the scan is
 // incomplete, not empty.
 func TestFailingChecksKeepsPartialDataOnError(t *testing.T) {
-	app := repo(t, filepath.Join(t.TempDir(), "acme/api"), true)
-	git(t, app, "remote", "add", "origin", "git@github.com:acme/api.git")
-	node := `{"number":1,"title":"x","updatedAt":"2026-09-25T10:00:00Z","repository":{"nameWithOwner":"acme/api"},"commits":{"nodes":[{"commit":{"oid":"aaa","statusCheckRollup":{"state":"FAILURE"}}}]}}`
-	trackertest.Fake(t, "gh", `case "$*" in
-  "auth status") exit 0;;
-  *graphql*) printf '%s' '{"data":{"search":{"nodes":[`+node+`]}},"errors":[{"message":"Resource protected by organization SAML enforcement"}]}'; echo "gh: Resource protected by organization SAML enforcement" >&2; exit 1;;
-  *notifications*) printf '[[]]';;
-  *) printf '[]';;
-esac`)
-	var out bytes.Buffer
-	err := ScanGitHub(&config.Config{})([]string{app}, &out, io.Discard, time.Now())
-	if err == nil || !strings.Contains(err.Error(), "SAML") || !strings.Contains(out.String(), "checks failing") {
-		t.Fatalf("%v %q", err, out.String())
+	out, err := failingScan(t, `printf '%s' '{"data":{"search":{"nodes":[NODE]}},"errors":[{"message":"Resource protected by organization SAML enforcement"}]}'; echo "gh: Resource protected by organization SAML enforcement" >&2; exit 1`)
+	if err == nil || !strings.Contains(err.Error(), "SAML") || !strings.Contains(out, "checks failing") {
+		t.Fatalf("%v %q", err, out)
 	}
 }

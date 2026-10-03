@@ -20,14 +20,28 @@ func setIn(t *testing.T, in string, table []string, key string, value any) (stri
 
 var projects = func(k string) []string { return []string{"projects", k} }
 
+// setCase is one edit: the file before, the setting, the file after.
+type setCase struct {
+	name, in string
+	table    []string
+	key      string
+	value    any
+	want     string
+}
+
+// checkSets makes each edit on its own file and compares the result.
+func checkSets(t *testing.T, cases []setCase) {
+	t.Helper()
+	for _, c := range cases {
+		got, err := setIn(t, c.in, c.table, c.key, c.value)
+		if err != nil || got != c.want {
+			t.Errorf("%s: %v\ngot  %q\nwant %q", c.name, err, got, c.want)
+		}
+	}
+}
+
 func TestSet(t *testing.T) {
-	for _, c := range []struct {
-		name, in string
-		table    []string
-		key      string
-		value    any
-		want     string
-	}{
+	checkSets(t, []setCase{
 		{"new file", "", nil, "agent", "codex", "agent = \"codex\"\n"},
 		{"replace keeps comments", "# mine\nagent = \"claude\" # the default\nroots = [\"~/code\"]\n", nil, "agent", "codex", "# mine\nagent = \"codex\" # the default\nroots = [\"~/code\"]\n"},
 		{"add above tables", "roots = [\"~/code\"]\n\n[projects.\"acme/*\"]\nbackend = \"markdown\"\n", nil, "refresh_hours", 2, "roots = [\"~/code\"]\nrefresh_hours = 2\n\n[projects.\"acme/*\"]\nbackend = \"markdown\"\n"},
@@ -40,12 +54,7 @@ func TestSet(t *testing.T) {
 		{"unset in table", "[projects.\"acme/*\"]\nbackend = \"markdown\"\ngithub_account = \"w\"\n", projects("acme/*"), "backend", nil, "[projects.\"acme/*\"]\ngithub_account = \"w\"\n"},
 		{"unset absent is no change", "agent = \"codex\"\n", nil, "roots", nil, "agent = \"codex\"\n"},
 		{"odd characters quoted for TOML", "", nil, "agent", "a\"b\\c\td", "agent = \"a\\\"b\\\\c\\td\"\n"},
-	} {
-		got, err := setIn(t, c.in, c.table, c.key, c.value)
-		if err != nil || got != c.want {
-			t.Errorf("%s: %v\ngot  %q\nwant %q", c.name, err, got, c.want)
-		}
-	}
+	})
 }
 
 // An edit that would change anything but the one setting is

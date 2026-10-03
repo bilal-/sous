@@ -122,10 +122,15 @@ func Load(sousHome, userHome string) (*Config, error) {
 // RefreshWindow: how old the cached board may get before the shell
 // surface refreshes it. The one place the 4-hour default lives.
 func (c *Config) RefreshWindow() time.Duration {
-	if c.RefreshHours > 0 {
-		return time.Duration(c.RefreshHours) * time.Hour
+	return orDefault(c.RefreshHours, defaultRefreshHours, time.Hour)
+}
+
+// orDefault is n units, or def units when n is not set (0 or less).
+func orDefault(n, def int, unit time.Duration) time.Duration {
+	if n <= 0 {
+		n = def
 	}
-	return defaultRefreshHours * time.Hour
+	return time.Duration(n) * unit
 }
 
 // Expand turns a leading ~ into the user's home directory.
@@ -343,10 +348,7 @@ func (sc *tomlScanner) str() {
 
 // RunLimit is how long a built in run may take (run_minutes).
 func (c *Config) RunLimit() time.Duration {
-	if c.RunMinutes > 0 {
-		return time.Duration(c.RunMinutes) * time.Minute
-	}
-	return defaultRunMinutes * time.Minute
+	return orDefault(c.RunMinutes, defaultRunMinutes, time.Minute)
 }
 
 // RunAgent is the runner go --run uses when none is named: runner, or the
