@@ -14,6 +14,7 @@ import (
 
 	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/store"
 )
 
 // Agent is a built in runner: it starts one agent CLI in a worktree, and
@@ -228,16 +229,15 @@ func pushBlock(repo string) []string {
 	return env
 }
 
+// writeJSON replaces a run file whole. Only the run's starter (before the
+// watcher is launched) and the watcher, which holds the run's lock, write
+// them; Stop writes result.json only once no watcher holds it.
 func writeJSON(dir, name string, v any) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
-	tmp := filepath.Join(dir, "."+name)
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, filepath.Join(dir, name))
+	return store.WriteFile(filepath.Join(dir, name), b, 0o600)
 }
 
 func readJSON(dir, name string, v any) error {

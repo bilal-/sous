@@ -9,6 +9,7 @@ import (
 	"github.com/bilal-/sous/internal/backend/backendtest"
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/testutil"
+	"github.com/bilal-/sous/internal/tracker"
 	"github.com/bilal-/sous/internal/tracker/trackertest"
 )
 
@@ -78,20 +79,22 @@ func remoteFixture(t *testing.T, tool, script, remote string) (home, project str
 	return home, project
 }
 
-// The real GitHub and GitLab tables, against stateful fakes of their CLIs,
-// then with the CLI unreachable.
+// Every tracker's real table, against a stateful fake of its CLI, then
+// with the CLI unreachable. A tracker with no case here fails.
 func TestRemoteTrackersConform(t *testing.T) {
+	covered := map[string]bool{}
 	for _, c := range []struct {
-		tool, fake, remote, down, ref string
-		make                          func(home string) backend.Implementation
+		kind, tool, fake, remote, down, ref string
+		make                                func(home string) backend.Implementation
 	}{
-		{"gh", ghFake, "git@github.com:acme/chime.git",
+		{tracker.GitHub, "gh", ghFake, "git@github.com:acme/chime.git",
 			`echo "error connecting to api.github.com" >&2; exit 1`, "github:acme/chime#1",
 			func(home string) backend.Implementation { return backend.GitHub(home, &config.Config{}) }},
-		{"glab", glabFake, "https://git.example.org/acme/chime.git",
+		{tracker.GitLab, "glab", glabFake, "https://git.example.org/acme/chime.git",
 			`[ "$2 $3" = "auth status" ] && { echo git.example.org; exit 0; }; echo "dial tcp: lookup git.example.org: no such host" >&2; exit 1`, "gitlab:git.example.org/acme/chime#1",
 			func(home string) backend.Implementation { return backend.GitLab(home, &config.Config{}) }},
 	} {
+		covered[c.kind] = true
 		t.Run(c.tool, func(t *testing.T) {
 			home, p := remoteFixture(t, c.tool, c.fake, c.remote)
 			b := c.make(home)
@@ -99,5 +102,10 @@ func TestRemoteTrackersConform(t *testing.T) {
 			testutil.FakeBin(t, c.tool, c.down)
 			backendtest.RunUnreachable(t, b, p, c.ref)
 		})
+	}
+	for _, k := range tracker.Kinds {
+		if !covered[k.Name] {
+			t.Errorf("tracker %s has no conformance case here: add a fake of %s", k.Name, k.Tool)
+		}
 	}
 }
