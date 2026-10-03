@@ -48,3 +48,4 @@ Tracked with `sous note --file`; tick a box to close it in sous too.
 - [ ] architecture: per-tracker settings in config (github_account, gitlab_hosts are named by hand in config and cli/config.go) <!-- sous:33219706bcae -->
 - [ ] architecture: tracker.Client{Home, Cache, Env} made in cli and passed down, in place of tracker's globals (Init, token and host caches, ResetCache) <!-- sous:4491631ca0e8 -->
 - [ ] architecture: per-harness test fixtures (testdata/<name>/) and one harnesstest.Run over harness.All, so a new agent is one file; signaltest.Run for the GitHub and GitLab signals too <!-- sous:2b18c3ec9bae -->
+- [ ] board: a run's quoted question cut short loses its closing quote ("Two fixtures… · sous reply) in the session brief and board; cut inside the quote, keep the mark (board/note.go) <!-- sous:1484537e9662 -->
