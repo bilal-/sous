@@ -139,7 +139,7 @@ func TestValidationErrorAndNotFoundMessages(t *testing.T) {
 	}
 	s := &store.Store{Home: t.TempDir()}
 	err := Edit(s, 42, "y")
-	if err == nil || !strings.Contains(err.Error(), "no open thread 42") {
+	if err == nil || !strings.Contains(err.Error(), "no open note 42") {
 		t.Fatalf("%v", err)
 	}
 }
@@ -314,8 +314,8 @@ func TestNoteIsSafeToRetry(t *testing.T) {
 	if again != id || !existed {
 		t.Fatalf("a retry is the same note: %d %d %v", id, again, existed)
 	}
-	if other, existed, _ := Note(s, p, Them, "fix the index", "human", now); other == id || existed {
-		t.Fatal("another kind is another note")
+	if same, existed, _ := Note(s, p, Them, "fix the index", "human", now); same != id || !existed {
+		t.Fatal("the same text under another kind is still that note")
 	}
 	Done(s, id, now)
 	if after, existed, _ := Note(s, p, Me, "fix the index", "human", now); after == id || existed {

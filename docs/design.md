@@ -85,15 +85,9 @@ is saved whole under a lock so a crash never leaves half a file, and is
 upgraded when an older one is read. A file written by a newer sous is
 refused, never overwritten.
 
-| File | Holds |
-|---|---|
-| `threads.json` | your notes: a short number and a stable random id, text, kind (`me`, `them` or `idea`), project, when, where it was filed, and when and by whom it was closed. A run is a note with its runner, ref and last known state. |
-| `observed.json` | what sous has seen before: when each row first and last appeared, and what you snoozed. Rows unseen for 30 days are dropped. |
-| `sessions.json` | the last agent session in each project (a pointer, not the conversation) |
-| `cache.json` | the last board, so a new shell and the menu bar can show it instantly |
-| `report.json` | when the last report was seen, where the next one starts |
-| `runs/` | one folder per run by a built in runner: the agent's worktree, its log and how it ended. Not versioned: it belongs to the runner. |
-| `config.toml` | your folders, what to skip, and settings per project. Written by you, `sous setup` and `sous config`; not versioned, and settings sous does not know are ignored. |
+The files, and what each holds, are listed in
+[the command guide](commands.md#files-sous-keeps); a run's folder under
+`runs/` is not versioned, since it belongs to its runner.
 
 sous never writes rows of its own. Apart from your notes, everything is
 worked out again on every full look.
@@ -118,20 +112,17 @@ same way a plugin from someone else is: a program named
 `sous-<kind>-<name>` that takes arguments and standard input, writes
 standard output, and runs with a time limit.
 
-* **signal**: `scan` reads project folders and writes one JSON line per
-  finding (`{v, id, project, kind, text, observed, ref, state}`).
-* **backend**: `detect <project>`, `file` (reads `{v, id, uid, project,
-  text, kind}`, and filing the same note twice is safe), `status <project> <ref>`,
-  `close <project> <ref>`, and optionally `url <project> <ref>` (reserved
-  for opening an item; sous does not call it yet).
-* **launcher**: `run <project>`, which takes over your terminal.
-* **runner**: `start <project>` (reads `{v, id, uid, project, brief}`,
-  returns a ref at once, and starting the same uid twice is safe),
-  `status <project> <ref>` (one JSON line: `running`, `needs_you`, `done` or
-  `failed`), `stop <project> <ref>`, and optionally `reply` and `clean`.
+* **signal** finds what waits, one JSON line per finding.
+* **backend** files a note in a tracker and says whether it is still open.
+* **launcher** starts an agent or editor in a project, taking over the
+  terminal.
+* **runner** takes a task, works on it somewhere else, and says how it is
+  going.
 
-Plugins from others run only when listed in `config.toml`. How to write one
-is in [plugins.md](plugins.md).
+Every call, its input and output, and the exit codes all four share are in
+[plugins.md](plugins.md), the one place the contract is written down.
+
+Plugins from others run only when listed in `config.toml`.
 
 ## Versions
 

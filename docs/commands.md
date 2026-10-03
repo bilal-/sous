@@ -180,7 +180,8 @@ Options:
   internet.
 * `--json`: `new_on_you`, `new_on_others`, `new_ideas` and `closed` as
   items, `worked`, `attention`, and `now` (how many are waiting at the end
-  of the window).
+  of the window). It only reads: the next report still starts where the
+  last one you saw ended, so a program can ask as often as it likes.
 
 A report only counts as seen when it was shown. If writing or opening it
 fails, the next report still covers the same time.
@@ -199,7 +200,8 @@ and project again while that note is open gives back the same note
 `{"id": "7", "did": "noted", "ref": null, "next": [...]}`; every command
 that changes something answers this way, and `did` says what happened
 (`noted`, `already_noted`, `edited`, `kind`, `snoozed`, `closed`,
-`already_closed`, `filed`, `replied`, and for `go --run` `started` and
+`already_closed`, `cleaned` (a closed run's worktree removed by
+`done --clean`), `filed`, `replied`, and for `go --run` `started` and
 `already_started`).
 
 Options:

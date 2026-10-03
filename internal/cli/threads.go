@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/bilal-/sous/internal/runs"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/text"
@@ -28,8 +30,14 @@ func cmdNote(e *Env, a argv) int {
 		return threadErr(e, err)
 	}
 	did, said := didNoted, fmt.Sprintf("noted %d in %s", id, p.Name)
+	if strings.ContainsAny(strings.TrimSpace(a.pos[0]), "\n\t") {
+		said += " (joined onto one line)" // a note is one line; say so
+	}
 	if existed {
 		did, said = didAlreadyNoted, fmt.Sprintf("already noted as %d in %s", id, p.Name)
+		if th, err := thread.Get(e.store(), id); err == nil && th.Kind != kind {
+			said += fmt.Sprintf(" (%s; sous kind %d %s to change it)", th.Kind, id, kind)
+		}
 	}
 	c := changedJSON{ID: fmt.Sprint(id), Did: did, Next: noteNext(e, id)}
 	if !a.has("file") {
@@ -54,7 +62,7 @@ func cmdNote(e *Env, a argv) int {
 func threadID(e *Env, s string) (int, int) {
 	id, err := strconv.Atoi(s)
 	if err != nil || id <= 0 {
-		return 0, fail(e, exitUsage, "thread id must be a number, got %q", s)
+		return 0, fail(e, exitUsage, "a note is named by its number, got %q", s)
 	}
 	return id, 0
 }
@@ -98,7 +106,7 @@ func cmdKind(e *Env, a argv) int {
 	if err := thread.SetKind(e.store(), id, thread.Kind(a.pos[1])); err != nil {
 		return threadErr(e, err)
 	}
-	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didKind, Next: noteNext(e, id)}, fmt.Sprintf("%d is %s now", id, a.pos[1]))
+	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didKind, Kind: a.pos[1], Next: noteNext(e, id)}, fmt.Sprintf("%d is %s now", id, a.pos[1]))
 }
 
 // cmdSnooze hides a thread for N days, or a signal (s:…) until it changes.
@@ -129,8 +137,8 @@ func cmdSnooze(e *Env, a argv) int {
 	if err := thread.Snooze(e.store(), id, days, now); err != nil {
 		return threadErr(e, err)
 	}
-	until := now.Add(time.Duration(days) * 24 * time.Hour)
-	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didSnoozed, Next: noteNext(e, id)}, fmt.Sprintf("snoozed %d until %s", id, text.When(until)))
+	until := now.Add(time.Duration(days) * 24 * time.Hour).UTC()
+	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didSnoozed, Until: &until, Next: noteNext(e, id)}, fmt.Sprintf("snoozed %d until %s", id, text.When(until)))
 }
 
 // cmdDone closes a thread locally; --close closes it in its tracker first,
@@ -147,7 +155,8 @@ func cmdDone(e *Env, a argv) int {
 	}
 	// Each step is safe to repeat, so done again (or with --close or
 	// --clean after a plain done) does what is left, and says so.
-	if c := stopRun(e, id, a.has("clean")); c != 0 {
+	finished, c := stopRun(e, id, a.has("clean"))
+	if c != 0 {
 		return c
 	}
 	if a.has("close") {
@@ -156,8 +165,11 @@ func cmdDone(e *Env, a argv) int {
 		}
 	}
 	if th.Closed != nil {
-		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didAlreadyClosed, Ref: th.Ref, Next: []string{"sous"}},
-			fmt.Sprintf("%d was closed %s", id, text.Ago(time.Now(), *th.Closed)))
+		did, said := didAlreadyClosed, fmt.Sprintf("%d was closed %s", id, text.Ago(time.Now(), *th.Closed))
+		if finished == runs.Cleaned {
+			did, said = didCleaned, fmt.Sprintf("cleaned up run %d (closed %s)", id, text.Ago(time.Now(), *th.Closed))
+		}
+		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: did, Ref: th.Ref, Next: []string{"sous"}}, said)
 	}
 	if err := thread.Done(e.store(), id, time.Now()); err != nil {
 		return threadErr(e, err)

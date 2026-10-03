@@ -16,6 +16,7 @@ import (
 
 	"github.com/bilal-/sous/internal/install"
 
+	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/testutil"
 )
 
@@ -272,7 +273,7 @@ func TestAXIMisses(t *testing.T) {
 	if out, _, code := f.run("projects", "zzz", "--json"); code != 0 || strings.TrimSpace(out) != "[]" {
 		t.Fatalf("%d %q", code, out)
 	}
-	if _, errs, code := f.run("lsit"); code != 2 || !strings.Contains(errs, "not a command or a project") || !strings.Contains(errs, "sous help") {
+	if _, errs, code := f.run("qqqq"); code != 2 || !strings.Contains(errs, "not a command or a project") || !strings.Contains(errs, "sous help") {
 		t.Fatalf("%d %q", code, errs)
 	}
 	if out, _, code := f.run("--version"); code != 0 || out != "sous "+Version+"\n" {
@@ -295,6 +296,42 @@ func TestAXI10HelpCarriesTheDocs(t *testing.T) {
 		out, _, _ := f.run(v.name, "--help")
 		if !strings.Contains(out, "\nsous "+v.name) {
 			t.Errorf("%s --help has no section from docs/commands.md:\n%s", v.name, out)
+		}
+	}
+}
+
+// sous help <command> is that command's --help; a mistyped command is
+// named, with the one it most likely meant, however it was typed.
+func TestHelpForACommandAndTypos(t *testing.T) {
+	f := fixture(t)
+	a, _, _ := f.run("help", "note")
+	b, _, _ := f.run("note", "--help")
+	if a != b || !strings.HasPrefix(a, "usage: sous note") {
+		t.Fatalf("help note:\n%s\nnote --help:\n%s", a, b)
+	}
+	for _, args := range [][]string{{"nte", "x"}, {"notee"}, {"help", "nte"}} {
+		if _, errs, code := f.run(args...); code != 2 || !strings.Contains(errs, "did you mean sous note?") {
+			t.Errorf("%v: %d %q", args, code, errs)
+		}
+	}
+}
+
+// The README's tables are the front page: they cannot fall behind the
+// commands and settings there are.
+func TestReadmeListsEveryCommandAndSetting(t *testing.T) {
+	b, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readme := string(b)
+	for _, v := range verbs {
+		if v.usage != "" && v.name != "help" && v.name != "version" && !strings.Contains(readme, "`sous "+v.name) {
+			t.Errorf("README.md does not list sous %s", v.name)
+		}
+	}
+	for _, k := range config.Keys() {
+		if !strings.Contains(readme, "\n"+k.Name+" = ") {
+			t.Errorf("README.md's configuration sample has no %s", k.Name)
 		}
 	}
 }

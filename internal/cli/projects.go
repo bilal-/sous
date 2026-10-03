@@ -93,8 +93,16 @@ func resolveProject(e *Env, term string) (project.Project, int) {
 
 // projectErr says why no single project could be found.
 func projectErr(e *Env, err error) int {
-	if errors.Is(err, project.ErrNotInProject) {
+	var amb *project.AmbiguousError
+	switch {
+	case errors.Is(err, project.ErrNotInProject):
 		return fail(e, exitUsage, "not inside a project; use -p <project>")
+	case errors.As(err, &amb):
+		ej := errorJSON{Error: err.Error(), Exit: exitUsage}
+		for _, p := range amb.Hits {
+			ej.Matches = append(ej.Matches, project.OrgName(p.Path))
+		}
+		return failWith(e, ej)
 	}
 	return fail(e, exitUsage, "%v", err)
 }

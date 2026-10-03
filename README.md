@@ -390,9 +390,8 @@ explains itself with `--help`.
 To write a note that starts with a dash, put `--` before it:
 `sous note -- "-2 tests failing"`.
 
-Exit codes: `0` fine, `1` something failed, `2` the command was wrong or a
-name was ambiguous, `3` asked for the cached board before there was one, or
-the agent or runner `sous go` needs is not set up.
+The exit codes, the same for every command and plugin, are in
+[the command guide](docs/commands.md#exit-codes).
 
 ## How sous stays honest
 
@@ -418,6 +417,7 @@ Change settings with `sous config` (see
 roots = ["~/code"]             # where your projects live
 ignore = ["scratch/*"]         # folders to skip
 agent = "claude"               # the agent sous go starts
+runner = "codex"               # the runner sous go --run uses; agent when not set
 refresh_hours = 4              # how old the shell's cached board may get
 run_minutes = 60               # how long a run by a built in runner may take
 gitlab_hosts = ["git.example.org"]   # GitLab servers, beyond the ones glab knows

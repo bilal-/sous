@@ -141,6 +141,10 @@ func TestAmbiguousProjectViaCLI(t *testing.T) {
 	if err == nil && strings.Contains(string(b), `"x"`) {
 		t.Fatal("ambiguity must not write a note")
 	}
+	out, _, _ := f.runIn(f.Home, "note", "-p", "app-", "x", "--json")
+	if !strings.Contains(out, `"matches": [`) || !strings.Contains(out, `"a/app-mobile"`) || !strings.Contains(out, `"a/app-next"`) {
+		t.Fatalf("with --json the matches are a list to pick from:\n%s", out)
+	}
 }
 
 func TestSousHomeDefault(t *testing.T) {
@@ -166,5 +170,18 @@ func TestNoteWorksWithBrokenConfig(t *testing.T) {
 	}
 	if _, errs, code := f.run("done", "1"); code != 0 {
 		t.Fatalf("closing a note needs no config either: %d %q", code, errs)
+	}
+}
+
+// A note says what it changed about what it was given: lines joined into
+// one, or a retry under another kind finding the note already there.
+func TestNoteSaysWhatItDidWithItsText(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	if out, _, _ := f.runIn(p, "note", "-k", "me", "first line\nsecond"); !strings.Contains(out, "noted 1 in api (joined onto one line)") {
+		t.Fatalf("%q", out)
+	}
+	if out, _, _ := f.runIn(p, "note", "-k", "idea", "first line second"); !strings.Contains(out, "already noted as 1 in api (me; sous kind 1 idea to change it)") {
+		t.Fatalf("%q", out)
 	}
 }

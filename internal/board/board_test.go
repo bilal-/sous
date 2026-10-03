@@ -247,12 +247,21 @@ func TestSnoozedAndRunItems(t *testing.T) {
 		t.Fatalf("%+v", j.OnYou)
 	}
 	h := (&HereData{RenderedAt: now, Threads: []thread.View{idea}}).JSON()
-	if len(h.Ideas) != 1 || !h.Ideas[0].Snoozed {
-		t.Fatalf("here keeps a snoozed idea in place: %+v", h)
+	if len(h.Ideas) != 0 || len(h.Snoozed) != 1 || !h.Snoozed[0].Snoozed {
+		t.Fatalf("here --json puts it under snoozed too, as the board does: %+v", h)
 	}
 	var b strings.Builder
 	RenderNote(&b, run, now, "/home/sam")
 	if !strings.Contains(b.String(), "(me · ") {
 		t.Fatalf("show says a run waiting on you is on you:\n%s", b.String())
+	}
+}
+
+// A failed run's next steps go forward: see why, try again under a new
+// key (the same brief would find the failed run), or clean it up.
+func TestFailedRunSuggestsARetry(t *testing.T) {
+	v := thread.View{Thread: thread.Thread{ID: 7, Project: "/code/acme/billing", Run: &thread.Run{State: thread.RunFailed}}}
+	if got := strings.Join(Next(v), " | "); got != "sous show 7 | sous go billing --run - --key retry-7 | sous done 7 --clean" {
+		t.Fatal(got)
 	}
 }

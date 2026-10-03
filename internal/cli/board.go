@@ -95,6 +95,9 @@ func cmdPath(e *Env, arg string) int {
 	if errors.Is(err, project.ErrNoMatch) && !strings.ContainsAny(arg, "/.") {
 		// A word that is neither a command nor a project is most likely a
 		// command misremembered.
+		if near := nearestVerb(arg); near != "" {
+			return unknownCommand(e, arg)
+		}
 		return fail(e, exitUsage, "%q is not a command or a project; sous help lists the commands, sous projects the projects", arg)
 	}
 	if err != nil {

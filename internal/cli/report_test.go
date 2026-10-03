@@ -59,3 +59,20 @@ func TestFailedReportKeepsItsWindow(t *testing.T) {
 		t.Fatalf("the failed report consumed the window:\n%s", out)
 	}
 }
+
+// report --json only reads: a program can ask again and get the same
+// window; the mark moves when the report is shown to the person.
+func TestReportJSONDoesNotMoveTheMark(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	f.runIn(p, "note", "-k", "me", "fresh note")
+	for i := 0; i < 2; i++ {
+		if out, _, _ := f.run("report", "--json"); !strings.Contains(out, "fresh note") {
+			t.Fatalf("read %d: %s", i, out)
+		}
+	}
+	f.run("report")
+	if out, _, _ := f.run("report", "--json"); strings.Contains(out, "fresh note") {
+		t.Fatalf("after the person saw it, the next report starts there:\n%s", out)
+	}
+}

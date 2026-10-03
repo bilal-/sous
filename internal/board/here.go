@@ -1,10 +1,12 @@
 package board
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -113,7 +115,10 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 	list := func(rows []Row, suffix string) {
 		shown := rows
 		if limit > 0 && len(rows) > limit {
-			shown = rows[:limit]
+			// What waits now first: a snoozed row takes a slot last.
+			shown = slices.Clone(rows)
+			slices.SortStableFunc(shown, func(a, b Row) int { return cmp.Compare(boolInt(a.Snoozed), boolInt(b.Snoozed)) })
+			shown = shown[:limit]
 		}
 		for _, r := range shown {
 			line, c := r.hereLine()
@@ -126,9 +131,9 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 	}
 	list(s.Me, "")
 	list(s.Them, "  (them)")
-	list(s.Ideas, "")
+	list(s.Ideas, "  (idea)")
 	if cut {
-		fmt.Fprintln(w, "  (… cut short: sous show <n> for a whole note)")
+		fmt.Fprintln(w, cutNote)
 	}
 	for _, r := range s.RecentlyClosed {
 		fmt.Fprintf(w, "  ✓ %s  %s  (closed upstream %s)\n", r.ID, r.Shown, r.Age)
@@ -197,3 +202,10 @@ func (r Row) hereLine() (line string, cut bool) {
 // briefRows is how many rows of each kind the short form (what an agent
 // hears at session start) lists.
 const briefRows = 5
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}

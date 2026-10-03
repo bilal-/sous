@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/thread"
@@ -16,6 +17,10 @@ type changedJSON struct {
 	Did  string   `json:"did"` // one of dids
 	Ref  *string  `json:"ref"` // where it is filed, when it is
 	Next []string `json:"next"`
+	// Kind: for kind, the note's kind now. Until: for snooze, when it
+	// shows again (null for a signal, snoozed until it changes).
+	Kind  string     `json:"kind,omitempty"`
+	Until *time.Time `json:"until,omitempty"`
 	// Run: for go --run, the run it started or found.
 	Run *board.RunItem `json:"run,omitempty"`
 	// Error: part of it could not be done (noted, but not filed: why).
@@ -32,13 +37,14 @@ const (
 	didSnoozed        = "snoozed"
 	didClosed         = "closed"
 	didAlreadyClosed  = "already_closed"
+	didCleaned        = "cleaned"
 	didFiled          = "filed"
 	didReplied        = "replied"
 	didStarted        = "started"
 	didAlreadyStarted = "already_started"
 )
 
-var dids = []string{didNoted, didAlreadyNoted, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didFiled, didReplied, didStarted, didAlreadyStarted}
+var dids = []string{didNoted, didAlreadyNoted, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didCleaned, didFiled, didReplied, didStarted, didAlreadyStarted}
 
 // changed prints c: as JSON, or as what it did and what to do next on
 // one line.

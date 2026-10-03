@@ -115,27 +115,27 @@ func cmdReply(e *Env, a argv) int {
 
 // stopRun stops a note's run before done closes it; with clean, its
 // worktree goes too (runs.Dispatcher.Finish decides what that means).
-func stopRun(e *Env, id int, clean bool) int {
+func stopRun(e *Env, id int, clean bool) (runs.Finished, int) {
 	th, err := thread.Get(e.store(), id)
 	switch {
 	case err != nil:
-		return threadErr(e, err)
+		return runs.NoRun, threadErr(e, err)
 	case th.Run == nil && !clean:
 		// A plain note closes even when config.toml is broken; only a run
 		// needs the runners config lists.
-		return 0
+		return runs.NoRun, 0
 	}
 	if _, code := e.config(); code != 0 {
-		return code
+		return runs.NoRun, code
 	}
 	done, err := e.dispatcher().Finish(e.ctx(), id, clean)
 	switch {
 	case errors.Is(err, runs.ErrNotARun):
-		return fail(e, exitUsage, "%v", err)
+		return done, fail(e, exitUsage, "%v", err)
 	case err != nil:
-		return fail(e, exitFailed, "%v (it stays open)", err)
+		return done, fail(e, exitFailed, "%v (it stays open)", err)
 	case done == runs.CantClean:
 		fmt.Fprintf(e.Stderr, "sous: %s cannot clean up after its runs; its files stay\n", th.Run.Runner)
 	}
-	return 0
+	return done, 0
 }

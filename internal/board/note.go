@@ -22,14 +22,14 @@ type runLook struct {
 }
 
 var runLooks = map[thread.RunState]runLook{
-	thread.RunStarting: {label: "run starting", next: []string{"sous show %d", "sous done %d"}},
-	thread.RunRunning:  {label: "running", next: []string{"sous show %d", "sous done %d"}},
+	thread.RunStarting: {label: "run starting", next: []string{"sous show {n}", "sous done {n}"}},
+	thread.RunRunning:  {label: "running", next: []string{"sous show {n}", "sous done {n}"}},
 	thread.RunNeedsYou: {label: "run needs you", detail: func(r *thread.Run) string { return fmt.Sprintf(" · %q", r.Text) },
-		next: []string{`sous reply %d "<answer>"`, "sous done %d"}},
+		next: []string{`sous reply {n} "<answer>"`, "sous done {n}"}},
 	thread.RunDone: {label: "run done, review it", detail: func(r *thread.Run) string { return text.Suffix(r.Branch) },
-		next: []string{"sous done %d --clean"}},
+		next: []string{"sous done {n} --clean"}},
 	thread.RunFailed: {label: "run failed", detail: func(r *thread.Run) string { return text.Suffix(r.Text) },
-		next: []string{"sous show %d", "sous done %d --clean"}},
+		next: []string{"sous show {n}", "sous go {project} --run - --key retry-{n}", "sous done {n} --clean"}},
 }
 
 // look is r's entry; a state sous does not know reads like running.
@@ -59,9 +59,10 @@ func Next(v thread.View) []string {
 	case v.Run == nil:
 		return []string{fmt.Sprintf("sous done %d", v.ID)}
 	}
+	fill := strings.NewReplacer("{n}", fmt.Sprint(v.ID), "{project}", filepath.Base(v.Project))
 	var out []string
 	for _, c := range look(v.Run).next {
-		out = append(out, fmt.Sprintf(c, v.ID))
+		out = append(out, fill.Replace(c))
 	}
 	return out
 }

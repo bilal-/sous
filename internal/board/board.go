@@ -100,9 +100,19 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 	return &Data{Projects: ps, Signals: sigs, Threads: ths, Plugins: col.Plugins, Checked: len(ps), Unavailable: unavailable, RenderedAt: in.Now.UTC()}, nil
 }
 
+// The width of a row's text on the board, and what the board says when it
+// cut a note to fit.
+const (
+	lineText = 60
+	cutNote  = "  (… cut short: sous show <n> for a whole note)"
+)
+
+// cut: the row's text is longer than the board shows.
+func (r Row) cut() bool { return text.Ellipsize(r.Shown, lineText) != r.Shown }
+
 // Line is a row as the board and the report lay it out.
 func (r Row) Line() string {
-	return fmt.Sprintf("  %-14s  %-24s  %-60s  %s", r.ID, text.Ellipsize(filepath.Base(r.Project), 24), text.Ellipsize(r.Shown, 60), r.Age) + r.upstreamNote()
+	return fmt.Sprintf("  %-14s  %-24s  %-60s  %s", r.ID, text.Ellipsize(filepath.Base(r.Project), 24), text.Ellipsize(r.Shown, lineText), r.Age) + r.upstreamNote()
 }
 
 // upstreamNote says when a filed note's tracker could not vouch for it:
@@ -138,6 +148,7 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 	default:
 		fmt.Fprintln(w, "sous · "+s.Counts())
 	}
+	cut := false
 	section := func(title string, rows []Row) {
 		if len(rows) == 0 {
 			return
@@ -145,11 +156,15 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 		fmt.Fprintf(w, "\n  %s\n", title)
 		for _, r := range rows {
 			fmt.Fprintln(w, r.Line())
+			cut = cut || r.cut() && !signal.IsID(r.ID)
 		}
 	}
 	section("on you", s.Me)
 	section("on others", s.Them)
 	section("unfinished", s.Unfinished)
+	if cut {
+		fmt.Fprintln(w, cutNote)
+	}
 
 	fmt.Fprintf(w, "\n  %d checked · %d unavailable%s · as of %s · sous snooze <id> to hide a row\n",
 		d.Checked, d.Unavailable, PluginFailures(d), text.AsOf(d.RenderedAt, now))

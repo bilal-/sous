@@ -162,7 +162,65 @@ func usage(w io.Writer) {
 }
 
 func cmdVersion(e *Env, _ argv) int { fmt.Fprintf(e.Stdout, "sous %s\n", Version); return 0 }
-func cmdHelp(e *Env, _ argv) int    { usage(e.Stdout); return 0 }
+
+// cmdHelp is the usage of every command, or of one: sous help note is
+// sous note --help.
+func cmdHelp(e *Env, a argv) int {
+	if len(a.pos) == 0 {
+		usage(e.Stdout)
+		return 0
+	}
+	v, ok := findVerb(a.pos[0])
+	if !ok || v.usage == "" {
+		return unknownCommand(e, a.pos[0])
+	}
+	return verbHelp(e, v)
+}
+
+// unknownCommand says word is not a command, and which one it may mean.
+func unknownCommand(e *Env, word string) int {
+	hint := "sous help lists the commands"
+	if near := nearestVerb(word); near != "" {
+		hint = "did you mean sous " + near + "?"
+	}
+	return fail(e, exitUsage, "%q is not a command; %s", word, hint)
+}
+
+// nearestVerb is the command word is a typo of (at most two letters off),
+// or "".
+func nearestVerb(word string) string {
+	best, bestD := "", 3
+	for _, v := range verbs {
+		if v.usage == "" {
+			continue
+		}
+		if d := editDistance(word, v.name); d < bestD {
+			best, bestD = v.name, d
+		}
+	}
+	return best
+}
+
+// editDistance is how many letters to add, drop or change to turn a into b.
+func editDistance(a, b string) int {
+	prev := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		cur := make([]int, len(b)+1)
+		cur[0] = i
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+		}
+		prev = cur
+	}
+	return prev[len(b)]
+}
 
 // stableExe is the path hooks and scripts should name for this sous: the
 // sous found on PATH when it is this same program (Homebrew's
@@ -184,15 +242,21 @@ func stableExe(exe string) string {
 }
 
 func fail(e *Env, code int, format string, a ...any) int {
-	msg := fmt.Sprintf(format, a...)
-	fmt.Fprintln(e.Stderr, "sous: "+msg)
+	return failWith(e, errorJSON{Error: fmt.Sprintf(format, a...), Exit: code})
+}
+
+// failWith says what went wrong on stderr, and with --json on stdout too,
+// with whatever else a program can act on (the matches of an ambiguous
+// name).
+func failWith(e *Env, ej errorJSON) int {
+	fmt.Fprintln(e.Stderr, "sous: "+ej.Error)
 	if e.JSON {
 		// A caller that asked for JSON reads stdout: the error is there too.
 		// Written directly, never through writeJSON, which fails through here.
-		b, _ := json.MarshalIndent(errorJSON{Error: msg, Exit: code}, "", "  ")
+		b, _ := json.MarshalIndent(ej, "", "  ")
 		fmt.Fprintf(e.Stdout, "%s\n", b)
 	}
-	return code
+	return ej.Exit
 }
 
 // errorJSON is what --json prints when a command fails: the same line as
@@ -200,6 +264,9 @@ func fail(e *Env, code int, format string, a ...any) int {
 type errorJSON struct {
 	Error string `json:"error"`
 	Exit  int    `json:"exit"`
+	// Matches: the projects an ambiguous name matched, as org/name, to
+	// pick one from.
+	Matches []string `json:"matches,omitempty"`
 }
 
 // Run is the whole CLI. Returns the process exit code.
@@ -316,7 +383,7 @@ func dispatch(e *Env, cmd string, rest []string) int {
 		if len(rest) == 0 {
 			return cmdPath(e, cmd)
 		}
-		return fail(e, exitUsage, "unknown subcommand: %s (try: sous help)", cmd)
+		return unknownCommand(e, cmd)
 	}
 	// A verb that has no use for --json or --brief refuses it: silently
 	// ignoring it would let a caller believe it took effect.

@@ -102,9 +102,23 @@ type Waiting struct {
 	Attention []string `json:"attention"`
 }
 
+// waiting is the sections as --json lists them. One rule for every view:
+// what is snoozed is under snoozed, wherever the text shows it.
 func (s Sections) waiting() Waiting {
-	return Waiting{OnYou: Items(s.Me), OnOthers: Items(s.Them), Unfinished: Items(s.Unfinished), Ideas: Items(s.Ideas),
-		Snoozed: Items(s.Snoozed), Attention: append([]string{}, s.Why...)}
+	snoozed := Items(s.Snoozed)
+	awake := func(rows []Row) []Item {
+		out := []Item{}
+		for _, r := range rows {
+			if r.Snoozed {
+				snoozed = append(snoozed, r.Item())
+			} else {
+				out = append(out, r.Item())
+			}
+		}
+		return out
+	}
+	return Waiting{OnYou: awake(s.Me), OnOthers: awake(s.Them), Unfinished: awake(s.Unfinished), Ideas: awake(s.Ideas),
+		Snoozed: snoozed, Attention: append([]string{}, s.Why...)}
 }
 
 // BoardJSON is sous --json.

@@ -37,7 +37,8 @@ func cmdReport(e *Env, a argv) int {
 	seen := true
 	switch {
 	case e.JSON:
-		code = e.writeJSON(r.JSON())
+		// A program reads; only the person seeing it moves the mark.
+		code, seen = e.writeJSON(r.JSON()), false
 	case a.has("open"):
 		code, seen = openReport(e, r)
 	default:

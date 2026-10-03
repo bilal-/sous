@@ -53,7 +53,7 @@ func init() {
 		{"setup", cmdSetup, false, false, &argSpec{bools: append([]string{"print-skill", "no-shell"}, harness.Flags()...), max: -1}, "sous setup [folder...] [--no-shell] [--print-skill]" + setupFlags() + "   set everything up; folders say where your projects are"},
 		{"doctor", cmdDoctor, true, false, exactly(0, nil, nil), "sous doctor       check that sous is set up and working, and how to fix what is not"},
 		{"version", cmdVersion, false, false, exactly(0, nil, nil), "sous version"},
-		{"help", cmdHelp, false, false, exactly(0, nil, nil), "sous help"},
+		{"help", cmdHelp, false, false, &argSpec{max: 1}, "sous help [command]"},
 		// Internal doors: how the runner re-execs built-ins, and hooks. Not in help.
 		{plugin.AxisSignal, cmdSignal, false, false, nil, ""},
 		{plugin.AxisBackend, cmdBackend, false, false, nil, ""},

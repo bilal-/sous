@@ -120,7 +120,7 @@ type View struct {
 	LogTail []string `json:"-"`
 }
 
-var ErrNotFound = errors.New("no open thread")
+var ErrNotFound = errors.New("no open note")
 
 // ValidationError marks caller mistakes (bad kind, empty text) so the CLI can
 // report them as usage errors rather than failures.
@@ -195,8 +195,8 @@ func migrateV0(raw []byte) ([]byte, error) {
 }
 
 // Note saves a note and returns its number. It is safe to retry: an open
-// note in the same project with the same kind and text is that note
-// (existed), whoever wrote it.
+// note in the same project with the same text is that note (existed),
+// whoever wrote it and whatever kind it was given.
 func Note(s *store.Store, p project.Project, kind Kind, note, source string, now time.Time) (id int, existed bool, err error) {
 	if !kind.Valid() {
 		return 0, false, ValidationError("kind must be me, them, or idea")
@@ -207,7 +207,7 @@ func Note(s *store.Store, p project.Project, kind Kind, note, source string, now
 	}
 	_, err = store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
 		for _, t := range d.Threads {
-			if t.Closed == nil && t.Run == nil && t.Kind == kind && t.Text == note && t.Belongs(p.Path, remoteOf(p)) {
+			if t.Closed == nil && t.Run == nil && t.Text == note && t.Belongs(p.Path, remoteOf(p)) {
 				id, existed = t.ID, true
 				return nil
 			}
@@ -413,7 +413,7 @@ func FileAtomically(s *store.Store, id int, refile bool, do func(Thread) (string
 				continue
 			}
 			if t.Closed != nil {
-				return fmt.Errorf("thread %d is closed", id)
+				return fmt.Errorf("note %d is closed", id)
 			}
 			if t.Ref != nil && !refile {
 				ref = *t.Ref

@@ -62,7 +62,7 @@ func closeUpstream(e *Env, id int) int {
 		if errors.Is(err, thread.ErrNotFound) {
 			return threadErr(e, err)
 		}
-		return fail(e, exitFailed, "%v (thread %d left open)", err, id)
+		return fail(e, exitFailed, "%v (note %d left open)", err, id)
 	}
 	return 0
 }

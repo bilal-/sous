@@ -16,8 +16,32 @@ upgraded, never broken.
   two.
 * Retrying `go --run` while its runner is not set up starts the same note
   again instead of leaving a failed note for every try.
+* A runner that is not set up says "not set up" once, not twice. A `gh`
+  or `glab` that cannot answer (the network is down) is reported as an
+  error, not as "not set up".
 
 ### Changed
+* `report --json` only reads: the next report still starts where the last
+  one you saw ended, so a program can ask as often as it likes. Before,
+  reading it used up the report for you.
+* `note` with the same text as an open note in the same project is that
+  note whatever kind it was given, and says which kind it has and how to
+  change it. A note written over several lines says it was joined onto
+  one.
+* A failed run suggests trying again under a new key
+  (`sous go <project> --run - --key retry-<n>`), as well as `show` and
+  `done --clean`.
+* `done --clean` on a run already closed says it cleaned it up
+  (`did: cleaned`). `kind` and `snooze` answers carry the new kind and
+  when the snooze ends.
+* With `--json`, a name that matches several projects lists them under
+  `matches`.
+* `here` marks ideas `(idea)`, as it marks others' rows `(them)`; its short
+  form lists snoozed rows last; the board says when it cut a note. In
+  every `--json`, what is snoozed is under `snoozed`.
+* `sous help <command>` is that command's help. A mistyped command says
+  which one it most likely meant. Errors say "note" where they said
+  "thread".
 * `go --run --json` answers like every other change: `did` is `started`
   or `already_started`, and the run is under `run`. When the run it finds
   already failed or finished, the text says so.
