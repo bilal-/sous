@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.9.0]
+
 ### Changed
 * Run folders no longer pile up in `~/.sous/runs`. `done --clean` removes
   the run's whole folder, not only its worktree. A built in run closed
