@@ -23,8 +23,8 @@ var opencode = Harness{
 	HookFile: func(home string) string { return filepath.Join(home, ".config", "opencode", "plugins", "sous.js") },
 	Format:   OpencodePlugin{},
 	Hooks: []Hook{
-		{Role: RoleStart, Event: "session-start"},
-		{Role: RoleEnd, Event: "session-end"},
+		{Role: RoleStart, Event: RoleStart},
+		{Role: RoleEnd, Event: RoleEnd},
 	},
 	Parse: parseHookJSON,
 	// The plugin sends what the agent said last; there is no transcript.
@@ -86,8 +86,9 @@ func (OpencodePlugin) Place(file, event string, cmd Cmd) (bool, error) {
 		}
 		cmds[event] = cmd.String()
 		js := func(s string) string { q, _ := json.Marshal(s); return string(q) }
-		out := strings.NewReplacer("{{start}}", cmds["session-start"], "{{end}}", cmds["session-end"],
-			"{{startJSON}}", js(cmds["session-start"]), "{{endJSON}}", js(cmds["session-end"])).Replace(opencodePlugin)
+		out := strings.NewReplacer("{{start}}", cmds[RoleStart], "{{end}}", cmds[RoleEnd],
+			"{{startJSON}}", js(cmds[RoleStart]), "{{endJSON}}", js(cmds[RoleEnd]),
+			"{{timeoutMs}}", fmt.Sprint(HookTimeout.Milliseconds())).Replace(opencodePlugin)
 		if out == string(b) {
 			return nil, nil
 		}

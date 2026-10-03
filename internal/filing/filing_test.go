@@ -231,3 +231,29 @@ func TestReconcileKeepsANoteItCouldNotClose(t *testing.T) {
 		t.Fatalf("%+v", out)
 	}
 }
+
+// Ask works on its own copy of the filed notes: the views may change while
+// it asks (the runners' answers land on them), and it changes nothing.
+func TestAskWorksOnACopy(t *testing.T) {
+	e := setup(t)
+	p := e.repo(t, "a/r", "", true)
+	id := e.note(t, p, "filed")
+	if _, err := e.f.File(context.Background(), id, false); err != nil {
+		t.Fatal(err)
+	}
+	views, _ := thread.Open(e.s, time.Now())
+	views[0].Run = &thread.Run{State: thread.RunRunning}
+	filed := Filed(views)
+	done := make(chan []Upstream)
+	go func() { done <- e.f.Ask(context.Background(), filed) }()
+	for range 100 {
+		views[0].Run = &thread.Run{State: thread.RunDone}
+	}
+	answers := <-done
+	if len(answers) != 1 || answers[0].ID != id || answers[0].State != "open" || views[0].Upstream != "" {
+		t.Fatalf("%+v %+v", answers, views[0])
+	}
+	if got := e.f.Settle(views, answers, time.Now()); got[0].Upstream != "open" {
+		t.Fatalf("%+v", got[0])
+	}
+}

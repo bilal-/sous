@@ -45,7 +45,7 @@ func cmdHook(e *Env, a argv) int {
 		var buf bytes.Buffer
 		sub := e.child(&buf, io.Discard, true)
 		sub.PluginTimeout = 2 * time.Second
-		sub.Deadline = time.Now().Add(4 * time.Second)
+		sub.Deadline = time.Now().Add(harness.HookGuard - time.Second)
 		sub.ctx()
 		defer sub.close()
 		var runs string
@@ -89,7 +89,7 @@ func runsWaiting(e *Env) string {
 	return board.RunsWaiting(e.dispatcher().Refresh(e.ctx(), views, true))
 }
 
-// guarded runs fn but gives up after hookGuard, so a slow git, a huge
+// guarded runs fn but gives up after harness.HookGuard, so a slow git, a huge
 // transcript or a busy lock never holds up the agent. It reports whether
 // fn finished in time.
 func guarded(fn func()) bool {
@@ -98,10 +98,7 @@ func guarded(fn func()) bool {
 	select {
 	case <-done:
 		return true
-	case <-time.After(hookGuard):
+	case <-time.After(harness.HookGuard):
 		return false
 	}
 }
-
-// hookGuard is how long a hook may take before the agent carries on.
-const hookGuard = 5 * time.Second

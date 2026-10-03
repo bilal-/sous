@@ -3,6 +3,15 @@ package harness
 import (
 	"path/filepath"
 	"strings"
+	"time"
+)
+
+// How long a sous hook takes: sous gives up on what it was doing after
+// Guard and answers with what it has, so an agent never waits on git or a
+// tracker; the agent is told to wait Timeout, with room to spare.
+const (
+	HookGuard   = 5 * time.Second
+	HookTimeout = 2 * HookGuard
 )
 
 // The two hook roles: what sous does when an agent session starts, and

@@ -3,12 +3,10 @@ package harness
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
-
-	"github.com/bilal-/sous/internal/store"
 )
 
 // Antigravity (agy): skills and hooks in ~/.gemini/config, which both the
@@ -106,15 +104,15 @@ type agyRun struct {
 // said is the run's last word. When the settings refused something and the
 // agent did not say how it ended, that is what it needs from the person.
 func (r agyRun) said() string {
-	if len(r.Denied) == 0 || strings.Contains(r.Response, "SOUS:") {
+	if len(r.Denied) == 0 || HasMarker(r.Response) {
 		return r.Response
 	}
 	var refused []string
 	for _, d := range r.Denied {
 		refused = append(refused, fmt.Sprintf("%s (%s)", d.Display, d.Action))
 	}
-	return strings.TrimSpace(r.Response + "\nSOUS: needs you Antigravity refused " + strings.Join(refused, ", ") +
-		": allow it under permissions.allow in Antigravity's settings, then reply")
+	return strings.TrimSpace(r.Response + "\n" + NeedsYou("Antigravity refused "+strings.Join(refused, ", ")+
+		": allow it under permissions.allow in Antigravity's settings, then reply"))
 }
 
 // agyResult is the last JSON object agy printed.
@@ -138,73 +136,35 @@ type NamedHooksJSON struct{}
 const sousGroup = "sous"
 
 func (NamedHooksJSON) Place(file, event string, cmd Cmd) (bool, error) {
-	changed := false
-	err := store.EditFile(file, 0o644, func(b []byte) ([]byte, error) {
-		doc := map[string]any{}
-		if len(b) > 0 {
-			if err := json.Unmarshal(b, &doc); err != nil {
-				return nil, err
-			}
-		}
-		group, _ := doc[sousGroup].(map[string]any)
-		if group == nil {
-			group = map[string]any{}
-			doc[sousGroup] = group
-		}
-		want := cmd.String()
-		var kept []any
-		placed := false
+	return editJSON(file, func(doc map[string]any) bool {
+		group := child(doc, sousGroup)
 		handlers, _ := group[event].([]any)
-		for _, h := range handlers {
-			hm, _ := h.(map[string]any)
-			c, _ := hm["command"].(string)
-			switch {
-			case hm == nil || !cmd.Ours(c):
-				kept = append(kept, h)
-			case !placed:
-				placed = true
-				if c != want {
-					hm["command"], changed = want, true
-				}
-				kept = append(kept, h)
-			default:
-				changed = true // a second sous hook for the event
-			}
-		}
+		kept, placed, changed := placeIn(handlers, cmd, false)
 		if !placed {
-			kept, changed = append(kept, map[string]any{"type": "command", "command": want, "timeout": 10}), true
+			kept, changed = append(kept, handler(cmd)), true
 		}
-		if !changed {
-			return nil, nil
+		if changed {
+			group[event] = kept
 		}
-		group[event] = kept
-		return json.MarshalIndent(doc, "", "  ")
+		return changed
 	})
-	return changed, err
 }
 
-// Commands are the commands any group runs on event.
+// Commands are the commands any group runs on event. A value that is not a
+// group (a "$schema", say) is not a hook, and is passed over.
 func (NamedHooksJSON) Commands(file, event string) ([]string, error) {
-	b, err := os.ReadFile(file)
-	if err != nil {
+	var doc map[string]json.RawMessage
+	if err := readJSON(file, &doc); err != nil {
 		return nil, err
 	}
-	var doc map[string]map[string]json.RawMessage
-	if err := json.Unmarshal(b, &doc); err != nil {
-		return nil, fmt.Errorf("%s is not valid JSON", file)
-	}
+	names := slices.Sorted(maps.Keys(doc))
 	var out []string
-	names := make([]string, 0, len(doc))
-	for n := range doc {
-		names = append(names, n)
-	}
-	slices.Sort(names)
 	for _, n := range names {
-		var handlers []struct {
-			Command string `json:"command"`
+		var group map[string][]handlerJSON
+		if json.Unmarshal(doc[n], &group) != nil {
+			continue
 		}
-		json.Unmarshal(doc[n][event], &handlers)
-		for _, h := range handlers {
+		for _, h := range group[event] {
 			out = append(out, h.Command)
 		}
 	}

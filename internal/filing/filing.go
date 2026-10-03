@@ -154,47 +154,71 @@ func (f *Filer) CloseUpstream(ctx context.Context, id int) error {
 // A backend that fails or is missing is reported as such — never as "ref
 // missing", and never as closed.
 func (f *Filer) Reconcile(ctx context.Context, views []thread.View, now time.Time) []thread.View {
-	f.Ask(ctx, views)
-	return f.Settle(views, now)
+	return f.Settle(views, f.Ask(ctx, Filed(views)), now)
 }
 
-// Ask sets each filed view's Upstream from its backend, concurrently under
-// one deadline. It writes only Upstream and UpstreamErr, so other askers
-// (runs.Dispatcher.Refresh) may work on the same views at the same time.
-func (f *Filer) Ask(ctx context.Context, views []thread.View) {
-	var wg sync.WaitGroup
-	for i := range views {
-		v := &views[i]
-		if v.Ref == nil {
-			continue
+// Upstream is what a filed note's tracker said about it.
+type Upstream struct {
+	ID         int    // the note
+	State, Err string // open | closed | unknown | error, and why for error
+}
+
+// Filed are the filed notes among views, copied: Ask works on these, so
+// others (runs.Dispatcher.Refresh) may change the views meanwhile.
+func Filed(views []thread.View) []thread.Thread {
+	var out []thread.Thread
+	for _, v := range views {
+		if v.Ref != nil {
+			out = append(out, v.Thread)
 		}
+	}
+	return out
+}
+
+// Ask asks each note's backend for its state, concurrently under one
+// deadline, and returns the answers; it changes nothing.
+func (f *Filer) Ask(ctx context.Context, filed []thread.Thread) []Upstream {
+	out := make([]Upstream, len(filed))
+	var wg sync.WaitGroup
+	for i, th := range filed {
+		out[i].ID = th.ID
 		wg.Add(1)
-		go func(v *thread.View) {
+		go func(u *Upstream) {
 			defer wg.Done()
-			b, err := backend.ByRef(f.Backends, *v.Ref)
+			b, err := backend.ByRef(f.Backends, *th.Ref)
 			if err != nil {
-				v.Upstream, v.UpstreamErr = "error", fmt.Sprintf("backend %s not configured", strings.SplitN(*v.Ref, ":", 2)[0])
+				u.State, u.Err = "error", fmt.Sprintf("backend %s not configured", strings.SplitN(*th.Ref, ":", 2)[0])
 				return
 			}
 			if f.Offline && !b.Offline {
 				return
 			}
 			sctx, cancel := context.WithTimeout(ctx, StatusTimeout)
-			st, err := backend.Status(sctx, b, f.CurrentPath(v.Thread), *v.Ref)
+			st, err := backend.Status(sctx, b, f.CurrentPath(th), *th.Ref)
 			cancel()
 			if err != nil {
-				v.Upstream, v.UpstreamErr = "error", fmt.Sprintf("%s: %v", b.Name, err)
+				u.State, u.Err = "error", fmt.Sprintf("%s: %v", b.Name, err)
 				return
 			}
-			v.Upstream = st
-		}(v)
+			u.State = st
+		}(&out[i])
 	}
 	wg.Wait()
+	return out
 }
 
-// Settle closes here what the tracker closed (Ask said so) and drops it
-// from views; a close that cannot be recorded stays, saying why.
-func (f *Filer) Settle(views []thread.View, now time.Time) []thread.View {
+// Settle puts Ask's answers on views, closes here what the tracker closed
+// and drops it; a close that cannot be recorded stays, saying why.
+func (f *Filer) Settle(views []thread.View, answers []Upstream, now time.Time) []thread.View {
+	said := map[int]Upstream{}
+	for _, a := range answers {
+		said[a.ID] = a
+	}
+	for i := range views {
+		if a, ok := said[views[i].ID]; ok {
+			views[i].Upstream, views[i].UpstreamErr = a.State, a.Err
+		}
+	}
 	out := views[:0]
 	for _, v := range views {
 		if v.Upstream == "closed" {

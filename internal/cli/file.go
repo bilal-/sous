@@ -79,10 +79,14 @@ func reconcile(e *Env, ctx context.Context, views []thread.View, now time.Time, 
 	f.Offline = offline
 	// Trackers and runners are asked at once: each waits on the network
 	// or a program, and neither needs the other's answer.
+	// Ask works on its own copy of the filed notes, so the runners'
+	// answers may land on the views meanwhile.
+	filed := filing.Filed(views)
+	var answers []filing.Upstream
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go func() { defer wg.Done(); f.Ask(ctx, views) }()
+	go func() { defer wg.Done(); answers = f.Ask(ctx, filed) }()
 	e.dispatcher().Refresh(ctx, views, offline)
 	wg.Wait()
-	return f.Settle(views, now)
+	return f.Settle(views, answers, now)
 }

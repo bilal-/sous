@@ -63,15 +63,11 @@ func (a *Agent) uidOf(ref string) (string, error) {
 	return uid, nil
 }
 
-const preamble = `You are working alone, in a git worktree made for this task, on branch %s.
+var preamble = `You are working alone, in a git worktree made for this task, on branch %s.
 Commit your work on this branch if you can; if you cannot, leave it in
 the worktree and say so. Never push.
 If you need to do something you are not allowed to do, stop and ask for it.
-End your last message with one line:
-SOUS: done <one line summary of what you did>
-or
-SOUS: needs you <one question for the person>
-
+` + harness.EndWith + `
 The task:
 
 `

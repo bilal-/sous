@@ -12,7 +12,7 @@ const end = {{endJSON}}
 // standard output, a few seconds at most, never in the agent's way.
 function sous(command, input) {
   try {
-    const r = spawnSync("sh", ["-c", command], { input: JSON.stringify(input), encoding: "utf8", timeout: 6000 })
+    const r = spawnSync("sh", ["-c", command], { input: JSON.stringify(input), encoding: "utf8", timeout: {{timeoutMs}} })
     return r.status === 0 ? r.stdout : ""
   } catch {
     return ""

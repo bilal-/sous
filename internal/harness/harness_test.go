@@ -2,7 +2,9 @@ package harness
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -411,5 +413,71 @@ func TestOpencodeRunAnswer(t *testing.T) {
 		if args[len(args)-2] != "--" || !slices.Contains(args, "--dir") || args[slices.Index(args, "--dir")+1] != "/runs/u1/worktree" {
 			t.Fatalf("a prompt is never a flag, and opencode is told where to work: %q", args)
 		}
+	}
+}
+
+// The opencode plugin speaks the hook input sous reads: run under node
+// (when there is one), what it sends at a session's start and when it goes
+// idle parses as a fresh start in its folder, and an end with the last
+// thing the agent said.
+func TestOpencodePluginSpeaksTheHookInput(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("no node")
+	}
+	dir := t.TempDir()
+	got := filepath.Join(dir, "got")
+	fake := filepath.Join(dir, "sous")
+	os.WriteFile(fake, []byte("#!/bin/sh\ncat >> "+got+"\necho >> "+got+"\necho context\n"), 0o755)
+	plugin := filepath.Join(dir, "sous.mjs")
+	for _, role := range []string{RoleStart, RoleEnd} {
+		(OpencodePlugin{}).Place(plugin, role, Cmd{Exe: fake, Role: role, Agent: "opencode"})
+	}
+	drive := filepath.Join(dir, "drive.mjs")
+	os.WriteFile(drive, []byte(`import { Sous } from "./sous.mjs"
+const h = await Sous({ directory: "/code/acme/api" })
+const out = { system: [] }
+await h["experimental.chat.system.transform"]({ sessionID: "ses_1" }, out)
+await h["experimental.chat.system.transform"]({ sessionID: "ses_1" }, out)
+if (out.system.join() !== "context,context") throw new Error("system: " + out.system)
+await h.event({ event: { type: "message.updated", properties: { info: { role: "assistant", id: "m1" } } } })
+await h.event({ event: { type: "message.part.updated", properties: { part: { type: "text", messageID: "m1", sessionID: "ses_1", text: "all green" } } } })
+await h.event({ event: { type: "session.idle", properties: { sessionID: "ses_1" } } })
+`), 0o644)
+	if out, err := exec.Command(node, drive).CombinedOutput(); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	b, _ := os.ReadFile(got)
+	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("one start, said once per session, and one end: %q", lines)
+	}
+	if in := opencode.Parse([]byte(lines[0])); in != (Input{SessionID: "ses_1", CWD: "/code/acme/api", Fresh: true}) {
+		t.Errorf("start: %+v", in)
+	}
+	if in := opencode.Parse([]byte(lines[1])); in.SessionID != "ses_1" || in.CWD != "/code/acme/api" || in.LastMessage != "all green" {
+		t.Errorf("end: %+v", in)
+	}
+}
+
+// Odd hook files: one holding null is an empty one, not a crash; values
+// that are not hook groups (a "$schema") are passed over when reading.
+func TestHookFilesThatAreOdd(t *testing.T) {
+	dir := t.TempDir()
+	for _, f := range []Format{HooksJSON{}, NamedHooksJSON{}} {
+		p := filepath.Join(dir, fmt.Sprintf("%T.json", f))
+		os.WriteFile(p, []byte("null"), 0o644)
+		cmd := Cmd{Exe: "/bin/sous", Role: RoleStart, Agent: "x"}
+		if changed, err := f.Place(p, "Start", cmd); err != nil || !changed {
+			t.Fatalf("%T on null: %v %v", f, changed, err)
+		}
+		if got, err := f.Commands(p, "Start"); err != nil || len(got) != 1 {
+			t.Fatalf("%T: %q %v", f, got, err)
+		}
+	}
+	p := filepath.Join(dir, "agy.json")
+	os.WriteFile(p, []byte(`{"$schema":"https://example.org/s.json","version":1,"herdr":{"Stop":[{"command":"h"}]}}`), 0o644)
+	if got, err := (NamedHooksJSON{}).Commands(p, "Stop"); err != nil || len(got) != 1 || got[0] != "h" {
+		t.Fatalf("%q %v", got, err)
 	}
 }

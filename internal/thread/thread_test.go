@@ -362,3 +362,14 @@ func TestNoteRunKeepsTheBrief(t *testing.T) {
 		t.Fatalf("%q %q", th.Text, th.Run.Brief)
 	}
 }
+
+// A run is not filed in a tracker: its work is on its branch, and a
+// tracker closing it would leave the run going.
+func TestARunIsNotFiled(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	id, _, _ := NoteRun(s, project.Project{Path: "/code/acme/api"}, "fix it", "", "fake", "human", time.Now())
+	_, err := FileAtomically(s, id, false, func(Thread) (string, error) { t.Fatal("filed"); return "", nil })
+	if !errors.As(err, new(ValidationError)) {
+		t.Fatal(err)
+	}
+}

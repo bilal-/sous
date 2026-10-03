@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/plugin"
 )
 
@@ -130,23 +131,16 @@ func (a *Agent) Status(_, ref string) (Status, error) {
 	return st, nil
 }
 
-// parseMarker reads the last "SOUS:" line of the agent's last message.
+// parseMarker reads how the agent's last message says the run ended.
 func parseMarker(msg string) (State, string) {
-	lines := strings.Split(msg, "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		rest, ok := strings.CutPrefix(strings.TrimSpace(lines[i]), "SOUS:")
-		if !ok {
-			continue
-		}
-		rest = strings.TrimSpace(rest)
-		if t, ok := strings.CutPrefix(rest, "needs you"); ok {
-			return NeedsYou, strings.TrimSpace(t)
-		}
-		if t, ok := strings.CutPrefix(rest, "done"); ok {
-			return Done, strings.TrimSpace(t)
-		}
+	needsYou, said, ok := harness.ReadMarker(msg)
+	switch {
+	case !ok:
+		return "", ""
+	case needsYou:
+		return NeedsYou, said
 	}
-	return "", ""
+	return Done, said
 }
 
 func lastLine(s string) string {

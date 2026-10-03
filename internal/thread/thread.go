@@ -440,6 +440,11 @@ func FileAtomically(s *store.Store, id int, refile bool, do func(Thread) (string
 			if t.Closed != nil {
 				return fmt.Errorf("note %d is closed", id)
 			}
+			if t.Run != nil {
+				// A run's work is on its branch; closing its note stops it,
+				// which a tracker closing it would not.
+				return ValidationError(fmt.Sprintf("note %d is a run: its work is on its branch, not in a tracker", id))
+			}
 			if t.Ref != nil && !refile {
 				ref = *t.Ref
 				return nil
