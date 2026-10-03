@@ -26,6 +26,10 @@ upgraded, never broken.
 * `projects --path` with an ambiguous name lists the `matches`, as other
   commands do; `here <path>` outside a project says so about that path.
 * "1 file uncommitted", not "1 files".
+* `--help` works anywhere after a command, and for `hook` and the plugin
+  commands; `sous help hook` explains it.
+* A session started outside any project counts the notes as they are
+  now, not as the last saved board had them.
 * Every line of the session-start brief fits in 120 characters; a waiting
   run shows one next step (`sous show <n>` has the rest).
 

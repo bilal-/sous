@@ -73,10 +73,15 @@ func sessionStart(e *Env, in harness.Input) string {
 		if root, ok := hook.StartRoot(in, e.Cwd, e.UserHome); ok {
 			cmdHere(sub, argv{pos: []string{root}})
 		} else if in.Fresh {
-			// Outside any project: what waits across them, from the saved
+			// Outside any project: what waits across them. The notes as
+			// they are now; what trackers and git said, from the saved
 			// board (never built here: this must stay quick).
 			if c, err := board.ReadCache(sub.store()); err == nil && c.Data != nil {
-				fmt.Fprintln(&buf, board.Summary(c.Data, time.Now()))
+				d, now := *c.Data, time.Now()
+				if ths, err := thread.Open(sub.store(), now); err == nil {
+					d.Threads = ths
+				}
+				fmt.Fprintln(&buf, board.Summary(&d, now))
 			}
 		}
 		if in.Fresh {

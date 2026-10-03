@@ -343,6 +343,11 @@ func TestSessionStartOutsideAProject(t *testing.T) {
 	f.run() // saves the board
 	out, _, _ := f.runStdin(hookJSON(map[string]any{"cwd": f.Home, "source": "startup"}), "hook", "session-start", "claude")
 	testutil.Contains(t, out, "[sous] ", "1 on you · 0 on others · 0 unfinished across 1 project", "as of just now", "sous for the board")
+	// A note made since the board was saved counts: notes are read as
+	// they are, only what trackers said comes from the saved board.
+	f.runIn(p, "note", "-k", "me", "and the cache")
+	out, _, _ = f.runStdin(hookJSON(map[string]any{"cwd": f.Home, "source": "startup"}), "hook", "session-start", "claude")
+	testutil.Contains(t, out, "2 on you")
 }
 
 // Runs that need the user are what an agent hears first at session start,
