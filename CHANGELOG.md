@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.4.0]
+
 ### Added
 * A `runner` setting: the runner `sous go --run` hands work to when `-a`
   is not given. A runner plugin can now be the default. When it is not
