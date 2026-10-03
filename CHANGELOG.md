@@ -7,6 +7,13 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.5.1]
+
+### Fixed
+* 0.5.0 was tagged but never released: a test left a background run
+  writing to its folder after it ended, and the release build failed on
+  it. 0.5.1 is 0.5.0 with that test fixed; nothing else changed.
+
 ## [0.5.0]
 
 ### Changed

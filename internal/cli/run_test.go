@@ -110,8 +110,12 @@ func TestRunMistakesSayWhy(t *testing.T) {
 func TestRunnerSetting(t *testing.T) {
 	f := fixture(t)
 	f.mkrepo("acme/billing", true)
-	fake := f.plugin("sous-runner-queue", `case "$1" in start) echo queue:1;; status) echo '{"v":0,"state":"running"}';; esac`)
-	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + fake + "\"]\n")
+	// queue is a runner and a launcher, so it can be the agent too. No
+	// built in run starts here: its watcher would outlive the test.
+	runnerBody := `case "$1" in start) echo queue:1;; status) echo '{"v":0,"state":"running"}';; esac`
+	asRunner := f.plugin("sous-runner-queue", runnerBody)
+	asLauncher := f.plugin("sous-launcher-queue", "exit 0")
+	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + asRunner + "\", \"" + asLauncher + "\"]\n")
 	if _, errs, code := f.run("config", "runner", "nope"); code != 2 || !strings.Contains(errs, "queue") {
 		t.Fatalf("an unknown runner is refused, naming the ones there are: %d %q", code, errs)
 	}
@@ -123,12 +127,14 @@ func TestRunnerSetting(t *testing.T) {
 		t.Fatalf("%d %s %s", code, out, errs)
 	}
 	f.run("config", "--unset", "runner")
-	f.run("config", "agent", "codex")
-	if out, _, _ := f.run("config"); !strings.Contains(out, "runner         codex (the agent)") {
+	if _, errs, code := f.run("config", "agent", "queue"); code != 0 {
+		t.Fatal(errs)
+	}
+	if out, _, _ := f.run("config"); !strings.Contains(out, "runner         queue (the agent)") {
 		t.Fatalf("an unset runner says what it falls back to:\n%s", out)
 	}
 	out, _, _ = f.run("go", "billing", "--run", "fix it too", "--json")
-	if !strings.Contains(out, `"runner": "codex"`) {
+	if !strings.Contains(out, `"runner": "queue"`) || !strings.Contains(out, `"id": "2"`) {
 		t.Fatalf("with no runner set, agent picks it: %s", out)
 	}
 }
