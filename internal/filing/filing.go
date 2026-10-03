@@ -154,6 +154,14 @@ func (f *Filer) CloseUpstream(ctx context.Context, id int) error {
 // A backend that fails or is missing is reported as such — never as "ref
 // missing", and never as closed.
 func (f *Filer) Reconcile(ctx context.Context, views []thread.View, now time.Time) []thread.View {
+	f.Ask(ctx, views)
+	return f.Settle(views, now)
+}
+
+// Ask sets each filed view's Upstream from its backend, concurrently under
+// one deadline. It writes only Upstream and UpstreamErr, so other askers
+// (runs.Dispatcher.Refresh) may work on the same views at the same time.
+func (f *Filer) Ask(ctx context.Context, views []thread.View) {
 	var wg sync.WaitGroup
 	for i := range views {
 		v := &views[i]
@@ -182,6 +190,11 @@ func (f *Filer) Reconcile(ctx context.Context, views []thread.View, now time.Tim
 		}(v)
 	}
 	wg.Wait()
+}
+
+// Settle closes here what the tracker closed (Ask said so) and drops it
+// from views; a close that cannot be recorded stays, saying why.
+func (f *Filer) Settle(views []thread.View, now time.Time) []thread.View {
 	out := views[:0]
 	for _, v := range views {
 		if v.Upstream == "closed" {

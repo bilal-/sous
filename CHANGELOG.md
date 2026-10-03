@@ -7,6 +7,11 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+* The board asks trackers about filed notes and runners about runs at
+  the same time, instead of one after the other: a slow one of each
+  costs the time of one.
+
 ## [0.8.1]
 
 ### Fixed

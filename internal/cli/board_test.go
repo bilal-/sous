@@ -229,3 +229,24 @@ func TestAmbientPrintsOncePerWindow(t *testing.T) {
 		t.Fatalf("second, inside the window: %d %q", code, out)
 	}
 }
+
+// The board asks trackers and runners at once: a slow one of each costs
+// the time of one, not both.
+func TestBoardAsksTrackersAndRunnersAtOnce(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	be := testutil.Script(t, t.TempDir(), "sous-backend-slow", `case "$1" in status) sleep 1; echo open;; *) exit 1;; esac`)
+	ru := testutil.Script(t, t.TempDir(), "sous-runner-slow", `case "$1" in start) echo slow:1;; status) sleep 1; echo '{"v":0,"state":"running"}';; esac`)
+	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + be + "\", \"" + ru + "\"]\n")
+	f.runIn(p, "note", "-k", "me", "filed on the slow tracker")
+	f.fileAs(1, "slow:1")
+	if _, errs, code := f.run("go", "acme/api", "--run", "a slow task", "-a", "slow"); code != 0 {
+		t.Fatal(errs)
+	}
+	start := time.Now()
+	out, _, _ := f.run()
+	if took := time.Since(start); took > 1800*time.Millisecond {
+		t.Fatalf("one slow tracker and one slow runner took %v:\n%s", took, out)
+	}
+	testutil.Contains(t, out, "filed on the slow tracker", "running · a slow task")
+}

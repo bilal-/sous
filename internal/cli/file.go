@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/bilal-/sous/internal/backend"
@@ -76,5 +77,12 @@ func reconcile(e *Env, ctx context.Context, views []thread.View, now time.Time, 
 	}
 	f := e.filer()
 	f.Offline = offline
-	return e.dispatcher().Refresh(ctx, f.Reconcile(ctx, views, now), offline)
+	// Trackers and runners are asked at once: each waits on the network
+	// or a program, and neither needs the other's answer.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() { defer wg.Done(); f.Ask(ctx, views) }()
+	e.dispatcher().Refresh(ctx, views, offline)
+	wg.Wait()
+	return f.Settle(views, now)
 }
