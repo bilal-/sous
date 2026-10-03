@@ -28,7 +28,7 @@ func TestStartRecordsTheRunAndAFailedStartStaysVisible(t *testing.T) {
 	}
 	bad := runnertest.Fake(t, `start) echo "no agent here" >&2; exit 1;;`)
 	d.Runners = []runner.Runner{bad}
-	id, _, err = d.Start(context.Background(), p, "fix it", "", "fake", "agent", "")
+	id, _, err = d.Start(context.Background(), p, "fix the other thing", "", "fake", "agent", "")
 	th, _ = thread.Get(s, id)
 	if err == nil || th.Closed != nil || th.Run.State != "failed" || !strings.Contains(th.Run.Text, "no agent here") {
 		t.Fatalf("%+v %v", th.Run, err)
@@ -110,7 +110,7 @@ func TestFinish(t *testing.T) {
 	if b, _ := os.ReadFile(calls); string(b) != "stopped\ncleaned\n" {
 		t.Fatalf("%q", b)
 	}
-	note, _ := thread.Note(s, project.Project{Path: "/code/acme/billing"}, thread.Me, "not a run", "human", time.Now())
+	note, _, _ := thread.Note(s, project.Project{Path: "/code/acme/billing"}, thread.Me, "not a run", "human", time.Now())
 	if done, err := d.Finish(context.Background(), note, false); err != nil || done != NoRun {
 		t.Fatal("a note without a run has nothing to finish:", err)
 	}

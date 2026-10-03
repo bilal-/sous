@@ -333,7 +333,7 @@ func TestSessionStartRuns(t *testing.T) {
 		state thread.RunState
 		text  string
 	}{{thread.RunNeedsYou, "which fixture should win?"}, {thread.RunDone, "the spec passes"}, {thread.RunRunning, ""}, {thread.RunFailed, "snoozed, so not news"}} {
-		id, _, _ := thread.NoteRun(st, project.Project{Path: filepath.Join(f.WS, "acme/billing")}, "fix the flaky test", "", "fake", "agent", now)
+		id, _, _ := thread.NoteRun(st, project.Project{Path: filepath.Join(f.WS, "acme/billing")}, "fix the flaky test", string(c.state), "fake", "agent", now)
 		thread.SetRun(st, id, func(r *thread.Run) { r.Ref, r.State, r.Text, r.Branch = "fake:x", c.state, c.text, "sous/run-2" })
 		if c.state == thread.RunFailed {
 			thread.Snooze(st, id, 3, now)

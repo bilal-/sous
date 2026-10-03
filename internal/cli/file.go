@@ -22,17 +22,16 @@ func fileThread(e *Env, id int, explicit bool) int {
 	if _, code := e.config(); code != 0 {
 		return code
 	}
-	ref, err := e.filer().File(context.Background(), id, explicit)
+	ref, err := e.filer().File(e.ctx(), id, explicit)
 	switch {
 	case err == nil:
-		fmt.Fprintln(e.Stdout, ref)
-		return 0
+		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "filed", Ref: &ref, Next: noteNext(e, id)}, fmt.Sprintf("filed %d as %s", id, ref))
 	case errors.Is(err, thread.ErrNotFound):
 		return fail(e, exitFailed, "%v", err)
 	case errors.Is(err, filing.ErrWorktree):
 		return fail(e, exitFailed, "%v; markers filed there can vanish with the branch. Use --force to file it anyway", err)
 	case errors.Is(err, filing.ErrNoTracker):
-		return fail(e, exitFailed, "%v; the note stays local (see README: Backends)", err)
+		return fail(e, exitFailed, "%v; the note stays local. To file it, the project needs a FOLLOWUPS.md, or a GitHub or GitLab remote with gh or glab logged in (sous doctor); ask the person first", err)
 	}
 	return fail(e, exitFailed, "%v", err)
 }
@@ -51,7 +50,7 @@ func closeUpstream(e *Env, id int) int {
 	if _, code := e.config(); code != 0 {
 		return code
 	}
-	if err := e.filer().CloseUpstream(context.Background(), id); err != nil {
+	if err := e.filer().CloseUpstream(e.ctx(), id); err != nil {
 		if errors.Is(err, thread.ErrNotFound) {
 			return threadErr(e, err)
 		}

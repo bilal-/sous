@@ -65,7 +65,7 @@ func (e env) repo(t *testing.T, rel, remote string, tracker bool) project.Projec
 }
 
 func (e env) note(t *testing.T, p project.Project, text string) int {
-	id, err := thread.Note(e.s, p, thread.Me, text, "human", time.Now())
+	id, _, err := thread.Note(e.s, p, thread.Me, text, "human", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

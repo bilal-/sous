@@ -7,6 +7,22 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+* Every command that changes something says what it did and what makes
+  sense next, in one line (`noted 7 in api · sous show 7 · sous done 7`,
+  `closed 7 · sous`), and takes `--json` for the same answer as data:
+  `{"id", "did", "ref", "next"}`. `note` used to print only the number,
+  and `edit`, `kind`, `snooze` and `done` printed nothing.
+* Retries are safe. `done` on a note already closed says when it was
+  closed and exits `0`. `note` with the same text, kind and project as an
+  open note gives back that note. `go --run` without `--key` uses the
+  brief as its key, so the same brief retried finds the run already
+  started.
+* `--brief` is refused by commands other than `here`, as `--json` is by
+  commands that neither show nor change anything.
+* When a note cannot be filed because the project has no tracker, the
+  error says what would make it fileable.
+
 ## [0.6.0]
 
 ### Changed

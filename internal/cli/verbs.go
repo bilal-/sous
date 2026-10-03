@@ -13,7 +13,8 @@ import (
 type verb struct {
 	name  string
 	run   func(e *Env, a argv) int
-	read  bool     // accepts --json / --brief
+	json  bool     // accepts --json: it shows something, or says what it changed
+	brief bool     // accepts --brief
 	args  *argSpec // nil: an internal door, given its arguments raw
 	usage string   // one line for `sous help`; "" hides it (internal doors)
 }
@@ -34,29 +35,29 @@ var verbs []verb
 
 func init() {
 	verbs = []verb{
-		{"here", cmdHere, true, &argSpec{max: 1}, "sous here [path]  where was I, for the current project"},
-		{"report", cmdReport, true, exactly(0, []string{"week", "open"}, nil), "sous report [--week] [--open]   what changed since the last report; --open shows the page"},
-		{"projects", cmdProjects, true, &argSpec{values: []string{"root", "path"}, max: 1}, "sous projects [term] [--root <dir>] [--path <term>]   every discovered project; --path prints one path"},
-		{"note", cmdNote, false, exactly(1, []string{"file"}, []string{"p", "k"}), `sous note [-p <project>] [-k me|them|idea] [--file] "<text>"`},
-		{"edit", cmdEdit, false, &argSpec{min: 2, max: 2, raw: true}, `sous edit <n> "<text>"`},
-		{"kind", cmdKind, false, &argSpec{min: 2, max: 2, raw: true}, "sous kind <n> me|them|idea"},
-		{"snooze", cmdSnooze, false, &argSpec{min: 1, max: 2}, "sous snooze <n|s:id> [days]"},
-		{"done", cmdDone, false, exactly(1, []string{"close", "clean"}, nil), "sous done <n> [--close] [--clean]   close a note; --close in its tracker too, --clean removes a run's worktree"},
-		{"file", cmdFile, false, exactly(1, []string{"force"}, nil), "sous file <n> [--force]    file a note in the project's tracker"},
-		{"config", cmdConfig, true, &argSpec{bools: []string{"unset", "add", "remove"}, values: []string{"p"}, max: -1}, "sous config [<key> <value...>] [-p <project>] [--unset] [--add] [--remove]   show or change settings; -p for one project or org/*"},
-		{"go", cmdGo, true, exactly(1, []string{"where"}, []string{"a|agent", "in", "run", "key"}), "sous go <project> [-a <agent>] [--run <brief|->] [--key <text>] [--where] [--in <folder>]   start your agent there; --run hands it a task in the background"},
-		{"show", cmdShow, true, exactly(1, nil, nil), "sous show <n>     one note in full; for a run, how it is going"},
-		{"reply", cmdReply, false, &argSpec{min: 2, max: 2, raw: true}, `sous reply <n> "<answer>"   answer a run that needs you; it carries on`},
-		{"setup", cmdSetup, false, &argSpec{bools: append([]string{"print-skill", "no-shell"}, harness.Flags()...), max: -1}, "sous setup [folder...] [--no-shell] [--print-skill]" + setupFlags() + "   set everything up; folders say where your projects are"},
-		{"doctor", cmdDoctor, true, exactly(0, nil, nil), "sous doctor       check that sous is set up and working, and how to fix what is not"},
-		{"version", cmdVersion, false, exactly(0, nil, nil), "sous version"},
-		{"help", cmdHelp, false, exactly(0, nil, nil), "sous help"},
+		{"here", cmdHere, true, true, &argSpec{max: 1}, "sous here [path]  where was I, for the current project"},
+		{"report", cmdReport, true, false, exactly(0, []string{"week", "open"}, nil), "sous report [--week] [--open]   what changed since the last report; --open shows the page"},
+		{"projects", cmdProjects, true, false, &argSpec{values: []string{"root", "path"}, max: 1}, "sous projects [term] [--root <dir>] [--path <term>]   every discovered project; --path prints one path"},
+		{"note", cmdNote, true, false, exactly(1, []string{"file"}, []string{"p", "k"}), `sous note [-p <project>] [-k me|them|idea] [--file] "<text>"`},
+		{"edit", cmdEdit, true, false, &argSpec{min: 2, max: 2, raw: true}, `sous edit <n> "<text>"`},
+		{"kind", cmdKind, true, false, &argSpec{min: 2, max: 2, raw: true}, "sous kind <n> me|them|idea"},
+		{"snooze", cmdSnooze, true, false, &argSpec{min: 1, max: 2}, "sous snooze <n|s:id> [days]"},
+		{"done", cmdDone, true, false, exactly(1, []string{"close", "clean"}, nil), "sous done <n> [--close] [--clean]   close a note; --close in its tracker too, --clean removes a run's worktree"},
+		{"file", cmdFile, true, false, exactly(1, []string{"force"}, nil), "sous file <n> [--force]    file a note in the project's tracker"},
+		{"config", cmdConfig, true, false, &argSpec{bools: []string{"unset", "add", "remove"}, values: []string{"p"}, max: -1}, "sous config [<key> <value...>] [-p <project>] [--unset] [--add] [--remove]   show or change settings; -p for one project or org/*"},
+		{"go", cmdGo, true, false, exactly(1, []string{"where"}, []string{"a|agent", "in", "run", "key"}), "sous go <project> [-a <agent>] [--run <brief|->] [--key <text>] [--where] [--in <folder>]   start your agent there; --run hands it a task in the background"},
+		{"show", cmdShow, true, false, exactly(1, nil, nil), "sous show <n>     one note in full; for a run, how it is going"},
+		{"reply", cmdReply, true, false, &argSpec{min: 2, max: 2, raw: true}, `sous reply <n> "<answer>"   answer a run that needs you; it carries on`},
+		{"setup", cmdSetup, false, false, &argSpec{bools: append([]string{"print-skill", "no-shell"}, harness.Flags()...), max: -1}, "sous setup [folder...] [--no-shell] [--print-skill]" + setupFlags() + "   set everything up; folders say where your projects are"},
+		{"doctor", cmdDoctor, true, false, exactly(0, nil, nil), "sous doctor       check that sous is set up and working, and how to fix what is not"},
+		{"version", cmdVersion, false, false, exactly(0, nil, nil), "sous version"},
+		{"help", cmdHelp, false, false, exactly(0, nil, nil), "sous help"},
 		// Internal doors: how the runner re-execs built-ins, and hooks. Not in help.
-		{"signal", cmdSignal, false, nil, ""},
-		{"backend", cmdBackend, false, nil, ""},
-		{"launcher", cmdLauncher, false, nil, ""},
-		{"runner", cmdRunner, false, nil, ""},
-		{"hook", cmdHook, false, nil, ""},
+		{"signal", cmdSignal, false, false, nil, ""},
+		{"backend", cmdBackend, false, false, nil, ""},
+		{"launcher", cmdLauncher, false, false, nil, ""},
+		{"runner", cmdRunner, false, false, nil, ""},
+		{"hook", cmdHook, false, false, nil, ""},
 	}
 }
 

@@ -4,6 +4,7 @@ package thread
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -184,20 +185,36 @@ func migrateV0(raw []byte) ([]byte, error) {
 	return json.Marshal(d)
 }
 
-func Note(s *store.Store, p project.Project, kind Kind, note, source string, now time.Time) (int, error) {
+// Note saves a note and returns its number. It is safe to retry: an open
+// note in the same project with the same kind and text is that note
+// (existed), whoever wrote it.
+func Note(s *store.Store, p project.Project, kind Kind, note, source string, now time.Time) (id int, existed bool, err error) {
 	if !kind.Valid() {
-		return 0, ValidationError("kind must be me, them, or idea")
+		return 0, false, ValidationError("kind must be me, them, or idea")
 	}
 	note = text.OneLine(note)
 	if note == "" {
-		return 0, ValidationError("note text is empty")
+		return 0, false, ValidationError("note text is empty")
 	}
-	var id int
-	_, err := store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
+	_, err = store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
+		for _, t := range d.Threads {
+			if t.Closed == nil && t.Run == nil && t.Kind == kind && t.Text == note && t.Belongs(p.Path, remoteOf(p)) {
+				id, existed = t.ID, true
+				return nil
+			}
+		}
 		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: note, Kind: kind, Since: now.UTC(), Source: source})
 		return nil
 	})
-	return id, err
+	return id, existed, err
+}
+
+// remoteOf is p's remote, or "" when it has none.
+func remoteOf(p project.Project) string {
+	if p.Remote == nil {
+		return ""
+	}
+	return *p.Remote
 }
 
 // add appends t as a new note, with the next number, a new uid, and human
@@ -222,9 +239,9 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 	if title == "" {
 		return 0, false, ValidationError("the brief is empty")
 	}
-	remote := ""
-	if p.Remote != nil {
-		remote = *p.Remote
+	remote := remoteOf(p)
+	if key == "" {
+		key = briefKey(brief)
 	}
 	var id int
 	var existed bool
@@ -241,6 +258,13 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 		return nil
 	})
 	return id, existed, err
+}
+
+// briefKey is a run's key when the caller gave none: its brief, so the
+// same brief retried finds the same run.
+func briefKey(brief string) string {
+	sum := sha256.Sum256([]byte(text.OneLine(brief)))
+	return "brief:" + hex.EncodeToString(sum[:6])
 }
 
 // SetRun changes an open run under the lock.

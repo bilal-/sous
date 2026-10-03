@@ -16,11 +16,11 @@ func TestNoteCLI(t *testing.T) {
 	f.git(sb, "remote", "add", "origin", "git@github.com:acme/chime.git")
 
 	out, _, code := f.runIn(w, "note", "-k", "me", "need final copy for pricing")
-	if code != 0 || strings.TrimSpace(out) != "1" {
+	if code != 0 || !strings.HasPrefix(out, "noted 1 in ") {
 		t.Fatalf("note: %d %q", code, out)
 	}
 	out, _, code = f.runIn(w, "note", "-p", "chime", "notifications need context")
-	if code != 0 || strings.TrimSpace(out) != "2" {
+	if code != 0 || !strings.HasPrefix(out, "noted 2 in ") {
 		t.Fatalf("note -p: %d %q", code, out)
 	}
 	t.Setenv("SOUS_SOURCE", "agent")
@@ -41,8 +41,8 @@ func TestNoteCLI(t *testing.T) {
 			t.Errorf("%v: %d %s", c, code, errs)
 		}
 	}
-	if _, _, code := f.run("done", "1"); code != 1 {
-		t.Error("done twice should exit 1")
+	if out, _, code := f.run("done", "1"); code != 0 || !strings.HasPrefix(out, "1 was closed ") {
+		t.Errorf("done twice is fine, and says when it was closed: %d %q", code, out)
 	}
 	if _, _, code := f.run("done", "99"); code != 1 {
 		t.Error("done missing should exit 1")
@@ -117,10 +117,12 @@ func TestGlobalFlagsAfterVerb(t *testing.T) {
 	}
 }
 
-func TestJSONOnWriteVerbIsAnError(t *testing.T) {
+// A verb with no use for --json or --brief refuses it, rather than let a
+// caller believe it took effect.
+func TestUnusedReadFlagIsAnError(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("a/r", true)
-	for _, c := range [][]string{{"note", "--json", "x"}, {"--json", "done", "1"}, {"version", "--brief"}, {"--json", "setup"}} {
+	for _, c := range [][]string{{"version", "--brief"}, {"--json", "setup"}, {"version", "--json"}, {"show", "1", "--brief"}, {"doctor", "--brief"}, {"note", "x", "--brief"}} {
 		if _, errs, code := f.runIn(p, c...); code != 2 || !strings.Contains(errs, "does not take") {
 			t.Errorf("%v: code=%d err=%q", c, code, errs)
 		}
@@ -156,7 +158,7 @@ func TestNoteWorksWithBrokenConfig(t *testing.T) {
 	p := f.mkrepo("a/r", true)
 	f.writeConfig("roots = [\n")
 	out, errs, code := f.runIn(p, "note", "-k", "me", "still saved")
-	if code != 0 || strings.TrimSpace(out) != "1" {
+	if code != 0 || !strings.HasPrefix(out, "noted 1 in ") {
 		t.Fatalf("%d %q %q", code, out, errs)
 	}
 	if _, errs, code := f.runIn(p, "note", "-p", "r", "needs roots"); code != 1 || !strings.Contains(errs, "config") {

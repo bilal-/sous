@@ -67,16 +67,16 @@ func TestFileAndCloseFlow(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("%d %s", code, errs)
 	}
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	if len(lines) != 2 || lines[0] != "1" || !strings.HasPrefix(lines[1], "md:FOLLOWUPS.md:") || len(lines[1]) != len("md:FOLLOWUPS.md:")+12 {
-		t.Fatalf("expected id then ref:\n%s", out)
+	ref := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "filed 1 as "))[0]
+	if !strings.HasPrefix(out, "filed 1 as md:FOLLOWUPS.md:") || len(ref) != len("md:FOLLOWUPS.md:")+12 {
+		t.Fatalf("expected the note's number and its ref:\n%s", out)
 	}
 	md, _ := os.ReadFile(filepath.Join(p, "FOLLOWUPS.md"))
 	if !strings.Contains(string(md), "- [ ] wire the export <!-- sous:") {
 		t.Fatalf("%s", md)
 	}
-	if out2, _, _ := f.run("file", "1"); strings.TrimSpace(out2) != lines[1] {
-		t.Fatalf("idempotent file: %q vs %q", out2, lines[1])
+	if out2, _, _ := f.run("file", "1"); !strings.HasPrefix(out2, "filed 1 as "+ref) {
+		t.Fatalf("idempotent file: %q vs %q", out2, ref)
 	}
 	if md, _ = os.ReadFile(filepath.Join(p, "FOLLOWUPS.md")); strings.Count(string(md), "<!-- sous:") != 1 {
 		t.Fatalf("duplicate marker:\n%s", md)
@@ -111,7 +111,7 @@ func TestFileAndCloseFlow(t *testing.T) {
 		t.Fatalf("%d %q", code, errs)
 	}
 	f.writeConfig("roots = [\"" + f.WS + "\"]\n[projects.\"a/plain\"]\nbackend = \"markdown\"\n")
-	if out, _, code = f.run("file", "4"); code != 0 || !strings.HasPrefix(strings.TrimSpace(out), "md:") {
+	if out, _, code = f.run("file", "4"); code != 0 || !strings.HasPrefix(out, "filed 4 as md:") {
 		t.Fatalf("override: %d %q", code, out)
 	}
 	if _, err := os.Stat(filepath.Join(q, "FOLLOWUPS.md")); err != nil {
@@ -123,7 +123,7 @@ func TestFileAndCloseFlow(t *testing.T) {
 	}
 	f.writeConfig("roots = [\"" + f.WS + "\"]\n[projects.\"a/plain\"]\nbackend = \"jira\"\n")
 	out, errs, code = f.runIn(q, "note", "--file", "kept locally")
-	if code != 1 || strings.TrimSpace(out) != "6" || !strings.Contains(errs, "saved as 6") {
+	if code != 1 || !strings.HasPrefix(out, "noted 6 in plain") || !strings.Contains(errs, "saved as 6") {
 		t.Fatalf("%d %q %q", code, out, errs)
 	}
 }

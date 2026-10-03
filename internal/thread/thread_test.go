@@ -2,6 +2,7 @@ package thread
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,18 +21,18 @@ func TestNoteLifecycle(t *testing.T) {
 	p := project.Project{Path: "/ws/acme/chime", Org: "acme", Name: "chime", Remote: &remote}
 	q := project.Project{Path: "/ws/studio/work", Org: "studio", Name: "work"}
 
-	id, err := Note(s, q, Me, "need final copy for the pricing page", "human", now)
+	id, _, err := Note(s, q, Me, "need final copy for the pricing page", "human", now)
 	if err != nil || id != 1 {
 		t.Fatal(id, err)
 	}
-	id, _ = Note(s, p, Idea, "notifications need context, not 'unused terminal'", "agent", now)
+	id, _, _ = Note(s, p, Idea, "notifications need context, not 'unused terminal'", "agent", now)
 	if id != 2 {
 		t.Fatal(id)
 	}
-	if _, err := Note(s, p, Kind("urgent"), "x", "human", now); err == nil {
+	if _, _, err := Note(s, p, Kind("urgent"), "x", "human", now); err == nil {
 		t.Fatal("bad kind accepted")
 	}
-	if _, err := Note(s, p, Idea, "", "human", now); err == nil {
+	if _, _, err := Note(s, p, Idea, "", "human", now); err == nil {
 		t.Fatal("empty text accepted")
 	}
 
@@ -77,8 +78,9 @@ func TestConcurrentNotes(t *testing.T) {
 	p := project.Project{Path: "/ws/x", Org: "ws", Name: "x"}
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() { defer wg.Done(); Note(s, p, Idea, "race", "human", time.Now()) }()
+		wg.Add(2)
+		go func() { defer wg.Done(); Note(s, p, Idea, fmt.Sprintf("race %d", i), "human", time.Now()) }()
+		go func() { defer wg.Done(); Note(s, p, Idea, "the same retry", "human", time.Now()) }()
 	}
 	wg.Wait()
 	doc, _ := store.Load[Doc](s, "threads", Migrator{})
@@ -86,8 +88,8 @@ func TestConcurrentNotes(t *testing.T) {
 	for _, th := range doc.Threads {
 		ids[th.ID] = true
 	}
-	if len(doc.Threads) != 10 || len(ids) != 10 {
-		t.Fatalf("lost or duplicate: %d threads, %d ids", len(doc.Threads), len(ids))
+	if len(doc.Threads) != 11 || len(ids) != 11 {
+		t.Fatalf("ten notes and one retried ten times: %d threads, %d ids", len(doc.Threads), len(ids))
 	}
 }
 
@@ -95,7 +97,7 @@ func TestConcurrentNotes(t *testing.T) {
 func TestNoteNormalizesWhitespace(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	p := project.Project{Path: "/ws/x", Org: "ws", Name: "x"}
-	id, err := Note(s, p, Idea, "has a real\nnewline   inside\t", "human", time.Now())
+	id, _, err := Note(s, p, Idea, "has a real\nnewline   inside\t", "human", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +105,7 @@ func TestNoteNormalizesWhitespace(t *testing.T) {
 	if open[0].ID != id || open[0].Text != "has a real newline inside" {
 		t.Fatalf("%q", open[0].Text)
 	}
-	if _, err := Note(s, p, Idea, "  \n\t ", "human", time.Now()); err == nil {
+	if _, _, err := Note(s, p, Idea, "  \n\t ", "human", time.Now()); err == nil {
 		t.Fatal("whitespace-only must be rejected")
 	}
 }
@@ -146,7 +148,7 @@ func TestFileAtomicallyAndUpstreamClose(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	now := time.Now()
 	p := project.Project{Path: "/ws/x", Org: "ws", Name: "x"}
-	id, _ := Note(s, p, Me, "x", "human", now)
+	id, _, _ := Note(s, p, Me, "x", "human", now)
 	calls := 0
 	ref, err := FileAtomically(s, id, false, func(th Thread) (string, error) { calls++; return "md:FOLLOWUPS.md:1:abcd1234", nil })
 	if err != nil || ref != "md:FOLLOWUPS.md:1:abcd1234" || calls != 1 {
@@ -159,7 +161,7 @@ func TestFileAtomicallyAndUpstreamClose(t *testing.T) {
 	if _, err := FileAtomically(s, id, false, func(Thread) (string, error) { return "", errors.New("boom") }); err != nil {
 		t.Fatal("already filed: backend error irrelevant")
 	}
-	id2, _ := Note(s, p, Idea, "y", "human", now)
+	id2, _, _ := Note(s, p, Idea, "y", "human", now)
 	if _, err := FileAtomically(s, id2, false, func(Thread) (string, error) { return "", errors.New("boom") }); err == nil {
 		t.Fatal("backend error propagates")
 	}
@@ -199,7 +201,7 @@ func TestMigrateV1GivesEveryNoteAUID(t *testing.T) {
 	if d.Version != 3 || len(a) != 12 || len(b) != 12 || a == b || d.Threads[0].ID != 1 {
 		t.Fatalf("%+v", d)
 	}
-	id, _ := Note(s, project.Project{Path: "/p"}, Me, "c", "", time.Now())
+	id, _, _ := Note(s, project.Project{Path: "/p"}, Me, "c", "", time.Now())
 	th, _ := Get(s, id)
 	if len(th.UID) != 12 || th.UID == a {
 		t.Fatalf("new notes get their own uid: %+v", th)
@@ -230,7 +232,7 @@ func TestLegacyIsRecordedByTheUpgrade(t *testing.T) {
 	if !d.Threads[0].Legacy {
 		t.Fatal("a note upgraded from v1 had no uid, so it is legacy whatever its date")
 	}
-	id, _ := Note(s, project.Project{Path: "/p"}, Me, "new", "", UIDSince.Add(-time.Hour))
+	id, _, _ := Note(s, project.Project{Path: "/p"}, Me, "new", "", UIDSince.Add(-time.Hour))
 	if th, _ := Get(s, id); th.Legacy {
 		t.Fatal("a note made with a uid is never legacy")
 	}
@@ -262,7 +264,7 @@ func TestNoteRunIsIdempotentByKey(t *testing.T) {
 	if err := SetRun(s, other+100, func(*Run) {}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing: %v", err)
 	}
-	plain, _ := Note(s, p, Me, "a plain note", "human", now)
+	plain, _, _ := Note(s, p, Me, "a plain note", "human", now)
 	if err := SetRun(s, plain, func(*Run) {}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("a note without a run: %v", err)
 	}
@@ -295,5 +297,43 @@ func TestSetKindRefusesARun(t *testing.T) {
 	err := SetKind(s, id, Me)
 	if !errors.As(err, new(ValidationError)) || !strings.Contains(err.Error(), "is a run") {
 		t.Fatal(err)
+	}
+}
+
+// A note is safe to retry: the same text, kind and project as an open
+// note is that note. Once it is closed, the same text is a new note.
+func TestNoteIsSafeToRetry(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	p := project.Project{Path: "/code/acme/api"}
+	now := time.Now()
+	id, existed, err := Note(s, p, Me, "fix the  index", "human", now)
+	if err != nil || existed {
+		t.Fatal(id, existed, err)
+	}
+	again, existed, _ := Note(s, p, Me, "fix the index", "agent", now)
+	if again != id || !existed {
+		t.Fatalf("a retry is the same note: %d %d %v", id, again, existed)
+	}
+	if other, existed, _ := Note(s, p, Them, "fix the index", "human", now); other == id || existed {
+		t.Fatal("another kind is another note")
+	}
+	Done(s, id, now)
+	if after, existed, _ := Note(s, p, Me, "fix the index", "human", now); after == id || existed {
+		t.Fatal("after it closes, the same text is a new note")
+	}
+}
+
+// A run is safe to retry too: without a key, the brief is its key.
+func TestNoteRunWithoutAKeyUsesTheBrief(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	p := project.Project{Path: "/code/acme/api"}
+	id, _, _ := NoteRun(s, p, "fix the flaky test\nmore", "", "fake", "human", time.Now())
+	SetRun(s, id, func(r *Run) { r.Ref, r.State = "fake:1", RunRunning })
+	again, existed, _ := NoteRun(s, p, "fix the flaky test\nmore", "", "fake", "human", time.Now())
+	if again != id || !existed {
+		t.Fatalf("%d %d %v", id, again, existed)
+	}
+	if other, existed, _ := NoteRun(s, p, "fix another test", "", "fake", "human", time.Now()); other == id || existed {
+		t.Fatal("another brief is another run")
 	}
 }

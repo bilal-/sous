@@ -50,7 +50,7 @@ func TestParseArgs(t *testing.T) {
 func TestTextIsNeverAFlag(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("acme/chime", true)
-	if out, errs, code := f.runIn(p, "note", "--", "--json"); code != 0 || strings.TrimSpace(out) != "1" {
+	if out, errs, code := f.runIn(p, "note", "--", "--json"); code != 0 || !strings.HasPrefix(out, "noted 1 in ") {
 		t.Fatalf("note -- --json: %d %q %q", code, out, errs)
 	}
 	if _, errs, code := f.run("edit", "1", "-2 regressions"); code != 0 {

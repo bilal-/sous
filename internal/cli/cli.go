@@ -42,7 +42,7 @@ const usageHeader = `sous %s: one list of what is waiting on you, across every p
 `
 
 const usageFooter = `
-Flags: --json (read verbs) · --brief (here) · --ambient · --cached · --refresh · --menubar
+Flags: --json (what a command shows or changed) · --brief (here) · --ambient · --cached · --refresh · --menubar
 Exit:  0 ok · 1 failure · 2 usage or ambiguity · 3 not ready: no board yet (--cached, --ambient), or the agent or runner is not set up (go)
 Put -- before a note that starts with a dash.
 
@@ -64,8 +64,9 @@ For agents:
   When work is put off, the user waits on someone, or an idea belongs to
     another project, offer to note it in one line. Write it only on a yes.
   To hand the user's task to a background agent: sous go <project> --run -
-    with a full brief on stdin (what, why, and what done means), and --key
-    so a retry does not start it twice. Check with sous show <n> --json.
+    with a full brief on stdin (what, why, and what done means). A retry
+    with the same brief finds the run already started; give --key only to
+    start a second run of the same brief. Check with sous show <n> --json.
     When a run needs the user, ask them, then pass the answer with
     sous reply <n> "<answer>". A run never pushes; the user reviews its
     branch. sous done <n> --clean when they are finished with it.
@@ -277,14 +278,13 @@ func dispatch(e *Env, cmd string, rest []string) int {
 		}
 		return fail(e, exitUsage, "unknown subcommand: %s (try: sous help)", cmd)
 	}
-	// --json / --brief belong to read verbs only; a write verb given one is
-	// a caller mistake and must fail loud rather than silently succeed.
-	if (e.JSON || e.Brief) && !v.read {
-		flagName := "--json"
-		if e.Brief && !e.JSON {
-			flagName = "--brief"
-		}
-		return fail(e, exitUsage, "%s does not take %s", cmd, flagName)
+	// A verb that has no use for --json or --brief refuses it: silently
+	// ignoring it would let a caller believe it took effect.
+	switch {
+	case e.JSON && !v.json:
+		return fail(e, exitUsage, "%s does not take --json", cmd)
+	case e.Brief && !v.brief:
+		return fail(e, exitUsage, "%s does not take --brief", cmd)
 	}
 	if v.args == nil {
 		return v.run(e, argv{pos: rest})

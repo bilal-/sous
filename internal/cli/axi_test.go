@@ -19,11 +19,11 @@ import (
 	"github.com/bilal-/sous/internal/testutil"
 )
 
-// readVerbs are the verbs that show something (they take --json).
+// readVerbs are the verbs that take --json.
 func readVerbs() []verb {
 	var vs []verb
 	for _, v := range verbs {
-		if v.read {
+		if v.json {
 			vs = append(vs, v)
 		}
 	}

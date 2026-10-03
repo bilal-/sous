@@ -191,7 +191,14 @@ else until you [share one](#sharing-a-note).
 
 ### `sous note "text"`
 
-Save a note and print its number.
+Save a note, and say its number and what makes sense next:
+`noted 7 in api · sous show 7 · sous done 7`. Saving the same text, kind
+and project again while that note is open gives back the same note
+(`already noted as 7`), so a retry never makes two. With `--json`:
+`{"id": "7", "did": "noted", "ref": null, "next": [...]}`; every command
+that changes something answers this way, and `did` says what happened
+(`noted`, `already_noted`, `edited`, `kind`, `snoozed`, `closed`,
+`already_closed`, `filed`, `replied`).
 
 Options:
 
@@ -313,9 +320,10 @@ Options:
   shell snippet passes the folder it already found.
 * `--run <brief>`: hand a task to an agent in the background instead, and
   return at once. See [Handing work to an agent](#handing-work-to-an-agent).
-* `--key <text>`: with `--run`, a name for the task. Running the same
-  `go --run` again with the same key gives back the run already started,
-  so an agent that retries never starts it twice.
+* `--key <text>`: with `--run`, a name for the task. Running `go --run`
+  again with the same key gives back the run already started. Without a
+  key the brief is the key, so a retry of the same brief never starts it
+  twice; a key is only needed to start the same brief twice on purpose.
 
 ## Handing work to an agent
 
