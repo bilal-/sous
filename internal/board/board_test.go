@@ -14,6 +14,8 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/thread"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 func TestRender(t *testing.T) {
@@ -38,8 +40,7 @@ func TestRender(t *testing.T) {
 	var b bytes.Buffer
 	Render(&b, d)
 	out := b.String()
-	for _, want := range []string{
-		"sous · ? on you (github failed, 1 root unavailable, stale rows) · 2 found · 1 on others · 1 unfinished",
+	testutil.Contains(t, out, "sous · ? on you (github failed, 1 root unavailable, stale rows) · 2 found · 1 on others · 1 unfinished",
 		"  on you", "  on others", "  unfinished",
 		"need final copy for the pricing page", "6d",
 		"review requested · PR #14 json api", "2d (stale)",
@@ -47,12 +48,7 @@ func TestRender(t *testing.T) {
 		"6 commits unpushed · main",
 		"  1  ", "s:aaaaaaaaaaaa",
 		"4 checked · 1 unavailable · github: failed (gh not installed) · as of ",
-		"sous snooze <id> to hide a row",
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("missing %q in:\n%s", want, out)
-		}
-	}
+		"sous snooze <id> to hide a row")
 	if strings.Contains(out, "hidden") || strings.Contains(out, "quiet") {
 		t.Errorf("snoozed signal or quiet project leaked:\n%s", out)
 	}
@@ -65,7 +61,7 @@ func TestRender(t *testing.T) {
 	}
 }
 
-// Review 2 I5/I4: the headline must not claim zero when an obligation source
+// The headline must not claim zero when an obligation source
 // failed or nothing was checked; (stale) must survive truncation.
 func TestRenderHonestHeadlineAndStale(t *testing.T) {
 	now := time.Date(2026, 9, 27, 9, 2, 0, 0, time.UTC)
@@ -94,7 +90,7 @@ func TestRenderHonestHeadlineAndStale(t *testing.T) {
 	}
 }
 
-// Review F7: missing data never looks like zero. Any reason in Why — not
+// Missing data never looks like zero. Any reason in Why — not
 // only a failed plugin — puts a "?" in the headline.
 func TestHeadlineCarriesEveryWhy(t *testing.T) {
 	now := time.Date(2026, 9, 27, 9, 2, 0, 0, time.UTC)
@@ -120,11 +116,7 @@ func TestItemHasNoDisplayText(t *testing.T) {
 		Run: &thread.Run{Runner: "claude", State: "needs_you", Text: "which fixture?"}}}
 	b, _ := json.Marshal(ThreadRow(v, now).Item())
 	got := string(b)
-	for _, want := range []string{`"text":"fix the flaky test"`, `"kind":"me"`, `"run":{"runner":"claude","state":"needs_you","text":"which fixture?"`, `"name":"billing"`} {
-		if !strings.Contains(got, want) {
-			t.Errorf("want %s in %s", want, got)
-		}
-	}
+	testutil.Contains(t, got, `"text":"fix the flaky test"`, `"kind":"me"`, `"run":{"runner":"claude","state":"needs_you","text":"which fixture?"`, `"name":"billing"`)
 	if strings.Contains(got, "6d") || strings.Contains(got, "run needs you") {
 		t.Fatalf("display text in --json: %s", got)
 	}
@@ -148,7 +140,7 @@ func TestNotSetUpIsOnlyAGapWhenItHadData(t *testing.T) {
 	}
 }
 
-// Review: a source that stopped working is named even when every row it
+// A source that stopped working is named even when every row it
 // found was snoozed.
 func TestLostSourceIsNamedEvenWhenItsRowsAreSnoozed(t *testing.T) {
 	now := time.Now()
@@ -160,7 +152,7 @@ func TestLostSourceIsNamedEvenWhenItsRowsAreSnoozed(t *testing.T) {
 	}
 }
 
-// Review: shells opened together print the board once, not once each.
+// Shells opened together print the board once, not once each.
 func TestAmbientShowsOnceAcrossConcurrentShells(t *testing.T) {
 	amb := Ambient{Home: t.TempDir()}
 	var mu sync.Mutex
@@ -205,14 +197,10 @@ func TestRunsAreRoutedByState(t *testing.T) {
 	}
 	var b strings.Builder
 	Render(&b, d)
-	for _, want := range []string{"running · fix the flaky test", `run needs you · fix the flaky test · "which fixture?"`, "run done, review it · fix the flaky test · sous/run-3", "run failed · fix the flaky test · which fixture?", "(status unavailable: claude: timed out)"} {
-		if !strings.Contains(b.String(), want) {
-			t.Errorf("missing %q in\n%s", want, b.String())
-		}
-	}
+	testutil.Contains(t, b.String(), "running · fix the flaky test", `run needs you · fix the flaky test · "which fixture?"`, "run done, review it · fix the flaky test · sous/run-3", "run failed · fix the flaky test · which fixture?", "(status unavailable: claude: timed out)")
 }
 
-// Review fix: a run whose state could not be read makes the headline say ?.
+// A run whose state could not be read makes the headline say ?.
 func TestRunStatusUnavailableIsAGap(t *testing.T) {
 	now := time.Now()
 	v := thread.View{Thread: thread.Thread{ID: 1, Project: "/code/acme/billing", Text: "t", Kind: thread.Them, Since: now, Run: &thread.Run{Runner: "orchid", State: "running"}}, RunErr: "orchid: timed out"}

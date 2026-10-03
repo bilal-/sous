@@ -28,7 +28,7 @@ func TestReportCLI(t *testing.T) {
 	}
 	// --open writes the page and opens it (fake `open` records its argument).
 	opened := filepath.Join(f.Home, "opened")
-	os.WriteFile(filepath.Join(f.Home, "bin", "open"), []byte("#!/bin/sh\necho \"$1\" > "+opened+"\n"), 0o755)
+	f.bin("open", "echo \"$1\" > "+opened+"")
 	if _, errs, code := f.run("report", "--week", "--open"); code != 0 {
 		t.Fatalf("%d %s", code, errs)
 	}
@@ -45,7 +45,7 @@ func TestReportCLI(t *testing.T) {
 	}
 }
 
-// Review: a report that could not be shown has not been taken; its window
+// A report that could not be shown has not been taken; its window
 // stays for the next one.
 func TestFailedReportKeepsItsWindow(t *testing.T) {
 	f := fixture(t)

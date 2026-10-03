@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/install"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 // readVerbs are the verbs that show something (they take --json).
@@ -230,11 +232,7 @@ func TestSkillIsBarebonesAndHelpCarriesTheRules(t *testing.T) {
 	}
 	f := fixture(t)
 	out, _, _ := f.run("help")
-	for _, rule := range []string{"For agents", "ask the user", "sous file", "never pick", "SOUS_SOURCE=agent", "FOLLOWUPS.md"} {
-		if !strings.Contains(out, rule) {
-			t.Errorf("sous help is missing %q", rule)
-		}
-	}
+	testutil.Contains(t, out, "For agents", "ask the user", "sous file", "never pick", "SOUS_SOURCE=agent", "FOLLOWUPS.md")
 }
 
 // AXI 10: a command's --help names every option it takes.

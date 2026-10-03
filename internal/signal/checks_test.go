@@ -57,7 +57,7 @@ esac`)
 
 func itoa(n int) string { return strconv.Itoa(n) }
 
-// Review: completeness is about the pull requests GitHub had, not the
+// Completeness is about the pull requests GitHub had, not the
 // failing ones found: 100 pull requests with one failing is a full page.
 func TestFailingChecksWithMorePagesIsIncomplete(t *testing.T) {
 	app := repo(t, filepath.Join(t.TempDir(), "acme/api"), true)
@@ -75,7 +75,7 @@ esac`)
 	}
 }
 
-// Review: gh exits 1 when GraphQL reports errors even with partial data (a
+// Gh exits 1 when GraphQL reports errors even with partial data (a
 // SAML-protected org); the rows it did return are kept, and the scan is
 // incomplete, not empty.
 func TestFailingChecksKeepsPartialDataOnError(t *testing.T) {

@@ -45,7 +45,7 @@ func TestParseArgs(t *testing.T) {
 	}
 }
 
-// Review minors: text is text. -- protects --json too; edit and kind take
+// Minors: text is text. -- protects --json too; edit and kind take
 // no flags, so a dash-led text is just text; -k= is not a kind.
 func TestTextIsNeverAFlag(t *testing.T) {
 	f := fixture(t)

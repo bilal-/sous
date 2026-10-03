@@ -25,17 +25,11 @@ esac`)
 	// Each login's notifications are checked with its own token. With
 	// accounts configured, every failure fails the board, so none is
 	// optional.
-	for _, want := range []string{
-		"gh|ok|needed|",
+	testutil.Contains(t, got, "gh|ok|needed|",
 		"GitHub account work-account|ok|needed|",
 		"GitHub account gone|no|needed|gh auth login",
 		"GitHub notifications|no|needed|gh auth refresh -s notifications",
-		"GitHub notifications (work-account)|no|needed|gh auth refresh -s notifications",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in\n%s", want, got)
-		}
-	}
+		"GitHub notifications (work-account)|no|needed|gh auth refresh -s notifications")
 }
 
 // Not logged in, with no accounts configured, is not set up: optional.

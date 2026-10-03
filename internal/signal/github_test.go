@@ -98,7 +98,7 @@ esac`)
 	}
 }
 
-// Review requests visible only to a second GitHub account (per-org config)
+// Requests visible only to a second GitHub account (per-org config)
 // must appear: the search runs once per account and results are unioned.
 func TestScanGitHubPerAccount(t *testing.T) {
 	ws := t.TempDir()
@@ -172,7 +172,7 @@ func TestScanGitHubNotSetUp(t *testing.T) {
 	}
 }
 
-// Review: only a missing tool or a real logout is "not set up"; a network
+// Only a missing tool or a real logout is "not set up"; a network
 // or keyring failure is a failure, named in the headline.
 func TestScanGitHubNetworkFailureIsAFailure(t *testing.T) {
 	fakeGH(t, `echo "error connecting to api.github.com:

@@ -216,7 +216,7 @@ func TestMarkdownUsesStableUIDAndKeepsOldMarkers(t *testing.T) {
 	}
 }
 
-// Review: with CRLF line endings, the byte offset of the box must count the
+// With CRLF line endings, the byte offset of the box must count the
 // \r of every earlier line, or the wrong box is ticked.
 func TestMarkdownCloseTicksTheRightBoxWithCRLF(t *testing.T) {
 	p := t.TempDir()
@@ -231,7 +231,7 @@ func TestMarkdownCloseTicksTheRightBoxWithCRLF(t *testing.T) {
 	}
 }
 
-// Review: a note filed just before upgrading (old id:tag marker) and
+// A note filed just before upgrading (old id:tag marker) and
 // retried after (now with a uid) must find the item, not file it twice.
 func TestMarkdownRecoveryFindsAPreUpgradeMarker(t *testing.T) {
 	p := t.TempDir()
@@ -241,7 +241,7 @@ func TestMarkdownRecoveryFindsAPreUpgradeMarker(t *testing.T) {
 	if err != nil || ref != "md:FOLLOWUPS.md:7:abcd1234" || strings.Count(string(b), "sous:") != 1 {
 		t.Fatalf("%q %v\n%s", ref, err, b)
 	}
-	// Review: a note made after uids is never matched to an old marker,
+	// A note made after uids is never matched to an old marker,
 	// even with the same number and text (a teammate's old item).
 	ref, _ = MarkdownFileNote(p, Request{ID: 7, UID: "fedcba987654", Project: p, Text: "ship it", Kind: "me"})
 	if ref != "md:FOLLOWUPS.md:fedcba987654" {
@@ -265,7 +265,7 @@ func TestRefusedRequestLeavesNoFile(t *testing.T) {
 	}
 }
 
-// Review round 4: checking status only reads. A read-only FOLLOWUPS.md
+// Checking status only reads. A read-only FOLLOWUPS.md
 // still answers; a file sous cannot read is an error, not "ref missing".
 func TestMarkdownStatusOnlyReads(t *testing.T) {
 	if os.Getuid() == 0 {

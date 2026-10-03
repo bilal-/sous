@@ -97,7 +97,7 @@ func TestRemoteForms(t *testing.T) {
 	}
 }
 
-// Review fix #3: symlinked repos and org folders under a root are projects.
+// #3: symlinked repos and org folders under a root are projects.
 func TestDiscoverFollowsSymlinks(t *testing.T) {
 	ws := t.TempDir()
 	elsewhere := t.TempDir()
@@ -116,7 +116,7 @@ func TestDiscoverFollowsSymlinks(t *testing.T) {
 	}
 }
 
-// Review 2 C2 / I6: relative roots must be made absolute (ids and thread
+// / I6: relative roots must be made absolute (ids and thread
 // matching key on absolute paths); a root that is itself a repo is a project.
 func TestDiscoverAbsoluteAndRootRepo(t *testing.T) {
 	ws := t.TempDir()
@@ -183,7 +183,7 @@ func TestForPathIgnoresARepoAtHome(t *testing.T) {
 	}
 }
 
-// Review: host:org/repo without git@ (an ssh alias, or user@host) keeps its
+// Host:org/repo without git@ (an ssh alias, or user@host) keeps its
 // org; before the fix these collapsed to host/repo.
 func TestRemoteFormsWithoutGitAt(t *testing.T) {
 	for in, want := range map[string]string{
@@ -197,7 +197,7 @@ func TestRemoteFormsWithoutGitAt(t *testing.T) {
 	}
 }
 
-// Review: a folder sous cannot read is unavailable, not empty.
+// A folder sous cannot read is unavailable, not empty.
 func TestUnreadableFolderIsUnavailable(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("root reads everything")

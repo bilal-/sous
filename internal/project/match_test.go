@@ -47,7 +47,7 @@ func TestLadder(t *testing.T) {
 	}
 }
 
-// Review I4: an exact org/name must win over other projects it prefixes.
+// An exact org/name must win over other projects it prefixes.
 func TestExactOrgNameBeatsPrefix(t *testing.T) {
 	ps := fake("org/r1", "org/r10", "org/r1-wt")
 	p, err := Match(ps, "org/r1")

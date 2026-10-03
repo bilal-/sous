@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/runner"
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 // RunDoor starts a run, checks start is safe to repeat and status answers,
@@ -49,4 +50,12 @@ func RunDoor(t *testing.T, r runner.Runner, project string, finish func(ref stri
 			t.Fatalf("stop: %v", err)
 		}
 	}
+}
+
+// Fake is a runner plugin whose calls are the shell case arms in cases,
+// for tests of the code that calls runners.
+func Fake(t *testing.T, cases string) runner.Runner {
+	t.Helper()
+	p := testutil.Script(t, t.TempDir(), "sous-runner-fake", "case \"$1\" in\n"+cases+"\nesac")
+	return runner.Registry.Discover("", nil, []string{p})[0]
 }

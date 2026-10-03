@@ -44,14 +44,14 @@ type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) { return 0, os.ErrClosed }
 
-// Review: a report that could not be written says so, so it is not taken.
+// A report that could not be written says so, so it is not taken.
 func TestRenderReportsWriteErrors(t *testing.T) {
 	if err := Render(failingWriter{}, Report{}); err == nil {
 		t.Fatal("a failed write must be an error")
 	}
 }
 
-// Review: the page holds note text; it is private, even if it existed.
+// The page holds note text; it is private, even if it existed.
 func TestPageIsPrivate(t *testing.T) {
 	home := t.TempDir()
 	os.WriteFile(filepath.Join(home, "report.html"), nil, 0o644)

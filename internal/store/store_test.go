@@ -231,7 +231,7 @@ func (m lockCheckMig) Migrate(from int, raw []byte) ([]byte, error) {
 	return []byte(`{"version":2,"items":[]}`), nil
 }
 
-// Review: an old file is upgraded only under the lock, from a fresh read,
+// An old file is upgraded only under the lock, from a fresh read,
 // so another process's write in between is never overwritten.
 func TestReadMigratesOnlyUnderTheLock(t *testing.T) {
 	s := &Store{Home: t.TempDir()}
@@ -265,7 +265,7 @@ func TestWriteFileFollowsSymlinks(t *testing.T) {
 	}
 }
 
-// Review: replacing an existing file keeps its permissions (a private
+// Replacing an existing file keeps its permissions (a private
 // 0600 .zshrc stays private); perm only applies to a new file. A dangling
 // symlink is followed: the target is created and the link stays.
 func TestWriteFileKeepsModeAndFollowsDanglingLinks(t *testing.T) {
@@ -311,7 +311,7 @@ func TestEditFileSerializesEdits(t *testing.T) {
 	}
 }
 
-// Review: sous's data files (notes, session messages, the board) are
+// Sous's data files (notes, session messages, the board) are
 // private to the person: 0600, as before, whatever writes them.
 func TestDataFilesArePrivate(t *testing.T) {
 	s := &Store{Home: t.TempDir()}
@@ -342,7 +342,7 @@ func TestWriteFileFollowsRelativeLinksThroughLinkedFolders(t *testing.T) {
 	}
 }
 
-// Review round 4: ".." in a link target is taken after following the
+// ".." in a link target is taken after following the
 // folder before it, as the kernel does, not cleaned away first.
 func TestResolveLinksDotDotAfterALinkedFolder(t *testing.T) {
 	root := t.TempDir()

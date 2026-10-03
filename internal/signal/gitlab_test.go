@@ -95,7 +95,7 @@ esac`)
 	}
 }
 
-// Review: glab failing to say which hosts it knows is a failed scan, so the
+// Glab failing to say which hosts it knows is a failed scan, so the
 // runner keeps last findings stale instead of dropping them as resolved.
 func TestScanGitLabFailsWhenHostsUnknown(t *testing.T) {
 	trackertest.Fake(t, "glab", `echo "could not reach keyring" >&2; exit 1`)
@@ -105,7 +105,7 @@ func TestScanGitLabFailsWhenHostsUnknown(t *testing.T) {
 	}
 }
 
-// Review: glab logged out or missing, with nothing in config, is "not set
+// Glab logged out or missing, with nothing in config, is "not set
 // up" (rows seen before are kept stale), never a quiet empty success that
 // drops them.
 func TestScanGitLabNotSetUp(t *testing.T) {

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 func TestNoteCLI(t *testing.T) {
@@ -25,11 +27,7 @@ func TestNoteCLI(t *testing.T) {
 	f.runIn(w, "note", "-p", "chime", "from agent")
 	t.Setenv("SOUS_SOURCE", "")
 	b, _ := os.ReadFile(filepath.Join(f.SousHome, "threads.json"))
-	for _, want := range []string{`"kind": "me"`, `"kind": "idea"`, `"source": "agent"`, `"remote": "github.com/acme/chime"`} {
-		if !strings.Contains(string(b), want) {
-			t.Errorf("threads.json missing %s:\n%s", want, b)
-		}
-	}
+	testutil.Contains(t, string(b), `"kind": "me"`, `"kind": "idea"`, `"source": "agent"`, `"remote": "github.com/acme/chime"`)
 	for _, c := range [][]string{{"note", "-k", "urgent", "x"}, {"note", ""}, {"kind", "2", "later"}} {
 		if _, _, code := f.runIn(w, c...); code != 2 {
 			t.Errorf("%v should exit 2, got %d", c, code)
@@ -151,7 +149,7 @@ func TestSousHomeDefault(t *testing.T) {
 	}
 }
 
-// Review I2: capture must never depend on config being valid. A broken
+// Capture must never depend on config being valid. A broken
 // config.toml still lets `sous note` (no -p) save the note.
 func TestNoteWorksWithBrokenConfig(t *testing.T) {
 	f := fixture(t)

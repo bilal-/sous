@@ -2,7 +2,7 @@ package harness
 
 import "testing"
 
-// Review round 4: a command that wraps sous (env, timeout, echo) is not a
+// A command that wraps sous (env, timeout, echo) is not a
 // sous hook, even when every word is a path.
 func TestIsOursRejectsWrappers(t *testing.T) {
 	for _, c := range []string{

@@ -105,7 +105,7 @@ func ghFailingChecks(account string) ([]Hit, error) {
 
 // ghNotifications: unread notifications addressed to you, one per thread:
 // mentions, team mentions and assignments on issues and pull requests.
-// Review requests are left to the review search. The state is the thread's
+// Requests are left to the review search. The state is the thread's
 // last update, so new activity ends a snooze.
 func ghNotifications(account string) ([]Hit, error) {
 	out, err := tracker.GHNotifications(account)

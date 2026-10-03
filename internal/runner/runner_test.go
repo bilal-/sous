@@ -7,13 +7,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 // fakeRunner writes a sous-runner-fake whose calls are shell case arms.
 func fakeRunner(t *testing.T, body string) Runner {
 	t.Helper()
-	p := filepath.Join(t.TempDir(), "sous-runner-fake")
-	os.WriteFile(p, []byte("#!/bin/sh\ncase \"$1\" in\n"+body+"\nesac\n"), 0o755)
+	// runnertest.Fake, which this package cannot import (it imports runner).
+	p := testutil.Script(t, t.TempDir(), "sous-runner-fake", "case \"$1\" in\n"+body+"\nesac")
 	return Registry.Discover("", nil, []string{p})[0]
 }
 

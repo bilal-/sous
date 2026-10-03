@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,15 +41,23 @@ func Repo(t *testing.T, dir string, commit bool, remote string) string {
 	return dir
 }
 
+// Script writes an executable sh script dir/name with body, and returns
+// its path: a fake tool or plugin.
+func Script(t *testing.T, dir, name, body string) string {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	if err := os.WriteFile(p, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
 // FakeBin puts an executable sh script named name on the front of PATH for
 // the rest of the test and returns its path.
 func FakeBin(t *testing.T, name, body string) string {
 	t.Helper()
 	dir := t.TempDir()
-	p := filepath.Join(dir, name)
-	if err := os.WriteFile(p, []byte("#!/bin/sh\n"+body), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	p := Script(t, dir, name, body)
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	return p
 }
@@ -66,4 +75,19 @@ func OnlyGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir)
+}
+
+// Contains fails the test for each of wants that got does not contain,
+// showing got once.
+func Contains(t *testing.T, got string, wants ...string) {
+	t.Helper()
+	var missing []string
+	for _, w := range wants {
+		if !strings.Contains(got, w) {
+			missing = append(missing, w)
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("missing %q in:\n%s", missing, got)
+	}
 }

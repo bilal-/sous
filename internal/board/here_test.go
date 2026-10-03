@@ -16,6 +16,8 @@ import (
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/thread"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 func TestRenderHere(t *testing.T) {
@@ -36,17 +38,11 @@ func TestRenderHere(t *testing.T) {
 	var b bytes.Buffer
 	RenderHere(&b, d, now, false)
 	out := b.String()
-	for _, want := range []string{
-		"ios-app · feature/widget · last commit 1mo ago",
+	testutil.Contains(t, out, "ios-app · feature/widget · last commit 1mo ago",
 		`  "Wire the home widget"`, "2 files uncommitted",
 		"last session · claude · 2026-09-26 · ended: \"tests pass",
 		"on you: 1 · on others: 0 · ideas: 2", "  3  ask Sam about cert  1d", "home screen layout  1mo (snoozed)",
-		"sous note", "sous done <n>",
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("missing %q in:\n%s", want, out)
-		}
-	}
+		"sous note", "sous done <n>")
 	d.Session = nil
 	b.Reset()
 	RenderHere(&b, d, now, false)

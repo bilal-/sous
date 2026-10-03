@@ -23,8 +23,8 @@ func TestGoExecsAgentInProject(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("a/ios-app", true)
 	real, _ := filepath.EvalSymlinks(p)
-	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\necho \"claude in $PWD\"; [ -n \"$SOUS_HERE_FILE\" ] && head -1 \"$SOUS_HERE_FILE\"\n"), 0o755)
-	os.WriteFile(filepath.Join(f.Home, "bin", "codex"), []byte("#!/bin/sh\necho \"codex in $PWD\"; exit 7\n"), 0o755)
+	f.bin("claude", "echo \"claude in $PWD\"; [ -n \"$SOUS_HERE_FILE\" ] && head -1 \"$SOUS_HERE_FILE\"")
+	f.bin("codex", "echo \"codex in $PWD\"; exit 7")
 
 	out, err := sousCmd(f, f.Home, "go", "ios").CombinedOutput()
 	if err != nil || !strings.Contains(string(out), "claude in "+real) || !strings.Contains(string(out), "→ claude") || !strings.Contains(string(out), "ios-app ·") {
@@ -54,7 +54,7 @@ func TestGoCtrlCReachesAgent(t *testing.T) {
 	f := fixture(t)
 	f.mkrepo("a/r", true)
 	started := filepath.Join(f.Home, "agent-started")
-	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\ntrap 'echo trapped' INT\ntouch "+started+"\nsleep 2\necho done\n"), 0o755)
+	f.bin("claude", "trap 'echo trapped' INT\ntouch "+started+"\nsleep 2\necho done")
 	c := sousCmd(f, f.Home, "go", "r")
 	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	var out bytes.Buffer
@@ -99,7 +99,7 @@ func TestGoAndLauncherUsageErrors(t *testing.T) {
 	if _, errs, code := f.run("launcher", "claude", "run", p); code != 3 || !strings.Contains(errs, "claude not found") {
 		t.Errorf("missing binary: %d %q", code, errs)
 	}
-	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\n"), 0o755)
+	f.bin("claude", "")
 	if _, errs, code := f.run("launcher", "claude", "run", filepath.Join(f.Home, "nope")); code != 1 || errs == "" {
 		t.Errorf("bad dir must fail before exec: %d %q", code, errs)
 	}
@@ -108,12 +108,12 @@ func TestGoAndLauncherUsageErrors(t *testing.T) {
 	}
 }
 
-// Review: sous go started from inside an earlier sous go session must hand
+// Sous go started from inside an earlier sous go session must hand
 // the agent this project's context, not the inherited file.
 func TestGoReplacesInheritedHereFile(t *testing.T) {
 	f := fixture(t)
 	f.mkrepo("a/ios-app", true)
-	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\necho \"file=$SOUS_HERE_FILE\"\n"), 0o755)
+	f.bin("claude", "echo \"file=$SOUS_HERE_FILE\"")
 	c := sousCmd(f, f.Home, "go", "ios")
 	c.Env = append(c.Env, "SOUS_HERE_FILE=/stale/from-parent")
 	out, err := c.CombinedOutput()
@@ -127,7 +127,7 @@ func TestGoReplacesInheritedHereFile(t *testing.T) {
 func TestGoReusesOneHereFilePerProject(t *testing.T) {
 	f := fixture(t)
 	f.mkrepo("a/ios-app", true)
-	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\necho \"file=$SOUS_HERE_FILE\"\n"), 0o755)
+	f.bin("claude", "echo \"file=$SOUS_HERE_FILE\"")
 	var files []string
 	for range 2 {
 		out, err := sousCmd(f, f.Home, "go", "ios").CombinedOutput()
@@ -145,7 +145,7 @@ func TestGoReusesOneHereFilePerProject(t *testing.T) {
 func TestGoDotMeansThisProject(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("a/ios-app", true)
-	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\necho \"claude in $PWD\"\n"), 0o755)
+	f.bin("claude", "echo \"claude in $PWD\"")
 	out, err := sousCmd(f, p, "go", ".").CombinedOutput()
 	real, _ := filepath.EvalSymlinks(p)
 	if err != nil || !strings.Contains(string(out), "claude in "+real) {
@@ -174,7 +174,7 @@ func TestGoWherePrintsTheProjectOnly(t *testing.T) {
 func TestGoInUsesTheFolderGiven(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("a/ios-app", true)
-	os.WriteFile(filepath.Join(f.Home, "bin", "claude"), []byte("#!/bin/sh\necho \"claude in $PWD\"\n"), 0o755)
+	f.bin("claude", "echo \"claude in $PWD\"")
 	out, err := sousCmd(f, f.Home, "go", "--in", p, "no-such-name").CombinedOutput()
 	real, _ := filepath.EvalSymlinks(p)
 	if err != nil || !strings.Contains(string(out), "claude in "+real) {

@@ -87,7 +87,7 @@ func TestStatusRunning(t *testing.T) {
 	}
 }
 
-// Review fix: right after start, before the watcher has written anything,
+// Right after start, before the watcher has written anything,
 // the run is running, not "stopped without a result".
 func TestStatusRightAfterStart(t *testing.T) {
 	testutil.FakeBin(t, "claude", "sleep 30")
@@ -98,7 +98,7 @@ func TestStatusRightAfterStart(t *testing.T) {
 	a.Stop("", ref)
 }
 
-// Review Focus 1: no result, watcher gone, is failed, never running forever,
+// No result, watcher gone, is failed, never running forever,
 // even when its old pid now belongs to some other live process.
 func TestStatusWatcherGone(t *testing.T) {
 	a, ref, dir := startedRun(t, "claude", time.Minute)

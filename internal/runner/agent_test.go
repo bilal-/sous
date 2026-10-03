@@ -93,7 +93,7 @@ func TestStartRefusesWhatItCannotRun(t *testing.T) {
 	}
 }
 
-// Review Focus 3: a push from inside the run fails, and the repo's config
+// A push from inside the run fails, and the repo's config
 // is untouched.
 func TestPushIsBlocked(t *testing.T) {
 	repo := gitRepo(t)
@@ -131,7 +131,6 @@ func waitFor(t *testing.T, ok func() bool) {
 	t.Fatal("timed out waiting")
 }
 
-// Review Focus 5.
 func TestReplyRefusals(t *testing.T) {
 	a, ref, dir := startedRun(t, "claude", time.Minute)
 	release := holdLock(t, dir)
@@ -148,7 +147,7 @@ func TestReplyRefusals(t *testing.T) {
 	}
 }
 
-// Review fix: two quick replies start one watcher, not two.
+// Two quick replies start one watcher, not two.
 func TestTwoRepliesStartOneWatcher(t *testing.T) {
 	claudeSays(t, `SOUS: needs you which one?`, 0)
 	a, ref := watchedRun(t, "claude")
@@ -248,7 +247,7 @@ func TestCleanKeepsABranchWithCommits(t *testing.T) {
 	}
 }
 
-// Review fix: work left uncommitted (a Codex sandbox cannot commit) is
+// Work left uncommitted (a Codex sandbox cannot commit) is
 // never thrown away by clean, and status says it is there.
 func TestUncommittedWorkIsKeptAndShown(t *testing.T) {
 	a, ref, dir := startedRun(t, "claude", time.Minute)
@@ -268,7 +267,7 @@ func TestUncommittedWorkIsKeptAndShown(t *testing.T) {
 	}
 }
 
-// Review fix: a brief or answer that starts with a dash is text, never a flag.
+// A brief or answer that starts with a dash is text, never a flag.
 func TestPromptsAreNeverFlags(t *testing.T) {
 	for _, name := range Registry.Names() {
 		a, ref, dir := startedRun(t, name, time.Minute)
@@ -285,7 +284,7 @@ func TestPromptsAreNeverFlags(t *testing.T) {
 	}
 }
 
-// Review fix: a watcher killed outright leaves its agent working; the run
+// A watcher killed outright leaves its agent working; the run
 // still reads as running, and stop still stops the agent.
 func TestStopReachesAnAgentWhoseWatcherDied(t *testing.T) {
 	testutil.FakeBin(t, "claude", "sleep 30")
@@ -310,7 +309,7 @@ func TestStopReachesAnAgentWhoseWatcherDied(t *testing.T) {
 	}
 }
 
-// Review fix: two starts of the same run make one run, and neither undoes
+// Two starts of the same run make one run, and neither undoes
 // the other.
 func TestConcurrentStartsOfOneRun(t *testing.T) {
 	testutil.FakeBin(t, "claude", "")

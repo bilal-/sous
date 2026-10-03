@@ -22,9 +22,9 @@ var claude = Harness{
 	Parse: parseHookJSON,
 	Last:  func(transcript string, max int) string { return lastLine(transcript, max, claudeText) },
 	// Every prompt follows "--", so text that starts with a dash is never
-	// read as a flag. The permissions are the person's own (spec: what the
-	// agent may do): file edits accepted and the tools its settings allow;
-	// no permission check is skipped.
+	// read as a flag. The permissions are the person's own: file edits
+	// accepted and the tools its settings allow; no permission check is
+	// skipped.
 	Headless: &Headless{
 		Start:   func(r Run) []string { return append(claudeArgs(), "--", r.Prompt) },
 		Resume:  func(r Run) []string { return append(claudeArgs(), "--resume", r.Session, "--", r.Answer) },

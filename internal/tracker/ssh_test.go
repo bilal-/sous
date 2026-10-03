@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// Review round 4: gitlab.com-work is an alias like github.com-work; nested
+// Gitlab.com-work is an alias like github.com-work; nested
 // includes are read; an Include under Match is not; renaming a dotted host
 // only lands on a tracker host, never a port trick like altssh.gitlab.com.
 func TestSSHAliasesRound4(t *testing.T) {

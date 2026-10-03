@@ -86,27 +86,27 @@ func TestProjectsFilterAndResolve(t *testing.T) {
 
 // os.Executable returns the symlink when sous is installed via ln -s; hooks
 // and the printed shell path must use the real binary's location.
-// Review fix #2: a scoped board is not "the board"; it must not become what
+// #2: a scoped board is not "the board"; it must not become what
 // the zsh surface prints.
-// Review fix #6: store failures are exit 1, not the usage code 2 — an agent
+// #6: store failures are exit 1, not the usage code 2 — an agent
 // seeing 2 would assume its arguments were wrong.
-// Review fix #7: --json / --brief are accepted after the verb too.
-// Review 2: the session-start guard must cover repo resolution too, so a
+// #7: --json / --brief are accepted after the verb too.
+// The session-start guard must cover repo resolution too, so a
 // hanging git cannot hang the agent session.
-// Review 2: `--cached` with no board must bootstrap a refresh rather than
+// `--cached` with no board must bootstrap a refresh rather than
 // tell the forgetting user to remember; exit 3 so the shell doesn't stamp.
-// Review 2 (Codex #4 / adversarial C2): scoped boards match threads by remote
-// too, and relative folder arguments behave like absolute ones.
-// AXI: fail loud on flags a verb does not take. --json on a write verb was
-// silently ignored (adversarial M3).
+// Scoped boards match threads by remote too, and relative folder
+// arguments behave like absolute ones.
+// AXI: fail loud on flags a verb does not take, such as --json on a
+// write verb.
 // A release binary has no checkout beside it: the zsh snippet is embedded
 // and written to SOUS_HOME by setup, which prints that path.
 // Ctrl-C must reach the agent, not a sous wrapper.
-// Review C1: an unavailable root plus one filed thread with a remote must not
+// An unavailable root plus one filed thread with a remote must not
 // panic (Discover was called with a nil warn writer).
-// Review C3: a backend that fails or times out is "status unavailable", not
+// A backend that fails or times out is "status unavailable", not
 // "(ref missing)". The ticket may well exist.
-// Review I2/I3: `sous file` can force a worktree and re-file a lost marker.
+// `sous file` can force a worktree and re-file a lost marker.
 // A repo moved after a note was filed: the thread resolves by remote to the
 // new path, so --close writes to the right FOLLOWUPS.md.
 // In-process coverage for the parts of go/launcher that return before exec.

@@ -9,7 +9,7 @@ import (
 	"github.com/bilal-/sous/internal/tracker/trackertest"
 )
 
-// Review round 4: if the list of issues sous checks for an earlier try may
+// If the list of issues sous checks for an earlier try may
 // be cut short, filing refuses rather than risk a duplicate.
 func TestGitHubRecoveryRefusesWhenTheListIsFull(t *testing.T) {
 	var page strings.Builder

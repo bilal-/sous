@@ -2,24 +2,17 @@ package signal
 
 import (
 	"context"
-	"os"
-	"path/filepath"
+	"github.com/bilal-/sous/internal/testutil"
 	"strings"
 	"testing"
 	"time"
 )
 
-func script(t *testing.T, dir, name, body string) string {
-	p := filepath.Join(dir, name)
-	os.WriteFile(p, []byte("#!/bin/sh\n"+body), 0o755)
-	return p
-}
-
 func TestCollectStatuses(t *testing.T) {
 	dir := t.TempDir()
-	ok := script(t, dir, "sous-signal-ok", `while read p; do echo "{\"v\":0,\"id\":\"s:aaaaaaaaaaaa\",\"project\":\"$p\",\"kind\":\"me\",\"text\":\"review\",\"observed\":\"2026-01-01T00:00:00Z\",\"ref\":null}"; done`)
-	broken := script(t, dir, "sous-signal-broken", `echo boom >&2; exit 1`)
-	slow := script(t, dir, "sous-signal-slow", `sleep 3`)
+	ok := testutil.Script(t, dir, "sous-signal-ok", `while read p; do echo "{\"v\":0,\"id\":\"s:aaaaaaaaaaaa\",\"project\":\"$p\",\"kind\":\"me\",\"text\":\"review\",\"observed\":\"2026-01-01T00:00:00Z\",\"ref\":null}"; done`)
+	broken := testutil.Script(t, dir, "sous-signal-broken", `echo boom >&2; exit 1`)
+	slow := testutil.Script(t, dir, "sous-signal-slow", `sleep 3`)
 	plugins := Registry.Discover("", nil, []string{ok, broken, slow})
 	c := Collect(context.Background(), plugins, []string{"/p one", "/p two"}, 500*time.Millisecond)
 	st := map[string]PluginStatus{}
@@ -48,7 +41,7 @@ func TestPluginsNaming(t *testing.T) {
 // must have its findings kept alongside the failed status.
 func TestCollectKeepsPartialOutputOnFailure(t *testing.T) {
 	dir := t.TempDir()
-	partial := script(t, dir, "sous-signal-partial", `echo '{"v":0,"id":"s:aaaaaaaaaaaa","project":"/p","kind":"me","text":"review","observed":"2026-01-01T00:00:00Z","ref":null}'; echo "second query failed" >&2; exit 1`)
+	partial := testutil.Script(t, dir, "sous-signal-partial", `echo '{"v":0,"id":"s:aaaaaaaaaaaa","project":"/p","kind":"me","text":"review","observed":"2026-01-01T00:00:00Z","ref":null}'; echo "second query failed" >&2; exit 1`)
 	c := Collect(context.Background(), Registry.Discover("", nil, []string{partial}), []string{"/p"}, time.Second)
 	if len(c.Plugins) != 1 || c.Plugins[0].Status != "failed" || *c.Plugins[0].Error != "second query failed" {
 		t.Fatalf("status: %+v", c.Plugins)
@@ -58,12 +51,12 @@ func TestCollectKeepsPartialOutputOnFailure(t *testing.T) {
 	}
 }
 
-// Review 2 C1: a shell-wrapper plugin forks a child that inherits stdout;
+// A shell-wrapper plugin forks a child that inherits stdout;
 // killing only the direct child leaves Wait blocked on the pipe. The runner
 // must kill the process group and bound the wait.
 func TestCollectKillsProcessGroupOnTimeout(t *testing.T) {
 	dir := t.TempDir()
-	forker := script(t, dir, "sous-signal-forker", `sleep 30`) // sh forks sleep; sh dies, sleep keeps the pipe
+	forker := testutil.Script(t, dir, "sous-signal-forker", `sleep 30`) // sh forks sleep; sh dies, sleep keeps the pipe
 	start := time.Now()
 	c := Collect(context.Background(), Registry.Discover("", nil, []string{forker}), []string{"/p"}, 500*time.Millisecond)
 	if el := time.Since(start); el > 5*time.Second {
@@ -74,11 +67,11 @@ func TestCollectKillsProcessGroupOnTimeout(t *testing.T) {
 	}
 }
 
-// Review 2 M1-adjacent, promoted: an ok plugin with one stray non-JSON line
+// M1-adjacent, promoted: an ok plugin with one stray non-JSON line
 // must not lose all its findings.
 func TestCollectSkipsBadLinesKeepsGood(t *testing.T) {
 	dir := t.TempDir()
-	mixed := script(t, dir, "sous-signal-mixed", `echo '{"v":0,"id":"s:aaaaaaaaaaaa","project":"/p","kind":"me","text":"review","observed":"2026-01-01T00:00:00Z","ref":null}'; echo 'debug: hello'; echo '{"v":0,"id":"s:bbbbbbbbbbbb","project":"/p","kind":"me","text":"two","observed":"2026-01-01T00:00:00Z","ref":null}'`)
+	mixed := testutil.Script(t, dir, "sous-signal-mixed", `echo '{"v":0,"id":"s:aaaaaaaaaaaa","project":"/p","kind":"me","text":"review","observed":"2026-01-01T00:00:00Z","ref":null}'; echo 'debug: hello'; echo '{"v":0,"id":"s:bbbbbbbbbbbb","project":"/p","kind":"me","text":"two","observed":"2026-01-01T00:00:00Z","ref":null}'`)
 	c := Collect(context.Background(), Registry.Discover("", nil, []string{mixed}), []string{"/p"}, time.Second)
 	if len(c.Signals) != 2 {
 		t.Fatalf("good lines must survive a bad one: %+v", c.Signals)
@@ -92,18 +85,18 @@ func TestCollectSkipsBadLinesKeepsGood(t *testing.T) {
 // multi-line tool output squashed to one readable line.
 func TestCollectNotSetUp(t *testing.T) {
 	dir := t.TempDir()
-	off := script(t, dir, "sous-signal-off", `printf 'gh: not logged in\n\n   run gh auth login\n' >&2; exit 3`)
+	off := testutil.Script(t, dir, "sous-signal-off", `printf 'gh: not logged in\n\n   run gh auth login\n' >&2; exit 3`)
 	c := Collect(context.Background(), Registry.Discover("", nil, []string{off}), []string{"/p"}, time.Second)
 	if st := c.Plugins[0]; st.Status != "off" || st.Error == nil || *st.Error != "gh: not logged in run gh auth login" {
 		t.Fatalf("%+v %q", st, *st.Error)
 	}
 }
 
-// Review: a plugin whose output was partly unreadable did not report
+// A plugin whose output was partly unreadable did not report
 // everything, so what it found before is kept (stale), not dropped.
 func TestUnreadableLinesMakeThePluginIncomplete(t *testing.T) {
 	dir := t.TempDir()
-	p := script(t, dir, "sous-signal-half", `echo "not json"`)
+	p := testutil.Script(t, dir, "sous-signal-half", `echo "not json"`)
 	c := Collect(context.Background(), Registry.Discover("", nil, []string{p}), []string{"/p"}, time.Second)
 	if c.Plugins[0].Status == StatusOK {
 		t.Fatalf("%+v", c.Plugins[0])

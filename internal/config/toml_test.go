@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// Review: an escaped quote run (\""") inside a multi-line basic string does
+// An escaped quote run (\""") inside a multi-line basic string does
 // not end it, so a roots line inside that string is never taken for the
 // real one.
 func TestSetRootsSkipsEscapedQuotesInMultiLineStrings(t *testing.T) {
@@ -23,7 +23,7 @@ func TestSetRootsSkipsEscapedQuotesInMultiLineStrings(t *testing.T) {
 	}
 }
 
-// Review round 4: roots are written as TOML strings, not Go strings, so
+// Roots are written as TOML strings, not Go strings, so
 // unusual characters still make a file that parses.
 func TestSetRootsQuotesForTOML(t *testing.T) {
 	home := t.TempDir()

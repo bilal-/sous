@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 func TestConfigShowSetUnset(t *testing.T) {
@@ -33,11 +35,7 @@ func TestConfigShowSetUnset(t *testing.T) {
 		t.Fatalf("set org: %d %q", code, errs)
 	}
 	b, _ := os.ReadFile(cfgFile)
-	for _, want := range []string{`agent = "codex"`, "refresh_hours = 2", `ignore = ["scratch/*", "tmp/*"]`, `[projects."acme/api"]`, `backend = "markdown"`, `[projects."acme/*"]`, `github_account = "work-account"`} {
-		if !strings.Contains(string(b), want) {
-			t.Errorf("config.toml lacks %s:\n%s", want, b)
-		}
-	}
+	testutil.Contains(t, string(b), `agent = "codex"`, "refresh_hours = 2", `ignore = ["scratch/*", "tmp/*"]`, `[projects."acme/api"]`, `backend = "markdown"`, `[projects."acme/*"]`, `github_account = "work-account"`)
 	out, _, _ = f.run("config")
 	if !strings.Contains(out, "codex") || strings.Contains(out, "codex (default)") || !strings.Contains(out, "acme/api") || !strings.Contains(out, "work-account") {
 		t.Fatalf("show after: \n%s", out)
@@ -89,7 +87,7 @@ func TestConfigRefusesBadValues(t *testing.T) {
 	}
 }
 
-// Review: only org/* is a pattern sous understands; anything else with a
+// Only org/* is a pattern sous understands; anything else with a
 // star is refused rather than written where it would do nothing.
 func TestConfigOnlyOrgStarPatterns(t *testing.T) {
 	f := fixture(t)
@@ -99,7 +97,7 @@ func TestConfigOnlyOrgStarPatterns(t *testing.T) {
 	}
 }
 
-// Review: lists can be added to and taken from; roots cannot be unset;
+// Lists can be added to and taken from; roots cannot be unset;
 // -p alone shows that project; a change with --json answers in JSON.
 func TestConfigListsProjectsAndJSON(t *testing.T) {
 	f := fixture(t)

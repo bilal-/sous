@@ -12,13 +12,8 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/plugin"
+	"github.com/bilal-/sous/internal/testutil"
 )
-
-func script(t *testing.T, dir, name, body string) string {
-	p := filepath.Join(dir, name)
-	os.WriteFile(p, []byte("#!/bin/sh\n"+body), 0o755)
-	return p
-}
 
 func TestBackendsNamingAndByRef(t *testing.T) {
 	bs := Registry.Discover("/bin/sous", []string{"markdown"}, []string{"/x/sous-backend-jira", "/x/not-one"})
@@ -38,9 +33,9 @@ func TestBackendsNamingAndByRef(t *testing.T) {
 
 func TestDetectOrderOverrideAndProbeFailure(t *testing.T) {
 	dir := t.TempDir()
-	no := script(t, dir, "sous-backend-no", `exit 1`)
-	yes := script(t, dir, "sous-backend-yes", `[ "$1" = detect ] && [ "$2" = "/proj" ] && exit 0; exit 1`)
-	broken := script(t, dir, "sous-backend-broken", `echo "cannot probe" >&2; exit 3`)
+	no := testutil.Script(t, dir, "sous-backend-no", `exit 1`)
+	yes := testutil.Script(t, dir, "sous-backend-yes", `[ "$1" = detect ] && [ "$2" = "/proj" ] && exit 0; exit 1`)
+	broken := testutil.Script(t, dir, "sous-backend-broken", `echo "cannot probe" >&2; exit 3`)
 	bs := Registry.Discover("", nil, []string{broken, no, yes})
 	var warn bytes.Buffer
 	b, err := Detect(context.Background(), bs, "/proj", "", &warn)
@@ -60,7 +55,7 @@ func TestDetectOrderOverrideAndProbeFailure(t *testing.T) {
 
 func TestOpsViaSubprocess(t *testing.T) {
 	dir := t.TempDir()
-	fake := script(t, dir, "sous-backend-fake", `
+	fake := testutil.Script(t, dir, "sous-backend-fake", `
 case "$1" in
   file) read -r body; out=$(printf '%s' "$body" | sed 's/.*"project":"\([^"]*\)".*/\1/'); echo "$body" > "$out.req"; echo "fake:42";;
   status) [ "$2" = /proj ] && [ "$3" = fake:42 ] && echo open || echo unknown;;
@@ -99,7 +94,7 @@ esac`)
 
 func TestOpTimeoutKillsGroup(t *testing.T) {
 	dir := t.TempDir()
-	slow := script(t, dir, "sous-backend-slow", `sleep 30`)
+	slow := testutil.Script(t, dir, "sous-backend-slow", `sleep 30`)
 	b := Registry.Discover("", nil, []string{slow})[0]
 	old := timeout
 	timeout = 300 * time.Millisecond
@@ -113,7 +108,7 @@ func TestOpTimeoutKillsGroup(t *testing.T) {
 
 func TestURLSupported(t *testing.T) {
 	dir := t.TempDir()
-	b := Registry.Discover("", nil, []string{script(t, dir, "sous-backend-web", `[ "$1" = url ] && echo "https://x/$3"; exit 0`)})[0]
+	b := Registry.Discover("", nil, []string{testutil.Script(t, dir, "sous-backend-web", `[ "$1" = url ] && echo "https://x/$3"; exit 0`)})[0]
 	u, ok, err := URL(context.Background(), b, "/p", "web:1")
 	if err != nil || !ok || u != "https://x/web:1" {
 		t.Fatal(u, ok, err)
@@ -127,14 +122,14 @@ func TestURLSupported(t *testing.T) {
 // get that reason to the user, or "no tracker" is a mystery.
 func TestDetectSurfacesNotApplicableReason(t *testing.T) {
 	dir := t.TempDir()
-	why := script(t, dir, "sous-backend-why", `echo "github: gh not logged in" >&2; exit 1`)
+	why := testutil.Script(t, dir, "sous-backend-why", `echo "github: gh not logged in" >&2; exit 1`)
 	var warn bytes.Buffer
 	if b, _ := Detect(context.Background(), Registry.Discover("", nil, []string{why}), "/p", "", &warn); b.Name != "local" || !strings.Contains(warn.String(), "gh not logged in") {
 		t.Fatalf("%+v %q", b, warn.String())
 	}
 }
 
-// Review F3: the file request carries the contract version, like a signal
+// The file request carries the contract version, like a signal
 // line; a backend refuses a version it does not speak.
 func TestFileRequestCarriesContractVersion(t *testing.T) {
 	var got bytes.Buffer
@@ -144,7 +139,7 @@ func TestFileRequestCarriesContractVersion(t *testing.T) {
 		t.Fatalf("future version: code=%d %q filed=%v", code, got.String(), impl.filed)
 	}
 	dir := t.TempDir()
-	echo := script(t, dir, "sous-backend-echo", `cat > "`+dir+`/req"; echo echo:1`)
+	echo := testutil.Script(t, dir, "sous-backend-echo", `cat > "`+dir+`/req"; echo echo:1`)
 	File(context.Background(), Registry.Discover("", nil, []string{echo})[0], Request{ID: 3, UID: "000000000003", Project: "/p", Text: "x", Kind: "me"})
 	if b, _ := os.ReadFile(filepath.Join(dir, "req")); !strings.HasPrefix(string(b), `{"v":0,`) {
 		t.Fatalf("request must lead with v: %s", b)
@@ -169,13 +164,13 @@ func TestStatusRefusesAnythingButAnAnswer(t *testing.T) {
 		{"odd", `echo Open`, `"Open"`},
 		{"empty", `exit 0`, `""`},
 	} {
-		b := Registry.Discover("", nil, []string{script(t, dir, "sous-backend-"+tc.name, tc.body)})[0]
+		b := Registry.Discover("", nil, []string{testutil.Script(t, dir, "sous-backend-"+tc.name, tc.body)})[0]
 		st, err := Status(context.Background(), b, "/p", "x:1")
 		if err == nil || st != "" || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: want an error naming %s, got %q %v", tc.name, tc.want, st, err)
 		}
 	}
-	b := Registry.Discover("", nil, []string{script(t, dir, "sous-backend-gone", `echo unknown`)})[0]
+	b := Registry.Discover("", nil, []string{testutil.Script(t, dir, "sous-backend-gone", `echo unknown`)})[0]
 	if st, err := Status(context.Background(), b, "/p", "x:1"); err != nil || st != "unknown" {
 		t.Fatalf("unknown is an answer: %q %v", st, err)
 	}
@@ -185,7 +180,7 @@ func TestStatusRefusesAnythingButAnAnswer(t *testing.T) {
 // own words, and the next backend is asked.
 func TestDetectNotSetUp(t *testing.T) {
 	dir := t.TempDir()
-	off := script(t, dir, "sous-backend-jira", `echo "jira: no token in JIRA_TOKEN" >&2; exit 3`)
+	off := testutil.Script(t, dir, "sous-backend-jira", `echo "jira: no token in JIRA_TOKEN" >&2; exit 3`)
 	var warn bytes.Buffer
 	b, err := Detect(context.Background(), Registry.Discover("", nil, []string{off}), "/proj", "", &warn)
 	if err != nil || b.Name != "local" || warn.String() != "sous: backend jira: not set up: jira: no token in JIRA_TOKEN\n" {

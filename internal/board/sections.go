@@ -40,11 +40,11 @@ type Row struct {
 }
 
 // Sections is the board classified: what is on you, on others, and merely
-// unfinished. Ideas never appear here (spec: they show on landing only).
+// unfinished. Ideas never appear here: they show where you land, in here.
 type Sections struct {
 	Me, Them, Unfinished []Row
-	// Ideas are listed by here, and left off the board (spec: they show
-	// on landing only). RecentlyClosed is filled only for here.
+	// Ideas are listed by here, and left off the board: they show where
+	// you land, not every morning. RecentlyClosed is filled only for here.
 	Ideas, RecentlyClosed []Row
 	// Snoozed rows are hidden until the snooze ends; --json lists them.
 	Snoozed []Row

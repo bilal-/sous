@@ -218,7 +218,7 @@ func TestCurrentPathFollowsRemote(t *testing.T) {
 	}
 }
 
-// Review: if closing the note here fails, it stays on the board with the
+// If closing the note here fails, it stays on the board with the
 // reason, instead of vanishing while still open on disk.
 func TestReconcileKeepsANoteItCouldNotClose(t *testing.T) {
 	st := &store.Store{Home: t.TempDir()}

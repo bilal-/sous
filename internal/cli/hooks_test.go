@@ -11,6 +11,8 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/thread"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 func hookJSON(m map[string]any) string { b, _ := json.Marshal(m); return string(b) }
@@ -46,11 +48,7 @@ func TestHooksCLI(t *testing.T) {
 		t.Fatal(code, errs)
 	}
 	b, _ := os.ReadFile(filepath.Join(f.SousHome, "sessions.json"))
-	for _, want := range []string{`"agent": "claude"`, `"session_id": "s9"`, "next is the widget template", `"` + p + `"`} {
-		if !strings.Contains(string(b), want) {
-			t.Errorf("sessions.json missing %s:\n%s", want, b)
-		}
-	}
+	testutil.Contains(t, string(b), `"agent": "claude"`, `"session_id": "s9"`, "next is the widget template", `"`+p+`"`)
 	f.runStdin(hookJSON(map[string]any{"session_id": "s10", "cwd": p, "transcript_path": "/nope"}), "hook", "session-end", "codex")
 	b, _ = os.ReadFile(filepath.Join(f.SousHome, "sessions.json"))
 	if !strings.Contains(string(b), `"session_id": "s10"`) || !strings.Contains(string(b), `"last_message": null`) {
@@ -84,7 +82,7 @@ func TestHooksCLI(t *testing.T) {
 	}
 }
 
-// Review: Homebrew's sous is a link into a versioned folder that brew
+// Homebrew's sous is a link into a versioned folder that brew
 // upgrade deletes. Hooks must name the stable path on PATH when it is this
 // same program.
 func TestStableExePrefersThePathOnPATH(t *testing.T) {
@@ -110,7 +108,7 @@ func TestStableExePrefersThePathOnPATH(t *testing.T) {
 func TestHookSessionStartBoundedEvenIfGitHangs(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("a/one", true)
-	os.WriteFile(filepath.Join(f.Home, "bin", "git"), []byte("#!/bin/sh\nsleep 30\n"), 0o755) // shadows git
+	f.bin("git", "sleep 30") // shadows git
 	start := time.Now()
 	_, errs, code := f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "startup"}), "hook", "session-start", "claude")
 	if el := time.Since(start); el > 8*time.Second || code != 0 || errs != "" {
@@ -160,15 +158,11 @@ func TestSetupInstallsSkill(t *testing.T) {
 			t.Fatalf("%s: %v", p, err)
 		}
 		s := strings.ToLower(string(b))
-		for _, want := range []string{"name: sous", "description:", "sous help"} {
-			if !strings.Contains(s, want) {
-				t.Errorf("%s missing %q", p, want)
-			}
-		}
+		testutil.Contains(t, s, "name: sous", "description:", "sous help")
 	}
 }
 
-// Review C1/C3: `here` (and so the session hook and `sous go`) must be local
+// `here` (and so the session hook and `sous go`) must be local
 // and bounded — a hung tracker CLI must not delay or empty the resume view.
 func TestHereIsLocalEvenWhenTrackersHang(t *testing.T) {
 	f := fixture(t)
@@ -178,7 +172,7 @@ func TestHereIsLocalEvenWhenTrackersHang(t *testing.T) {
 	f.runIn(p, "note", "-k", "me", "local note")
 	// A filed-to-github thread, so reconcile has a reason to call gh.
 	f.fileAs(1, "github:o/r#1")
-	os.WriteFile(filepath.Join(f.Home, "bin", "gh"), []byte("#!/bin/sh\nsleep 30\n"), 0o755)
+	f.bin("gh", "sleep 30")
 
 	start := time.Now()
 	out, errs, code := f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "startup"}), "hook", "session-start", "claude")
@@ -197,14 +191,14 @@ func TestHereIsLocalEvenWhenTrackersHang(t *testing.T) {
 	}
 }
 
-// Review F1: here (and so the session hook) must not run any tracker CLI —
+// Here (and so the session hook) must not run any tracker CLI —
 // not even `glab auth status` from constructing the gitlab plugin.
 func TestHereRunsNoTrackerCLI(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("acme/api", true)
 	calls := filepath.Join(f.Home, "tool-calls")
 	for _, tool := range []string{"gh", "glab"} {
-		os.WriteFile(filepath.Join(f.Home, "bin", tool), []byte("#!/bin/sh\necho \""+tool+" $*\" >> "+calls+"\nexit 1\n"), 0o755)
+		f.bin(tool, "echo \""+tool+" $*\" >> "+calls+"\nexit 1")
 	}
 	// A note filed on GitHub: here must not ask GitHub about it (review:
 	// reconciliation is the board's job; here is local).

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/bilal-/sous/internal/testutil"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,12 +12,6 @@ import (
 	"testing"
 	"time"
 )
-
-func script(t *testing.T, dir, name, body string) string {
-	p := filepath.Join(dir, name)
-	os.WriteFile(p, []byte("#!/bin/sh\n"+body), 0o755)
-	return p
-}
 
 var reg = Registry[string]{Axis: "backend", Builtins: []Builtin[string]{
 	{Name: "markdown", Offline: true, Ops: func(d string) map[string]Op {
@@ -102,9 +97,9 @@ func TestRequestDoesNotEscapeHTML(t *testing.T) {
 
 func TestExecOutcomes(t *testing.T) {
 	dir := t.TempDir()
-	ok := script(t, dir, "ok", `read -r x; echo "got $x $1"; echo warn >&2`)
-	fails := script(t, dir, "fails", `echo boom >&2; exit 3`)
-	forker := script(t, dir, "forker", `sleep 30`)
+	ok := testutil.Script(t, dir, "ok", `read -r x; echo "got $x $1"; echo warn >&2`)
+	fails := testutil.Script(t, dir, "fails", `echo boom >&2; exit 3`)
+	forker := testutil.Script(t, dir, "forker", `sleep 30`)
 	r := Exec(context.Background(), []string{ok, "arg"}, []byte("in\n"), time.Second)
 	if r.Err != nil || r.Code != 0 || strings.TrimSpace(r.Stdout) != "got in arg" || strings.TrimSpace(r.Stderr) != "warn" {
 		t.Fatalf("%+v", r)

@@ -63,7 +63,6 @@ esac`)
 	}
 }
 
-// Review Focus 2.
 func TestGoRunKeyIsIdempotentUnderRace(t *testing.T) {
 	f := fixture(t)
 	f.mkrepo("acme/billing", true)

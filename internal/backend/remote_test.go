@@ -243,7 +243,7 @@ esac`)
 	}
 }
 
-// Review F16: a project hosted elsewhere (Bitbucket, Gitea) is simply not a
+// A project hosted elsewhere (Bitbucket, Gitea) is simply not a
 // GitLab project; only a GitLab-looking host glab doesn't know gets the hint.
 func TestGitLabLocateHintsOnlyForGitLabHosts(t *testing.T) {
 	fakeGLab(t, filepath.Join(t.TempDir(), "calls"), `echo "No hosts are configured on this machine." >&2; exit 1`)

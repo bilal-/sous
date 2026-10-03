@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 // AXI 5: an empty list is [], never null, whatever the command hands
@@ -32,11 +34,7 @@ func TestWriteJSONEmptyListsAreNotNull(t *testing.T) {
 		t.Fatal(code)
 	}
 	got := strings.Join(strings.Fields(out.String()), "")
-	for _, want := range []string{`"rows":[{"tags":[]`, `"ptr":{"tags":[]`, `"nil":null`, `"any":{"xs":[]}`, `"map":{"a":[]}`, `"err":null`} {
-		if !strings.Contains(got, want) {
-			t.Errorf("want %s in %s", want, got)
-		}
-	}
+	testutil.Contains(t, got, `"rows":[{"tags":[]`, `"ptr":{"tags":[]`, `"nil":null`, `"any":{"xs":[]}`, `"map":{"a":[]}`, `"err":null`)
 	if strings.Contains(got, "hidden") {
 		t.Errorf("omitempty still omits: %s", got)
 	}

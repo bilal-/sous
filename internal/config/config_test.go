@@ -118,7 +118,7 @@ func TestTildeIsExpandsInverse(t *testing.T) {
 	}
 }
 
-// Review: roots written as a multi-line array, or indented, are replaced
+// Roots written as a multi-line array, or indented, are replaced
 // whole; a roots key inside a table is not ours to touch; the result must
 // still parse.
 func TestSetRootsHandlesRealTOML(t *testing.T) {
@@ -147,7 +147,7 @@ func boolInt(b bool) int {
 	return 0
 }
 
-// Review: the roots value is found by reading the file as TOML does:
+// The roots value is found by reading the file as TOML does:
 // arrays of arrays, comments inside arrays, and multi-line strings holding
 // text that looks like a roots line.
 func TestSetRootsReadsTOMLStructure(t *testing.T) {

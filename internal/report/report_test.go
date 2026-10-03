@@ -10,6 +10,8 @@ import (
 	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/thread"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 func init() { time.Local = time.UTC } // "since …" renders in local time; pin it
@@ -79,22 +81,14 @@ func TestRenderReportTextAndHTML(t *testing.T) {
 	var b bytes.Buffer
 	Render(&b, r)
 	out := b.String()
-	for _, want := range []string{"since Fri 25 Sep 17:00", "2 new on you", "2 closed", "needs attention", "gitlab failed",
-		"new on you", "need pricing copy", "review requested · PR #14", "closed", "✓ 8", "filed and ticked", "(upstream)", "worked", "ios-app"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("text missing %q:\n%s", want, out)
-		}
-	}
+	testutil.Contains(t, out, "since Fri 25 Sep 17:00", "2 new on you", "2 closed", "needs attention", "gitlab failed",
+		"new on you", "need pricing copy", "review requested · PR #14", "closed", "✓ 8", "filed and ticked", "(upstream)", "worked", "ios-app")
 	b.Reset()
 	if err := RenderHTML(&b, r); err != nil {
 		t.Fatal(err)
 	}
 	h := b.String()
-	for _, want := range []string{"<!doctype html>", "prefers-color-scheme: dark", "need pricing copy", "https://github.com/oss/app-next/issues/14", "sous done 1", "Material Design 3"} {
-		if !strings.Contains(h, want) {
-			t.Errorf("html missing %q", want)
-		}
-	}
+	testutil.Contains(t, h, "<!doctype html>", "prefers-color-scheme: dark", "need pricing copy", "https://github.com/oss/app-next/issues/14", "sous done 1", "Material Design 3")
 	for _, bad := range []string{"<script", "http://", "fonts.googleapis", "<link"} {
 		if strings.Contains(h, bad) {
 			t.Errorf("html must be self-contained with no scripts or external loads: found %q", bad)

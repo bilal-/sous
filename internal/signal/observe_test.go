@@ -110,7 +110,7 @@ func TestObserveFirstSeenSurvivesTextChange(t *testing.T) {
 	}
 }
 
-// Review 2 I3: an obligation's age is how long it has been waiting, not
+// An obligation's age is how long it has been waiting, not
 // when sous first noticed it. A PR updated 2d ago is 2d old on first sight.
 func TestObserveAgeUsesPluginObserved(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
@@ -155,7 +155,7 @@ func TestObservePrunesStaleEntries(t *testing.T) {
 	}
 }
 
-// Review F2: what earlier scans learned about one project, derived the way
+// What earlier scans learned about one project, derived the way
 // Observe derives it (snooze included), with no other project's rows.
 func TestKnown(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
@@ -221,7 +221,7 @@ func TestSnoozePrefixTooShortSaysSo(t *testing.T) {
 	}
 }
 
-// Review: a scan that runs only some plugins (here runs git) settles what
+// A scan that runs only some plugins (here runs git) settles what
 // those plugins found, and leaves the others' rows as they were: not
 // dropped, not stale.
 func TestObserveOnlySettlesThePluginsThatRan(t *testing.T) {
@@ -245,7 +245,7 @@ func TestObserveOnlySettlesThePluginsThatRan(t *testing.T) {
 	}
 }
 
-// Review: a row kept because its plugin failed is remembered as stale, so
+// A row kept because its plugin failed is remembered as stale, so
 // here (which reads it back later) does not show it as fresh.
 func TestStaleIsRememberedForKnown(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}

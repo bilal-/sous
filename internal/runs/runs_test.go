@@ -11,20 +11,14 @@ import (
 
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
+	"github.com/bilal-/sous/internal/runner/runnertest"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/thread"
 )
 
-func fakeRunner(t *testing.T, body string) runner.Runner {
-	t.Helper()
-	p := filepath.Join(t.TempDir(), "sous-runner-fake")
-	os.WriteFile(p, []byte("#!/bin/sh\ncase \"$1\" in\n"+body+"\nesac\n"), 0o755)
-	return runner.Registry.Discover("", nil, []string{p})[0]
-}
-
 func TestStartRecordsTheRunAndAFailedStartStaysVisible(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
-	ok := fakeRunner(t, `start) echo fake:1;; status) echo '{"v":0,"state":"running"}';;`)
+	ok := runnertest.Fake(t, `start) echo fake:1;; status) echo '{"v":0,"state":"running"}';;`)
 	d := &Dispatcher{Store: s, Runners: []runner.Runner{ok}, Now: time.Now}
 	p := project.Project{Path: "/code/acme/billing"}
 	id, _, err := d.Start(context.Background(), p, "fix it", "", "fake", "agent", "")
@@ -32,7 +26,7 @@ func TestStartRecordsTheRunAndAFailedStartStaysVisible(t *testing.T) {
 	if err != nil || th.Run.Ref != "fake:1" || th.Run.State != "running" {
 		t.Fatalf("%+v %v", th.Run, err)
 	}
-	bad := fakeRunner(t, `start) echo "no agent here" >&2; exit 1;;`)
+	bad := runnertest.Fake(t, `start) echo "no agent here" >&2; exit 1;;`)
 	d.Runners = []runner.Runner{bad}
 	id, _, err = d.Start(context.Background(), p, "fix it", "", "fake", "agent", "")
 	th, _ = thread.Get(s, id)
@@ -44,10 +38,9 @@ func TestStartRecordsTheRunAndAFailedStartStaysVisible(t *testing.T) {
 	}
 }
 
-// Review Focus 4.
 func TestRefreshNeverGuesses(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
-	hang := fakeRunner(t, `start) echo fake:1;; status) sleep 30;;`)
+	hang := runnertest.Fake(t, `start) echo fake:1;; status) sleep 30;;`)
 	d := &Dispatcher{Store: s, Runners: []runner.Runner{hang}, Now: time.Now}
 	id, _, _ := d.Start(context.Background(), project.Project{Path: "/p"}, "b", "", "fake", "", "")
 	views, _ := thread.Runs(s, time.Now())
@@ -64,7 +57,7 @@ func TestRefreshNeverGuesses(t *testing.T) {
 
 func TestRefreshRecordsTheAnswer(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
-	r := fakeRunner(t, `start) echo fake:1;; status) echo '{"v":0,"state":"done","text":"fixed","branch":"sous/run-1"}';;`)
+	r := runnertest.Fake(t, `start) echo fake:1;; status) echo '{"v":0,"state":"done","text":"fixed","branch":"sous/run-1"}';;`)
 	d := &Dispatcher{Store: s, Runners: []runner.Runner{r}, Now: time.Now}
 	id, _, _ := d.Start(context.Background(), project.Project{Path: "/p"}, "b", "", "fake", "", "")
 	views, _ := thread.Runs(s, time.Now())
@@ -81,7 +74,7 @@ func TestRefreshRecordsTheAnswer(t *testing.T) {
 	}
 }
 
-// Review fix: a run that never got a ref (sous stopped mid start) ends as
+// A run that never got a ref (sous stopped mid start) ends as
 // failed once its start has had time to answer, instead of starting forever.
 func TestStuckStartEndsAsFailed(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
@@ -104,7 +97,7 @@ func TestStuckStartEndsAsFailed(t *testing.T) {
 // alone, and clean is then a mistake; a runner that cannot clean is not.
 func TestFinish(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
-	r := fakeRunner(t, `start) echo fake:1;; stop) echo stopped >> "$(dirname "$0")/calls";; clean) echo cleaned >> "$(dirname "$0")/calls";;`)
+	r := runnertest.Fake(t, `start) echo fake:1;; stop) echo stopped >> "$(dirname "$0")/calls";; clean) echo cleaned >> "$(dirname "$0")/calls";;`)
 	calls := filepath.Join(filepath.Dir(r.Argv[0]), "calls")
 	d := &Dispatcher{Store: s, Runners: []runner.Runner{r}, Now: time.Now}
 	id, _, err := d.Start(context.Background(), project.Project{Path: "/code/acme/billing"}, "fix it", "", "fake", "human", "")
@@ -124,13 +117,13 @@ func TestFinish(t *testing.T) {
 	if _, err := d.Finish(context.Background(), note, true); !errors.Is(err, ErrNotARun) {
 		t.Fatal("clean is for runs:", err)
 	}
-	noclean := fakeRunner(t, `start) echo fake:2;; stop) exit 0;; clean) exit 2;;`)
+	noclean := runnertest.Fake(t, `start) echo fake:2;; stop) exit 0;; clean) exit 2;;`)
 	d.Runners = []runner.Runner{noclean}
 	id, _, _ = d.Start(context.Background(), project.Project{Path: "/code/acme/billing"}, "fix that", "", "fake", "human", "")
 	if done, err := d.Finish(context.Background(), id, true); err != nil || done != CantClean {
 		t.Fatal("a runner that cannot clean still finishes:", done, err)
 	}
-	stuck := fakeRunner(t, `start) echo fake:3;; stop) echo "still busy" >&2; exit 1;;`)
+	stuck := runnertest.Fake(t, `start) echo fake:3;; stop) echo "still busy" >&2; exit 1;;`)
 	d.Runners = []runner.Runner{stuck}
 	id, _, _ = d.Start(context.Background(), project.Project{Path: "/code/acme/billing"}, "fix more", "", "fake", "human", "")
 	if _, err := d.Finish(context.Background(), id, false); err == nil || !strings.Contains(err.Error(), "still busy") {

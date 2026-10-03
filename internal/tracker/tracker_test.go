@@ -103,7 +103,7 @@ func TestParseRemote(t *testing.T) {
 	}
 }
 
-// Review: glab failing without naming a host is not "no GitLab" — that
+// Glab failing without naming a host is not "no GitLab" — that
 // would drop every GitLab finding as if resolved. It is an error, and not
 // cached, so the next call asks again.
 func TestGitLabHostsFailureIsAnErrorNotAnAnswer(t *testing.T) {
@@ -231,7 +231,7 @@ Host *
 	}
 }
 
-// Review: tabs separate ssh config words too; an Include inside a Host
+// Tabs separate ssh config words too; an Include inside a Host
 // block belongs to that block; a real tracker host (gitlab.com moved to
 // port 443 as altssh.gitlab.com) and wildcard patterns never rename a host
 // that already has a dot.

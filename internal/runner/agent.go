@@ -16,7 +16,8 @@ import (
 )
 
 // Agent is a built in runner: it starts one agent CLI in a worktree, and
-// that is all (spec: the hard line). The watcher (watch.go) records how the
+// that is all: retrying, reviewing and scheduling belong to a runner
+// plugin. The watcher (watch.go) records how the
 // agent ended.
 type Agent struct {
 	Name  string

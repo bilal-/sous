@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/board"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 func TestBoardCLI(t *testing.T) {
@@ -27,11 +29,7 @@ func TestBoardCLI(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("board: %d %q", code, out)
 	}
-	for _, want := range []string{"? on you (github failed) · 1 found", "1 on others", "1 unfinished", "need final copy for pricing", "waiting on Play Console", "1 files uncommitted · main", "4 checked", "github: failed", "sous snooze"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("missing %q in:\n%s", want, out)
-		}
-	}
+	testutil.Contains(t, out, "? on you (github failed) · 1 found", "1 on others", "1 unfinished", "need final copy for pricing", "waiting on Play Console", "1 files uncommitted · main", "4 checked", "github: failed", "sous snooze")
 	if strings.Contains(out, "an idea") || strings.Contains(out, "quiet") {
 		t.Errorf("idea or quiet project leaked:\n%s", out)
 	}
@@ -44,11 +42,7 @@ func TestBoardCLI(t *testing.T) {
 		t.Fatalf("scoped board:\n%s", out)
 	}
 	j, _, _ := f.run("--json")
-	for _, k := range []string{`"configured": true`, `"on_you"`, `"on_others"`, `"unfinished"`, `"ideas"`, `"snoozed"`, `"attention"`, `"projects"`, `"plugins"`, `"checked"`, `"unavailable"`, `"as_of"`} {
-		if !strings.Contains(j, k) {
-			t.Errorf("json missing %s", k)
-		}
-	}
+	testutil.Contains(t, j, `"configured": true`, `"on_you"`, `"on_others"`, `"unfinished"`, `"ideas"`, `"snoozed"`, `"attention"`, `"projects"`, `"plugins"`, `"checked"`, `"unavailable"`, `"as_of"`)
 	if b, err := os.ReadFile(filepath.Join(f.SousHome, "cache.json")); err != nil || !strings.Contains(string(b), `"board"`) {
 		t.Fatal("cache not written")
 	}
@@ -200,14 +194,12 @@ func TestHereShowsObservedObligationsWithoutScanning(t *testing.T) {
 	p := f.mkrepo("a/r", true)
 	f.git(p, "remote", "add", "origin", "git@github.com:o/r.git")
 	calls := filepath.Join(f.Home, "gh-calls")
-	os.WriteFile(filepath.Join(f.Home, "bin", "gh"), []byte(`#!/bin/sh
-echo "$*" >> `+calls+`
+	f.bin("gh", `echo "$*" >> `+calls+`
 case "$*" in
   "auth status") exit 0;;
   *--review-requested=@me*) printf '[{"repository":{"nameWithOwner":"o/r"},"number":5,"title":"look","updatedAt":"2026-09-25T10:00:00Z"}]';;
   *) printf '[]';;
-esac
-`), 0o755)
+esac`)
 	f.run() // the board scans and observes
 	os.Remove(calls)
 	out, _, _ := f.run("here", p)

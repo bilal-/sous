@@ -12,7 +12,7 @@ import (
 	"github.com/bilal-/sous/internal/tracker/trackertest"
 )
 
-// Review round 4: a search that returns a full page may have more; the
+// A search that returns a full page may have more; the
 // scan says it is incomplete, so earlier findings stay (stale) instead of
 // being dropped.
 func TestFullPageMeansIncomplete(t *testing.T) {

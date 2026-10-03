@@ -37,7 +37,7 @@ func TestShellLines(t *testing.T) {
 	}
 }
 
-// Review: bash reads .bashrc for non-interactive ssh commands; the line
+// Bash reads .bashrc for non-interactive ssh commands; the line
 // must print nothing there, or scp and rsync break.
 func TestBashLineIsSilentWhenNotInteractive(t *testing.T) {
 	if _, err := exec.LookPath("bash"); err != nil {
@@ -85,7 +85,7 @@ func TestSkillsGoWhereAgentsLook(t *testing.T) {
 	}
 }
 
-// Review: macOS bash reads the first of .bash_profile, .bash_login,
+// MacOS bash reads the first of .bash_profile, .bash_login,
 // .profile. Creating .bash_profile when .profile exists would silently stop
 // .profile loading, so the line goes into the one bash really reads.
 func TestBashOnMacUsesTheLoginFileThatExists(t *testing.T) {
@@ -107,7 +107,7 @@ func TestBashOnMacUsesTheLoginFileThatExists(t *testing.T) {
 	}
 }
 
-// Review: an older sous line (or a hand written one) is upgraded in place,
+// An older sous line (or a hand written one) is upgraded in place,
 // not left beside a second copy.
 func TestShellUpgradesAnOldLine(t *testing.T) {
 	home := t.TempDir()
@@ -161,7 +161,7 @@ func TestZshWrapperFindsTheProjectAnywhere(t *testing.T) {
 	}
 }
 
-// Review: only sous's own startup lines are replaced; any other line that
+// Only sous's own startup lines are replaced; any other line that
 // merely mentions sous.zsh is left alone. A comment that mentions .bashrc
 // is not a line that sources it.
 func TestShellTouchesOnlyItsOwnLines(t *testing.T) {
@@ -181,7 +181,7 @@ func TestShellTouchesOnlyItsOwnLines(t *testing.T) {
 	}
 }
 
-// Review: with SOUS_HOME somewhere else, the line setup wrote is still its
+// With SOUS_HOME somewhere else, the line setup wrote is still its
 // own: a second run adds nothing.
 func TestShellCustomSousHomeIsAddedOnce(t *testing.T) {
 	home := t.TempDir()

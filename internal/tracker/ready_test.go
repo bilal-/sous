@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// Review: "not logged in" only when the tool says so; any other failure
+// "not logged in" only when the tool says so; any other failure
 // (keyring, network) is shown as the tool reported it.
 func TestReadyReportsTheRealReason(t *testing.T) {
 	for _, c := range []struct{ stderr, want string }{

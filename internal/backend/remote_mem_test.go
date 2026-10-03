@@ -88,7 +88,7 @@ func TestRemoteLogicAgainstMemoryCLI(t *testing.T) {
 		t.Fatal("must not create when the lookup failed")
 	}
 	cli.listErr = nil
-	// Review C2: status/close/url use the *project's* identity, not one
+	// Status/close/url use the *project's* identity, not one
 	// guessed from the ref's owner.
 	cli.seen = nil
 	if st, err := r.Status("/ws/acme/billing", ref); err != nil || st != "open" {
@@ -137,7 +137,7 @@ func TestRemoteMarkerUsesUID(t *testing.T) {
 	}
 }
 
-// Review: an issue created before upgrading carries the old
+// An issue created before upgrading carries the old
 // <install>:<id> marker; the retry after upgrading must find it.
 func TestRemoteRecoveryFindsAPreUpgradeMarker(t *testing.T) {
 	home := t.TempDir()

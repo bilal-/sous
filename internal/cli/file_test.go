@@ -307,7 +307,7 @@ func TestMarkdownWinsOverGitHubRemote(t *testing.T) {
 	f.git(p, "remote", "add", "origin", "git@github.com:o/r.git")
 	os.WriteFile(filepath.Join(p, "FOLLOWUPS.md"), []byte("# F\n"), 0o644)
 	calls := filepath.Join(f.Home, "gh-calls")
-	os.WriteFile(filepath.Join(f.Home, "bin", "gh"), []byte("#!/bin/sh\necho \"$*\" >> "+calls+"\nexit 0\n"), 0o755)
+	f.bin("gh", "echo \"$*\" >> "+calls+"\nexit 0")
 	out, errs, code := f.runIn(p, "note", "--file", "-k", "me", "both")
 	if code != 0 || !strings.Contains(out, "md:FOLLOWUPS.md:") {
 		t.Fatalf("%d %q %q", code, out, errs)
@@ -323,16 +323,14 @@ func TestGitHubFileViaCLI(t *testing.T) {
 	p := f.mkrepo("acme/chime", true)
 	f.git(p, "remote", "add", "origin", "git@github.com:acme/chime.git")
 	calls := filepath.Join(f.Home, "gh-calls")
-	os.WriteFile(filepath.Join(f.Home, "bin", "gh"), []byte(`#!/bin/sh
-echo "TOKEN=$GH_TOKEN $*" >> `+calls+`
+	f.bin("gh", `echo "TOKEN=$GH_TOKEN $*" >> `+calls+`
 case "$*" in
   "auth status"*) exit 0;;
   "auth token --user work-account") echo tok-m;;
   *"issue list"*"--json number,body"*) printf '[]';;
   *"issue create"*) echo "https://github.com/acme/chime/issues/9";;
   *"issue view 9"*"--json state,url"*) printf '{"state":"CLOSED"}';;
-esac
-`), 0o755)
+esac`)
 	f.writeConfig("roots = [\"" + f.WS + "\"]\n[projects.\"acme/*\"]\ngithub_account = \"work-account\"\n")
 	out, errs, code := f.runIn(p, "note", "--file", "-k", "me", "notifications need context")
 	if code != 0 || !strings.Contains(out, "github:acme/chime#9") {
@@ -358,43 +356,39 @@ esac
 	}
 }
 
-// Review F5: a failed filing names the backend exactly once.
+// A failed filing names the backend exactly once.
 func TestFileErrorPrefixedOnce(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("acme/chime", true)
 	f.git(p, "remote", "add", "origin", "git@github.com:acme/chime.git")
-	os.WriteFile(filepath.Join(f.Home, "bin", "gh"), []byte(`#!/bin/sh
-case "$*" in
+	f.bin("gh", `case "$*" in
   "auth status"*) exit 0;;
   *"issue list"*) printf '[]';;
   *"issue create"*) echo "HTTP 403: forbidden" >&2; exit 1;;
-esac
-`), 0o755)
+esac`)
 	_, errs, code := f.runIn(p, "note", "--file", "-k", "me", "x")
 	if code != 1 || strings.Count(errs, "github:") != 1 || !strings.Contains(errs, "403") {
 		t.Fatalf("%d %q", code, errs)
 	}
 }
 
-// Review F5: a notice on gh's stderr must not corrupt the JSON on stdout.
+// A notice on gh's stderr must not corrupt the JSON on stdout.
 func TestGitHubStatusIgnoresStderrNotices(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("acme/chime", true)
 	f.git(p, "remote", "add", "origin", "git@github.com:acme/chime.git")
-	os.WriteFile(filepath.Join(f.Home, "bin", "gh"), []byte(`#!/bin/sh
-echo "A new release of gh is available" >&2
+	f.bin("gh", `echo "A new release of gh is available" >&2
 case "$*" in
   "auth status"*) exit 0;;
   *"--json state,url"*) printf '{"state":"OPEN","url":"u"}';;
-esac
-`), 0o755)
+esac`)
 	out, errs, code := f.run("backend", "github", "status", p, "github:acme/chime#1")
 	if code != 0 || strings.TrimSpace(out) != "open" {
 		t.Fatalf("%d %q %q", code, out, errs)
 	}
 }
 
-// Review F10: the markdown built-in, reached through the same executable
+// The markdown built-in, reached through the same executable
 // door a third-party backend uses, meets the backend contract end to end.
 func TestMarkdownConformsThroughTheDoor(t *testing.T) {
 	fixture(t)
@@ -426,7 +420,7 @@ func TestExamplePluginConforms(t *testing.T) {
 	signaltest.Run(t, []string{example, "scan"}, []string{p, quiet})
 }
 
-// Review: a folder name with a tab or quote keeps its exact name in the
+// A folder name with a tab or quote keeps its exact name in the
 // finding, so the board can match it to its project.
 func TestExamplePluginKeepsOddFolderNames(t *testing.T) {
 	f := fixture(t)

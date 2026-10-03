@@ -42,13 +42,20 @@ func fixture(t *testing.T) *fx {
 	// No test may reach GitHub: gh is stubbed as "not logged in" unless a test
 	// installs its own fake. This is also why fixtures always show
 	// "github failed" in headlines.
-	os.WriteFile(filepath.Join(home, "bin", "gh"), []byte("#!/bin/sh\necho 'You are not logged into any GitHub hosts' >&2; exit 1\n"), 0o755)
-	os.WriteFile(filepath.Join(home, "bin", "glab"), []byte("#!/bin/sh\necho 'No hosts are configured' >&2; exit 1\n"), 0o755)
+	f.bin("gh", "echo 'You are not logged into any GitHub hosts' >&2; exit 1")
+	f.bin("glab", "echo 'No hosts are configured' >&2; exit 1")
 	// Nor may a test start a real agent: every harness's program is a fake
 	// that does nothing, unless a test installs its own.
 	for _, h := range harness.All {
-		os.WriteFile(filepath.Join(home, "bin", h.Bin), []byte("#!/bin/sh\nexit 0\n"), 0o755)
+		f.bin(h.Bin, "exit 0")
 	}
+	// Nor may it leave a built in run behind: its watcher outlives the
+	// test and writes into the folder being removed. Use a runner plugin.
+	t.Cleanup(func() {
+		if runs, _ := os.ReadDir(filepath.Join(f.SousHome, "runs")); len(runs) > 0 {
+			t.Errorf("the test started a built in run (%s); hand its task to a runner plugin instead", runs[0].Name())
+		}
+	})
 	f.writeConfig("roots = [\"" + f.WS + "\"]\n")
 	return f
 }
@@ -108,7 +115,7 @@ func (f *fx) brokenGH(githubRepos ...string) {
 	for _, r := range githubRepos {
 		f.git(r, "remote", "add", "origin", "git@github.com:acme/"+filepath.Base(r)+".git")
 	}
-	os.WriteFile(filepath.Join(f.Home, "bin", "gh"), []byte("#!/bin/sh\n[ \"$1 $2\" = \"auth status\" ] && exit 0\necho 'HTTP 502: bad gateway' >&2; exit 1\n"), 0o755)
+	f.bin("gh", "[ \"$1 $2\" = \"auth status\" ] && exit 0\necho 'HTTP 502: bad gateway' >&2; exit 1")
 }
 
 // fileAs records note id as filed at ref, through the thread API, as if a
@@ -123,6 +130,12 @@ func (f *fx) fileAs(id int, ref string) {
 
 // plugin writes an executable plugin under $HOME/plugins, lists it in
 // config.toml's plugins, and returns its path.
+// bin puts a fake program on the fixture's PATH, ahead of the real ones.
+func (f *fx) bin(name, body string) string {
+	f.t.Helper()
+	return testutil.Script(f.t, filepath.Join(f.Home, "bin"), name, body)
+}
+
 func (f *fx) plugin(name, body string) string {
 	f.t.Helper()
 	dir := filepath.Join(f.Home, "plugins")

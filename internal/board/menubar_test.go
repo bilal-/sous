@@ -8,6 +8,8 @@ import (
 
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/thread"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 func TestRenderMenubar(t *testing.T) {
@@ -28,16 +30,10 @@ func TestRenderMenubar(t *testing.T) {
 	if !strings.HasPrefix(out, "⚑ 2\n---\n") {
 		t.Fatalf("title:\n%s", out)
 	}
-	for _, want := range []string{
-		"chase / designer · studio/work · 6d | bash=/usr/local/bin/sous param1=go param2=studio/work terminal=true",
+	testutil.Contains(t, out, "chase / designer · studio/work · 6d | bash=/usr/local/bin/sous param1=go param2=studio/work terminal=true",
 		"review requested · PR #14 · oss/app-next · 2d | bash=/usr/local/bin/sous param1=go param2=oss/app-next terminal=true",
 		"\nunfinished\n-- 6 commits unpushed · acme/chime · 6d",
-		"3 checked · as of 09:02 · cached 12m ago",
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("missing %q in:\n%s", want, out)
-		}
-	}
+		"3 checked · as of 09:02 · cached 12m ago")
 	if strings.Contains(out, "hidden") || strings.Contains(out, "Refresh") || strings.Contains(out, "\n--chase") {
 		t.Errorf("snoozed row, refresh action, or unsanitized dash leaked:\n%s", out)
 	}

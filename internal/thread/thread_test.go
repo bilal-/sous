@@ -91,7 +91,7 @@ func TestConcurrentNotes(t *testing.T) {
 	}
 }
 
-// Review 2 I7: notes are one line. Internal newlines collapse; whitespace-only is rejected.
+// Notes are one line. Internal newlines collapse; whitespace-only is rejected.
 func TestNoteNormalizesWhitespace(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}
 	p := project.Project{Path: "/ws/x", Org: "ws", Name: "x"}
@@ -219,7 +219,7 @@ func TestMigratedUIDIsTheSameOnEveryRead(t *testing.T) {
 	}
 }
 
-// Review: which notes predate uids is recorded by the upgrade that gave
+// Which notes predate uids is recorded by the upgrade that gave
 // them one, not guessed from the date.
 func TestLegacyIsRecordedByTheUpgrade(t *testing.T) {
 	s := &store.Store{Home: t.TempDir()}

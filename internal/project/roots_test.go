@@ -19,7 +19,7 @@ func TestLikelyRoots(t *testing.T) {
 	}
 }
 
-// Review: on a case-insensitive disk ~/projects and ~/Projects are one
+// On a case-insensitive disk ~/projects and ~/Projects are one
 // folder; it is a root once. Symlinked repos count, as in Discover.
 func TestLikelyRootsDedupesAndFollowsLinks(t *testing.T) {
 	home := t.TempDir()

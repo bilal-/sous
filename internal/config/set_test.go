@@ -48,7 +48,7 @@ func TestSet(t *testing.T) {
 	}
 }
 
-// Review: an edit that would change anything but the one setting is
+// An edit that would change anything but the one setting is
 // refused, and the file is left as it was.
 func TestSetRefusesWhatItCannotChangeSafely(t *testing.T) {
 	for name, in := range map[string]string{
@@ -62,7 +62,7 @@ func TestSetRefusesWhatItCannotChangeSafely(t *testing.T) {
 	}
 }
 
-// Review: an unset that finds no line but the setting is there (written as
+// An unset that finds no line but the setting is there (written as
 // a dotted key or inline table) is refused, never reported as removed.
 func TestUnsetWrittenOddlyIsRefused(t *testing.T) {
 	in := "projects.\"acme/*\".backend = \"markdown\"\n"
@@ -72,7 +72,7 @@ func TestUnsetWrittenOddlyIsRefused(t *testing.T) {
 	}
 }
 
-// Review: a file without a final newline can still be added to.
+// A file without a final newline can still be added to.
 func TestSetAddsAfterALastLineWithoutNewline(t *testing.T) {
 	for _, c := range []struct {
 		in    string

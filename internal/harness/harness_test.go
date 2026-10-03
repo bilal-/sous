@@ -104,7 +104,7 @@ func TestInstallReplacesAHookFromAnotherPath(t *testing.T) {
 	}
 }
 
-// Review: only a sous hook is replaced: the program must be sous and the
+// Only a sous hook is replaced: the program must be sous and the
 // arguments exactly ours. Duplicates collapse to one; paths with spaces are
 // quoted.
 func TestInstallMatchesOnlyRealSousHooks(t *testing.T) {
@@ -130,7 +130,7 @@ func TestInstallMatchesOnlyRealSousHooks(t *testing.T) {
 	}
 }
 
-// Review: the last message is found by reading the transcript's end, so a
+// The last message is found by reading the transcript's end, so a
 // huge transcript is read in bounded time; an assistant line longer than
 // the tail window still counts.
 func TestLastAssistantTextReadsOnlyTheTail(t *testing.T) {
@@ -152,7 +152,7 @@ func TestLastAssistantTextReadsOnlyTheTail(t *testing.T) {
 	}
 }
 
-// Review: odd settings (a non-object entry, an empty group) must neither
+// Odd settings (a non-object entry, an empty group) must neither
 // crash setup nor be written back as null; an old unquoted hook whose path
 // has a space is still recognized; hooks under different matchers are kept.
 func TestInstallCopesWithOddSettings(t *testing.T) {
@@ -173,7 +173,7 @@ func TestInstallCopesWithOddSettings(t *testing.T) {
 	}
 }
 
-// Review: one very long line (a big tool result) must not be copied again
+// One very long line (a big tool result) must not be copied again
 // for every chunk read before it. Measured in bytes allocated, not time,
 // so a slow machine cannot make it flaky: linear is about twice the line,
 // quadratic would be many times more.
@@ -196,7 +196,7 @@ func TestLastAssistantTextIsLinearOnALongLine(t *testing.T) {
 	}
 }
 
-// Review: only a command that runs a sous binary is ours; echo, compound
+// Only a command that runs a sous binary is ours; echo, compound
 // commands and prefixes are someone else's.
 func TestIsOursRejectsLookalikes(t *testing.T) {
 	for _, c := range []string{

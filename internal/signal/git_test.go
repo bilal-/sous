@@ -88,7 +88,7 @@ func TestScanGit(t *testing.T) {
 	}
 }
 
-// Review fix #4: a git subcommand failing must not read as "clean". With an
+// #4: a git subcommand failing must not read as "clean". With an
 // unreadable index, `git status` exits 128; that must reach the warn stream.
 func TestScanGitWarnsWhenStatusFails(t *testing.T) {
 	ws := t.TempDir()
@@ -103,7 +103,7 @@ func TestScanGitWarnsWhenStatusFails(t *testing.T) {
 	}
 }
 
-// Review 2 I1: git missing, or a repo git cannot read, must not look like
+// Git missing, or a repo git cannot read, must not look like
 // "clean" — the plugin reports failure so observations are kept as stale.
 func TestScanGitFailsLoudWithoutGit(t *testing.T) {
 	ws := t.TempDir()
@@ -170,7 +170,7 @@ func TestGitDirtyStateFollowsEdits(t *testing.T) {
 	}
 }
 
-// Review: an edit that keeps the same line counts (a word swapped) and a
+// An edit that keeps the same line counts (a word swapped) and a
 // new untracked file both change the dirty state.
 func TestGitDirtyStateFollowsContent(t *testing.T) {
 	r := repo(t, filepath.Join(t.TempDir(), "acme/api"), true)
