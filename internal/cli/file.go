@@ -23,7 +23,7 @@ func fileThread(e *Env, id int, explicit bool) int {
 	if code != 0 {
 		return fail(e, code, "%s", msg)
 	}
-	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "filed", Ref: &ref, Next: noteNext(e, id)}, fmt.Sprintf("filed %d as %s", id, ref))
+	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didFiled, Ref: &ref, Next: noteNext(e, id)}, fmt.Sprintf("filed %d as %s", id, ref))
 }
 
 // fileNote files note id and returns its ref, or the exit code and what to

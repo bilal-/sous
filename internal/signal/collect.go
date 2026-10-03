@@ -93,7 +93,7 @@ func runOne(ctx context.Context, p Plugin, stdin string, timeout time.Duration) 
 		if msg == "" {
 			msg = fmt.Sprintf("exit %d", res.Code)
 		}
-		msg = text.Cut(msg, 200)
+		msg = text.Cut(msg, text.ReasonRunes)
 		r.st.Error = &msg
 	}
 	// Whatever the plugin managed to emit is kept, even on failure: a

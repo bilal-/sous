@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/testutil"
+
+	"github.com/bilal-/sous/docs"
 )
 
 // AXI 5: an empty list is [], never null, whatever the command hands
@@ -103,5 +105,15 @@ func TestJSONIsOneValueEvenWhenItFails(t *testing.T) {
 	json.Unmarshal([]byte(out), &c)
 	if c.ID == "" || c.Did != "noted" || !strings.Contains(c.Error, "not filed") {
 		t.Fatalf("%+v", c)
+	}
+}
+
+// Every did a change can answer with is in docs/commands.md, so a program
+// can know them all.
+func TestEveryDidIsDocumented(t *testing.T) {
+	for _, d := range dids {
+		if !strings.Contains(docs.Commands, "`"+d+"`") {
+			t.Errorf("docs/commands.md does not list did %q", d)
+		}
 	}
 }

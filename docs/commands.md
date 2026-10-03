@@ -199,7 +199,8 @@ and project again while that note is open gives back the same note
 `{"id": "7", "did": "noted", "ref": null, "next": [...]}`; every command
 that changes something answers this way, and `did` says what happened
 (`noted`, `already_noted`, `edited`, `kind`, `snoozed`, `closed`,
-`already_closed`, `filed`, `replied`).
+`already_closed`, `filed`, `replied`, and for `go --run` `started` and
+`already_started`).
 
 Options:
 

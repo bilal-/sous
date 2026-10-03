@@ -31,13 +31,8 @@ type ObsDoc struct {
 	Signals map[string]ObsEntry `json:"signals"`
 }
 
-type ObsMigrator struct{}
-
-func (ObsMigrator) Empty() []byte { return []byte(`{"version":1,"signals":{}}`) }
-func (ObsMigrator) Current() int  { return 1 }
-func (ObsMigrator) Migrate(from int, raw []byte) ([]byte, error) {
-	return nil, fmt.Errorf("no migration from v%d", from)
-}
+// ObsFile is how the file is read and upgraded.
+var ObsFile = store.V1(`{"version":1,"signals":{}}`)
 
 type Observed struct {
 	Tagged
@@ -85,7 +80,7 @@ func Observe(s *store.Store, c Collected, scanned []string, now time.Time) ([]Ob
 		inScope[p] = true
 	}
 	var out []Observed
-	_, err := store.Modify[ObsDoc](s, "observed", ObsMigrator{}, func(d *ObsDoc) error {
+	_, err := store.Modify[ObsDoc](s, "observed", ObsFile, func(d *ObsDoc) error {
 		fresh := map[string]ObsEntry{}
 		for _, t := range c.Signals {
 			e := merge(d.Signals[t.ID], t, now)
@@ -147,7 +142,7 @@ func (e ObsEntry) observed(id string) Observed {
 // it, sorted by id. A view that runs only some plugins itself (here) reads
 // the rest from here.
 func Known(s *store.Store, project string) ([]Observed, error) {
-	d, err := store.Load[ObsDoc](s, "observed", ObsMigrator{})
+	d, err := store.Load[ObsDoc](s, "observed", ObsFile)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +159,7 @@ func Known(s *store.Store, project string) ([]Observed, error) {
 // Snooze hides a signal until its text changes.
 // A unique prefix of an id is enough ("s:0a70").
 func Snooze(s *store.Store, id string) error {
-	_, err := store.Modify[ObsDoc](s, "observed", ObsMigrator{}, func(d *ObsDoc) error {
+	_, err := store.Modify[ObsDoc](s, "observed", ObsFile, func(d *ObsDoc) error {
 		if _, ok := d.Signals[id]; !ok {
 			var hits []string
 			for full := range d.Signals {

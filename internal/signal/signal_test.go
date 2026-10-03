@@ -19,7 +19,7 @@ func TestReadLinesRejectsBadLine(t *testing.T) {
 }
 
 func TestMigratorsRefuseUnknown(t *testing.T) {
-	if _, err := (ObsMigrator{}).Migrate(0, nil); err == nil {
+	if _, err := (ObsFile).Migrate(0, nil); err == nil {
 		t.Fatal("ObsMigrator must refuse")
 	}
 }

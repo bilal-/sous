@@ -4,7 +4,6 @@
 package session
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/bilal-/sous/internal/store"
@@ -26,17 +25,12 @@ type Doc struct {
 	Sessions map[string]Session `json:"sessions"`
 }
 
-type Migrator struct{}
-
-func (Migrator) Empty() []byte { return []byte(`{"version":1,"sessions":{}}`) }
-func (Migrator) Current() int  { return 1 }
-func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
-	return nil, fmt.Errorf("no migration from v%d", from)
-}
+// File is how the file is read and upgraded.
+var File = store.V1(`{"version":1,"sessions":{}}`)
 
 // Record upserts the pointer for a repo root. Deterministic; infers nothing.
 func Record(s *store.Store, root string, sess Session) error {
-	_, err := store.Modify[Doc](s, "sessions", Migrator{}, func(d *Doc) error {
+	_, err := store.Modify[Doc](s, "sessions", File, func(d *Doc) error {
 		if d.Sessions == nil {
 			d.Sessions = map[string]Session{}
 		}
@@ -49,7 +43,7 @@ func Record(s *store.Store, root string, sess Session) error {
 
 // All reads every recorded session, keyed by repo root.
 func All(s *store.Store) (map[string]Session, error) {
-	d, err := store.Load[Doc](s, "sessions", Migrator{})
+	d, err := store.Load[Doc](s, "sessions", File)
 	if err != nil {
 		return nil, err
 	}

@@ -107,7 +107,7 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 	// kind, then where the rest are.
 	limit := 0
 	if brief {
-		limit = BriefRows
+		limit = briefRows
 	}
 	cut := false
 	list := func(rows []Row, suffix string) {
@@ -183,7 +183,7 @@ func sessionLine(sess *session.Session, brief bool) string {
 // hereLine is a row as here lists it: id, text, age, then what is known
 // about it (snoozed, filed where, upstream trouble).
 func (r Row) hereLine() (line string, cut bool) {
-	shown := text.Ellipsize(r.Shown, HereWidth)
+	shown := text.Ellipsize(r.Shown, text.LineRunes)
 	l := fmt.Sprintf("  %s  %s  %s", r.ID, shown, r.Age)
 	if r.Snoozed {
 		l += " (snoozed)"
@@ -194,9 +194,6 @@ func (r Row) hereLine() (line string, cut bool) {
 	return l + r.upstreamNote(), shown != r.Shown
 }
 
-// HereWidth is how much of a note here shows; BriefRows how many rows of
-// each kind the short form (what an agent hears at session start) lists.
-const (
-	HereWidth = 120
-	BriefRows = 5
-)
+// briefRows is how many rows of each kind the short form (what an agent
+// hears at session start) lists.
+const briefRows = 5

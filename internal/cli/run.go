@@ -59,7 +59,7 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 	case errors.As(err, new(thread.ValidationError)):
 		return fail(e, exitUsage, "%v", err)
 	case errors.Is(err, runner.ErrNotSetUp):
-		return fail(e, exitNotReady, "%v (run %d is on the board as failed; sous doctor says what to install)", err, id)
+		return fail(e, exitNotReady, "%v (run %d is on the board as failed; %s)", err, id, installHint)
 	case err != nil && id > 0:
 		return fail(e, exitFailed, "%v (run %d is on the board as failed; sous show %d)", err, id, id)
 	case err != nil:
@@ -71,10 +71,10 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 	}
 	v := thread.View{Thread: th}
 	item := board.ThreadRow(v, time.Now()).Item()
-	c := changedJSON{ID: fmt.Sprint(id), Did: "started", Run: item.Run, Next: noteNext(e, id)}
+	c := changedJSON{ID: fmt.Sprint(id), Did: didStarted, Run: item.Run, Next: noteNext(e, id)}
 	said := fmt.Sprintf("started run %d in %s (%s)", id, p.Name, th.Run.Runner)
 	if existed {
-		c.Did = "already_started"
+		c.Did = didAlreadyStarted
 		said = fmt.Sprintf("run %d in %s was already started (%s, %s)", id, p.Name, th.Run.Runner, strings.ReplaceAll(string(th.Run.State), "_", " "))
 	}
 	return e.changed(c, said)
@@ -113,7 +113,7 @@ func cmdReply(e *Env, a argv) int {
 	err := e.dispatcher().Reply(e.ctx(), id, a.pos[1])
 	switch {
 	case err == nil:
-		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "replied", Next: noteNext(e, id)}, fmt.Sprintf("run %d carries on", id))
+		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didReplied, Next: noteNext(e, id)}, fmt.Sprintf("run %d carries on", id))
 	case errors.Is(err, runs.ErrNotARun):
 		return fail(e, exitUsage, "%v; sous edit %d \"<text>\" changes a note", err, id)
 	case errors.Is(err, runner.ErrUnsupported):

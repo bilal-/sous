@@ -142,14 +142,14 @@ func TestObservePrunesStaleEntries(t *testing.T) {
 	Observe(s, Collected{Signals: []Tagged{{Signal: Signal{ID: "s:gone", Project: "/q", Kind: Me, Text: "x"}, Plugin: "jira"}}, Plugins: []PluginStatus{{Name: "jira", Status: "ok"}}}, []string{"/q"}, t0)
 	// 40 days later: /p is scanned (git ok), /q is out of scope and jira is not configured.
 	Observe(s, Collected{Plugins: []PluginStatus{{Name: "git", Status: "ok"}}}, []string{"/p"}, t0.Add(40*24*time.Hour))
-	d, _ := store.Load[ObsDoc](s, "observed", ObsMigrator{})
+	d, _ := store.Load[ObsDoc](s, "observed", ObsFile)
 	if _, ok := d.Signals["s:gone"]; ok {
 		t.Fatal("entry unseen for 40 days must be pruned")
 	}
 	// But within the window, out-of-scope entries survive (scoped scans).
 	Observe(s, collected("kept", "git"), []string{"/p"}, t0)
 	Observe(s, Collected{Plugins: []PluginStatus{{Name: "git", Status: "ok"}}}, []string{"/other"}, t0.Add(5*24*time.Hour))
-	d, _ = store.Load[ObsDoc](s, "observed", ObsMigrator{})
+	d, _ = store.Load[ObsDoc](s, "observed", ObsFile)
 	if _, ok := d.Signals["s:x"]; !ok {
 		t.Fatal("recent out-of-scope entry must survive")
 	}

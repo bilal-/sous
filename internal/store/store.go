@@ -324,3 +324,14 @@ func (s *Store) Locked(name string, fn func() error) error {
 	defer unlock()
 	return fn()
 }
+
+// V1 is the migrator for a file that has only had version 1: the string is
+// what it holds before its first write. A file at any other version is
+// refused, never guessed at.
+type V1 string
+
+func (e V1) Empty() []byte { return []byte(e) }
+func (V1) Current() int    { return 1 }
+func (V1) Migrate(from int, _ []byte) ([]byte, error) {
+	return nil, fmt.Errorf("no migration from v%d", from)
+}

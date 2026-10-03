@@ -164,24 +164,19 @@ type CacheDoc struct {
 	Data       *Data      `json:"data,omitempty"` // additive: --menubar renders from it
 }
 
-type CacheMigrator struct{}
-
-func (CacheMigrator) Empty() []byte { return []byte(`{"version":1,"rendered_at":null,"board":null}`) }
-func (CacheMigrator) Current() int  { return 1 }
-func (CacheMigrator) Migrate(from int, raw []byte) ([]byte, error) {
-	return nil, fmt.Errorf("no migration from v%d", from)
-}
+// CacheFile is how the file is read and upgraded.
+var CacheFile = store.V1(`{"version":1,"rendered_at":null,"board":null}`)
 
 // ReadCache is the last board written (empty before the first).
 func ReadCache(s *store.Store) (*CacheDoc, error) {
-	return store.Load[CacheDoc](s, "cache", CacheMigrator{})
+	return store.Load[CacheDoc](s, "cache", CacheFile)
 }
 
 func WriteCache(s *store.Store, d *Data) error {
 	var b strings.Builder
 	Render(&b, d)
 	text := b.String()
-	_, err := store.Modify[CacheDoc](s, "cache", CacheMigrator{}, func(c *CacheDoc) error {
+	_, err := store.Modify[CacheDoc](s, "cache", CacheFile, func(c *CacheDoc) error {
 		c.RenderedAt = &d.RenderedAt
 		c.Board = &text
 		c.Data = d

@@ -2,7 +2,6 @@ package report
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -17,13 +16,8 @@ type markDoc struct {
 	LastReport *time.Time `json:"last_report"`
 }
 
-type markMigrator struct{}
-
-func (markMigrator) Empty() []byte { return []byte(`{"version":1,"last_report":null}`) }
-func (markMigrator) Current() int  { return 1 }
-func (markMigrator) Migrate(from int, _ []byte) ([]byte, error) {
-	return nil, fmt.Errorf("no migration from v%d", from)
-}
+// markFile is how the file is read and upgraded.
+var markFile = store.V1(`{"version":1,"last_report":null}`)
 
 // Window is where a report taken now starts: the last seven days for a
 // week report, else since the last report taken, or a day back for the
@@ -32,7 +26,7 @@ func Window(s *store.Store, now time.Time, week bool) (time.Time, error) {
 	if week {
 		return now.Add(-7 * 24 * time.Hour), nil
 	}
-	m, err := store.Load[markDoc](s, "report", markMigrator{})
+	m, err := store.Load[markDoc](s, "report", markFile)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -48,7 +42,7 @@ func Take(s *store.Store, now time.Time, week bool) error {
 	if week {
 		return nil
 	}
-	_, err := store.Modify[markDoc](s, "report", markMigrator{}, func(m *markDoc) error {
+	_, err := store.Modify[markDoc](s, "report", markFile, func(m *markDoc) error {
 		m.LastReport = &now
 		return nil
 	})

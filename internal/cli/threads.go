@@ -27,9 +27,9 @@ func cmdNote(e *Env, a argv) int {
 	if err != nil {
 		return threadErr(e, err)
 	}
-	did, said := "noted", fmt.Sprintf("noted %d in %s", id, p.Name)
+	did, said := didNoted, fmt.Sprintf("noted %d in %s", id, p.Name)
 	if existed {
-		did, said = "already_noted", fmt.Sprintf("already noted as %d in %s", id, p.Name)
+		did, said = didAlreadyNoted, fmt.Sprintf("already noted as %d in %s", id, p.Name)
 	}
 	c := changedJSON{ID: fmt.Sprint(id), Did: did, Next: noteNext(e, id)}
 	if !a.has("file") {
@@ -47,7 +47,7 @@ func cmdNote(e *Env, a argv) int {
 		fmt.Fprintf(e.Stderr, "sous: %s\nsous: note saved as %d but not filed\n", msg, id)
 		return code
 	}
-	c.Did, c.Ref, c.Next = "filed", &ref, noteNext(e, id)
+	c.Did, c.Ref, c.Next = didFiled, &ref, noteNext(e, id)
 	return e.changed(c, fmt.Sprintf("filed %d as %s", id, ref))
 }
 
@@ -87,7 +87,7 @@ func cmdEdit(e *Env, a argv) int {
 	if err := thread.Edit(e.store(), id, a.pos[1]); err != nil {
 		return threadErr(e, err)
 	}
-	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "edited", Next: noteNext(e, id)}, fmt.Sprintf("edited %d", id))
+	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didEdited, Next: noteNext(e, id)}, fmt.Sprintf("edited %d", id))
 }
 
 func cmdKind(e *Env, a argv) int {
@@ -98,7 +98,7 @@ func cmdKind(e *Env, a argv) int {
 	if err := thread.SetKind(e.store(), id, thread.Kind(a.pos[1])); err != nil {
 		return threadErr(e, err)
 	}
-	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "kind", Next: noteNext(e, id)}, fmt.Sprintf("%d is %s now", id, a.pos[1]))
+	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didKind, Next: noteNext(e, id)}, fmt.Sprintf("%d is %s now", id, a.pos[1]))
 }
 
 // cmdSnooze hides a thread for N days, or a signal (s:…) until it changes.
@@ -111,7 +111,7 @@ func cmdSnooze(e *Env, a argv) int {
 		if err := signal.Snooze(e.store(), args[0]); err != nil {
 			return fail(e, exitFailed, "%v", err)
 		}
-		return e.changed(changedJSON{ID: args[0], Did: "snoozed", Next: []string{"sous"}}, "snoozed "+args[0]+" until it changes")
+		return e.changed(changedJSON{ID: args[0], Did: didSnoozed, Next: []string{"sous"}}, "snoozed "+args[0]+" until it changes")
 	}
 	id, code := threadID(e, args[0])
 	if code != 0 {
@@ -130,7 +130,7 @@ func cmdSnooze(e *Env, a argv) int {
 		return threadErr(e, err)
 	}
 	until := now.Add(time.Duration(days) * 24 * time.Hour)
-	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "snoozed", Next: noteNext(e, id)}, fmt.Sprintf("snoozed %d until %s", id, text.When(until)))
+	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didSnoozed, Next: noteNext(e, id)}, fmt.Sprintf("snoozed %d until %s", id, text.When(until)))
 }
 
 // cmdDone closes a thread locally; --close closes it in its tracker first,
@@ -156,11 +156,11 @@ func cmdDone(e *Env, a argv) int {
 		}
 	}
 	if th.Closed != nil {
-		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "already_closed", Ref: th.Ref, Next: []string{"sous"}},
+		return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didAlreadyClosed, Ref: th.Ref, Next: []string{"sous"}},
 			fmt.Sprintf("%d was closed %s", id, text.Ago(time.Now(), *th.Closed)))
 	}
 	if err := thread.Done(e.store(), id, time.Now()); err != nil {
 		return threadErr(e, err)
 	}
-	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: "closed", Ref: th.Ref, Next: []string{"sous"}}, fmt.Sprintf("closed %d", id))
+	return e.changed(changedJSON{ID: fmt.Sprint(id), Did: didClosed, Ref: th.Ref, Next: []string{"sous"}}, fmt.Sprintf("closed %d", id))
 }

@@ -17,7 +17,7 @@ func TestRecordUpserts(t *testing.T) {
 }
 
 func TestMigratorRefusesUnknownVersions(t *testing.T) {
-	if _, err := (Migrator{}).Migrate(0, nil); err == nil {
+	if _, err := File.Migrate(0, nil); err == nil {
 		t.Fatal("sessions")
 	}
 }

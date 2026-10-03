@@ -13,14 +13,17 @@ import (
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/plugin"
+	"github.com/bilal-/sous/internal/thread"
 	"github.com/bilal-/sous/internal/tracker"
 )
 
 type Kind string
 
+// A signal is on you or on others in the same words a note is; it may
+// also be work left unfinished in git, or only information.
 const (
-	Me         Kind = "me"
-	Them       Kind = "them"
+	Me              = Kind(thread.Me)
+	Them            = Kind(thread.Them)
 	Unfinished Kind = "unfinished"
 	Info       Kind = "info"
 )

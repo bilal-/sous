@@ -13,7 +13,7 @@ import (
 // sense next. Retrying a change gives the same answer.
 type changedJSON struct {
 	ID   string   `json:"id"`
-	Did  string   `json:"did"` // see docs/commands.md: noted, already_noted, edited, kind, snoozed, closed, already_closed, filed, replied, started, already_started
+	Did  string   `json:"did"` // one of dids
 	Ref  *string  `json:"ref"` // where it is filed, when it is
 	Next []string `json:"next"`
 	// Run: for go --run, the run it started or found.
@@ -21,6 +21,24 @@ type changedJSON struct {
 	// Error: part of it could not be done (noted, but not filed: why).
 	Error string `json:"error,omitempty"`
 }
+
+// What a change did, as its answer's did says. docs/commands.md lists them
+// all (a test holds it to this list).
+const (
+	didNoted          = "noted"
+	didAlreadyNoted   = "already_noted"
+	didEdited         = "edited"
+	didKind           = "kind"
+	didSnoozed        = "snoozed"
+	didClosed         = "closed"
+	didAlreadyClosed  = "already_closed"
+	didFiled          = "filed"
+	didReplied        = "replied"
+	didStarted        = "started"
+	didAlreadyStarted = "already_started"
+)
+
+var dids = []string{didNoted, didAlreadyNoted, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didFiled, didReplied, didStarted, didAlreadyStarted}
 
 // changed prints c: as JSON, or as what it did and what to do next on
 // one line.

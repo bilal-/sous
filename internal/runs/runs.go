@@ -168,7 +168,7 @@ func lastLines(path string, n int) []string {
 	var lines []string
 	for _, l := range strings.Split(string(b), "\n") {
 		if l = strings.TrimSpace(l); l != "" {
-			lines = append(lines, text.Cut(l, 200))
+			lines = append(lines, text.Cut(l, text.ReasonRunes))
 		}
 	}
 	return lines[max(len(lines)-n, 0):]

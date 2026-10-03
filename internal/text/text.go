@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+// How much of a thing sous shows: a line of text (a note on the board's
+// here view, an issue title, a session's last words), and a reason (a
+// plugin's error, a line of a log).
+const (
+	LineRunes   = 120
+	ReasonRunes = 200
+)
+
 // Age is how long ago t was, the way the board says it: 5m, 3h, 6d, 3mo, 1y.
 func Age(now, t time.Time) string {
 	s := now.Sub(t).Seconds()

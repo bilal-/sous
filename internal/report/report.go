@@ -124,7 +124,7 @@ func worked(sessions map[string]session.Session, projects []project.Project, sin
 		}
 		w := &Worked{Name: filepath.Base(path), Project: path, Agent: sess.Agent, When: sess.Ended}
 		if sess.LastMessage != nil {
-			w.Note = text.Ellipsize(*sess.LastMessage, 120)
+			w.Note = text.Ellipsize(*sess.LastMessage, text.LineRunes)
 		}
 		byPath[path] = w
 	}

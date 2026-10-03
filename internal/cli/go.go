@@ -11,6 +11,9 @@ import (
 	"github.com/bilal-/sous/internal/session"
 )
 
+// installHint follows "not set up": where the person learns what is missing.
+const installHint = "sous doctor says what to install"
+
 // cmdGo: sous go <project> [-a <launcher>]. Writes the resume context to a
 // temp file named by SOUS_HERE_FILE (launchers that want it read it), then
 // execs the launcher in the project. A dispatcher for the human, not for work.
@@ -51,7 +54,7 @@ func cmdGo(e *Env, a argv) int {
 	case errors.Is(err, launcher.ErrUnknown):
 		return fail(e, exitUsage, "%v", err)
 	case errors.Is(err, plugin.ErrNotSetUp):
-		return fail(e, exitNotReady, "%v (sous doctor says what to install)", err)
+		return fail(e, exitNotReady, "%v (%s)", err, installHint)
 	case err != nil:
 		return fail(e, exitFailed, "%v", err)
 	}
