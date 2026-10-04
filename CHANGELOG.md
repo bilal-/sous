@@ -7,6 +7,23 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+* `sous review` lists follow-ups worth checking, with reasons and last-session
+  context in JSON. Notes are due after seven days; missing tracker items and
+  finished or failed runs are due immediately unless snoozed or recently kept. `--keep <n>` records a review
+  without closing or hiding the task. The board and `here` show a review hint.
+* `sous here` points to existing project documents, including `STATUS.md`,
+  `FOLLOWUPS.md` and agent instructions. `sous help` explains how agents keep
+  handoffs and follow-ups useful as part of their work.
+
+### Fixed
+
+* Correct documentation for MIT licensing, privacy and agent permissions,
+  integration setup, JSON examples, reports, data files and release checks.
+* Cached shell and menu-bar views read current local notes, so completed
+  tasks disappear without waiting for the next remote refresh.
+
 ## [0.11.1]
 
 ### Changed

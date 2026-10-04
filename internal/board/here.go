@@ -21,6 +21,8 @@ import (
 // session, every signal the plugins report for it (same door as the board),
 // and its threads including ideas.
 type HereData struct {
+	Documents      []project.Document    `json:"documents"`
+	DocumentError  string                `json:"document_error,omitempty"`
 	Project        string                `json:"project"`
 	Name           string                `json:"name"`
 	Remote         *string               `json:"remote"`
@@ -47,6 +49,9 @@ func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 		return nil, err
 	}
 	d.Facts = facts
+	if d.Documents, err = project.Documents(root); err != nil {
+		d.DocumentError = err.Error()
+	}
 	col := signal.Collect(ctx, in.Signals, []string{root}, in.Timeout)
 	if d.Signals, err = hereSignals(in, col, root); err != nil {
 		return nil, err
@@ -103,6 +108,13 @@ func hereSignals(in Inputs, col signal.Collected, root string) ([]signal.Observe
 func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 	s := classifyHere(d)
 	renderHereHeader(w, d, s, now, brief)
+	if len(d.Documents) > 0 {
+		paths := []string{}
+		for _, doc := range d.Documents {
+			paths = append(paths, doc.Path)
+		}
+		fmt.Fprintln(w, "project docs · "+strings.Join(paths, " · "))
+	}
 	fmt.Fprintf(w, "on you: %d · on others: %d · ideas: %d\n", len(s.Me), len(s.Them), len(s.Ideas))
 	// What an agent hears at session start stays short: a few rows of each
 	// kind, then where the rest are.
@@ -137,6 +149,7 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 	for _, r := range s.RecentlyClosed {
 		fmt.Fprintf(w, "  ✓ %s  %s  (closed upstream %s)\n", r.ID, r.Shown, r.Age)
 	}
+	reviewHint(w, d.Threads, now, "sous review -p "+project.OrgName(d.Project))
 	fmt.Fprintln(w, "\n  sous note \"…\" to add · sous done <n> to close · sous kind <n> me to escalate")
 }
 

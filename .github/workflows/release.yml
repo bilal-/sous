@@ -26,7 +26,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Install the release the way a person does, in a clean home, on both
-  # platforms and the shells setup knows: install.sh, sous setup twice,
+  # platforms with zsh and bash: install.sh, sous setup twice,
   # sous doctor with no problems.
   install:
     needs: goreleaser

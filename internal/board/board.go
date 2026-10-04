@@ -165,6 +165,7 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 	if cut {
 		fmt.Fprintln(w, cutNote)
 	}
+	reviewHint(w, d.Threads, now, "sous review")
 
 	fmt.Fprintf(w, "\n  %d checked · %d unavailable%s · as of %s · sous snooze <id> to hide a row\n",
 		d.Checked, d.Unavailable, pluginFailures(d), text.AsOf(d.RenderedAt, now))
@@ -185,6 +186,40 @@ var cacheFile = store.V1(`{"version":1,"rendered_at":null,"board":null}`)
 // ReadCache is the last board written (empty before the first).
 func ReadCache(s *store.Store) (*CacheDoc, error) {
 	return store.Load[CacheDoc](s, "cache", cacheFile)
+}
+
+// ReadCurrentCache keeps the remote snapshot but reads notes from their
+// local source. A completed or kept note must not wait for a network refresh
+// before the shell, session summary or menu bar reflects that change.
+func ReadCurrentCache(s *store.Store, now time.Time) (*CacheDoc, error) {
+	c, err := ReadCache(s)
+	if err != nil || c.Data == nil {
+		return c, err
+	}
+	views, err := thread.Open(s, now)
+	if err != nil {
+		return nil, err
+	}
+	previous := map[int]thread.View{}
+	for _, v := range c.Data.Threads {
+		previous[v.ID] = v
+	}
+	for i := range views {
+		v := &views[i]
+		old, ok := previous[v.ID]
+		if !ok || old.UID != v.UID {
+			continue
+		}
+		if old.Ref != nil && v.Ref != nil && *old.Ref == *v.Ref {
+			v.Upstream, v.UpstreamErr = old.Upstream, old.UpstreamErr
+		}
+		if old.Run != nil && v.Run != nil && old.Run.Ref == v.Run.Ref && old.Run.State == v.Run.State &&
+			((old.Run.Checked == nil && v.Run.Checked == nil) || (old.Run.Checked != nil && v.Run.Checked != nil && old.Run.Checked.Equal(*v.Run.Checked))) {
+			v.RunErr = old.RunErr
+		}
+	}
+	c.Data.Threads = views
+	return c, nil
 }
 
 func WriteCache(s *store.Store, d *Data) error {

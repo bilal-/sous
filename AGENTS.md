@@ -20,7 +20,7 @@ Running `sous` with nothing else always shows the board.
 ## Build and test
 
     make test      # go vet, then every test with the race detector. Run it before every commit.
-    make ci        # formatting check plus make test, as CI runs it
+    make ci        # formatting, module tidiness and make test; staticcheck if installed
     make build     # bin/sous, with the version from git describe
     make install   # link bin/sous into ~/.local/bin
     go test ./internal/board -update   # only when you mean to change the board's layout
@@ -29,7 +29,7 @@ Tests run inside the test process against a throwaway `HOME` and
 `SOUS_HOME` (see `internal/cli/testutil_test.go`). When a test needs a real
 `sous` process, the test binary plays that part (`SOUS_TEST_AS_BINARY=1`).
 **Never** run `sous setup` in a test, and never point a test at the real
-`~/.sous`, `~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode` or
+`~/.sous`, `~/.claude`, `~/.codex`, `~/.gemini`, `~/.agents`, `~/.config/opencode` or
 `~/.zshrc`. GitHub, GitLab, Claude
 Code, Codex, Antigravity and opencode are never called for real; tests
 use small fake `gh`, `glab` and agent scripts.
@@ -44,7 +44,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
 ## Layout
 
     cmd/sous            main, which calls cli.Run
-    internal/cli        the list of commands (verbs.go), argument parsing, output, exit codes. One file per command. No decisions about the data.
+    internal/cli        the list of commands (verbs.go), argument parsing, output, exit codes. Verb handlers and shared output helpers. No decisions about the data.
     internal/filing     filing a note, closing it upstream, and checking filed notes
     internal/board      builds the board and the here view, sorts rows into sections, draws text and the menu bar, keeps the cache; item.go is the --json read model
     internal/report     what changed since the last report, as text and as a page
@@ -147,8 +147,9 @@ A skill folder several agents share goes in `harness.SharedSkills`. Its tests us
 transcripts written the way the agent writes them, never the real tool.
 Tests name what else it needs, and fail until it is there: an agent that
 runs headless adds how it ends a run to `harnesstest.Says` and what a run
-of it may do to `TestAgentsMayCommitAndNoMore`; the README and
-commands.md name it wherever they list agents (`TestDocsNameEveryAgent`).
+of it may do to `TestAgentsMayCommitAndNoMore`; README.md, AGENTS.md,
+CONTRIBUTING.md, SECURITY.md, commands.md and plugins.md name it wherever
+they list agents (`TestDocsNameEveryAgent`).
 
 ## Rules that are easy to break
 
@@ -161,10 +162,15 @@ commands.md name it wherever they list agents (`TestDocsNameEveryAgent`).
   what the board saw last, and only check trackers that live in the project
   (`FOLLOWUPS.md`) and the built in runners (which read files on this
   machine). Never add a network call there.
-* **Every data file carries a `version`** and is upgraded when read. A file
-  from a newer sous is refused, never overwritten. Test every upgrade.
-* **Every write is locked and replaces the file whole** (`store.Modify`).
-  Several agents writing at once is normal; a test races eight processes.
+* **Sous-owned JSON state carries a `version`** and is upgraded when read.
+  A file from a newer sous is refused, never overwritten. Test every upgrade.
+  Runner-owned files under `runs/`, config and generated artifacts have
+  their own formats.
+* **Shared state updates are locked and replace the file whole**
+  (`store.Modify`; `store.EditFile` for settings and filed Markdown).
+  Generated files use atomic replacement; runner logs append under the
+  run's watcher lock. Several agents writing at once is normal; a test
+  races eight processes.
 * **Built ins take the same door as plugins.** Signals, backends,
   launchers and runners are separate programs, and built ins are reached by
   running `sous signal|backend|launcher|runner <name> ...`. No shortcuts
@@ -240,8 +246,8 @@ Do not edit the `<!-- sous:... -->` markers by hand. Tick a box to close one.
 
 There are three kinds. The command's version comes from the git tag (see
 Releasing). The
-plugin contract has its own number (`v`) and freezes before 1.0. Data files
-have a `version` each and are always upgraded, never broken. 1.0 is a
+plugin contract has its own number (`v`) and freezes before 1.0. Sous-owned
+JSON state files have a `version` each and are upgraded forward. 1.0 is a
 promise that the plugin contract is stable, not a measure of popularity.
 Add a line to `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) for every
 change a person would notice.
@@ -272,12 +278,14 @@ A release is a tag, made when there is something worth handing to people:
    with no problems. If that job fails, the release is broken for new
    people: fix it and release again. You can run the same check by hand,
    in a throwaway home: `scripts/install-smoke.sh v0.1.1 zsh`.
-4. The same workflow then updates Homebrew
+4. After publishing, the same workflow updates Homebrew in parallel with
+   the install checks
    (`.github/workflows/tap.yml`): it writes the formula from the release's
    checksums and pushes it to
    [bilal-/homebrew-tap](https://github.com/bilal-/homebrew-tap). If that
    job fails, rerun it from the Actions tab (tap, Run workflow, with the
-   version), or run `make tap VERSION=v0.1.1` by hand.
+   version), or run `make tap VERSION=v0.1.1` by hand. Check both jobs:
+   Homebrew publishing does not wait for the install checks to pass.
 5. Check that GitHub marked the new version as **Latest**
    (`gh release list -R bilal-/sous`). When two tags are pushed together,
    whichever finishes last wins; fix it with

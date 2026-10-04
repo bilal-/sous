@@ -27,11 +27,11 @@ you spend time on it.
 
 ## Working on the code
 
-You need Go 1.27 or newer and `git`.
+You need Go 1.27.1 or newer (see [go.mod](go.mod)) and `git`.
 
     make build     # build bin/sous
     make test      # go vet, then every test with the race detector
-    make ci        # formatting, vet and tests, as CI runs them
+    make ci        # formatting, module tidiness, vet and race tests; staticcheck if installed
 
 Before you send a change:
 
@@ -40,9 +40,9 @@ Before you send a change:
   must never look like zero, and `sous here`, the session hooks and
   `sous go` must never wait on the network.
 * **Write the test first.** Show the problem with a failing test, then fix
-  it. Tests never touch your real `~/.sous`, `~/.claude`, `~/.codex` or shell
-  files, and never call real GitHub, GitLab, Claude Code or Codex. They use
-  small fake `gh`, `glab`, `claude` and `codex` scripts instead.
+  it. Tests use throwaway `HOME` and `SOUS_HOME`, and never touch your real
+  sous state, agent settings or shell files. GitHub, GitLab, Claude Code,
+  Codex, Antigravity and opencode are replaced by small fake scripts.
 * **Use made up data.** Examples, tests and docs use invented projects,
   people and hosts (`acme/api`, `Sam`, `git.example.org`). Never real ones.
 * **Keep `make ci` passing**, and add a line to
@@ -52,11 +52,12 @@ Before you send a change:
 
 ## Adding a built in tracker
 
-A new built in tracker is usually two small tables: one for filing
-(`internal/backend/<name>.go`) and one for finding work
-(`internal/signal/<name>.go`). The shared code does the rest. Add a fake of
-the tracker's command line tool and run it through the conformance suite in
-`internal/backend/conformance_test.go`. AGENTS.md has the full recipe.
+A new built in tracker needs a row in `tracker.Kinds`, a backend for filing
+(`internal/backend/<name>.go`), and a signal for finding work
+(`internal/signal/<name>.go`), with entries in both registries. Add safe CLI
+execution and authentication checks in `internal/tracker` when needed.
+Use a stateful fake of the tracker's tool for backend conformance and
+failure tests. [AGENTS.md](AGENTS.md) has the full recipe.
 
 ## Pull requests
 

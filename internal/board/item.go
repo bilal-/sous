@@ -10,20 +10,21 @@ import (
 	"github.com/bilal-/sous/internal/thread"
 )
 
-// The --json read model. Every command that lists things waiting lists
-// Items, in sections named the way the board names them; one note looks
-// the same wherever it shows up. These types are what agents read, kept
+// The --json read model. Waiting rows use Items across the board, here,
+// report and review; their wrappers vary by command. One note has the same
+// fields wherever it shows up. These types are what agents read, kept
 // apart from what sous stores (threads.json, cache.json), so either can
 // change without the other.
 
 // Item is one thing waiting: a note, or something a signal found.
 type Item struct {
-	ID      string    `json:"id"` // a note's number ("7"), or a signal's id ("s:3fa4c1d2e9b0")
-	Project string    `json:"project"`
-	Name    string    `json:"name"` // the project folder's name
-	Kind    string    `json:"kind"` // me | them | idea | unfinished: whose move it is
-	Text    string    `json:"text"` // as written: the note, or what the signal said
-	Since   time.Time `json:"since"`
+	ID         string     `json:"id"` // a note's number ("7"), or a signal's id ("s:3fa4c1d2e9b0")
+	Project    string     `json:"project"`
+	Name       string     `json:"name"` // the project folder's name
+	Kind       string     `json:"kind"` // me | them | idea | unfinished: whose move it is
+	Text       string     `json:"text"` // as written: the note, or what the signal said
+	Since      time.Time  `json:"since"`
+	ReviewedAt *time.Time `json:"reviewed_at"`
 	// Source: who wrote a note (human, agent), or which plugin found it.
 	Source   string        `json:"source"`
 	Ref      *string       `json:"ref"`      // where it is filed or found: "github:acme/api#14"
@@ -38,7 +39,7 @@ type Item struct {
 
 // UpstreamItem is what a filed note's tracker said about it.
 type UpstreamItem struct {
-	State string `json:"state"`           // open | closed | unknown (gone) | error (could not ask)
+	State string `json:"state"`           // open | closed | unknown (ref missing/unrecognizable) | error (could not ask)
 	Error string `json:"error,omitempty"` // why it could not ask
 }
 
@@ -64,6 +65,7 @@ type RunItem struct {
 func (r Row) Item() Item {
 	it := Item{ID: r.ID, Project: r.Project, Name: filepath.Base(r.Project), Kind: r.Kind, Text: r.Text, Since: r.Since,
 		Source: r.Source, Ref: r.Ref, Snoozed: r.Snoozed, Stale: r.Stale, ClosedAt: r.ClosedAt}
+	it.ReviewedAt = r.ReviewedAt
 	if r.Upstream != "" {
 		it.Upstream = &UpstreamItem{State: r.Upstream, Error: r.UpstreamErr}
 	}
@@ -141,11 +143,13 @@ func (d *Data) JSON() BoardJSON {
 
 // HereJSON is sous here --json.
 type HereJSON struct {
-	Project string        `json:"project"`
-	Name    string        `json:"name"`
-	Remote  *string       `json:"remote"`
-	Facts   project.Facts `json:"facts"`
-	Session *SessionItem  `json:"session"` // the last agent session here, if one was recorded
+	Documents     []project.Document `json:"documents"`
+	DocumentError string             `json:"document_error,omitempty"`
+	Project       string             `json:"project"`
+	Name          string             `json:"name"`
+	Remote        *string            `json:"remote"`
+	Facts         project.Facts      `json:"facts"`
+	Session       *SessionItem       `json:"session"` // the last agent session here, if one was recorded
 	Waiting
 	RecentlyClosed []Item                `json:"recently_closed"` // closed in their tracker this week
 	Plugins        []signal.PluginStatus `json:"plugins"`
@@ -165,6 +169,7 @@ func (h *HereData) JSON() HereJSON {
 	s := classifyHere(h)
 	out := HereJSON{Project: h.Project, Name: h.Name, Remote: h.Remote, Facts: h.Facts, Waiting: s.waiting(),
 		RecentlyClosed: Items(s.RecentlyClosed), Plugins: h.Plugins, AsOf: h.RenderedAt}
+	out.Documents, out.DocumentError = h.Documents, h.DocumentError
 	if h.Session != nil {
 		out.Session = sessionItem(*h.Session)
 	}

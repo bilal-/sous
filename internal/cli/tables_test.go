@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -13,6 +15,23 @@ import (
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/tracker"
 )
+
+// JSON examples are copied into scripts and plugin implementations. Keep
+// them parseable, including examples in the help embedded in the binary.
+func TestDocsJSONExamples(t *testing.T) {
+	blocks := regexp.MustCompile("(?s)```json\\n(.*?)\\n```")
+	for _, file := range []string{"../../README.md", "../../docs/commands.md", "../../docs/plugins.md"} {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, block := range blocks.FindAllSubmatch(b, -1) {
+			if !json.Valid(block[1]) {
+				t.Errorf("%s: JSON example %d is invalid: %s", file, i+1, block[1])
+			}
+		}
+	}
+}
 
 // The tables agree: every built in tracker has a backend that files into
 // it and a signal that finds work in it, with a link for its items; every
@@ -42,7 +61,7 @@ func TestTablesAgree(t *testing.T) {
 // (`claude`, `codex`, ...) has every one. A new harness the docs do not
 // mention fails here.
 func TestDocsNameEveryAgent(t *testing.T) {
-	for _, file := range []string{"../../README.md", "../../docs/commands.md"} {
+	for _, file := range []string{"../../README.md", "../../AGENTS.md", "../../docs/commands.md", "../../docs/plugins.md", "../../CONTRIBUTING.md", "../../SECURITY.md"} {
 		b, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)

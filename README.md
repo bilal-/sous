@@ -24,7 +24,7 @@ open a terminal or start an agent session (Claude Code, Codex, Antigravity
 or opencode), so it still works on the days you forget it exists.
 
 ```
-sous · 2 on you · 1 on others · 3 unfinished
+sous · 2 on you · 1 on others · 2 unfinished
 
   on you
   s:0b4ac59dfd33  app-next           review requested · PR #14 json api            2d
@@ -98,8 +98,8 @@ of twenty minutes of digging.
 write the migration test for billing". The agent runs `sous note` for you.
 It never files anything where others can see without asking first.
 
-**Friday.** `sous report --week --open` shows what you closed, where you
-spent your time, and what is still waiting.
+**Friday.** `sous report --week --open` shows what you closed, which projects
+had recent commits or recorded session endings, and what is still waiting.
 
 ### Notes stay yours until you share them
 
@@ -128,7 +128,8 @@ git, on GitHub or GitLab, or in a project's own `FOLLOWUPS.md`. sous keeps
 pointers and short notes of your own, and works everything else out again
 each time you look.
 
-It has no priorities, due dates, assignees or sprints. Age is the only order.
+It has no priorities, due dates, assignees or sprints. The board groups rows
+by whose move it is, then lists the oldest first.
 It needs no API key and runs no background service. When you want an AI to
 help, the agent you already use calls `sous` like any other command. It can
 hand a task to an agent that works in the background, and keeps track of
@@ -143,7 +144,7 @@ sous is young. Here is an honest list.
 
 | Works today | Not yet |
 |---|---|
-| macOS and Linux, on Intel and Apple silicon | Windows |
+| macOS and Linux, on amd64 and arm64 | Windows |
 | the board in new **zsh**, **bash** and **fish** shells | other shells (run `sous --ambient` from their startup file) |
 | session hooks for **Claude Code**, **Codex**, **Antigravity** and **opencode**; the sous skill for them and for **Gemini CLI, Kimi, Cursor** and other agents that read `~/.agents/skills` | session hooks for other agents (see below) |
 | git: uncommitted files, unpushed commits, stashes, branches with no upstream | |
@@ -171,7 +172,7 @@ your `PATH`, the script tells you. To install a particular version, run
 
     brew install bilal-/tap/sous && sous setup
 
-**From source**, with Go 1.27 or newer:
+**From source**, with Go 1.27.1 or newer (see [go.mod](go.mod)):
 
     git clone https://github.com/bilal-/sous && cd sous
     make install && sous setup
@@ -182,7 +183,9 @@ scope: `gh auth refresh -s notifications`). For GitLab, install [`glab`](https:/
 and run `glab auth login`. Both are optional. sous uses your existing logins
 and never asks for a token.
 
-To remove sous, delete:
+To remove sous, first stop active runs with `sous done <n>`. Review and
+commit or copy any work you want to keep before `sous done <n> --clean`.
+Back up `~/.sous` if you want to keep your notes and history, then delete:
 
 * `~/.local/bin/sous` (or `brew uninstall sous`) and `~/.sous`
 * the `sous` skill folders in `~/.claude/skills`, `~/.codex/skills`,
@@ -194,9 +197,10 @@ To remove sous, delete:
   files (for fish, the file `~/.config/fish/conf.d/sous.fish`)
 * the `sous` folder in your cache folder (`~/Library/Caches/sous` on macOS,
   `~/.cache/sous` on Linux)
-* if you handed work to agents: their branches, named `sous/run-<n>`, in
-  those projects (`git branch -D sous/run-7`), then `git worktree prune`
-  there once `~/.sous` is gone
+* if you handed work to agents: remove merged branches named
+  `sous/run-<n>` in those projects with `git branch -d sous/run-7`.
+  Keep unmerged branches until you have reviewed their work, and run
+  `git worktree prune` once removed worktrees are gone
 
 ## Setting up
 
@@ -251,6 +255,21 @@ a different agent.
 In any project, this shows the branch, the last commit, how your last agent
 session ended, open notes and ideas for this project, and anything waiting on
 you. Agent sessions get the same summary when they start, without you asking.
+
+### Keep the handoff and follow-ups current
+
+`sous here` points to existing project documents: `STATUS.md` for current
+state, verification, blockers and the next step; `FOLLOWUPS.md` for unfinished
+actions; and `AGENTS.md` or `CLAUDE.md` for working instructions. Agents use
+the project's conventions and keep the handoff current as part of their work.
+Creating shared documents and filing private notes still require your request.
+
+The board reminds you when notes need checking. Run `sous review`, inspect
+what actually happened, then close completed work with `sous done <n>` or
+keep an unresolved note with `sous review --keep <n>`. Keeping it resets the
+review reminder for a week while the task stays on the board. Closed tracker
+items reconcile automatically, and local closures disappear from cached shell
+and menu-bar views without waiting for a network refresh.
 
 ### Catch a thought before it slips away
 
@@ -312,8 +331,8 @@ Tell your agent what you want done, and let it hand the task off:
 > five since the fixtures changed."
 
 Your agent runs `sous go billing --run -` with a full brief. An agent
-starts on it in the background, in its own git worktree, so your checkout
-is never touched, and the board shows it:
+starts on it in the background, in its own git worktree, keeping task
+edits separate from your checkout. The board shows it:
 
     on others
       7    billing    running · fix the flaky test          4m
@@ -326,7 +345,9 @@ Later, when you open a new session, your agent hears it first:
 You answer in plain words, your agent runs `sous reply 7 "…"`, and the run
 carries on. When it is done, the board says `run done, review it` with the
 branch to look at, or says the changes are waiting, not yet committed, in
-its worktree. The run never pushes. When you are finished with it,
+its worktree. Built in runners tell the agent not to push and block ordinary
+git pushes; the agent's own permissions still apply (see [SECURITY.md](SECURITY.md)).
+When you are finished with it,
 `sous done 7 --clean`.
 
 ## Use it with your AI agent
@@ -347,24 +368,35 @@ so you can say things like:
 
 Claude asks before anything reaches a shared tracker.
 
-**Codex.** The same skill, and a hook when a session starts. Newer Codex
-versions also report when a session ends: run
-`sous setup --codex-session-end` and `sous here` shows how your last Codex
-session ended, as it does for Claude Code. Without it, `sous here` still
-shows the last commit and your notes.
+**Codex.** The same skill, and a hook when a session starts. Run
+`sous setup --codex-session-end` to add the optional end hook on versions
+that support it. Current Codex requires new or changed hooks to be reviewed
+and trusted through `/hooks` before they run; setup installs the definitions,
+and doctor checks their presence, but neither grants that trust.
+See [Codex's hook documentation](https://developers.openai.com/codex/hooks).
+Once the end hook runs, `sous here` shows your last Codex session's ending.
+Without it, `sous here` still shows the last commit and your notes.
 
-**Antigravity.** The skill, and hooks in `~/.gemini/config/hooks.json`,
-which both the Antigravity app and the `agy` command read: a new
+**Antigravity.** The IDE skill in `~/.gemini/config/skills`, and hooks in
+`~/.gemini/config/hooks.json`, which both the Antigravity app and the `agy`
+command read: a new
 conversation starts knowing where you left off, and the end of each turn is
 recorded, so `sous here` shows how your last Antigravity session ended.
+The CLI's global skill directory is `~/.gemini/antigravity-cli/skills`,
+which setup does not populate yet. To add the skill there:
+
+    mkdir -p ~/.gemini/antigravity-cli/skills/sous
+    sous setup --print-skill > ~/.gemini/antigravity-cli/skills/sous/SKILL.md
+
+See [Antigravity's skill locations](https://www.antigravity.google/docs/skills).
 `sous go --run -a agy` hands a task to Antigravity in the background. A run
 has the command permissions you gave Antigravity in its settings and no
 more: a command it is not allowed shows the run as needing you, naming
 what was refused.
 
-**opencode.** opencode has no hooks, so `sous setup` writes a small plugin,
-`~/.config/opencode/plugins/sous.js`, that does what they would: a session
-starts knowing where you left off, and what the agent said last is recorded
+**opencode.** `sous setup` writes a small plugin at
+`~/.config/opencode/plugins/sous.js` using opencode's callbacks. It shows
+where you left off when a session starts and records the agent's last message
 when the session goes idle. The skill comes from `~/.agents/skills`.
 `sous go --run -a opencode` hands it a task in the background, with the
 permissions your opencode config gives.
@@ -385,8 +417,8 @@ issue, or send a pull request adding hooks for it.
 ## All commands
 
 The full guide, with every option, is [docs/commands.md](docs/commands.md).
-Every command that shows something also takes `--json`, and every command
-explains itself with `--help`.
+Use `--json` for board views, project lists, notes, reports and diagnostics.
+Each public command explains itself with `--help`.
 
 | Command | What it does |
 |---|---|
@@ -403,6 +435,7 @@ explains itself with `--help`.
 | `sous done <n> [--close] [--clean]` | close a note, and with `--close` its tracker item too; `--clean` removes a run's worktree |
 | `sous file <n> [--force]` | send a note to the project's tracker |
 | `sous report [--week] [--open]` | what changed lately |
+| `sous review [-p project] [--keep n]` | check follow-ups; keep unresolved ones visible for another week |
 | `sous go <project> [-a agent]` | start your agent in a project |
 | `sous go <project> --run <brief>` | hand a task to an agent in the background |
 | `sous reply <n> "answer"` | answer a run that needs you |
@@ -413,17 +446,20 @@ explains itself with `--help`.
 To write a note that starts with a dash, put `--` before it:
 `sous note -- "-2 tests failing"`.
 
-The exit codes, the same for every command and plugin, are in
-[the command guide](docs/commands.md#exit-codes).
+Command exit codes are in [the command guide](docs/commands.md#exit-codes).
+Plugins use the call-specific meanings in [the plugin guide](docs/plugins.md).
 
 ## How sous stays honest
 
 * **Missing data never looks like zero.** If GitHub could not be reached or
   a folder is missing, the headline says `? on you (github failed)` instead of
   a calm zero, and what sous knew before is kept and marked `(stale)`.
-* **Nothing is made up.** Apart from your notes, every row comes from git or
-  a tracker, checked again on each look. sous remembers only when it first saw
-  each row, so an age means "waiting since", not "noticed at".
+* **Every row has a source.** Full boards refresh signals, filed-note status
+  and runner reports; cached and session views say when remote data was last
+  checked. Notes keep their creation time. Signals use the earliest known
+  timestamp supplied by their source, or when sous first saw them if none
+  was supplied. Their age is the best timestamp available, not a complete
+  activity history.
 * **The tracker wins.** If an item you filed is closed where it lives, your
   note closes too, marked as closed upstream. If sous cannot check, the row
   says so.
@@ -497,7 +533,7 @@ GitLab and git support go through exactly the same door, so they are good
 examples to read.
 
 The quickest start is [the example plugin](examples/sous-signal-todo),
-about fifty lines of plain shell. [docs/plugins.md](docs/plugins.md)
+a small plugin in plain shell. [docs/plugins.md](docs/plugins.md)
 explains the contract, which is stable and only grows until 1.0, and
 [CONTRIBUTING.md](CONTRIBUTING.md) explains how to send it in. Connectors we
 would especially like to see: Jira, Linear, Gitea, Bitbucket, Azure DevOps,
@@ -512,12 +548,12 @@ every one, or to get to it quickly, but I will when time allows. Start with
 agents working on the code is [AGENTS.md](AGENTS.md).
 
     make build          # build bin/sous
-    make test           # run every test with the race detector
-    make ci             # formatting, vet and tests, as CI runs them
+    make test           # go vet, then every test with the race detector
+    make ci             # formatting, module tidiness, vet and race tests; staticcheck if installed
 
 ## Status
 
-sous is young: version 0.3, still before 1.0. Commands and flags may change
+sous is still before 1.0. Commands and flags may change
 between minor versions, and every change is noted in
 [CHANGELOG.md](CHANGELOG.md). Your data files are always carried forward: a
 new version upgrades them, and an older version refuses a newer file rather
@@ -529,16 +565,9 @@ and 1.0 freezes it.
 sous is released under the [MIT License](LICENSE). Copyright 2026 Bilal.
 The name and logo have a separate [trademark notice](TRADEMARK.md).
 
-In plain words, you may use, copy, change and share sous, including in paid
-and commercial work, as long as you:
-
-* include a copy of the license with it
-* keep the copyright and license notices
-* say which files you changed, if you share a changed version
-
-The license also gives you a patent grant from everyone who contributes. sous
-comes with no warranty. If you send a contribution, you agree it is shared
-under the same license, as the license itself describes in section 5. There
-is no separate agreement to sign.
+You may use, copy, change, distribute and sell the code, including in
+commercial work. Include the copyright and permission notice in copies or
+substantial portions. The code comes with no warranty. Contributions are
+shared under the same license; no separate agreement is required.
 
 This summary is only a guide. The [LICENSE](LICENSE) file is what counts.

@@ -16,12 +16,13 @@ import (
 // Renderers only lay rows out; the classification happens once, here.
 // --json shows a row as an Item.
 type Row struct {
-	ID      string // thread id as digits, or "s:…"
-	Project string // absolute path
-	Text    string // as written
-	Shown   string // what a person reads: Text, or for a run its state and Text
-	Age     string // Since against the time of the board, "(stale)" appended
-	Since   time.Time
+	ID         string // thread id as digits, or "s:…"
+	Project    string // absolute path
+	Text       string // as written
+	Shown      string // what a person reads: Text, or for a run its state and Text
+	Age        string // Since against the time of the board, "(stale)" appended
+	Since      time.Time
+	ReviewedAt *time.Time
 	// ClosedAt, ClosedBy ("" for you, or "upstream"): a closed note.
 	ClosedAt *time.Time
 	ClosedBy string
@@ -180,6 +181,7 @@ func Classify(d *Data) Sections {
 func ThreadRow(t thread.View, now time.Time) Row {
 	r := Row{ID: fmt.Sprint(t.ID), Project: t.Project, Text: t.Text, Shown: t.Text, Age: text.Age(now, t.Since), Since: t.Since, Kind: string(t.Kind), Source: t.Source,
 		Ref: t.Ref, Upstream: t.Upstream, UpstreamErr: t.UpstreamErr, Snoozed: t.Snoozed, ClosedAt: t.Closed, ClosedBy: t.ClosedBy}
+	r.ReviewedAt = t.ReviewedAt
 	if t.Run != nil {
 		r.Shown, r.Run, r.RunErr = runLine(t.Run, t.Text), t.Run, t.RunErr
 		r.Kind = string(thread.Them)
@@ -213,7 +215,16 @@ func signalRow(o signal.Observed, now time.Time) Row {
 // observed signals the board uses, and recently upstream-closed threads
 // appear so the person sees it happened.
 func classifyHere(h *HereData) Sections {
-	s := classify(hereView, h.RenderedAt, h.Threads, h.Signals, h.Plugins)
+	extra := []string{}
+	if h.DocumentError != "" {
+		extra = append(extra, "project docs unavailable: "+h.DocumentError)
+	}
+	for _, d := range h.Documents {
+		if d.Error != "" {
+			extra = append(extra, d.Path+" unavailable: "+d.Error)
+		}
+	}
+	s := classify(hereView, h.RenderedAt, h.Threads, h.Signals, h.Plugins, extra...)
 	for _, t := range h.RecentlyClosed {
 		s.RecentlyClosed = append(s.RecentlyClosed, ClosedRow(t, h.RenderedAt))
 	}

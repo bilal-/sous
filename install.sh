@@ -2,8 +2,8 @@
 # Install sous from a GitHub release into ~/.local/bin, then run `sous setup`.
 #
 #   curl -fsSL https://raw.githubusercontent.com/bilal-/sous/main/install.sh | sh
-#   SOUS_VERSION=v0.1.0 ... | sh     # pin a version (default: latest)
-#   SOUS_BIN=~/bin ... | sh          # install elsewhere
+#   curl -fsSL https://raw.githubusercontent.com/bilal-/sous/main/install.sh | SOUS_VERSION=v0.1.0 sh
+#   curl -fsSL https://raw.githubusercontent.com/bilal-/sous/main/install.sh | SOUS_BIN="$HOME/bin" sh
 set -eu
 
 repo="bilal-/sous"

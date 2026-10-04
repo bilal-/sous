@@ -119,7 +119,7 @@ func TestMigrateV0(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Version != 3 || d.NextID != 8 || d.Threads[0].UID == "" || d.Threads[0].Source != "human" || d.Threads[1].Source != "agent" {
+	if d.Version != 4 || d.NextID != 8 || d.Threads[0].UID == "" || d.Threads[0].Source != "human" || d.Threads[1].Source != "agent" {
 		t.Fatalf("%+v", d)
 	}
 	if d.Threads[0].Remote != nil || d.Threads[0].Closed != nil || d.Threads[0].SnoozedUntil != nil || d.Threads[0].Ref != nil {
@@ -205,7 +205,7 @@ func TestMigrateV1GivesEveryNoteAUID(t *testing.T) {
 		t.Fatal(err)
 	}
 	a, b := d.Threads[0].UID, d.Threads[1].UID
-	if d.Version != 3 || len(a) != 12 || len(b) != 12 || a == b || d.Threads[0].ID != 1 {
+	if d.Version != 4 || len(a) != 12 || len(b) != 12 || a == b || d.Threads[0].ID != 1 {
 		t.Fatalf("%+v", d)
 	}
 	id, _, _ := Note(s, project.Project{Path: "/p"}, Me, "c", "", time.Now())

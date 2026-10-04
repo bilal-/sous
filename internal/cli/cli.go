@@ -59,6 +59,16 @@ For agents:
     <!-- sous:... --> markers to make filing work unless the user asks. If
     sous says there is no tracker, say so.
   sous done means the user's task is finished, not that you wrote code.
+  Read the project docs listed by sous here. STATUS.md is the current
+  handoff: what works, what was verified, blockers and the next step.
+  FOLLOWUPS.md holds concrete unfinished actions with why and a reference;
+  AGENTS.md or CLAUDE.md holds working instructions. Use existing conventions.
+  Keep the handoff current as part of authorized work; propose new shared
+  documents when needed. Keep important decisions in the project's design docs.
+  On a review reminder, run sous review -p <project> --json. Check the
+  matching work before closing a note; age or a session summary is not proof.
+  Close verified completed notes with sous done <n>. Keep unresolved ones
+  with sous review --keep <n>; this leaves the task visible for another week.
   When sous shows a ? or a source failed, run sous doctor for the cause and
     the fix, and tell the user.
   (ref missing) and (status unavailable) mean sous could not confirm, not done.

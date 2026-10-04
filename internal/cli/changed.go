@@ -35,6 +35,7 @@ type changedJSON struct {
 const (
 	didNoted          = "noted"
 	didAlreadyNoted   = "already_noted"
+	didReviewed       = "reviewed"
 	didEdited         = "edited"
 	didKind           = "kind"
 	didSnoozed        = "snoozed"
@@ -51,7 +52,7 @@ const (
 	didUnchanged = "unchanged"
 )
 
-var dids = []string{didNoted, didAlreadyNoted, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didCleaned, didFiled, didReplied, didStarted, didAlreadyStarted,
+var dids = []string{didNoted, didAlreadyNoted, didReviewed, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didCleaned, didFiled, didReplied, didStarted, didAlreadyStarted,
 	didSet, didUnset, didUnchanged}
 
 // changed prints c: as JSON, or as what it did and what to do next on

@@ -2,10 +2,10 @@
 
 Every command, every option, and what each one does. For the why and the
 everyday flow, start with the [README](../README.md). Run
-`sous <command> --help` for a one line reminder of any command.
+`sous <command> --help` for its usage and the full command section from this guide.
 
 * [How commands are written](#how-commands-are-written)
-* [Seeing what is waiting](#seeing-what-is-waiting): `sous`, `sous <folder>`, `sous <project>`, `here`, `projects`, `report`
+* [Seeing what is waiting](#seeing-what-is-waiting): `sous`, `sous <folder>`, `sous <project>`, `here`, `projects`, `report`, `review`
 * [Notes](#notes): `note`, `show`, `edit`, `kind`, `snooze`, `done`
 * [Sharing a note](#sharing-a-note): `file`, `note --file`, `done --close`
 * [Going to a project](#going-to-a-project): `go`
@@ -28,7 +28,7 @@ everyday flow, start with the [README](../README.md). Run
 * A command given an option it does not know, or the wrong number of
   arguments, stops with exit code `2` and prints its usage. Nothing is
   silently ignored.
-* Every command but `setup`, `version` and `help` takes **`--json`** for
+* Every public command but `setup`, `version` and `help` takes **`--json`** for
   programs: one that shows something prints it, and one that changes
   something says what it did, `{"id", "did", "next"}` (see `sous note`). `here` also takes
   **`--brief`**. Both work anywhere on the line; a command they mean
@@ -40,11 +40,14 @@ everyday flow, start with the [README](../README.md). Run
 
 ### What `--json` gives
 
-Every list of things waiting is a list of the same **item**, whichever
-command prints it, in sections named as the board names them: `on_you`,
-`on_others`, `unfinished`, `ideas`, `snoozed` (waiting, but hidden until
-the snooze ends), and `attention` (why the picture is incomplete; empty
-when it is whole). An empty list is `[]`, never `null`. Times are UTC.
+Every command that lists things waiting uses the same **item** fields.
+The board and `here` group them into `on_you`, `on_others`, `unfinished`,
+`ideas` and `snoozed` (waiting, but hidden until the snooze ends).
+`attention` explains why the picture is incomplete; it is empty when whole.
+`review` uses `items`; `report` uses the sections listed under its command.
+An empty list is `[]`, never `null`. Times are UTC.
+
+A filed note looks like this:
 
 ```json
 {
@@ -54,10 +57,11 @@ when it is whole). An empty list is `[]`, never `null`. Times are UTC.
   "kind": "me",
   "text": "fix the flaky checkout test",
   "since": "2026-09-27T09:02:00Z",
+  "reviewed_at": null,
   "source": "human",
   "ref": "github:acme/billing#12",
   "upstream": {"state": "open"},
-  "run": {"runner": "claude", "state": "needs_you", "text": "which fixture?", "branch": "sous/run-7", "worktree": "/home/sam/.sous/runs/0a1b2c3d4e5f/worktree"},
+  "run": null,
   "snoozed": false,
   "stale": false,
   "closed_at": null,
@@ -71,9 +75,10 @@ when it is whole). An empty list is `[]`, never `null`. Times are UTC.
   is `them` while it works and `me` once it is done, needs you, or failed.
 * `text`: as written. The board's "run needs you · …" is for people;
   programs read `run`.
+* `reviewed_at`: when a note was last explicitly kept during review, or `null`.
 * `source`: who wrote a note (`human` or `agent`), or which plugin found it.
 * `upstream`: for a filed note, what its tracker said: `open`, `closed`,
-  `unknown` (gone there) or `error` (could not ask, with `error` saying
+  `unknown` (ref missing or unrecognizable) or `error` (could not ask, with `error` saying
   why). `null` for a note that is not filed, and for signals.
 * `run`: for a run, how it is going; `error` when its state could not be
   read this time (`state` is then the last one known). `brief` is the
@@ -145,7 +150,7 @@ Where you left off in the project you are in, or the one at `path`:
 * next step hints
 
 A filed note shows its ref (`→ github:acme/api#12`). `(ref missing)` means
-the tracker no longer has the item, and `(status unavailable: ...)` means
+the ref no longer identifies a recognizable item, and `(status unavailable: ...)` means
 sous could not ask. Neither is taken to mean done.
 
 `here` is fast and never waits on the network. It checks git itself and
@@ -160,6 +165,28 @@ Options:
 * `--json`: the sections, with `facts` (branch, last commit), `session`
   (how the last agent session here ended, or `null`), `recently_closed`,
   and `plugins`.
+
+Project documents are listed as paths, so the person or agent can read the
+project's own source. `here` recognizes `README.md`, `AGENTS.md`, `CLAUDE.md`,
+`STATUS.md` and `FOLLOWUPS.md`, including different capitalization. Missing
+files are optional; unreadable files are marked unavailable. It never creates
+or edits these documents.
+
+For agents, use the project's existing conventions:
+
+* `STATUS.md`: a short current handoff with the date, what works, what was
+  verified, blockers and the next step. Refresh it as part of authorized work.
+* `FOLLOWUPS.md`: concrete unfinished actions, each with why it matters and a
+  useful reference. Reconcile completed actions after verifying the work;
+  never edit the `<!-- sous:... -->` markers by hand.
+* `AGENTS.md` or `CLAUDE.md`: working instructions, build and test commands.
+  Keep significant decisions and their reasons in the project's design docs.
+
+Propose new shared documents when needed. Notes remain private until the
+person explicitly asks to file them. A review reminder points to
+`sous review -p <project>`; session hooks only show the hint, staying offline.
+With `--json`, `documents` lists each relative `path`, `purpose` and any
+`error`; `document_error` reports a failure to list the project's documents.
 
 ### `sous projects [name]`
 
@@ -181,6 +208,11 @@ What changed since your last report: new things on you and on others, new
 ideas, what got closed (by you or in a tracker), which projects you worked
 in, and what needs a look. The first report looks back one day.
 
+`worked` lists projects whose latest commit or last recorded agent session
+falls in the window. It does not measure time spent or keep a complete
+history of sessions. `closed` lists sous notes closed in the window; a
+signal disappearing is not recorded as a closed note.
+
 Options:
 
 * `--week`: the last seven days, whatever you saw before. Does not move the
@@ -190,16 +222,53 @@ Options:
   internet.
 * `--json`: `new_on_you`, `new_on_others`, `new_ideas` and `closed` as
   items, `worked`, `attention`, and `now` (how many are waiting at the end
-  of the window). It only reads: the next report still starts where the
-  last one you saw ended, so a program can ask as often as it likes.
+  of the window). It does not advance the report's seen mark: the next report
+  still starts where the last one you saw ended. It still refreshes the board
+  and reconciles tracker and run state.
 
 A report only counts as seen when it was shown. If writing or opening it
 fails, the next report still covers the same time.
 
+### `sous review`
+
+Check follow-ups that may no longer reflect the work. This refreshes the board
+and reconciles confirmed tracker closures, then lists open notes not reviewed
+for seven days, missing or unavailable filed items, and runs that finished or
+failed. Snoozed notes, active runs and notes kept within the last seven days
+are excluded. Reasons explain why to
+check; none are guesses that a task is done. Oldest reviews come first.
+
+Inspect the matching work with `sous show <n>` and the project's code or
+tracker. Close a verified completed task with `sous done <n>`. Rewrite an
+unclear next action with `sous edit <n> "text"`, or keep an unresolved task
+with `sous review --keep <n>`. Only use `done --close` when the person explicitly
+asks to close its shared tracker item too.
+
+Options:
+
+* `-p <project>`: review one project by name or path; `-p .` means the current
+  project. Without it, review notes across projects.
+* `--keep <n>`: record that note `n` still matters. It stays visible, with its
+  original creation time, and is due for review again in seven days. Safe to
+  retry. Cannot be combined with `-p`. Closed notes are refused.
+* `--json`: a list request answers with `items`, `attention` and `as_of`.
+  Each item has the board's fields, its `reason`, and the last recorded
+  `session` for that project (or `null`). A session summary is context, not
+  proof of completion. Empty `items` is `[]`; unavailable data stays explicit.
+  `--keep` answers with `id`, `did: "reviewed"`, `ref` and `next`.
+
+The board, cached shell view and `here` show a small reminder when a review
+is due. There is no separate scheduled process. Keeping a note postpones its
+review reminder; any unavailable source still appears on the ordinary board.
+With no project folders configured, review reads local notes and checks only
+local trackers; remote status remains unchecked.
+
 ## Notes
 
-Notes are private to you. They live in `~/.sous/threads.json` and nowhere
-else until you [share one](#sharing-a-note).
+Notes are local until you [file one](#sharing-a-note). Their primary record
+is `~/.sous/threads.json`; cached boards, reports and agent summaries can
+also contain their text. An agent may send its context to its model provider
+under its own settings (see [SECURITY.md](../SECURITY.md)).
 
 ### `sous note "text"`
 
@@ -211,7 +280,7 @@ under another kind, `next` starts with the `sous kind` that changes it. With `--
 `{"id": "7", "did": "noted", "ref": null, "next": [...]}`; every command
 that changes something answers this way, and `did` says what happened
 (`noted`, `already_noted`, `edited`, `kind`, `snoozed`, `closed`,
-`already_closed`, `cleaned` (a closed run's worktree removed by
+`already_closed`, `reviewed` (kept open after a review), `cleaned` (a closed run's worktree removed by
 `done --clean`), `filed`, `replied`, and for `go --run` `started` and
 `already_started`). An answer may also carry `kind` (after `kind`, or
 when `note` found the note under another kind), `until` (after
@@ -365,28 +434,34 @@ EOF
 `--run -` reads the brief from standard input; write what to do, why, and
 what done means. `-a` picks the runner (`claude`, `codex`, `agy`, `opencode`, or a runner
 plugin); the default is `runner` in configuration, or `agent` when that is
-not set. The answer names the
-run's number, and the command to check on it:
+not set. This response excerpt names the
+run's number and the commands to check on it:
 
 ```json
-{"id": "7", "did": "started", "ref": null, "run": {"runner": "claude", "state": "running", ...}, "next": ["sous show 7", "sous done 7"]}
+{"id": "7", "did": "started", "ref": null, "run": {"runner": "claude", "state": "running"}, "next": ["sous show 7", "sous done 7"]}
 ```
 
 The built in runners work in a new git worktree, on a branch named
-`sous/run-7`, so your own checkout is never touched. They never push: the
-branch waits for you. An agent that could not commit leaves its changes in
-the worktree, and the run's status says "changes not committed". The agent gets the permissions you already gave it,
-plus what committing on its own branch needs: Claude accepts file edits,
-may run `git add`, `git commit`, `git status`, `git diff` and `git log`,
-and otherwise follows your Claude settings; Codex works in its workspace
-sandbox, which may also write git's objects, refs and logs, but never your
-repo's hooks or settings; Antigravity accepts file edits and refuses any
-command its settings do not allow; opencode has what your opencode config
-gives it. For anything more, the agent asks you. A run may
-take `run_minutes` (60 by default) before it is stopped. A run going when
-your computer restarts shows as failed, "stopped without a result": the
-built in runners do one thing, and never resume. For work that must
-survive that, use a runner plugin.
+`sous/run-7`, keeping task edits separate from your checkout while sharing
+git metadata. They tell the agent not to push and block ordinary git pushes
+with URL rewrites. These safeguards depend on the agent's own permissions;
+see [SECURITY.md](../SECURITY.md). The branch waits for your review.
+An agent that could not commit leaves its changes in the worktree, and the
+run's status says "changes not committed".
+
+The agent gets the permissions configured for its runner: Claude accepts
+file edits, may run `git add`, `git commit`, `git status`, `git diff` and
+`git log`, and otherwise follows your Claude settings. Codex uses a
+workspace-write sandbox with extra writable git object, ref, log and
+worktree metadata directories; the shared repo's hooks and settings are
+not added to those roots. Antigravity uses accept-edits mode and reports
+commands denied by its settings as needing you. opencode uses its
+configured permissions. A run is stopped after `run_minutes` (60 by default).
+
+A run interrupted by a computer restart shows as failed, "stopped without
+a result". Built in runners do not resume automatically. If an agent
+session was recorded, an explicit `sous reply` can carry on in it. For
+automatic recovery after a restart, use a runner plugin.
 
 A run is a note, so `snooze`, `edit` and `done` work on it.
 
@@ -431,7 +506,7 @@ it did.
   Codex (session start), and when they are installed Antigravity (the
   first model call of a conversation, and each turn's end) and opencode (a
   plugin that does the same). Puts the `sous` skill
-  where agents look for skills: each of those agents' own folders, and the
+  in Claude Code's and Codex's skill folders, Antigravity's IDE skill folder, and the
   shared `~/.agents/skills` folder that Gemini CLI, Kimi, Cursor and others
   read. A sous that moved updates its hooks rather than adding a second
   set.
@@ -451,6 +526,13 @@ Options:
   Changes nothing.
 * `--codex-session-end`: also add a Codex session end hook, for Codex
   versions that support it.
+
+Current Codex requires new or changed hooks to be reviewed and trusted in
+`/hooks` before they run. Setup writes the definitions; doctor checks that
+they are present, without checking runtime trust. See
+[Codex's hook documentation](https://developers.openai.com/codex/hooks).
+Antigravity's CLI has a separate global skill directory which setup does
+not populate yet; see [the manual skill step](../README.md#use-it-with-your-ai-agent).
 
 ### `sous config`
 
@@ -494,8 +576,8 @@ Options:
 ### `sous doctor`
 
 Checks that sous is set up and working, and for anything that is not, says
-the command that fixes it. It only looks: it changes none of your files or
-settings. It checks:
+the command that fixes it. It diagnoses your setup without changing your
+settings or repairing files. It checks:
 
 * config.toml and your project folders (and how many projects are in them)
 * the agent hooks (Claude Code, Codex, and Antigravity and opencode when
@@ -554,6 +636,10 @@ These go first on the line, on their own.
 | `sous --refresh` | Builds a fresh board and saves it, printing nothing. |
 | `sous --menubar` | Prints the saved board in SwiftBar's format. Never builds one. |
 
+Cached views use saved remote signals and current local notes. Local closures,
+edits, snoozes and review dates take effect without a network refresh. The
+remote snapshot keeps its saved time and any unavailable-source warnings.
+
 ## Commands for plugins and hooks
 
 You rarely need these by hand. They are how sous runs its own built in
@@ -600,13 +686,14 @@ code `2`. It never guesses.
 | `SOUS_HOME` | Where sous keeps its files. Default `~/.sous`. |
 | `SOUS_SOURCE` | Who is writing a note. Agents set `agent`; the default is `human`. |
 | `SOUS_HERE_FILE` | Set by `sous go` for the agent it starts: a file with where you left off. |
-| `SOUS_BIN` | For the install script and the menu bar script: where `sous` lives. |
+| `SOUS_BIN` | For the install script: destination directory for the `sous` binary. Default `~/.local/bin`. The menu bar script uses the executable path recorded by setup. |
 | `SOUS_VERSION` | For the install script: which release to install, like `v0.1.4`. |
 
 ## Configuration
 
-`~/.sous/config.toml`. Every setting is optional except `roots`, which
-`sous setup` writes for you. Change settings with
+`~/.sous/config.toml` (or `SOUS_HOME/config.toml`). Every setting is optional.
+`roots` enables discovery across projects, and `sous setup` helps choose it;
+local notes and `here` also work without configured roots. Change settings with
 [`sous config`](#sous-config), or edit the file by hand.
 
 ```toml
@@ -658,10 +745,13 @@ Everything lives in `~/.sous` (or `SOUS_HOME`).
 | `report.html` | the last report page |
 | `sous.zsh`, `sous.5m.sh` | the zsh snippet and the menu bar script |
 | `.ambient-stamp` | when a new shell last printed the board |
-| `*.lock` | short lived locks so several sous processes can write safely |
+| `*.lock` | persistent lock files; their locks are held only while operations need them |
 
 sous also keeps one lock file, `sous/gh-token.lock`, in your cache folder
 (`~/Library/Caches` on macOS, `~/.cache` on Linux).
 
-Each data file carries a version and is upgraded when a newer sous reads it.
-An older sous refuses a newer file rather than damaging it.
+The sous-owned JSON state files (`threads`, `observed`, `sessions`, `cache`
+and `report`) carry versions and are upgraded when a newer sous reads them.
+An older sous refuses a newer version rather than damaging it. Runner-owned
+files under `runs/`, settings, generated pages and summaries use their own
+formats.

@@ -12,12 +12,12 @@ plugin written today keeps working. Anything that would break a plugin
 waits for a new contract version, which sous will speak alongside this one
 for a while. Freezing the contract for good is what 1.0 means.
 
-Every message carries its version in `v`, so a plugin and sous can always
-tell which version they are speaking.
+JSON messages carry the contract version in `v`. Calls that exchange plain
+paths, refs or states use the shapes described below.
 
 **The quickest start** is the example plugin,
-[examples/sous-signal-todo](../examples/sous-signal-todo): about fifty lines
-of plain shell that turn `TODO(me)` comments into a row per project. Copy
+[examples/sous-signal-todo](../examples/sous-signal-todo): a small plugin in
+plain shell that turns `TODO(me)` comments into a row per project. Copy
 it and change what it looks for.
 
 ## The basics
@@ -57,9 +57,9 @@ Every kind of plugin ends every call with the same exit codes:
 
 The sections below say which of these each call may use.
 
-The built ins (git, GitHub, GitLab, FOLLOWUPS.md, and the Claude Code and
-Codex launchers and runners) work through this same door. You can call them
-by hand to see real input and output:
+The built ins (git, GitHub, GitLab, FOLLOWUPS.md, and the Claude Code, Codex,
+Antigravity and opencode launchers and runners) work through this same door.
+You can call them by hand to see real input and output:
 
     echo ~/code/acme/api | sous signal git scan
     sous backend github status ~/code/acme/api github:acme/api#12
@@ -136,8 +136,9 @@ Rules that matter:
   after a crash. Return the same ref and do not create a second item. The built in
   backends leave a small marker such as `<!-- sous:0123456789ab -->` (the
   `uid`) in the item, then look for it before creating anything.
-* **Never guess a state.** `unknown` means the item is gone. If you could not
-  reach the tracker, exit `1` with the reason instead. sous shows the person
+* **Never guess a state.** `unknown` means the ref no longer identifies a
+  recognizable item: it may be missing or its marker may be ambiguous.
+  If you could not reach the tracker, exit `1` with the reason instead. sous shows the person
   "status unavailable" and keeps the note open. Answering `closed` would close
   their note, so only say it when it is true. sous does not guess either: any
   other exit code or any other output is read as "could not find out".
@@ -160,9 +161,9 @@ start, exit `1` (or `3` when your tool is not installed) and say why.
 
 A runner takes a task and works on it somewhere else: an agent in a
 worktree, a job on a server, a queue of reviewed changes. sous hands it the
-task, then asks from time to time how it is going. It never waits on the
-runner, and never checks whether a process is alive: that is the runner's
-job.
+task, then asks from time to time how it is going. Calls must return within
+their time limit; sous does not wait for the task to finish. The runner
+owns checking whether its worker is alive.
 
 | Call | Input | Output | Exit codes |
 |---|---|---|---|
@@ -206,10 +207,12 @@ Rules that matter:
 * **Stay in your lane.** A run should never push or publish without the
   person saying so; they review the result.
 
-The built in runners (`claude`, `codex`) are small on purpose: each starts
-one agent in a git worktree, records how it ended, and passes on a reply.
-They do not retry, review or survive a restart. A runner plugin is where
-that belongs.
+The built in runners (`claude`, `codex`, `agy`, `opencode`) are small on
+purpose: each starts one agent in a git worktree, records how it ended,
+and passes on a reply.
+They do not retry, review or automatically resume after a restart. A
+saved agent session can carry on after an explicit reply. Automatic
+recovery belongs in a runner plugin.
 
 ## Testing your plugin
 

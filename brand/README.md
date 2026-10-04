@@ -39,9 +39,9 @@ third. They share one mark language, so they read as a set:
 | Paper | `#F8F7F4` | Wordmark on dark |
 | Black / white | `#000000` / `#FFFFFF` | One colour uses |
 
-On the board, colour means something: saffron is on you, violet is on others,
-green is done and red is failed. Keep those meanings wherever sous output is
-shown.
+For graphical views, use saffron for on you, violet for on others, green
+for done and red for failed. The current terminal board uses plain text;
+the report page has its own colour roles in `internal/report/report.html.tmpl`.
 
 The wordmark is always lowercase `sous`, in one colour. Its letters are
 outlined from JetBrains Mono Bold, so no logo needs a font to display.
@@ -52,8 +52,9 @@ outlined from JetBrains Mono Bold, so no logo needs a font to display.
 - Do not stretch, rotate or recolour parts of it, or move the tickets.
 - Use the on-light logos on light backgrounds; never the pale on-dark
   wordmark on white.
-- The app icon gets the gloss. Logos, favicons at small sizes and single
-  colour uses stay flat.
+- The app icon and generated web icons, including the favicon, use gloss.
+  Logos and single colour uses stay flat; `icons/icon-flat-rounded.svg` is
+  available when gloss is unsuitable.
 
 The name and logo are not covered by the code's MIT License; see
 [TRADEMARK.md](../TRADEMARK.md).

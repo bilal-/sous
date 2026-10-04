@@ -69,7 +69,7 @@ Four groups, and each grows in one direction:
 
 | Commands | Answers | Grows through |
 |---|---|---|
-| `sous`, `here`, `<project>`, `projects`, `report` | What is waiting on me? Where was I? What changed? | **signals** |
+| `sous`, `here`, `<project>`, `projects`, `report`, `review` | What is waiting on me? Where was I? What changed? What needs checking? | **signals** |
 | `note`, `edit`, `kind`, `snooze`, `done`, `file` | Remember this, for that project | **backends** |
 | `go` | Take me there | **launchers** |
 | `go --run`, `show`, `reply` | Do this for me, and tell me how it went | **runners** |
@@ -79,9 +79,9 @@ on your machine and finish quickly: they never wait on the network.
 
 ## Data
 
-Everything sous keeps lives in `~/.sous/`. Each data file (the `.json`
-ones) has a version number,
-is saved whole under a lock so a crash never leaves half a file, and is
+Local state lives in `~/.sous/` (or `SOUS_HOME`); filed notes live in their
+selected backend. Each sous-owned JSON state file outside `runs/` has a
+version number, is saved whole under a lock so a crash never leaves half a file, and is
 upgraded when an older one is read. A file written by a newer sous is
 refused, never overwritten.
 
@@ -91,6 +91,49 @@ The files, and what each holds, are listed in
 
 sous never writes rows of its own. Apart from your notes, everything is
 worked out again on every full look.
+
+## Keeping a project ready to resume
+
+sous encourages three habits: capture unfinished work, leave a useful
+handoff, and reconcile what remains. Project documents belong with the
+project. sous points to them; it does not keep another copy or require a
+particular set of files.
+
+`here` discovers existing `README.md`, `AGENTS.md`, `CLAUDE.md`, `STATUS.md`
+and `FOLLOWUPS.md`, including names with different capitalization. A
+`STATUS.md` is a short current handoff: what works, what was verified,
+blockers and the next action. `FOLLOWUPS.md` keeps unfinished actions,
+their reason and useful references. Working instructions belong in
+`AGENTS.md` or the project's equivalent; important decisions belong in its
+design documents. Existing conventions win. Missing documents are optional;
+unreadable documents are shown as unavailable.
+
+Agents read these documents when resuming work and keep the handoff current
+as part of authorized changes. Creating a shared document or publishing a
+private note still requires the person's explicit request. Agent guidance
+lives in `sous help`, not the skill.
+
+## Reviewing unfinished work
+
+`sous review` refreshes the board and selects notes not reviewed for seven
+days, missing or unavailable filed items, and runs that finished or failed.
+Snoozed notes, active runs and notes kept within the last seven days are
+left out. The board and `here` show a small reminder when a review is due;
+there is no separate scheduler or
+background service. The review JSON includes the last session as context,
+not proof that a task is finished.
+
+Only confirmed tracker closures are automatic. Completing private work
+requires the person or their agent to verify the task and close its note
+with `done`. Age, missing data and an agent's summary never prove completion.
+`review --keep <n>` records that the note still matters, restarting the
+seven-day review window without hiding it or changing its creation time.
+Closed notes stay in history.
+
+Cached shell, session-summary and menu-bar views read current local notes
+alongside their saved remote signals. A local closure, edit, snooze or
+review therefore takes effect without waiting for a network refresh. The
+remote snapshot keeps its original time and any uncertainty.
 
 ## Keeping filed notes in step
 
@@ -107,10 +150,11 @@ is ever taken to mean closed.
 
 ## Plugins
 
-Each group grows through one kind of plugin. Every built in is reached the
-same way a plugin from someone else is: a program named
-`sous-<kind>-<name>` that takes arguments and standard input, writes
-standard output, and runs with a time limit.
+Each group grows through one kind of plugin. A plugin program is named
+`sous-<kind>-<name>`. Built ins run as separate processes through
+`sous <kind> <name> <call>`. Both use the same argument, standard input,
+standard output and exit-code contract. Calls have bounded time limits;
+an interactive launcher replaces sous and owns the terminal.
 
 * **signal** finds what waits, one JSON line per finding.
 * **backend** files a note in a tracker and says whether it is still open.
@@ -129,7 +173,8 @@ Plugins from others run only when listed in `config.toml`.
 * The command follows semantic versioning. Before 1.0, flags may change
   between minor versions.
 * The plugin contract carries a version field, and freezes before 1.0.
-* Data files never break. Every file is upgraded forward.
+* Sous-owned JSON state is upgraded forward; newer versions are refused
+  by older sous rather than overwritten. Runner files have their own formats.
 
 1.0 is a promise that the plugin contract is stable, not a milestone of
 popularity.

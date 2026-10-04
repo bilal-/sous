@@ -41,6 +41,7 @@ type Thread struct {
 	Text         string     `json:"text"`
 	Kind         Kind       `json:"kind"`
 	Since        time.Time  `json:"since"`
+	ReviewedAt   *time.Time `json:"reviewed_at,omitempty"`
 	Source       string     `json:"source"`
 	Ref          *string    `json:"ref"`
 	SnoozedUntil *time.Time `json:"snoozed_until"`
@@ -160,11 +161,11 @@ const name = "threads"
 
 // Migrator: v0 was the pre-release shape without version/next_id and without
 // remote/source/ref/snoozed_until/closed. v2 gave every note a uid. v3
-// records which notes predate uids (Legacy).
+// records which notes predate uids (Legacy). v4 records when a note was reviewed.
 type Migrator struct{}
 
-func (Migrator) Empty() []byte { return []byte(`{"version":3,"next_id":1,"threads":[]}`) }
-func (Migrator) Current() int  { return 3 }
+func (Migrator) Empty() []byte { return []byte(`{"version":4,"next_id":1,"threads":[]}`) }
+func (Migrator) Current() int  { return 4 }
 func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 	switch from {
 	case 0:
@@ -173,6 +174,9 @@ func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 		return edit(raw, 2, func(t *Thread) { t.UID, t.Legacy = newUID(), true })
 	case 2: // upgraded by 0.1.1 to 0.1.6, which gave uids without saying which were new
 		return edit(raw, 3, func(t *Thread) { t.Legacy = t.Legacy || t.Since.Before(uidSince) })
+	case 3:
+		// Notes not reviewed yet use their creation time for the review window.
+		return edit(raw, 4, func(*Thread) {})
 	}
 	return nil, fmt.Errorf("unknown version %d", from)
 }

@@ -72,7 +72,8 @@ func TestCachedAndRefresh(t *testing.T) {
 	if !strings.Contains(out, "1 on you") || !strings.Contains(out, "(cached · just now)") {
 		t.Fatalf("cached: %q", out)
 	}
-	// Stale cache: prints old board now, refreshes in background.
+	// Stale remote snapshot: local snoozes take effect immediately while
+	// the remote refresh still runs in the background.
 	f.run("snooze", "1")
 	p := filepath.Join(f.SousHome, "cache.json")
 	var c board.CacheDoc
@@ -83,8 +84,8 @@ func TestCachedAndRefresh(t *testing.T) {
 	b, _ = json.Marshal(c)
 	os.WriteFile(p, b, 0o644)
 	out, _, _ = f.run("--cached")
-	if !strings.Contains(out, "1 on you") {
-		t.Fatalf("stale must print old board immediately: %q", out)
+	if !strings.Contains(out, "0 on you") || !strings.Contains(out, "(cached ·") {
+		t.Fatalf("stale remote snapshot must show current local notes immediately: %q", out)
 	}
 	waitFor(t, func() bool { b, _ = os.ReadFile(p); return strings.Contains(string(b), "0 on you") })
 }

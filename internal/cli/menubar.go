@@ -7,11 +7,11 @@ import (
 	"github.com/bilal-/sous/internal/board"
 )
 
-// cmdMenubar renders SwiftBar output from the cache and nothing else. It
+// cmdMenubar renders SwiftBar output from the cache and current local notes. It
 // never scans and never spawns: SwiftBar's environment is not the user's
 // shell, and a refresh from there would poison the cache the shell prints.
 func cmdMenubar(e *Env) int {
-	c, err := board.ReadCache(e.store())
+	c, err := board.ReadCurrentCache(e.store(), time.Now())
 	if err != nil {
 		fmt.Fprintf(e.Stdout, "⚑ –\n---\n%v\n", err)
 		return 0

@@ -132,7 +132,7 @@ func cmdAmbient(e *Env) int {
 // cmdCached prints the last rendered board with its age (the zsh surface), and
 // kicks off a detached refresh if it is older than the configured window.
 func cmdCached(e *Env) int {
-	c, err := board.ReadCache(e.store())
+	c, err := board.ReadCurrentCache(e.store(), time.Now())
 	if err != nil {
 		return fail(e, exitFailed, "%v", err)
 	}

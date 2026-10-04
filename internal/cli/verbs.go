@@ -39,6 +39,7 @@ func init() {
 	verbs = []verb{
 		{"here", cmdHere, true, true, &argSpec{max: 1}, "sous here [path]  where was I, for the current project"},
 		{"report", cmdReport, true, false, exactly(0, []string{"week", "open"}, nil), "sous report [--week] [--open]   what changed since the last report; --open shows the page"},
+		{"review", cmdReview, true, false, exactly(0, nil, []string{"p", "keep"}), "sous review [-p <project>] [--keep <n>] check old follow-ups; --keep leaves one open for another week"},
 		{"projects", cmdProjects, true, false, &argSpec{values: []string{"root", "path"}, max: 1}, "sous projects [term] [--root <dir>] [--path <term>]   every discovered project; --path prints one path"},
 		{"note", cmdNote, true, false, exactly(1, []string{"file"}, []string{"p", "k"}), `sous note [-p <project>] [-k me|them|idea] [--file] "<text>"   save a note; --file files it in the project's tracker too`},
 		{"edit", cmdEdit, true, false, &argSpec{min: 2, max: 2, raw: true}, `sous edit <n> "<text>"   change a note's text`},
