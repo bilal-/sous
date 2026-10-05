@@ -20,6 +20,7 @@ import (
 )
 
 type View struct {
+	ProjectError                                 string
 	Scope, Project, SelectedKey, Message, Prompt string
 	Remote                                       *string
 	PromptKey, PromptProject                     string
@@ -110,6 +111,24 @@ func (v *View) Render(state bridgeState, width, height int) string {
 			lines[1] = "Remote snapshot " + state.Snapshot.AsOf.Local().Format("Jan 2 15:04") + " · local tasks update live"
 		}
 	}
+	spaceProblem := ""
+	if v.Scope == "space" {
+		switch {
+		case v.Project == "" || v.ProjectError != "":
+			spaceProblem = "This Space's sous project unavailable"
+			if v.ProjectError != "" {
+				spaceProblem += ": " + v.ProjectError
+			}
+		case state.Snapshot != nil && !projectTracked(state.Snapshot, project.Project{Path: v.Project, Remote: v.Remote}):
+			spaceProblem = "This Space's sous project not tracked"
+		}
+		if spaceProblem != "" {
+			if lines[1] != "" {
+				spaceProblem += " · " + lines[1]
+			}
+			lines[1] = "? " + spaceProblem
+		}
+	}
 	lines = append(lines, strings.Repeat("─", width))
 	room := max(1, height-7)
 	if v.Details != nil {
@@ -140,7 +159,9 @@ func (v *View) Render(state bridgeState, width, height int) string {
 		start := max(0, index-room+1)
 		if len(items) == 0 {
 			message := "Nothing waiting in this view"
-			if !state.Available || (state.Snapshot != nil && !state.Snapshot.Complete) {
+			if spaceProblem != "" {
+				message = "Space task count unavailable · press Tab for all projects"
+			} else if !state.Available || (state.Snapshot != nil && !state.Snapshot.Complete) {
 				message = "No tasks available in this view · check the status above"
 			}
 			lines = append(lines, message)
@@ -262,8 +283,11 @@ func boardPane(ctx context.Context, o options) error {
 	fmt.Print("\x1b[?1049h\x1b[?25l")
 	view := View{Scope: "all"}
 	if o.CallerCwd != "" {
-		identity, _ := o.Provider.Project(ctx, o.CallerCwd)
+		identity, err := o.Provider.Project(ctx, o.CallerCwd)
 		view.Project, view.Remote = identity.Path, identity.Remote
+		if err != nil {
+			view.ProjectError = err.Error()
+		}
 	}
 	width, height := terminalSize()
 	resize := make(chan os.Signal, 1)

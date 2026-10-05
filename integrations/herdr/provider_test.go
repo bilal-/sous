@@ -14,6 +14,7 @@ import (
 
 	"github.com/bilal-/sous/internal/cli"
 	"github.com/bilal-/sous/internal/integration"
+	"github.com/bilal-/sous/internal/project"
 )
 
 func TestMain(m *testing.M) {
@@ -125,7 +126,52 @@ func TestTaskViewHidesImplementationKeysAndSanitizesControlSequences(t *testing.
 	}
 }
 
+func TestSpaceViewDistinguishesMissingProjectDataFromAnEmptyProject(t *testing.T) {
+	s := snapshot("first", "running")
+	s.Projects = []project.Project{{Path: "/code/acme/payments", Name: "payments"}}
+	state := bridgeState{Version: 2, Available: true, Snapshot: &s}
+	for _, tt := range []struct {
+		name, path, problem string
+	}{
+		{"unavailable", "", "project unavailable"},
+		{"untracked", "/code/acme/other", "project not tracked"},
+		{"tracked empty project", "/code/acme/payments", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			view := View{Scope: "space", Project: tt.path}
+			output := view.Render(state, 120, 22)
+			if tt.problem == "" {
+				if !strings.Contains(output, "Nothing waiting in this view") {
+					t.Fatalf("a known empty project lost its empty answer: %q", output)
+				}
+				return
+			}
+			if strings.Contains(output, "Nothing waiting") || !strings.Contains(output, "?") || !strings.Contains(output, tt.problem) {
+				t.Fatalf("missing Space project data looked like zero tasks: %q", output)
+			}
+			view.Scope = "all"
+			if len(view.items(state)) != 1 {
+				t.Fatal("unavailable Space scope hid tasks from the all-projects view")
+			}
+		})
+	}
+}
+
 func ptr[T any](v T) *T { return &v }
+
+func TestSpaceViewRetainsProjectLookupErrors(t *testing.T) {
+	state := bridgeState{Version: 2, Available: true, Snapshot: ptr(snapshot("first", "running"))}
+	view := View{Scope: "space", ProjectError: "git lookup timed out"}
+	output := view.Render(state, 120, 22)
+	if !strings.Contains(output, "git lookup timed out") || !strings.Contains(output, "Tab for all projects") {
+		t.Fatalf("Space lookup failure lost its reason or recovery path: %q", output)
+	}
+	view.Scope = "all"
+	output = view.Render(state, 120, 22)
+	if !strings.Contains(output, "check retry timeout") || strings.Contains(output, "project unavailable") {
+		t.Fatalf("Space lookup failure hid the known all-projects tasks: %q", output)
+	}
+}
 
 func TestPromptKeepsTaskIdentityWhenTheListChanges(t *testing.T) {
 	s := snapshot("first", "running")

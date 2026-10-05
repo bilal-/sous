@@ -28,6 +28,8 @@ upgraded, never broken.
 
 ### Fixed
 
+* Herdr's Tasks view reports an unavailable or untracked Space project
+  explicitly, with a way to switch to all projects.
 * A recovered runner clears its old status error immediately, restoring
   complete task snapshots and the reply action without an extra poll.
 * Disabling herdr notifications clears their delivery warning and preserves
