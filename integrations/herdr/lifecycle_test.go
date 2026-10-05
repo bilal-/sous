@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -77,5 +78,65 @@ func TestRestartWaitsForThePreviousObserverToStop(t *testing.T) {
 			t.Fatal("replacement observer was not started")
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+type observedLeaseContext struct {
+	context.Context
+	Once  sync.Once
+	Retry chan struct{}
+}
+
+func (c *observedLeaseContext) Done() <-chan struct{} {
+	c.Once.Do(func() { close(c.Retry) })
+	return c.Context.Done()
+}
+
+func TestACompletedConcurrentRestartIsSuccessful(t *testing.T) {
+	dir := t.TempDir()
+	owner, err := lease(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer owner.Close()
+	stop := filepath.Join(dir, "stop")
+	if err := store.WriteFile(stop, []byte("stop\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	base, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx := &observedLeaseContext{Context: base, Retry: make(chan struct{})}
+	done := make(chan error, 1)
+	joined := false
+	defer func() {
+		cancel()
+		_ = owner.Close()
+		if !joined {
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+				t.Error("overlapping start did not stop during cleanup")
+			}
+		}
+	}()
+	go func() { done <- start(ctx, options{StateDir: dir, Executable: "/missing/observer"}) }()
+	select {
+	case <-ctx.Retry:
+	case <-time.After(time.Second):
+		t.Fatal("restart did not wait for the observer lease")
+	}
+	// Another start has handed over: the stop marker is gone and a healthy
+	// replacement owns the lease. This caller should accept that outcome.
+	if err := os.Remove(stop); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		joined = true
+		if err != nil {
+			t.Fatalf("a healthy replacement made the overlapping start fail: %v", err)
+		}
+	case <-time.After(4 * time.Second):
+		t.Fatal("overlapping start did not finish")
 	}
 }

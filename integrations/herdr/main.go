@@ -114,6 +114,11 @@ func start(ctx context.Context, o options) error {
 	if _, err := os.Stat(filepath.Join(o.StateDir, "stop")); err == nil {
 		owner, err := lease(ctx, o.StateDir)
 		if err != nil {
+			if errors.Is(err, syscall.EWOULDBLOCK) {
+				if _, stopErr := os.Stat(filepath.Join(o.StateDir, "stop")); os.IsNotExist(stopErr) {
+					return nil // another start handed over to a healthy observer
+				}
+			}
 			return fmt.Errorf("previous observer is still stopping: %w", err)
 		}
 		defer owner.Close()
