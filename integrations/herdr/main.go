@@ -104,11 +104,20 @@ func (o options) bridge() *Bridge {
 	return &Bridge{State: &store.Store{Home: o.StateDir}, Host: SocketHost{Path: o.Socket}, Provider: o.Provider, Config: o.Config}
 }
 
-func start(o options) error {
+func start(ctx context.Context, o options) error {
 	if _, err := readState(o.bridge().State); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(o.StateDir, 0o700); err != nil {
+		return err
+	}
+	if _, err := os.Stat(filepath.Join(o.StateDir, "stop")); err == nil {
+		owner, err := lease(ctx, o.StateDir)
+		if err != nil {
+			return fmt.Errorf("previous observer is still stopping: %w", err)
+		}
+		defer owner.Close()
+	} else if !os.IsNotExist(err) {
 		return err
 	}
 	if err := os.Remove(filepath.Join(o.StateDir, "stop")); err != nil && !os.IsNotExist(err) {
@@ -190,7 +199,7 @@ func run(ctx context.Context, args []string) error {
 		params := map[string]any{"plugin_id": pluginID, "entrypoint": "tasks", "placement": "overlay", "focus": true}
 		return b.Host.Call(ctx, "plugin.pane.open", params, nil)
 	case "start":
-		return start(o)
+		return start(ctx, o)
 	case "watch":
 		return b.Run(ctx)
 	case "stop":
@@ -208,7 +217,7 @@ func run(ctx context.Context, args []string) error {
 	case "project":
 		return projectPane(ctx, o)
 	case "board":
-		if err := start(o); err != nil {
+		if err := start(ctx, o); err != nil {
 			return err
 		}
 		return boardPane(ctx, o)

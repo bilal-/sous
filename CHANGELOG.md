@@ -28,6 +28,8 @@ upgraded, never broken.
 
 ### Fixed
 
+* Restarting the herdr task observer waits for the previous observer to stop,
+  so changed settings take effect without losing the stop request.
 * Offline reads preserve the last known filed-note status and its warning
   when a remote tracker check is skipped.
 * Signal snoozes take effect in cached views without a remote refresh.
