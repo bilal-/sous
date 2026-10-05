@@ -28,6 +28,8 @@ upgraded, never broken.
 
 ### Fixed
 
+* Disabling herdr notifications clears their delivery warning and preserves
+  active warnings from other sources.
 * Overlapping herdr start requests recognize an already completed handover,
   so opening Tasks can share a healthy replacement observer.
 * Herdr task links prefer an existing Space at the task's exact project path

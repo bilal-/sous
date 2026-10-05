@@ -98,6 +98,9 @@ func (b *Bridge) Accept(ctx context.Context, e integration.Event) error {
 		case "unavailable":
 			state.Available, state.Error = false, e.Error
 		case "snapshot", "changes":
+			if !b.Config.Notifications {
+				setWarning(state, "notification", nil)
+			}
 			if b.Config.Notifications && e.Type == "changes" && state.Available && state.Snapshot != nil && e.PreviousRevision == state.Snapshot.Revision {
 				alerts := notices(state.Snapshot, e.Snapshot)
 				if len(alerts) > 5 {

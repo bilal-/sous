@@ -191,3 +191,33 @@ func TestBridgeStateInvalidUpgradeLeavesTheOriginalFile(t *testing.T) {
 		t.Fatalf("failed upgrade changed the original file: %v", err)
 	}
 }
+
+func TestDisablingNotificationsClearsOnlyTheirDeliveryWarning(t *testing.T) {
+	b, h, p := testBridge(t)
+	ctx := context.Background()
+	if err := b.Accept(ctx, event("snapshot", snapshot("first", "running"))); err != nil {
+		t.Fatal(err)
+	}
+	h.Fail = map[string]error{"notification.show": errors.New("notifications offline")}
+	next := event("changes", snapshot("second", "needs_you"))
+	next.PreviousRevision = "first"
+	if err := b.Accept(ctx, next); err != nil {
+		t.Fatal(err)
+	}
+	b.Provider = &refreshingProvider{fakeProvider: p, Calls: make(chan error, 8), First: errors.New("refresh offline")}
+	if err := b.Refresh(ctx); err == nil {
+		t.Fatal("fixture refresh unexpectedly succeeded")
+	}
+	warningState(t, b, func(message string) bool {
+		return strings.Contains(message, "notifications offline") && strings.Contains(message, "refresh offline")
+	})
+	b.Config.Notifications = false
+	h.Fail = nil
+	if err := b.Accept(ctx, event("snapshot", *next.Snapshot)); err != nil {
+		t.Fatal(err)
+	}
+	state, err := readState(b.State)
+	if err != nil || strings.Contains(state.Warning(), "notifications offline") || !strings.Contains(state.Warning(), "refresh offline") {
+		t.Fatalf("disabled notification warning remained, or an active failure was hidden: %q, %v", state.Warning(), err)
+	}
+}
