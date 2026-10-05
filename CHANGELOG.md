@@ -28,6 +28,9 @@ upgraded, never broken.
 
 ### Fixed
 
+* Herdr task counts, Space filtering and project links follow repository
+  identity across linked worktrees and symlinked folders. Untracked Spaces
+  carry an explicit status.
 * Restarting the herdr task observer waits for the previous observer to stop,
   so changed settings take effect without losing the stop request.
 * Offline reads preserve the last known filed-note status and its warning

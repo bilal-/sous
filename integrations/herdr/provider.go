@@ -12,13 +12,14 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/integration"
+	"github.com/bilal-/sous/internal/project"
 )
 
 type Provider interface {
 	Describe(context.Context) (integration.Description, error)
 	Read(context.Context) (integration.Snapshot, error)
 	Watch(context.Context, func(integration.Event) error) error
-	Project(context.Context, string) (string, error)
+	Project(context.Context, string) (project.Project, error)
 }
 
 type CLIProvider struct {
@@ -113,12 +114,13 @@ func (p *CLIProvider) Watch(ctx context.Context, emit func(integration.Event) er
 	return ctx.Err()
 }
 
-func (p *CLIProvider) Project(ctx context.Context, cwd string) (string, error) {
+func (p *CLIProvider) Project(ctx context.Context, cwd string) (project.Project, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	b, err := p.call(ctx, []string{"here", "--json", "--", cwd}, "")
 	var result struct {
-		Project string `json:"project"`
+		Project string  `json:"project"`
+		Remote  *string `json:"remote"`
 	}
 	if err == nil {
 		err = json.Unmarshal(b, &result)
@@ -126,7 +128,7 @@ func (p *CLIProvider) Project(ctx context.Context, cwd string) (string, error) {
 	if err == nil && result.Project == "" {
 		err = errors.New("sous did not identify a project")
 	}
-	return result.Project, err
+	return project.Project{Path: result.Project, Remote: result.Remote}, err
 }
 
 func bindAction(binary string, action integration.Action, values map[string]string) ([]string, string, error) {

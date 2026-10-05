@@ -5,11 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"unicode"
 
 	"github.com/bilal-/sous/internal/integration"
+	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/thread"
 )
@@ -125,15 +125,15 @@ func (b *Bridge) failure(message string) {
 	_, _ = store.Modify[bridgeState](b.State, "bridge", stateFile, func(s *bridgeState) error { s.Available, s.Error = false, message; return nil })
 }
 
-func (b *Bridge) project(ctx context.Context, session Session, workspace string) string {
+func (b *Bridge) project(ctx context.Context, session Session, workspace string) project.Project {
 	for _, pane := range session.Panes {
 		if pane.Workspace == workspace && pane.Cwd != "" {
 			if path, err := b.Provider.Project(ctx, pane.Cwd); err == nil {
-				return filepath.Clean(path)
+				return path
 			}
 		}
 	}
-	return ""
+	return project.Project{}
 }
 
 func (b *Bridge) Publish(ctx context.Context) error {
@@ -152,7 +152,7 @@ func (b *Bridge) Publish(ctx context.Context) error {
 		onYou, onOthers, unfinished := 0, 0, 0
 		if state.Snapshot != nil {
 			for _, item := range state.Snapshot.Items {
-				if project == "" || filepath.Clean(item.Project) != project {
+				if !projectMatches(state.Snapshot, project, item.Project) {
 					continue
 				}
 				switch item.Section {
@@ -169,8 +169,10 @@ func (b *Bridge) Publish(ctx context.Context) error {
 		switch {
 		case !state.Available:
 			label = "sous unavailable"
-		case project == "":
+		case project.Path == "":
 			label = "sous project unavailable"
+		case !projectTracked(state.Snapshot, project):
+			label = "sous project not tracked"
 		case state.Snapshot == nil || !state.Snapshot.Complete:
 			label = "? " + label
 		}
@@ -189,6 +191,10 @@ func (b *Bridge) Publish(ctx context.Context) error {
 }
 
 func (b *Bridge) Open(ctx context.Context, item integration.Item) error {
+	state, err := readState(b.State)
+	if err != nil {
+		return err
+	}
 	runtime, err := session(ctx, b.Host)
 	if err != nil {
 		return err
@@ -200,7 +206,7 @@ func (b *Bridge) Open(ctx context.Context, item integration.Item) error {
 	}
 	workspace := ""
 	for _, candidate := range runtime.Workspaces {
-		if b.project(ctx, runtime, candidate.ID) == filepath.Clean(item.Project) {
+		if projectMatches(state.Snapshot, b.project(ctx, runtime, candidate.ID), item.Project) {
 			workspace = candidate.ID
 			break
 		}

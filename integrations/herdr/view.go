@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -17,10 +16,12 @@ import (
 
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/integration"
+	"github.com/bilal-/sous/internal/project"
 )
 
 type View struct {
 	Scope, Project, SelectedKey, Message, Prompt string
+	Remote                                       *string
 	PromptKey, PromptProject                     string
 	Input                                        []rune
 	Details                                      *integration.Item
@@ -43,7 +44,7 @@ func (v *View) items(state bridgeState) []integration.Item {
 		keep := item.Section != "ideas" && item.Section != "snoozed"
 		switch v.Scope {
 		case "space":
-			keep = keep && v.Project != "" && filepath.Clean(item.Project) == filepath.Clean(v.Project)
+			keep = keep && projectMatches(state.Snapshot, project.Project{Path: v.Project, Remote: v.Remote}, item.Project)
 		case "ideas":
 			keep = item.Section == "ideas"
 		case "snoozed":
@@ -261,7 +262,8 @@ func boardPane(ctx context.Context, o options) error {
 	fmt.Print("\x1b[?1049h\x1b[?25l")
 	view := View{Scope: "all"}
 	if o.CallerCwd != "" {
-		view.Project, _ = o.Provider.Project(ctx, o.CallerCwd)
+		identity, _ := o.Provider.Project(ctx, o.CallerCwd)
+		view.Project, view.Remote = identity.Path, identity.Remote
 	}
 	width, height := terminalSize()
 	resize := make(chan os.Signal, 1)

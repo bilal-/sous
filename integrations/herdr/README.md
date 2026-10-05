@@ -135,6 +135,8 @@ so explicitly. The remote snapshot's time remains visible. Metadata expires
 after 30 seconds without reporting, so a stopped observer cannot leave permanent
 healthy counts behind.
 
+Spaces without indexed project data show `sous project not tracked`.
+
 ## Notifications and refresh
 
 The observer loads its first snapshot quietly and alerts on meaningful task

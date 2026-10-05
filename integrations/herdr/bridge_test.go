@@ -14,6 +14,7 @@ import (
 
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/integration"
+	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/thread"
 )
@@ -82,7 +83,7 @@ type fakeProvider struct {
 	Snapshot integration.Snapshot
 	Started  chan struct{}
 	Stopped  chan struct{}
-	Projects map[string]string
+	Projects map[string]project.Project
 }
 
 func (p *fakeProvider) Describe(context.Context) (integration.Description, error) {
@@ -103,11 +104,11 @@ func (p *fakeProvider) Watch(ctx context.Context, emit func(integration.Event) e
 	}
 	return ctx.Err()
 }
-func (p *fakeProvider) Project(_ context.Context, cwd string) (string, error) {
-	if path := p.Projects[cwd]; path != "" {
+func (p *fakeProvider) Project(_ context.Context, cwd string) (project.Project, error) {
+	if path := p.Projects[cwd]; path.Path != "" {
 		return path, nil
 	}
-	return cwd, nil
+	return project.Project{Path: cwd}, nil
 }
 
 func event(kind string, snapshot integration.Snapshot) integration.Event {
@@ -248,14 +249,16 @@ func TestOpenTaskFocusesBoundPaneOrCreatesAnArgvBackedPluginPane(t *testing.T) {
 func TestProjectCountsResolveWorktreesAndKeepIncompleteSourcesVisible(t *testing.T) {
 	b, h, p := testBridge(t)
 	h.Session.Panes[0].Cwd = "/code/acme/api-feature"
-	p.Projects = map[string]string{"/code/acme/api-feature": "/code/acme/api"}
+	remote := "git.example.org/acme/api"
+	p.Projects = map[string]project.Project{"/code/acme/api-feature": {Path: "/code/acme/api-feature", Remote: &remote}}
 	s := snapshot("first", "running")
+	s.Projects = []project.Project{{Path: "/code/acme/api", Remote: &remote}}
 	s.Complete, s.Problems = false, []string{"github failed"}
 	if err := b.Accept(context.Background(), event("snapshot", s)); err != nil {
 		t.Fatal(err)
 	}
 	calls := h.calls("workspace.report_metadata")
-	if len(calls) != 1 || !strings.Contains(calls[0].Params["tokens"].(map[string]any)["sous_tasks"].(string), "?") {
+	if len(calls) != 1 || !strings.Contains(calls[0].Params["tokens"].(map[string]any)["sous_tasks"].(string), "?") || !strings.Contains(calls[0].Params["tokens"].(map[string]any)["sous_tasks"].(string), "1 on others") {
 		t.Fatalf("worktree scope or source gap lost: %+v", calls)
 	}
 }

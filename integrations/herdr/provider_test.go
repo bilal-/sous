@@ -12,10 +12,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bilal-/sous/internal/cli"
 	"github.com/bilal-/sous/internal/integration"
 )
 
 func TestMain(m *testing.M) {
+	if os.Getenv("SOUS_HERDR_TEST_REAL_CLI") == "1" {
+		os.Exit(cli.Run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+	}
 	if os.Getenv("SOUS_HERDR_TEST_NATIVE") == "1" {
 		if len(os.Args) > 1 && (os.Args[1] == "integration" || os.Args[1] == "here") {
 			fakeSousProcess()
