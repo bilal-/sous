@@ -83,14 +83,21 @@ func (b *Bridge) Accept(ctx context.Context, e integration.Event) error {
 	if e.Kind != "event" || e.Provider != "sous" || e.V != integration.Version {
 		return fmt.Errorf("unsupported sous subscription protocol")
 	}
+	if e.Type == "snapshot" || e.Type == "changes" {
+		if e.Snapshot == nil || e.Snapshot.Kind != "snapshot" || e.Snapshot.V != integration.Version || e.Snapshot.Provider != "sous" {
+			return fmt.Errorf("invalid sous snapshot")
+		}
+		snapshot := b.projectSnapshot(ctx, *e.Snapshot)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		e.Snapshot = &snapshot
+	}
 	_, err := store.Modify[bridgeState](b.State, "bridge", stateFile, func(state *bridgeState) error {
 		switch e.Type {
 		case "unavailable":
 			state.Available, state.Error = false, e.Error
 		case "snapshot", "changes":
-			if e.Snapshot == nil || e.Snapshot.Kind != "snapshot" || e.Snapshot.V != integration.Version || e.Snapshot.Provider != "sous" {
-				return fmt.Errorf("invalid sous snapshot")
-			}
 			if b.Config.Notifications && e.Type == "changes" && state.Available && state.Snapshot != nil && e.PreviousRevision == state.Snapshot.Revision {
 				alerts := notices(state.Snapshot, e.Snapshot)
 				if len(alerts) > 5 {

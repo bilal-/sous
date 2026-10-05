@@ -1,11 +1,40 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/bilal-/sous/internal/integration"
 	"github.com/bilal-/sous/internal/project"
 )
+
+// Add identities for task paths outside the provider's cached project list.
+// This is the host's private projection; the provider snapshot stays intact.
+func (b *Bridge) projectSnapshot(ctx context.Context, snapshot integration.Snapshot) integration.Snapshot {
+	snapshot.Projects = append([]project.Project{}, snapshot.Projects...)
+	snapshot.Problems = append([]string{}, snapshot.Problems...)
+	known := map[string]bool{}
+	for _, p := range snapshot.Projects {
+		known[filepath.Clean(p.Path)] = true
+	}
+	for _, item := range snapshot.Items {
+		path := filepath.Clean(item.Project)
+		if item.Project == "" || known[path] {
+			continue
+		}
+		known[path] = true
+		identity, err := b.Provider.Project(ctx, item.Project)
+		if err != nil {
+			snapshot.Complete = false
+			snapshot.Problems = append(snapshot.Problems, fmt.Sprintf("Project identity unavailable for %s: %v", item.Name, err))
+			continue
+		}
+		identity.Path = item.Project
+		snapshot.Projects = append(snapshot.Projects, identity)
+	}
+	return snapshot
+}
 
 func sameProjectPath(a, b string) bool {
 	if a == "" || b == "" {

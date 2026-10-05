@@ -28,6 +28,8 @@ upgraded, never broken.
 
 ### Fixed
 
+* Herdr retains Space counts, task filtering and links for notes captured
+  in worktrees outside sous's configured roots.
 * Herdr refresh, sidebar and notification warnings clear when their source
   recovers, while failures in other sources remain visible.
 * Herdr task counts, Space filtering and project links follow repository

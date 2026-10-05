@@ -136,6 +136,9 @@ after 30 seconds without reporting, so a stopped observer cannot leave permanent
 healthy counts behind.
 
 Spaces without indexed project data show `sous project not tracked`.
+For task paths outside the cached project list, the plugin resolves identities
+through offline `sous here` calls. A failed lookup marks the picture incomplete
+and keeps the task visible in the all-project view.
 
 ## Notifications and refresh
 

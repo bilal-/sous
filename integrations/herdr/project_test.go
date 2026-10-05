@@ -2,13 +2,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/bilal-/sous/internal/board"
+	"github.com/bilal-/sous/internal/integration"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/thread"
 )
 
 func worktreeProvider(t *testing.T) (*CLIProvider, string, string) {
@@ -142,5 +148,76 @@ func TestSymlinkedProjectWithoutARemoteUsesItsPhysicalIdentity(t *testing.T) {
 	label := calls[len(calls)-1].Params["tokens"].(map[string]any)["sous_tasks"].(string)
 	if !strings.Contains(label, "1 on others") {
 		t.Fatalf("symlinked project's task disappeared: %q", label)
+	}
+}
+
+func TestNotesFromAnOutOfRootWorktreeMatchTheMainSpace(t *testing.T) {
+	p, repo, worktree := worktreeProvider(t)
+	var sousHome string
+	for _, entry := range p.Env {
+		if value, ok := strings.CutPrefix(entry, "SOUS_HOME="); ok {
+			sousHome = value
+		}
+	}
+	st := &store.Store{Home: sousHome}
+	now := time.Now().UTC()
+	if err := board.WriteCache(st, &board.Data{Projects: []project.Project{project.Describe(repo)}, Checked: 1, RenderedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := thread.Note(st, project.Describe(worktree), thread.Me, "check parser handoff", "human", now); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	s, err := (integration.Reader{Store: st, Configured: true, Now: now}).Read(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, h, _ := testBridge(t)
+	b.Provider = p
+	h.Session.Panes[0].Cwd = repo
+	if err := b.Accept(ctx, event("snapshot", s)); err != nil {
+		t.Fatal(err)
+	}
+	calls := h.calls("workspace.report_metadata")
+	label := calls[len(calls)-1].Params["tokens"].(map[string]any)["sous_tasks"].(string)
+	if !strings.Contains(label, "1 on you") {
+		t.Fatalf("main Space lost its worktree's private note: %q", label)
+	}
+	identity, err := p.Project(ctx, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view := View{Scope: "space", Project: identity.Path, Remote: identity.Remote}
+	state, err := readState(b.State)
+	if err != nil || len(view.items(state)) != 1 {
+		t.Fatalf("main Space view lost the worktree note: %v", err)
+	}
+	if err := b.Open(ctx, s.Items[0]); err != nil {
+		t.Fatal(err)
+	}
+	if len(h.calls("workspace.create")) != 0 {
+		t.Fatal("opening the worktree note created a duplicate Space")
+	}
+}
+
+type unavailableProjectProvider struct{ *fakeProvider }
+
+func (p unavailableProjectProvider) Project(context.Context, string) (project.Project, error) {
+	return project.Project{}, errors.New("identity unavailable")
+}
+
+func TestMissingTaskProjectIdentityIsExplicitAndDoesNotMutateTheProviderSnapshot(t *testing.T) {
+	b, _, p := testBridge(t)
+	b.Provider = unavailableProjectProvider{p}
+	s := snapshot("first", "running")
+	if err := b.Accept(context.Background(), event("snapshot", s)); err != nil {
+		t.Fatal(err)
+	}
+	state, err := readState(b.State)
+	if err != nil || state.Snapshot.Complete || len(state.Snapshot.Items) != 1 || len(state.Snapshot.Problems) == 0 {
+		t.Fatalf("missing identity was concealed or known work was lost: %v", err)
+	}
+	if !s.Complete || len(s.Projects) != 0 || len(s.Problems) != 0 {
+		t.Fatal("host projection changed the provider's snapshot")
 	}
 }
