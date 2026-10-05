@@ -215,11 +215,19 @@ func (b *Bridge) Open(ctx context.Context, item integration.Item) error {
 		}
 	}
 	workspace := ""
+	alias := ""
 	for _, candidate := range runtime.Workspaces {
-		if projectMatches(state.Snapshot, b.project(ctx, runtime, candidate.ID), item.Project) {
+		identity := b.project(ctx, runtime, candidate.ID)
+		if sameProjectPath(identity.Path, item.Project) {
 			workspace = candidate.ID
 			break
 		}
+		if alias == "" && projectMatches(state.Snapshot, identity, item.Project) {
+			alias = candidate.ID
+		}
+	}
+	if workspace == "" {
+		workspace = alias
 	}
 	if workspace == "" {
 		var created struct {

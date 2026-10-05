@@ -221,3 +221,29 @@ func TestMissingTaskProjectIdentityIsExplicitAndDoesNotMutateTheProviderSnapshot
 		t.Fatal("host projection changed the provider's snapshot")
 	}
 }
+
+func TestTaskLinksPreferTheExactProjectSpaceBeforeRemoteAliases(t *testing.T) {
+	b, h, p := testBridge(t)
+	remote := "git.example.org/acme/api"
+	p.Projects = map[string]project.Project{
+		"/code/acme/api-feature": {Path: "/code/acme/api-feature", Remote: &remote},
+		"/code/acme/api":         {Path: "/code/acme/api", Remote: &remote},
+	}
+	h.Session.Workspaces = []Workspace{{ID: "w-feature"}, {ID: "w-main"}}
+	h.Session.Panes = []Pane{
+		{ID: "w-feature:p1", Workspace: "w-feature", Cwd: "/code/acme/api-feature"},
+		{ID: "w-main:p1", Workspace: "w-main", Cwd: "/code/acme/api"},
+	}
+	s := snapshot("first", "running")
+	s.Projects = []project.Project{{Path: "/code/acme/api", Remote: &remote}}
+	if err := b.Accept(context.Background(), event("snapshot", s)); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Open(context.Background(), s.Items[0]); err != nil {
+		t.Fatal(err)
+	}
+	calls := h.calls("plugin.pane.open")
+	if len(calls) != 1 || calls[0].Params["workspace_id"] != "w-main" {
+		t.Fatalf("remote alias won over the exact project Space: %+v", calls)
+	}
+}

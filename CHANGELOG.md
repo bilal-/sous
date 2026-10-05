@@ -28,6 +28,8 @@ upgraded, never broken.
 
 ### Fixed
 
+* Herdr task links prefer an existing Space at the task's exact project path
+  before falling back to another Space for the same repository.
 * Herdr retains Space counts, task filtering and links for notes captured
   in worktrees outside sous's configured roots.
 * Herdr refresh, sidebar and notification warnings clear when their source
