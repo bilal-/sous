@@ -162,7 +162,7 @@ func (v *View) Render(state bridgeState, width, height int) string {
 	}
 	message := v.Message
 	if message == "" {
-		message = state.Warning
+		message = state.Warning()
 	}
 	lines = append(lines, message, strings.Repeat("─", width))
 	if v.Prompt != "" {
@@ -200,7 +200,7 @@ type actionResult struct {
 
 func boardAction(ctx context.Context, o options, action, key, project, text string) actionResult {
 	if action == "refresh" {
-		if err := o.Provider.Refresh(ctx); err != nil {
+		if err := o.bridge().Refresh(ctx); err != nil {
 			return actionResult{Message: "Refresh failed: " + err.Error()}
 		}
 		return actionResult{Message: "Sources refreshed"}

@@ -173,19 +173,14 @@ func (b *Bridge) Run(ctx context.Context) error {
 				cancel()
 				continue
 			}
-			if err := b.Publish(ctx); err != nil && ctx.Err() == nil {
-				b.warning("Sidebar could not be updated: " + err.Error())
-			}
+			_ = b.Publish(ctx)
 		case <-refresh:
-			if p, ok := b.Provider.(interface{ Refresh(context.Context) error }); ok && !refreshing {
+			if _, ok := b.Provider.(interface{ Refresh(context.Context) error }); ok && !refreshing {
 				refreshing = true
-				go func() { refreshDone <- p.Refresh(ctx) }()
+				go func() { refreshDone <- b.Refresh(ctx) }()
 			}
-		case err := <-refreshDone:
+		case <-refreshDone:
 			refreshing = false
-			if err != nil {
-				b.warning("Remote refresh failed: " + err.Error())
-			}
 		}
 	}
 }

@@ -213,7 +213,7 @@ func run(ctx context.Context, args []string) error {
 		}
 		return b.Accept(ctx, integration.Event{Kind: "event", V: 0, Provider: "sous", Type: "snapshot", Snapshot: &s, Revision: s.Revision})
 	case "refresh":
-		return o.Provider.Refresh(ctx)
+		return b.Refresh(ctx)
 	case "project":
 		return projectPane(ctx, o)
 	case "board":

@@ -19,10 +19,10 @@ type bridgeState struct {
 	Available bool                  `json:"available"`
 	Snapshot  *integration.Snapshot `json:"snapshot"`
 	Error     string                `json:"error"`
-	Warning   string                `json:"warning"`
+	Warnings  map[string]string     `json:"warnings"`
 }
 
-var stateFile = store.V1(`{"version":1,"available":false,"snapshot":null,"error":"waiting for sous","warning":""}`)
+var stateFile = bridgeFormat{}
 
 func readState(st *store.Store) (bridgeState, error) {
 	s, err := store.Load[bridgeState](st, "bridge", stateFile)
@@ -96,10 +96,14 @@ func (b *Bridge) Accept(ctx context.Context, e integration.Event) error {
 				if len(alerts) > 5 {
 					alerts = []notice{{"sous · Tasks need attention", fmt.Sprintf("%d task changes; open Tasks to review them", len(alerts)), "request"}}
 				}
+				var notificationError error
 				for _, alert := range alerts {
 					if err := b.Host.Call(ctx, "notification.show", map[string]any{"title": alert.Title, "body": alert.Body, "sound": alert.Sound}, nil); err != nil {
-						state.Warning = "Notification could not be delivered: " + err.Error()
+						notificationError = err
 					}
+				}
+				if len(alerts) > 0 {
+					setWarning(state, "notification", notificationError)
 				}
 			}
 			state.Available, state.Error, state.Snapshot = true, "", e.Snapshot
@@ -111,14 +115,8 @@ func (b *Bridge) Accept(ctx context.Context, e integration.Event) error {
 	if err != nil {
 		return err
 	}
-	if err := b.Publish(ctx); err != nil {
-		b.warning("Sidebar could not be updated: " + err.Error())
-	}
+	_ = b.Publish(ctx) // sidebar failures are recorded without dropping the subscription
 	return nil
-}
-
-func (b *Bridge) warning(message string) {
-	_, _ = store.Modify[bridgeState](b.State, "bridge", stateFile, func(s *bridgeState) error { s.Warning = message; return nil })
 }
 
 func (b *Bridge) failure(message string) {
@@ -136,9 +134,14 @@ func (b *Bridge) project(ctx context.Context, session Session, workspace string)
 	return project.Project{}
 }
 
-func (b *Bridge) Publish(ctx context.Context) error {
+func (b *Bridge) Publish(ctx context.Context) (err error) {
 	b.publishMu.Lock()
 	defer b.publishMu.Unlock()
+	defer func() {
+		if ctx.Err() == nil {
+			b.warning("sidebar", err)
+		}
+	}()
 	state, err := readState(b.State)
 	if err != nil {
 		return err

@@ -28,6 +28,8 @@ upgraded, never broken.
 
 ### Fixed
 
+* Herdr refresh, sidebar and notification warnings clear when their source
+  recovers, while failures in other sources remain visible.
 * Herdr task counts, Space filtering and project links follow repository
   identity across linked worktrees and symlinked folders. Untracked Spaces
   carry an explicit status.

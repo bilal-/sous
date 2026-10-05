@@ -178,7 +178,7 @@ func TestBridgeQuietBaselineChangesRecoveryAndNotificationFailure(t *testing.T) 
 		t.Fatal(err)
 	}
 	state, err = readState(b.State)
-	if err != nil || state.Snapshot.Revision != "third" || state.Warning == "" {
+	if err != nil || state.Snapshot.Revision != "third" || state.Warning() == "" {
 		t.Fatalf("failed delivery must retain visible work: %+v, %v", state, err)
 	}
 }

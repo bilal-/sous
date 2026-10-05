@@ -183,11 +183,12 @@ stops its provider child when herdr disconnects or the plugin is disabled or
 uninstalled. Overlapping starts do not create duplicate observers. A server
 handoff can replace the observer; the new baseline remains quiet.
 
-The plugin stores its last snapshot and delivery warning under herdr's
+The plugin stores its last snapshot and source warnings under herdr's
 `HERDR_PLUGIN_STATE_DIR`, in a session-specific subdirectory, with versioned,
 locked, whole-file updates. Its `observer.log` is in that same subdirectory.
 These files can contain private task text. They are not written into the
 checkout. State from a newer plugin is refused rather than overwritten.
+Existing caches upgrade in place, preserving their task snapshot and warnings.
 
 To remove it:
 
