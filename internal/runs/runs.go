@@ -137,6 +137,7 @@ func (d *Dispatcher) record(v *thread.View, st runner.Status) {
 	run := *v.Run
 	set(&run)
 	v.Run = &run
+	v.RunErr = ""
 	if err := thread.SetRun(d.Store, v.ID, set); err != nil {
 		v.RunErr = "could not record the state: " + err.Error()
 	}

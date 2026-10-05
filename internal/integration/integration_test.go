@@ -11,6 +11,9 @@ import (
 
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/runner"
+	"github.com/bilal-/sous/internal/runner/runnertest"
+	"github.com/bilal-/sous/internal/runs"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/thread"
 )
@@ -130,6 +133,47 @@ func TestReaderUsesLocalReconciliationAndStableNoteKeys(t *testing.T) {
 	}
 	if s.Items[0].Key != "n:"+views[0].UID || !s.AsOf.Equal(now) {
 		t.Fatalf("identity or remote freshness changed: %+v", s.Items[0])
+	}
+}
+
+func TestReaderImmediatelyRestoresActionsAfterRunnerRecovery(t *testing.T) {
+	st := &store.Store{Home: t.TempDir()}
+	p := project.Project{Path: t.TempDir(), Name: "api"}
+	checked := time.Now().UTC().Add(-time.Minute)
+	now := checked.Add(time.Minute)
+	id, _, err := thread.NoteRun(st, p, "fix retry timeout", "retry", "fake", "human", checked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := thread.SetRun(st, id, func(r *thread.Run) {
+		r.Ref, r.State, r.Checked = "fake:example", thread.RunRunning, &checked
+	}); err != nil {
+		t.Fatal(err)
+	}
+	views, err := thread.Open(st, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	views[0].RunErr = "runner status timed out"
+	if err := board.WriteCache(st, &board.Data{Projects: []project.Project{p}, Threads: views, Checked: 1, RenderedAt: checked}); err != nil {
+		t.Fatal(err)
+	}
+	r := runnertest.Fake(t, `status) echo '{"v":0,"state":"needs_you","text":"which timeout?"}';;`)
+	r.Offline = true
+	d := &runs.Dispatcher{Store: st, Runners: []runner.Runner{r}, Now: func() time.Time { return now }}
+	reader := Reader{Store: st, Configured: true, Now: now, Reconcile: func(ctx context.Context, views []thread.View) []thread.View {
+		return d.Refresh(ctx, views, true)
+	}}
+	s, err := reader.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Items) != 1 || s.Items[0].Run == nil {
+		t.Fatalf("recovered run missing: %+v", s)
+	}
+	item := s.Items[0]
+	if !s.Complete || len(s.Problems) != 0 || item.Run.State != thread.RunNeedsYou || item.Run.Error != "" || !slices.Contains(item.Actions, "reply") {
+		t.Fatalf("first recovered snapshot kept the old failure or withheld its action: %+v", s)
 	}
 }
 

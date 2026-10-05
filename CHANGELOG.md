@@ -28,6 +28,8 @@ upgraded, never broken.
 
 ### Fixed
 
+* A recovered runner clears its old status error immediately, restoring
+  complete task snapshots and the reply action without an extra poll.
 * Disabling herdr notifications clears their delivery warning and preserves
   active warnings from other sources.
 * Overlapping herdr start requests recognize an already completed handover,
