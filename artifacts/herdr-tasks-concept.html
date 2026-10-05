@@ -1,0 +1,172 @@
+<div id="herdr-sous-concept" aria-label="Herdr task pane concept with fictional tasks">
+  <div class="hd-window">
+    <header class="hd-titlebar"><strong>herdr</strong><span>local · <span id="hd-current-project">acme/api</span></span><span class="hd-muted">concept</span></header>
+    <div class="hd-layout">
+      <aside class="hd-sidebar" aria-label="Herdr sidebar">
+        <div class="hd-section-title">Agents <span>2</span></div>
+        <button class="hd-agent cursor-interaction" type="button" data-agent="api"><span class="hd-state hd-needs">!</span><span>acme/api<br><span class="hd-muted">Codex · needs you</span><br><span class="hd-task-summary">#9 · Decide retry timeout</span></span></button>
+        <button class="hd-agent cursor-interaction" type="button" data-agent="web"><span class="hd-state hd-working">●</span><span>acme/web<br><span class="hd-muted">Claude · working</span><br><span class="hd-task-summary">#11 · Export controls</span></span></button>
+        <div class="hd-section-title hd-space-heading">Spaces</div>
+        <div id="hd-spaces"></div>
+      </aside>
+      <main class="hd-main">
+        <nav class="hd-tabs" aria-label="Workspace tabs">
+          <button id="hd-agent-tab" class="cursor-interaction" type="button" aria-pressed="false">1 agent</button>
+          <button id="hd-tasks-tab" class="cursor-interaction" type="button" aria-pressed="true">2 Tasks</button>
+          <span class="hd-muted">sous</span>
+        </nav>
+        <section id="hd-task-pane" aria-label="Tasks plugin pane">
+          <div class="hd-pane-toolbar"><strong>Tasks</strong><div class="hd-scope" aria-label="Task scope"><button class="cursor-interaction" type="button" data-scope="all" aria-pressed="true">All projects</button><button class="cursor-interaction" type="button" data-scope="here" aria-pressed="false">This project</button></div></div>
+          <div id="hd-headline" class="hd-headline"></div>
+          <div class="hd-task-body">
+            <div id="hd-task-list" aria-label="Waiting tasks"></div>
+            <section class="hd-detail" aria-label="Selected task" aria-live="polite">
+              <div id="hd-detail-meta" class="hd-muted"></div>
+              <h3 id="hd-detail-title"></h3>
+              <div id="hd-detail-state"></div>
+              <p id="hd-detail-body"></p>
+              <div id="hd-detail-ref" class="hd-muted"></div>
+              <div class="hd-detail-actions"><button id="hd-open" class="hd-primary cursor-interaction" type="button">Open project</button><button id="hd-reply" class="cursor-interaction" type="button">Reply</button></div>
+              <div id="hd-reply-form" role="group" aria-label="Reply to run" hidden><label for="hd-answer">Your answer</label><textarea id="hd-answer" rows="3" placeholder="Use the 5-second timeout."></textarea><button id="hd-send-answer" class="hd-primary cursor-interaction" type="button">Send answer</button></div>
+              <div id="hd-action-state" class="hd-muted" role="status"></div>
+              <div class="hd-handoff"><span class="hd-muted">Last session</span><p id="hd-handoff-text"></p></div>
+            </section>
+          </div>
+          <footer class="hd-pane-footer"><span>GitHub checked 18m ago</span><span>Local notes current</span></footer>
+        </section>
+        <section id="hd-agent-pane" class="hd-terminal" aria-label="Sample agent terminal" hidden>
+          <div class="hd-terminal-title"><span id="hd-terminal-project">acme/api</span><span class="hd-muted">Codex</span></div>
+          <div class="hd-muted">Project context</div>
+          <p id="hd-terminal-handoff"></p>
+          <div class="hd-muted">Selected task</div>
+          <p id="hd-terminal-task"></p>
+          <div class="hd-prompt">› <span id="hd-terminal-status">Ready for your instructions</span></div>
+          <button id="hd-back" class="cursor-interaction" type="button">Back to Tasks</button>
+        </section>
+      </main>
+    </div>
+    <footer class="hd-statusbar"><span>herdr × sous</span><span id="hd-status">3 on you · 2 on others · 1 unfinished</span></footer>
+  </div>
+</div>
+<style>
+  #herdr-sous-concept { --hd-bg: light-dark(#faf9f6,#17191e); --hd-fg: light-dark(#242a32,#dce0e8); --hd-muted: light-dark(#626974,#a3acbb); --hd-side: light-dark(#f0f0ed,#20232b); --hd-line: light-dark(#d6d8d8,#383e4a); --hd-active: light-dark(#e0e8ef,#2e3c50); --hd-accent: light-dark(#245a88,#94bfe8); --hd-warn: light-dark(#825200,#e8c27b); --hd-green: light-dark(#266c4a,#9bceb0); color:var(--hd-fg); font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; width:100%; }
+  #herdr-sous-concept * { box-sizing:border-box; }
+  #herdr-sous-concept button, #herdr-sous-concept textarea { font:inherit; color:inherit; }
+  #herdr-sous-concept button { background:transparent; border:1px solid transparent; padding:6px 9px; text-align:left; }
+  #herdr-sous-concept button:hover { background:var(--hd-active); }
+  #herdr-sous-concept button[aria-pressed="true"] { background:var(--hd-active); color:var(--hd-accent); }
+  #herdr-sous-concept strong, #herdr-sous-concept h3 { font-weight:500; }
+  #herdr-sous-concept p { margin:12px 0; }
+  #herdr-sous-concept h3 { font-size:16px; margin:12px 0 10px; overflow-wrap:anywhere; }
+  #herdr-sous-concept [hidden] { display:none !important; }
+  #herdr-sous-concept .hd-window { background:var(--hd-bg); border:1px solid var(--hd-line); }
+  #herdr-sous-concept .hd-muted { color:var(--hd-muted); }
+  #herdr-sous-concept .hd-titlebar { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px 16px; padding:10px 14px; border-bottom:1px solid var(--hd-line); }
+  #herdr-sous-concept .hd-titlebar strong { color:var(--hd-accent); }
+  #herdr-sous-concept .hd-layout { display:grid; grid-template-columns:205px minmax(0,1fr); }
+  #herdr-sous-concept .hd-sidebar { background:var(--hd-side); border-right:1px solid var(--hd-line); padding:16px 10px; }
+  #herdr-sous-concept .hd-section-title { display:flex; justify-content:space-between; padding:0 7px 8px; color:var(--hd-muted); }
+  #herdr-sous-concept .hd-space-heading { margin-top:24px; }
+  #herdr-sous-concept .hd-agent { display:flex; gap:8px; width:100%; margin-bottom:7px; }
+  #herdr-sous-concept .hd-state { min-width:13px; }
+  #herdr-sous-concept .hd-needs { color:var(--hd-warn); }
+  #herdr-sous-concept .hd-working { color:var(--hd-green); }
+  #herdr-sous-concept .hd-task-summary { color:var(--hd-accent); font-size:12px; }
+  #herdr-sous-concept .hd-space { width:100%; display:block; margin-bottom:5px; overflow-wrap:anywhere; }
+  #herdr-sous-concept .hd-space-count { display:block; color:var(--hd-muted); font-size:12px; }
+  #herdr-sous-concept .hd-main { min-width:0; }
+  #herdr-sous-concept .hd-tabs { display:flex; align-items:center; gap:4px; padding:4px 8px; border-bottom:1px solid var(--hd-line); }
+  #herdr-sous-concept .hd-tabs > span { margin-left:auto; padding-right:4px; }
+  #herdr-sous-concept .hd-pane-toolbar { padding:16px 16px 8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+  #herdr-sous-concept .hd-scope { display:flex; gap:4px; flex-wrap:wrap; }
+  #herdr-sous-concept .hd-headline { padding:0 16px 12px; color:var(--hd-muted); }
+  #herdr-sous-concept .hd-task-body { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1fr); border-top:1px solid var(--hd-line); }
+  #herdr-sous-concept .hd-group-title { display:flex; justify-content:space-between; color:var(--hd-muted); padding:12px 14px 6px; }
+  #herdr-sous-concept .hd-task { display:grid; grid-template-columns:1fr auto; gap:2px 8px; width:100%; padding:10px 14px; border-left:2px solid transparent; }
+  #herdr-sous-concept .hd-task[aria-pressed="true"] { border-left-color:var(--hd-accent); }
+  #herdr-sous-concept .hd-task-title { grid-column:1 / -1; overflow-wrap:anywhere; }
+  #herdr-sous-concept .hd-task-meta, #herdr-sous-concept .hd-task-age { font-size:12px; color:var(--hd-muted); }
+  #herdr-sous-concept .hd-task-age { font-variant-numeric:tabular-nums; }
+  #herdr-sous-concept .hd-detail { min-width:0; border-left:1px solid var(--hd-line); padding:18px; overflow-wrap:anywhere; }
+  #herdr-sous-concept .hd-detail-actions { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 12px; }
+  #herdr-sous-concept .hd-detail-actions button, #herdr-sous-concept #hd-back { border-color:var(--hd-line); }
+  #herdr-sous-concept .hd-primary { background:var(--hd-active); color:var(--hd-accent); border-color:var(--hd-line); }
+  #herdr-sous-concept .hd-handoff { margin-top:24px; padding-top:14px; border-top:1px solid var(--hd-line); font-size:12px; }
+  #herdr-sous-concept .hd-handoff p { margin:7px 0 0; }
+  #herdr-sous-concept #hd-reply-form label { display:block; }
+  #herdr-sous-concept textarea { display:block; background:var(--hd-bg); border:1px solid var(--hd-line); width:100%; padding:8px; margin:8px 0; resize:vertical; }
+  #herdr-sous-concept .hd-pane-footer { border-top:1px solid var(--hd-line); color:var(--hd-muted); font-size:12px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; padding:10px 16px; }
+  #herdr-sous-concept .hd-statusbar { border-top:1px solid var(--hd-line); color:var(--hd-muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:6px 14px; font-size:12px; }
+  #herdr-sous-concept .hd-terminal { padding:22px; min-height:380px; overflow-wrap:anywhere; }
+  #herdr-sous-concept .hd-terminal-title { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:28px; color:var(--hd-accent); }
+  #herdr-sous-concept .hd-prompt { border-top:1px solid var(--hd-line); margin:32px 0 18px; padding-top:15px; }
+  #herdr-sous-concept.hd-compact .hd-task { padding-top:6px; padding-bottom:6px; }
+  #herdr-sous-concept.hd-no-summaries .hd-task-summary, #herdr-sous-concept.hd-no-summaries .hd-space-count { display:none; }
+  @media (max-width:780px) { #herdr-sous-concept .hd-layout { grid-template-columns:170px minmax(0,1fr); } #herdr-sous-concept .hd-task-body { grid-template-columns:1fr; } #herdr-sous-concept .hd-detail { border-left:0; border-top:1px solid var(--hd-line); } }
+  @media (max-width:480px) { #herdr-sous-concept .hd-layout { grid-template-columns:1fr; } #herdr-sous-concept .hd-sidebar { border-right:0; border-bottom:1px solid var(--hd-line); } #herdr-sous-concept .hd-agent { display:none; } #herdr-sous-concept .hd-sidebar > .hd-section-title:first-child { display:none; } #herdr-sous-concept .hd-space-heading { margin-top:0; } #herdr-sous-concept #hd-spaces { display:flex; flex-wrap:wrap; gap:4px; } #herdr-sous-concept .hd-space { width:auto; flex:1 1 130px; } }
+  @media (pointer:coarse) { #herdr-sous-concept button { min-height:44px; } #herdr-sous-concept textarea { font-size:16px; } }
+</style>
+<script>
+(() => {
+  const root = document.getElementById('herdr-sous-concept');
+  const q = id => root.querySelector('#' + id);
+  const tasks = [
+    {id:'review', project:'acme/api', kind:'me', title:'Review pagination change', age:'2h', source:'GitHub review', ref:'git.example.org/acme/api · pull request #42', body:'Sam requested your review. The change adds cursor pagination to the list endpoint.', status:'Review requested'},
+    {id:'9', project:'acme/api', kind:'me', title:'Decide retry timeout', age:'35m', source:'Agent run · #9', body:'Should retries stop after 5 seconds, or keep the current 10-second timeout?', status:'Needs your answer', run:'needs_you'},
+    {id:'7', project:'acme/api', kind:'me', title:'Review cache fix', age:'1h', source:'Agent run · #7', ref:'Branch sous/run-7', body:'The cache fix is ready. Tests passed; the changes are waiting for your review.', status:'Result ready', run:'done'},
+    {id:'11', project:'acme/web', kind:'them', title:'Check export keyboard controls', age:'20m', source:'Agent run · #11', body:'Claude is checking keyboard navigation and adding a regression test.', status:'Working', run:'running'},
+    {id:'4', project:'acme/web', kind:'them', title:'Follow up on release notes', age:'2d', source:'Your note · #4', body:'Waiting for Sam to confirm which changes belong in the release notes.', status:'Waiting on Sam'},
+    {id:'stash', project:'acme/tools', kind:'unfinished', title:'1 stash from parser experiment', age:'4d', source:'Git', body:'The parser experiment is still in a stash. This project has no open herdr workspace.', status:'Unfinished work'}
+  ];
+  const handoffs = {'acme/api':'The pagination tests pass. Next: review the endpoint changes and settle the retry timeout.', 'acme/web':'Export controls are implemented. Keyboard navigation is the remaining check.', 'acme/tools':'The parser experiment was stashed. Compare it with the current parser before continuing.'};
+  const design = {density:'comfortable', summaries:true};
+  const saved = globalThis.openai?.widgetState?.privateContent;
+  const state = {scope:saved?.scope === 'here' ? 'here' : 'all', selected:tasks.some(t => t.id === saved?.selected) ? saved.selected : '9', workspace:saved?.workspace in handoffs ? saved.workspace : 'acme/api', tab:'tasks', reply:false, action:'', opened:Array.from(new Set(['acme/api','acme/web',...(saved?.workspace in handoffs ? [saved.workspace] : [])]))};
+  function remember() {
+    if (globalThis.openai?.setWidgetState) globalThis.openai.setWidgetState({modelContent:{concept:'Herdr Tasks pane backed by sous',scope:state.scope,selectedTask:tasks.find(t => t.id === state.selected)?.title}, privateContent:{scope:state.scope,selected:state.selected,workspace:state.workspace}}).catch(() => {});
+  }
+  function el(tag, cls, value) { const n=document.createElement(tag); if(cls) n.className=cls; if(value) n.textContent=value; return n; }
+  function summary(project) { const rows=tasks.filter(t=>t.project===project); const me=rows.filter(t=>t.kind==='me').length, them=rows.filter(t=>t.kind==='them').length, unfinished=rows.filter(t=>t.kind==='unfinished').length; return [[me,'on you'],[them,'on others'],[unfinished,'unfinished']].filter(x=>x[0]).map(x=>x.join(' ')).join(' · '); }
+  function showAgent(project) { state.workspace=project; if(!state.opened.includes(project)) state.opened.push(project); state.tab='agent'; state.reply=false; render(); remember(); }
+  function render() {
+    root.classList.toggle('hd-compact',design.density==='compact'); root.classList.toggle('hd-no-summaries',!design.summaries);
+    const visible=tasks.filter(t=>state.scope==='all'||t.project===state.workspace);
+    if(!visible.some(t=>t.id===state.selected)) state.selected=visible[0]?.id;
+    const selected=tasks.find(t=>t.id===state.selected);
+    q('hd-current-project').textContent=state.workspace;
+    q('hd-task-pane').hidden=state.tab!=='tasks'; q('hd-agent-pane').hidden=state.tab!=='agent';
+    q('hd-agent-tab').setAttribute('aria-pressed',String(state.tab==='agent')); q('hd-tasks-tab').setAttribute('aria-pressed',String(state.tab==='tasks'));
+    root.querySelectorAll('[data-scope]').forEach(n=>n.setAttribute('aria-pressed',String(n.dataset.scope===state.scope)));
+    q('hd-headline').textContent=['me','them','unfinished'].map((k,i)=>visible.filter(t=>t.kind===k).length+' '+['on you','on others','unfinished'][i]).join(' · ');
+    q('hd-status').textContent=tasks.filter(t=>t.kind==='me').length+' on you · '+tasks.filter(t=>t.kind==='them').length+' on others · '+tasks.filter(t=>t.kind==='unfinished').length+' unfinished';
+    q('hd-spaces').replaceChildren();
+    state.opened.forEach(project=>{ const b=el('button','hd-space cursor-interaction'); b.type='button'; b.setAttribute('aria-pressed',String(state.workspace===project)); b.append(el('span','',project),el('span','hd-space-count',summary(project))); b.addEventListener('click',()=>{state.workspace=project; state.tab='tasks'; state.reply=false; state.action=''; render(); remember();}); q('hd-spaces').append(b); });
+    q('hd-task-list').replaceChildren();
+    [['me','On you'],['them','On others'],['unfinished','Unfinished']].forEach(([kind,label])=>{
+      const rows=visible.filter(t=>t.kind===kind); if(!rows.length)return;
+      const heading=el('div','hd-group-title'); heading.append(el('span','',label),el('span','',String(rows.length))); q('hd-task-list').append(heading);
+      rows.forEach(t=>{ const b=el('button','hd-task cursor-interaction'); b.type='button'; b.setAttribute('aria-pressed',String(t.id===state.selected)); b.append(el('span','hd-task-title',t.title),el('span','hd-task-meta',t.project),el('span','hd-task-age',t.age)); b.addEventListener('click',()=>{state.selected=t.id;state.reply=false;state.action='';render();remember();});q('hd-task-list').append(b); });
+    });
+    if(!selected)return;
+    q('hd-detail-meta').textContent=selected.project+' · '+selected.source; q('hd-detail-title').textContent=selected.title;
+    q('hd-detail-state').textContent=selected.status; q('hd-detail-state').className=selected.run==='needs_you'?'hd-needs':selected.run==='running'?'hd-working':'hd-muted';
+    q('hd-detail-body').textContent=selected.body; q('hd-detail-ref').textContent=selected.ref||'';
+    q('hd-open').textContent=selected.run?'Open agent':'Open project'; q('hd-reply').hidden=selected.run!=='needs_you'; q('hd-reply-form').hidden=!state.reply;
+    q('hd-action-state').textContent=state.action; q('hd-handoff-text').textContent=handoffs[selected.project];
+    q('hd-terminal-project').textContent=state.workspace; q('hd-terminal-handoff').textContent=handoffs[state.workspace];
+    q('hd-terminal-task').textContent=selected.project===state.workspace?selected.title+'\n\n'+selected.body:'Continue from the project handoff.';
+    q('hd-terminal-status').textContent=selected.run==='needs_you'&&selected.project===state.workspace?'Waiting for your answer':'Ready for your instructions';
+    const needs=tasks.find(t=>t.id==='9'); const api=root.querySelector('[data-agent="api"]'); api.querySelector('.hd-muted').textContent='Codex · '+(needs.run==='needs_you'?'needs you':'working'); api.querySelector('.hd-state').textContent=needs.run==='needs_you'?'!':'●'; api.querySelector('.hd-state').className='hd-state '+(needs.run==='needs_you'?'hd-needs':'hd-working');
+  }
+  root.querySelectorAll('[data-scope]').forEach(b=>b.addEventListener('click',()=>{state.scope=b.dataset.scope;state.reply=false;state.action='';render();remember();}));
+  root.querySelectorAll('[data-agent]').forEach(b=>b.addEventListener('click',()=>showAgent(b.dataset.agent==='api'?'acme/api':'acme/web')));
+  q('hd-open').addEventListener('click',()=>showAgent(tasks.find(t=>t.id===state.selected).project));
+  q('hd-agent-tab').addEventListener('click',()=>{state.tab='agent';render();});
+  [q('hd-tasks-tab'),q('hd-back')].forEach(b=>b.addEventListener('click',()=>{state.tab='tasks';render();}));
+  q('hd-reply').addEventListener('click',()=>{state.reply=!state.reply;render();if(state.reply)q('hd-answer').focus();});
+  q('hd-send-answer').addEventListener('click',()=>{const answer=q('hd-answer').value.trim();if(!answer)return;const t=tasks.find(t=>t.id===state.selected);t.run='running';t.kind='them';t.status='Working';t.body='Continuing with your answer: '+answer;state.reply=false;state.action='Answer sent · run continued';q('hd-answer').value='';render();remember();});
+  globalThis.addEventListener('openai:set_globals',event=>{const s=event.detail?.globals?.widgetState?.privateContent;if(!s)return; if(s.scope==='all'||s.scope==='here')state.scope=s.scope;if(s.workspace in handoffs)state.workspace=s.workspace;if(tasks.some(t=>t.id===s.selected))state.selected=s.selected;render();});
+  render();
+  if(globalThis.Tweak) { const tweak=new Tweak({container:root,onChange:render});tweak.addSelect(design,'density',{label:'Task rows',options:[{label:'Comfortable',value:'comfortable'},{label:'Compact',value:'compact'}]});tweak.addToggle(design,'summaries',{label:'Sidebar task summaries'}); }
+})();
+</script>

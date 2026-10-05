@@ -2,10 +2,13 @@ MODULE   := github.com/bilal-/sous
 VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS  := -s -w -X $(MODULE)/internal/cli.Version=$(VERSION)
 
-.PHONY: build test cover lint ci install release-dry clean tap
+.PHONY: build herdr test cover lint ci install release-dry clean tap
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/sous ./cmd/sous
+
+herdr:
+	CGO_ENABLED=0 go build -trimpath -o integrations/herdr/sous-herdr ./integrations/herdr
 
 test:
 	go vet ./... && go test -race ./...

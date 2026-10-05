@@ -77,6 +77,36 @@ Four groups, and each grows in one direction:
 Plain `sous` always shows the board. `here`, the session hooks and `go` stay
 on your machine and finish quickly: they never wait on the network.
 
+## Native hosts
+
+A host such as herdr can discover sous's task operations with
+`sous integration --json`, read an offline snapshot and subscribe to local
+changes. The host owns its task interface, project navigation, notification
+policy and the child process's lifetime. Sous remains the source of task
+state and applies actions through its existing commands.
+
+The subscription overlays current private notes, signal snoozes, local
+filed-note status and built in runner reports on the last full board. It
+does not scan signals or contact remote trackers and external runners.
+The last refresh time stays visible, missing data stays explicit, and a
+failed read preserves the last known revision. Stable keys identify tasks
+across snapshots; their CLI IDs address actions. A change feed projects
+current state and adds no event journal, daemon or scheduler.
+
+The bundled herdr plugin is a standalone host CLI in `integrations/herdr`.
+It renders Tasks in a managed terminal pane and reports summaries and alerts
+through herdr's APIs. Its observer and versioned cache belong to that plugin,
+live in herdr's plugin state directory, and stop with the herdr server or when
+the plugin is disabled. Sous has no detached observer or service of its own.
+The host plugin owns any explicitly configured refresh interval.
+
+The native host contract has its own protocol version. Its guide, schema
+and host discovery records live in [integrations.md](integrations.md) and
+the repository's `integrations/` folder. Hosts execute action argument lists
+directly and invoke writes on the person's request. Private notes become
+shared only through explicit filing. A host may offer a separate refresh
+action; session startup and the subscription remain offline.
+
 ## Data
 
 Local state lives in `~/.sous/` (or `SOUS_HOME`); filed notes live in their

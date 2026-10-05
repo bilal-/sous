@@ -10,6 +10,32 @@ import (
 	"github.com/bilal-/sous/internal/thread"
 )
 
+func TestCurrentCacheAppliesSignalSnoozeWithoutRescanning(t *testing.T) {
+	st := &store.Store{Home: t.TempDir()}
+	now := time.Now().UTC()
+	p := project.Project{Path: "/code/acme/api"}
+	id := "s:000000000001"
+	col := signal.Collected{Plugins: []signal.PluginStatus{{Name: "git", Status: signal.StatusOK}},
+		Signals: []signal.Tagged{{Signal: signal.Signal{ID: id, Project: p.Path, Kind: signal.Unfinished, Text: "one stash"}, Plugin: "git"}}}
+	observations, err := signal.Observe(st, col, []string{p.Path}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteCache(st, &Data{Projects: []project.Project{p}, Signals: observations, Checked: 1, RenderedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	if err := signal.Snooze(st, id); err != nil {
+		t.Fatal(err)
+	}
+	cache, err := ReadCurrentCache(st, now.Add(time.Hour))
+	if err != nil || len(cache.Data.Signals) != 1 || !cache.Data.Signals[0].Snoozed || !cache.Data.RenderedAt.Equal(now) {
+		t.Fatalf("a local snooze did not update the cached view: %+v %v", cache, err)
+	}
+	if got := Classify(cache.Data); len(got.Unfinished) != 0 || len(got.Snoozed) != 1 {
+		t.Fatalf("snoozed work was lost or still visible: %+v", got)
+	}
+}
+
 func TestCurrentCacheKeepsRemoteUncertaintyAndCurrentLocalNotes(t *testing.T) {
 	st := &store.Store{Home: t.TempDir()}
 	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)

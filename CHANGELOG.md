@@ -9,6 +9,15 @@ upgraded, never broken.
 
 ### Added
 
+* An installable herdr plugin ships in `integrations/herdr`, with an interactive
+  Tasks pane, project/pane links, sidebar counts, notifications and private
+  task actions. Its guide covers local linking, GitHub installation, settings
+  and removal. `make herdr` builds it without adding dependencies.
+* Native hosts can discover task operations with `sous integration --json`,
+  read offline snapshots and subscribe with `integration watch --json`.
+  Tasks have stable keys, applicable CLI actions and explicit freshness
+  and source failures. A guide, JSON schema and herdr discovery record
+  provide repository entry points for a native herdr consumer.
 * `sous review` lists follow-ups worth checking, with reasons and last-session
   context in JSON. Notes are due after seven days; missing tracker items and
   finished or failed runs are due immediately unless snoozed or recently kept. `--keep <n>` records a review
@@ -19,6 +28,9 @@ upgraded, never broken.
 
 ### Fixed
 
+* Offline reads preserve the last known filed-note status and its warning
+  when a remote tracker check is skipped.
+* Signal snoozes take effect in cached views without a remote refresh.
 * Correct documentation for MIT licensing, privacy and agent permissions,
   integration setup, JSON examples, reports, data files and release checks.
 * Cached shell and menu-bar views read current local notes, so completed

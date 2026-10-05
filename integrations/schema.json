@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/bilal-/sous/main/integrations/schema.json",
+  "title": "sous native integration v0",
+  "oneOf": [
+    {"$ref": "#/$defs/discovery"},
+    {"$ref": "#/$defs/description"},
+    {"$ref": "#/$defs/snapshot"},
+    {"$ref": "#/$defs/event"},
+    {"$ref": "#/$defs/error"}
+  ],
+  "$defs": {
+    "strings": {"type": "array", "items": {"type": "string"}},
+    "nullableString": {"type": ["string", "null"]},
+    "time": {"type": "string", "format": "date-time"},
+    "nullableTime": {"type": ["string", "null"], "format": "date-time"},
+    "discovery": {
+      "type": "object",
+      "required": ["kind", "v", "provider", "protocol", "host", "discover", "documentation", "schema"],
+      "properties": {
+        "kind": {"const": "discovery"}, "v": {"const": 0}, "provider": {"const": "sous"},
+        "protocol": {"const": "sous.integration"}, "host": {"type": "string"},
+        "discover": {"$ref": "#/$defs/strings"}, "documentation": {"type": "string"}, "schema": {"type": "string"}
+      }
+    },
+    "description": {
+      "type": "object",
+      "required": ["kind", "v", "provider", "protocol", "version", "repository", "documentation", "schema", "poll_interval_ms", "operations", "actions"],
+      "properties": {
+        "kind": {"const": "description"}, "v": {"const": 0}, "provider": {"const": "sous"},
+        "protocol": {"const": "sous.integration"}, "version": {"type": "string"},
+        "repository": {"type": "string"}, "documentation": {"type": "string"}, "schema": {"type": "string"},
+        "poll_interval_ms": {"type": "integer", "minimum": 1},
+        "operations": {
+          "type": "object", "required": ["describe", "snapshot", "watch", "context", "refresh"],
+          "additionalProperties": {"$ref": "#/$defs/operation"}
+        },
+        "actions": {"type": "array", "items": {"$ref": "#/$defs/action"}}
+      }
+    },
+    "operation": {
+      "type": "object", "required": ["argv", "format", "offline"],
+      "properties": {
+        "argv": {"$ref": "#/$defs/strings"},
+        "format": {"enum": ["json", "ndjson", "none"]}, "offline": {"type": "boolean"}
+      }
+    },
+    "action": {
+      "type": "object", "required": ["id", "title", "argv", "parameters", "format", "effect", "offline", "terminal"],
+      "properties": {
+        "id": {"type": "string"}, "title": {"type": "string"}, "argv": {"$ref": "#/$defs/strings"},
+        "cwd": {"type": "string"}, "parameters": {"$ref": "#/$defs/strings"},
+        "format": {"enum": ["json", "terminal"]}, "effect": {"enum": ["read", "launch", "write_private"]},
+        "offline": {"type": "boolean"}, "terminal": {"type": "boolean"}
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "required": ["kind", "v", "provider", "revision", "configured", "available", "complete", "as_of", "observed_at", "items", "projects", "sources", "problems", "checked", "unavailable"],
+      "properties": {
+        "kind": {"const": "snapshot"}, "v": {"const": 0}, "provider": {"const": "sous"},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "configured": {"type": "boolean"}, "available": {"type": "boolean"}, "complete": {"type": "boolean"},
+        "as_of": {"$ref": "#/$defs/nullableTime"}, "observed_at": {"$ref": "#/$defs/time"},
+        "items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+        "projects": {"type": "array", "items": {"$ref": "#/$defs/project"}},
+        "sources": {"type": "array", "items": {"$ref": "#/$defs/source"}},
+        "problems": {"$ref": "#/$defs/strings"},
+        "checked": {"type": "integer", "minimum": 0}, "unavailable": {"type": "integer", "minimum": 0}
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": ["id", "key", "section", "actions", "project", "name", "kind", "text", "since", "reviewed_at", "source", "ref", "upstream", "run", "snoozed", "stale", "closed_at", "closed_by"],
+      "properties": {
+        "id": {"type": "string"}, "key": {"type": "string", "pattern": "^(n:|s:).+$"},
+        "section": {"enum": ["on_you", "on_others", "unfinished", "ideas", "snoozed"]},
+        "actions": {"$ref": "#/$defs/strings"}, "project": {"type": "string"}, "name": {"type": "string"},
+        "kind": {"enum": ["me", "them", "unfinished", "idea"]}, "text": {"type": "string"},
+        "since": {"$ref": "#/$defs/time"}, "reviewed_at": {"$ref": "#/$defs/nullableTime"},
+        "source": {"type": "string"}, "ref": {"$ref": "#/$defs/nullableString"},
+        "upstream": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/upstream"}]},
+        "run": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/run"}]},
+        "snoozed": {"type": "boolean"}, "stale": {"type": "boolean"},
+        "closed_at": {"$ref": "#/$defs/nullableTime"}, "closed_by": {"$ref": "#/$defs/nullableString"}
+      }
+    },
+    "upstream": {
+      "type": "object", "required": ["state"],
+      "properties": {"state": {"enum": ["open", "closed", "unknown", "error"]}, "error": {"type": "string"}}
+    },
+    "run": {
+      "type": "object", "required": ["runner", "state", "text", "branch", "worktree", "log", "key", "brief", "checked_at"],
+      "properties": {
+        "runner": {"type": "string"}, "state": {"enum": ["starting", "running", "needs_you", "done", "failed"]},
+        "text": {"type": "string"}, "branch": {"type": "string"}, "worktree": {"type": "string"}, "log": {"type": "string"},
+        "key": {"type": "string"}, "brief": {"type": "string"}, "checked_at": {"$ref": "#/$defs/nullableTime"},
+        "log_tail": {"$ref": "#/$defs/strings"}, "error": {"type": "string"}
+      }
+    },
+    "project": {
+      "type": "object", "required": ["path", "org", "name", "remote", "last_commit"],
+      "properties": {
+        "path": {"type": "string"}, "org": {"type": "string"}, "name": {"type": "string"},
+        "remote": {"$ref": "#/$defs/nullableString"}, "last_commit": {"$ref": "#/$defs/nullableTime"}
+      }
+    },
+    "source": {
+      "type": "object", "required": ["name", "status", "error"],
+      "properties": {
+        "name": {"type": "string"}, "status": {"enum": ["ok", "failed", "timeout", "off"]},
+        "error": {"$ref": "#/$defs/nullableString"}
+      }
+    },
+    "event": {
+      "type": "object", "required": ["kind", "v", "provider", "type", "revision", "changes"],
+      "properties": {
+        "kind": {"const": "event"}, "v": {"const": 0}, "provider": {"const": "sous"},
+        "type": {"enum": ["snapshot", "changes", "unavailable"]}, "revision": {"type": "string"},
+        "previous_revision": {"type": "string"}, "snapshot": {"$ref": "#/$defs/snapshot"},
+        "changes": {"type": "array", "items": {"$ref": "#/$defs/change"}}, "error": {"type": "string"},
+        "exit": {"enum": [1, 3]}
+      },
+      "oneOf": [
+        {"properties": {"type": {"const": "snapshot"}}, "required": ["snapshot"]},
+        {"properties": {"type": {"const": "changes"}}, "required": ["snapshot", "previous_revision"]},
+        {"properties": {"type": {"const": "unavailable"}}, "required": ["error", "exit"]}
+      ]
+    },
+    "change": {
+      "type": "object", "required": ["type", "key", "id"],
+      "properties": {
+        "type": {"enum": ["item.added", "item.updated", "item.removed"]}, "key": {"type": "string"}, "id": {"type": "string"},
+        "item": {"$ref": "#/$defs/item"}
+      },
+      "oneOf": [
+        {"properties": {"type": {"enum": ["item.added", "item.updated"]}}, "required": ["item"]},
+        {"properties": {"type": {"const": "item.removed"}}}
+      ]
+    },
+    "error": {
+      "type": "object", "required": ["error", "exit"],
+      "not": {"required": ["kind"]},
+      "properties": {
+        "error": {"type": "string"}, "exit": {"enum": [1, 2, 3]}, "next": {"$ref": "#/$defs/strings"},
+        "id": {"type": "string"}, "matches": {"$ref": "#/$defs/strings"}
+      }
+    }
+  }
+}

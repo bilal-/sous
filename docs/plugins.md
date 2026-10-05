@@ -20,6 +20,15 @@ paths, refs or states use the shapes described below.
 plain shell that turns `TODO(me)` comments into a row per project. Copy
 it and change what it looks for.
 
+Apps consuming sous's board use the separate
+[native integration contract](integrations.md): discovery, offline task
+snapshots, a change subscription and existing CLI actions. The
+[herdr discovery record](../integrations/herdr/provider.json) gives a host
+an entry point. The complete [herdr plugin](../integrations/herdr/README.md)
+ships in this repo and uses herdr's existing pane, metadata and notification
+APIs. A native task view belongs to its host; the four plugin
+kinds below extend what sous can find or do.
+
 ## The basics
 
 A plugin is a program named for what it does:

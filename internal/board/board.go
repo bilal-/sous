@@ -219,6 +219,15 @@ func ReadCurrentCache(s *store.Store, now time.Time) (*CacheDoc, error) {
 		}
 	}
 	c.Data.Threads = views
+	snoozed, err := signal.Snoozes(s)
+	if err != nil {
+		return nil, err
+	}
+	for i := range c.Data.Signals {
+		if hidden, ok := snoozed[c.Data.Signals[i].ID]; ok {
+			c.Data.Signals[i].Snoozed = hidden
+		}
+	}
 	return c, nil
 }
 

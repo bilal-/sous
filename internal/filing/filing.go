@@ -197,7 +197,11 @@ func (f *Filer) Ask(ctx context.Context, filed []thread.Thread) []Upstream {
 func (f *Filer) Settle(views []thread.View, answers []Upstream, now time.Time) []thread.View {
 	said := map[int]Upstream{}
 	for _, a := range answers {
-		said[a.ID] = a
+		// An offline Ask leaves a remote answer empty: it was not checked.
+		// Keep the previous status and any uncertainty in that case.
+		if a.State != "" {
+			said[a.ID] = a
+		}
 	}
 	for i := range views {
 		if a, ok := said[views[i].ID]; ok {

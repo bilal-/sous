@@ -2,6 +2,7 @@
 /bin/
 /dist/
 /coverage.out
+/integrations/herdr/sous-herdr
 .DS_Store
 .superpowers/
 .claude/worktrees/

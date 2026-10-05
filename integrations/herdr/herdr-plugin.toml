@@ -1,0 +1,45 @@
+id = "sous.tasks"
+name = "Sous Tasks"
+version = "0.1.0"
+min_herdr_version = "0.8.2"
+description = "Tasks, project summaries and notifications from sous"
+platforms = ["linux", "macos"]
+
+[[build]]
+command = ["go", "build", "-o", "sous-herdr", "."]
+
+[[startup]]
+command = ["./sous-herdr", "start"]
+
+[[actions]]
+id = "tasks"
+title = "Open Tasks"
+contexts = ["workspace"]
+command = ["./sous-herdr", "tasks"]
+
+[[actions]]
+id = "start"
+title = "Start task notifications"
+command = ["./sous-herdr", "start"]
+
+[[actions]]
+id = "stop"
+title = "Stop task notifications"
+command = ["./sous-herdr", "stop"]
+
+[[actions]]
+id = "refresh"
+title = "Refresh sous sources"
+command = ["./sous-herdr", "refresh"]
+
+[[panes]]
+id = "tasks"
+title = "Tasks"
+placement = "overlay"
+command = ["./sous-herdr", "board"]
+
+[[panes]]
+id = "project"
+title = "Task project"
+placement = "tab"
+command = ["./sous-herdr", "project"]

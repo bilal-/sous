@@ -427,6 +427,7 @@ Each public command explains itself with `--help`.
 | `sous <project>` | where you left off in that project |
 | `sous here` | where you left off in this project |
 | `sous projects [name]` | every project sous can see |
+| `sous integration [describe\|snapshot\|watch]` | native host discovery, offline tasks and changes |
 | `sous note [-p project] [-k me\|them\|idea] [--file] "text"` | write a note |
 | `sous edit <n> "text"` | change a note |
 | `sous kind <n> me\|them\|idea` | change whose move it is |
@@ -512,6 +513,27 @@ rules for agents (such as asking before anything reaches a shared tracker).
 So the skill never needs updating when sous changes.
 
 Output is plain text for people, with `--json` for programs.
+
+## Native app integration
+
+An app such as herdr can use sous as its task provider and show the list in
+its own interface. `sous integration --json` describes the available
+operations and task actions. `sous integration snapshot --json` reads
+current private notes and local runs alongside the last remote snapshot;
+`sous integration watch --json` supplies a baseline and subsequent changes.
+These reads stay offline. The host owns navigation, notifications and the
+subscription's lifetime.
+
+The complete [herdr plugin](integrations/herdr/README.md) lives in this repo.
+It adds an interactive Tasks pane, sidebar counts, project/pane links,
+notifications and task actions through herdr's existing APIs. Build it with
+`make herdr`, then follow its guide to link or install it and configure the
+optional sidebar rows and shortcut. It requires no changes to herdr.
+
+The [integration guide](docs/integrations.md),
+[JSON schema](integrations/schema.json) and
+[provider discovery record](integrations/herdr/provider.json) describe the
+contract for this plugin and other hosts.
 
 ## Connectors and plugins
 

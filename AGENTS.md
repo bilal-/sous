@@ -48,6 +48,8 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/filing     filing a note, closing it upstream, and checking filed notes
     internal/board      builds the board and the here view, sorts rows into sections, draws text and the menu bar, keeps the cache; item.go is the --json read model
     internal/report     what changed since the last report, as text and as a page
+    internal/integration native host discovery, offline task snapshots and change subscriptions; the host owns its UI and notifications
+    integrations/herdr  a standalone herdr host plugin CLI: manifest, Tasks pane, observer, notifications, sidebar metadata and install guide; tests use fake sockets and throwaway homes
     internal/session    the last agent session in each project, and the summary handed to an agent sous starts
     internal/thread     the person's notes
     internal/signal     the signal contract, running signal plugins, what has been seen before, and the git, GitHub and GitLab signals
@@ -76,7 +78,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/testutil   helpers shared by every package's tests
 
 Code only depends downward, in this order: `cli`, then `doctor`, then
-`report` and `install`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
+`report`, `install` and `integration`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
 `tracker`, `plugin`, `harness`, `thread`, `session` and `project`, then `store`,
 `config`, `text` and `docs`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.

@@ -10,6 +10,7 @@ everyday flow, start with the [README](../README.md). Run
 * [Sharing a note](#sharing-a-note): `file`, `note --file`, `done --close`
 * [Going to a project](#going-to-a-project): `go`
 * [Handing work to an agent](#handing-work-to-an-agent): `go --run`, `show`, `reply`, `done --clean`
+* [Native host integration](#native-host-integration): `integration`
 * [Setting up](#setting-up): `setup`, `config`, `doctor`, `version`, `help`
 * [Options for the shell and menu bar](#options-for-the-shell-and-menu-bar): `--ambient`, `--cached`, `--refresh`, `--menubar`
 * [Commands for plugins and hooks](#commands-for-plugins-and-hooks): `signal`, `backend`, `launcher`, `runner`, `hook`
@@ -262,6 +263,59 @@ is due. There is no separate scheduled process. Keeping a note postpones its
 review reminder; any unavailable source still appears on the ordinary board.
 With no project folders configured, review reads local notes and checks only
 local trackers; remote status remains unchecked.
+
+## Native host integration
+
+### `sous integration`
+
+Describe sous as a task provider for an app such as herdr. With no call, or
+with `describe`, this shows the integration protocol, operations and task
+actions. Discovery works before setup and even when configuration cannot
+be read.
+
+Calls:
+
+* `describe`: describe protocol `sous.integration`, version `0`, supported
+  operations, safe argument templates and which actions change private
+  state. This is the default.
+* `snapshot`: read current private notes, signal snoozes and local runs
+  alongside the last structured board snapshot. This does not refresh
+  remote sources or run signal scans. It checks local filed notes and built
+  in runners; remote trackers and external runners retain their last known
+  status. Stable task keys, short CLI IDs, sections, applicable actions and
+  source problems let the host render its own task view. `as_of` is the
+  last full refresh; `observed_at` is this local read. A configured instance
+  without a structured snapshot exits `3` and suggests `sous --refresh`.
+  With no roots configured, private notes remain visible and the snapshot
+  explicitly says it is incomplete.
+* `watch`: send an initial snapshot, then changes and availability
+  transitions. It checks local state once per second and reloads settings.
+  The host owns this process and must stop it when the subscription ends.
+  Interrupt or terminate stops it cleanly. A failed read keeps the previous
+  revision and sends an `unavailable` event; recovery sends a fresh baseline.
+  This is a current-state feed, without durable event history or replay.
+
+Options:
+
+* `--json`: `describe` and `snapshot` return one JSON object. `watch` emits
+  one JSON object per line (NDJSON): `snapshot`, `changes` or `unavailable`
+  events. Empty arrays are `[]`. A new baseline includes no item changes;
+  the host should load it quietly. `changes` includes the full snapshot
+  and deltas keyed by stable task identity. A removal means the item left
+  the projection, and does not prove the work was completed.
+
+Examples:
+
+    sous integration --json
+    sous integration snapshot --json
+    sous integration watch --json
+
+The host chooses when to notify and runs advertised actions only on the
+person's request. Substitute parameters as whole argument values, with the
+advertised working directory when present; never construct a shell command.
+Opening a project requires a terminal. Refreshing is a separate host action
+and may use the network. See [the native integration contract](integrations.md)
+and [the herdr discovery record](../integrations/herdr/provider.json).
 
 ## Notes
 

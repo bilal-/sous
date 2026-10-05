@@ -156,6 +156,21 @@ func Known(s *store.Store, project string) ([]Observed, error) {
 	return out, nil
 }
 
+// Snoozes reads the person's current hiding choices without scanning a source.
+// Cached views overlay these choices while retaining their original findings
+// and freshness. Missing entries leave the cached choice unchanged.
+func Snoozes(s *store.Store) (map[string]bool, error) {
+	d, err := store.Load[ObsDoc](s, "observed", ObsFile)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(d.Signals))
+	for id, entry := range d.Signals {
+		out[id] = entry.SnoozedHash != nil && *entry.SnoozedHash == entry.Hash
+	}
+	return out, nil
+}
+
 // Snooze hides a signal until its text changes.
 // A unique prefix of an id is enough ("s:0a70").
 func Snooze(s *store.Store, id string) error {

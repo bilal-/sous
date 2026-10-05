@@ -1,0 +1,10 @@
+{
+  "kind": "discovery",
+  "v": 0,
+  "provider": "sous",
+  "protocol": "sous.integration",
+  "host": "herdr",
+  "discover": ["sous", "integration", "--json"],
+  "documentation": "docs/integrations.md",
+  "schema": "integrations/schema.json"
+}
