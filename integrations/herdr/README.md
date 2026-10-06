@@ -14,9 +14,8 @@ custom native widgets or clickable task destinations in notifications.
 * macOS or Linux, with herdr 0.8.2 or newer.
 * Go matching the repository's `go.mod` (currently 1.27.1 or newer) to build or
   install this source plugin. The compiled plugin needs no Go runtime.
-* `sous` with the `sous.integration` v0 interface, on herdr's `PATH`. Check it
-  with `sous integration --json`. Build sous from this checkout if your installed
-  release does not yet have that command.
+* `sous` 0.12.0 or newer with the `sous.integration` v0 interface, on herdr's
+  `PATH`. Check it with `sous integration --json`.
 * `stty`, normally supplied by the operating system, for the interactive pane.
 
 Configure sous's project folders using the [main guide](../../README.md), then
@@ -39,10 +38,8 @@ from GitHub, uninstall that copy before linking a local one.
 
 ## Install from GitHub
 
-Once these files are published in the repository:
-
 ```sh
-herdr plugin install bilal-/sous/integrations/herdr
+herdr plugin install bilal-/sous/integrations/herdr --ref v0.12.0
 ```
 
 Herdr clones the repository, previews the manifest, builds `sous-herdr` with Go,

@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.12.0]
+
 ### Added
 
 * An installable herdr plugin ships in `integrations/herdr`, with an interactive
