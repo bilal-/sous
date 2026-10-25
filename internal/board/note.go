@@ -84,7 +84,7 @@ func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
 	if v.Closed != nil {
 		state = "closed " + text.Ago(now, *v.Closed)
 	}
-	fmt.Fprintf(w, "%d  %s  %s  (%s)\n", v.ID, project.Describe(v.Project).Name, v.Text, state)
+	fmt.Fprintf(w, "%d  %s  %s  (%s)\n", v.ID, filepath.Base(v.Project), v.Text, state)
 	if v.Ref != nil {
 		fmt.Fprintf(w, "   filed: %s\n", *v.Ref)
 	}

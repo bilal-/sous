@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -42,8 +43,10 @@ type HereData struct {
 // back from observed.json. in.Signals is the list to run, normally
 // signal.Registry.Offline.
 func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
-	p := project.Describe(root)
-	d := &HereData{Project: root, Name: p.Name, Remote: p.Remote, RenderedAt: in.Now.UTC()}
+	d := &HereData{Project: root, Name: filepath.Base(root), RenderedAt: in.Now.UTC()}
+	if r := project.Remote(root); r != "" {
+		d.Remote = &r
+	}
 	facts, err := project.ReadFacts(root)
 	if err != nil {
 		return nil, err
@@ -65,8 +68,8 @@ func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 		d.Session = &sess
 	}
 	remote := ""
-	if p.Remote != nil {
-		remote = *p.Remote
+	if d.Remote != nil {
+		remote = *d.Remote
 	}
 	if d.Threads, err = thread.ForProject(in.Store, root, remote, in.Now); err != nil {
 		return nil, err

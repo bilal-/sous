@@ -33,8 +33,24 @@ type Filer struct {
 	// items keep no upstream state there; the board reconciles them.
 	Offline bool
 
-	once sync.Once
-	ps   []project.Project
+	once     sync.Once
+	ps       []project.Project
+	remoteMu sync.Mutex
+	remotes  map[string]string
+}
+
+func (f *Filer) remote(path string) string {
+	f.remoteMu.Lock()
+	defer f.remoteMu.Unlock()
+	if r, ok := f.remotes[path]; ok {
+		return r
+	}
+	if f.remotes == nil {
+		f.remotes = map[string]string{}
+	}
+	r := project.Remote(path)
+	f.remotes[path] = r
+	return r
 }
 
 func (f *Filer) warn() io.Writer {
@@ -61,7 +77,7 @@ func (f *Filer) CurrentPath(th thread.Thread) string {
 	if th.Remote == nil {
 		return th.Project
 	}
-	if _, err := os.Stat(th.Project); err == nil && project.Remote(th.Project) == *th.Remote {
+	if _, err := os.Stat(th.Project); err == nil && f.remote(th.Project) == *th.Remote {
 		return th.Project
 	}
 	for _, p := range f.discovered() {

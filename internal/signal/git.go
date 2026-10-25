@@ -169,15 +169,14 @@ func (r gitRepo) defaultBranch() string {
 
 // lastCommit is information for here: the subject, dated by the commit.
 func (r gitRepo) lastCommit() {
-	subject, err := gitOut(r.p, "log", "-1", "--format=%s")
+	out, err := gitOut(r.p, "log", "-1", "--format=%cI%x00%s")
 	if err != nil {
 		return
 	}
+	ts, subject, _ := strings.Cut(out, "\x00")
 	when := r.now
-	if ts, err := gitOut(r.p, "log", "-1", "--format=%cI"); err == nil {
-		if t, err := time.Parse(time.RFC3339, ts); err == nil {
-			when = t
-		}
+	if t, err := time.Parse(time.RFC3339, strings.TrimSpace(ts)); err == nil {
+		when = t
 	}
 	r.emit("last_commit", Info, subject, when, "")
 }

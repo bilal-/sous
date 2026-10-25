@@ -80,10 +80,11 @@ func (h *fakeHost) calls(method string) []hostCall {
 }
 
 type fakeProvider struct {
-	Snapshot integration.Snapshot
-	Started  chan struct{}
-	Stopped  chan struct{}
-	Projects map[string]project.Project
+	Snapshot     integration.Snapshot
+	Started      chan struct{}
+	Stopped      chan struct{}
+	Projects     map[string]project.Project
+	ProjectCalls int
 }
 
 func (p *fakeProvider) Describe(context.Context) (integration.Description, error) {
@@ -105,6 +106,7 @@ func (p *fakeProvider) Watch(ctx context.Context, emit func(integration.Event) e
 	return ctx.Err()
 }
 func (p *fakeProvider) Project(_ context.Context, cwd string) (project.Project, error) {
+	p.ProjectCalls++
 	if path := p.Projects[cwd]; path.Path != "" {
 		return path, nil
 	}
@@ -260,6 +262,16 @@ func TestProjectCountsResolveWorktreesAndKeepIncompleteSourcesVisible(t *testing
 	calls := h.calls("workspace.report_metadata")
 	if len(calls) != 1 || !strings.Contains(calls[0].Params["tokens"].(map[string]any)["sous_tasks"].(string), "?") || !strings.Contains(calls[0].Params["tokens"].(map[string]any)["sous_tasks"].(string), "1 on others") {
 		t.Fatalf("worktree scope or source gap lost: %+v", calls)
+	}
+	// A pane already at a project root in Snapshot.Projects resolves from
+	// the snapshot without spawning another provider project lookup.
+	h.Session.Panes[0].Cwd = "/code/acme/api"
+	before := p.ProjectCalls
+	if err := b.Publish(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if p.ProjectCalls != before {
+		t.Fatalf("known project root spawned Provider.Project (%d -> %d)", before, p.ProjectCalls)
 	}
 }
 

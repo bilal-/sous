@@ -133,9 +133,16 @@ func (b *Bridge) failure(message string) {
 	_, _ = store.Modify[bridgeState](b.State, "bridge", stateFile, func(s *bridgeState) error { s.Available, s.Error = false, message; return nil })
 }
 
-func (b *Bridge) project(ctx context.Context, session Session, workspace string) project.Project {
+func (b *Bridge) project(ctx context.Context, snapshot *integration.Snapshot, session Session, workspace string) project.Project {
 	for _, pane := range session.Panes {
 		if pane.Workspace == workspace && pane.Cwd != "" {
+			if snapshot != nil {
+				for _, known := range snapshot.Projects {
+					if sameProjectPath(known.Path, pane.Cwd) {
+						return known
+					}
+				}
+			}
 			if path, err := b.Provider.Project(ctx, pane.Cwd); err == nil {
 				return path
 			}
@@ -161,7 +168,7 @@ func (b *Bridge) Publish(ctx context.Context) (err error) {
 		return err
 	}
 	for _, workspace := range runtime.Workspaces {
-		project := b.project(ctx, runtime, workspace.ID)
+		project := b.project(ctx, state.Snapshot, runtime, workspace.ID)
 		onYou, onOthers, unfinished := 0, 0, 0
 		if state.Snapshot != nil {
 			for _, item := range state.Snapshot.Items {
@@ -220,7 +227,7 @@ func (b *Bridge) Open(ctx context.Context, item integration.Item) error {
 	workspace := ""
 	alias := ""
 	for _, candidate := range runtime.Workspaces {
-		identity := b.project(ctx, runtime, candidate.ID)
+		identity := b.project(ctx, state.Snapshot, runtime, candidate.ID)
 		if sameProjectPath(identity.Path, item.Project) {
 			workspace = candidate.ID
 			break
