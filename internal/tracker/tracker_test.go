@@ -253,3 +253,23 @@ func TestSSHConfigTabsIncludesAndRealHosts(t *testing.T) {
 		}
 	}
 }
+
+func TestConcurrentInitAndParseRemote(t *testing.T) {
+	home := t.TempDir()
+	os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
+	os.WriteFile(filepath.Join(home, ".ssh", "config"), []byte("Host work\n  HostName github.com\n"), 0o600)
+	t.Cleanup(func() { Init("", "", nil) })
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			Init(home, home, []string{"PATH=/usr/bin"})
+		}()
+		go func() {
+			defer wg.Done()
+			ParseRemote("work/acme/api")
+		}()
+	}
+	wg.Wait()
+}

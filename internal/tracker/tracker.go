@@ -268,12 +268,12 @@ func ParseRemote(remote string) (host, path string) {
 const GitHubHost = "github.com"
 
 var (
-	envMu    sync.Mutex
-	userHome string   // set by Init from cli; "" reads no ssh config
-	cacheDir string   // for the gh token lock
-	baseEnv  []string // the environment gh and glab run with
-	sshOnce  sync.Once
-	sshHosts []sshBlock
+	envMu     sync.Mutex
+	userHome  string   // set by Init from cli; "" reads no ssh config
+	cacheDir  string   // for the gh token lock
+	baseEnv   []string // the environment gh and glab run with
+	sshLoaded bool
+	sshHosts  []sshBlock
 )
 
 // Init tells tracker the person's home and cache folders and the
@@ -281,9 +281,22 @@ var (
 // none of these itself.
 func Init(home, cache string, env []string) {
 	envMu.Lock()
+	userHome, cacheDir, baseEnv = home, cache, slices.Clone(env)
+	sshLoaded, sshHosts = false, nil
+	envMu.Unlock()
+	ResetCache()
+}
+
+// sshBlocks returns the parsed ~/.ssh/config Host blocks for userHome,
+// reading the file at most once per Init.
+func sshBlocks() []sshBlock {
+	envMu.Lock()
 	defer envMu.Unlock()
-	userHome, cacheDir, baseEnv = home, cache, env
-	sshOnce = sync.Once{}
+	if !sshLoaded {
+		sshHosts = readSSHConfig(filepath.Join(userHome, ".ssh", "config"), userHome)
+		sshLoaded = true
+	}
+	return sshHosts
 }
 
 // childEnv is the environment for gh and glab, plus extra settings.
@@ -329,11 +342,9 @@ func (b sshBlock) matches(alias string) bool {
 // tracker's own host (Host github.com-work, HostName github.com): a port
 // trick (gitlab.com → altssh.gitlab.com) or an address is not a new host.
 func sshAlias(host string) string {
-	home, _ := homeAndCache()
-	sshOnce.Do(func() { sshHosts = readSSHConfig(filepath.Join(home, ".ssh", "config"), home) })
 	alias := strings.ToLower(host)
 	dotted := strings.Contains(alias, ".")
-	for _, b := range sshHosts {
+	for _, b := range sshBlocks() {
 		if !b.matches(alias) {
 			continue
 		}
