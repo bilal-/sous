@@ -108,3 +108,19 @@ func TestRunnerChecks(t *testing.T) {
 		t.Fatalf("%+v", cs)
 	}
 }
+
+func TestConfigChecksNamesUnreadableOrgFolder(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads 0o000 folders")
+	}
+	home := t.TempDir()
+	ws := filepath.Join(home, "ws")
+	org := filepath.Join(ws, "acme")
+	os.MkdirAll(org, 0o755)
+	os.Chmod(org, 0o000)
+	t.Cleanup(func() { os.Chmod(org, 0o755) })
+	cs := configChecks(Inputs{UserHome: home, SousHome: filepath.Join(home, ".sous"), Cfg: &config.Config{Roots: []string{ws}}})
+	if len(cs) != 2 || cs[1].Status != Bad || !strings.Contains(cs[1].Detail, "~/ws/acme") {
+		t.Fatalf("%+v", cs)
+	}
+}

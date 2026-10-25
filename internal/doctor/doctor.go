@@ -146,8 +146,21 @@ func configChecks(in Inputs) []Check {
 	case unavailable > 0:
 		var unreadable []string
 		for _, r := range in.Cfg.Roots {
-			if _, err := os.ReadDir(r); err != nil {
+			level1, err := os.ReadDir(r)
+			if err != nil {
 				unreadable = append(unreadable, config.Tilde(in.UserHome, r))
+				continue
+			}
+			for _, d1 := range level1 {
+				p1 := filepath.Join(r, d1.Name())
+				if st, err := os.Stat(p1); err == nil && st.IsDir() {
+					if _, err := os.Lstat(filepath.Join(p1, ".git")); err == nil {
+						continue
+					}
+					if _, err := os.ReadDir(p1); err != nil {
+						unreadable = append(unreadable, config.Tilde(in.UserHome, p1))
+					}
+				}
 			}
 		}
 		c.Status, c.Detail = Bad, "cannot read "+strings.Join(unreadable, ", ")

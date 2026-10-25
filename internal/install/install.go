@@ -141,6 +141,10 @@ func skillFile(home string, f harness.SkillFolder) string {
 // Skills writes the sous skill in every skill folder, and reports the agents
 // not already covered by Hooks.
 func Skills(home string, skill []byte) ([]string, error) {
+	legacy := filepath.Join(home, ".gemini", "antigravity", "skills", "sous")
+	_ = os.Remove(filepath.Join(legacy, "SKILL.md"))
+	_ = os.Remove(legacy)
+	_ = os.Remove(filepath.Dir(legacy))
 	var done []string
 	for _, p := range skillPlaces(home) {
 		if err := store.WriteFile(skillFile(home, p), skill, 0o644); err != nil {

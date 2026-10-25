@@ -70,10 +70,15 @@ func TestShellRespectsCommentsAndZdotdir(t *testing.T) {
 
 func TestSkillsGoWhereAgentsLook(t *testing.T) {
 	home := t.TempDir()
-	os.MkdirAll(filepath.Join(home, ".gemini", "antigravity"), 0o755)
+	legacy := filepath.Join(home, ".gemini", "antigravity", "skills", "sous", "SKILL.md")
+	os.MkdirAll(filepath.Dir(legacy), 0o755)
+	os.WriteFile(legacy, []byte("old"), 0o644)
 	done, err := Skills(home, []byte("---\nname: sous\n---\n"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
+		t.Fatalf("legacy skill remained: %v", err)
 	}
 	for _, d := range []string{".claude/skills/sous", ".codex/skills/sous", ".agents/skills/sous", ".gemini/config/skills/sous"} {
 		if _, err := os.Stat(filepath.Join(home, d, "SKILL.md")); err != nil {
