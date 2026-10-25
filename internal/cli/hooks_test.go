@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -348,6 +349,17 @@ func TestSessionStartOutsideAProject(t *testing.T) {
 	f.runIn(p, "note", "-k", "me", "and the cache")
 	out, _, _ = f.runStdin(hookJSON(map[string]any{"cwd": f.Home, "source": "startup"}), "hook", "session-start", "claude")
 	testutil.Contains(t, out, "2 on you")
+	// A run whose external runner failed on the last board refresh keeps
+	// its "run status unavailable" warning in the saved summary.
+	runner := f.plugin("sous-runner-orchid", "echo 'orchid: down' >&2; exit 1")
+	f.writeConfig(fmt.Sprintf("roots = [%q]\nplugins = [%q]\n", f.WS, runner))
+	st := &store.Store{Home: f.SousHome}
+	now := time.Now()
+	id, _, _ := thread.NoteRun(st, project.Project{Path: p}, "fix the flaky test", "k1", "orchid", "agent", now)
+	thread.SetRun(st, id, func(r *thread.Run) { r.Ref, r.State = "orchid:1", thread.RunRunning })
+	f.run() // saves the board with RunErr set on the run
+	out, _, _ = f.runStdin(hookJSON(map[string]any{"cwd": f.Home, "source": "startup"}), "hook", "session-start", "claude")
+	testutil.Contains(t, out, "(run status unavailable)")
 }
 
 // Runs that need the user are what an agent hears first at session start,

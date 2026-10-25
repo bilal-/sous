@@ -76,12 +76,9 @@ func sessionStart(e *Env, in harness.Input) string {
 			// Outside any project: what waits across them. The notes as
 			// they are now; what trackers and git said, from the saved
 			// board (never built here: this must stay quick).
-			if c, err := board.ReadCurrentCache(sub.store(), time.Now()); err == nil && c.Data != nil {
-				d, now := *c.Data, time.Now()
-				if ths, err := thread.Open(sub.store(), now); err == nil {
-					d.Threads = ths
-				}
-				fmt.Fprintln(&buf, board.Summary(&d, now))
+			now := time.Now()
+			if c, err := board.ReadCurrentCache(sub.store(), now); err == nil && c.Data != nil {
+				fmt.Fprintln(&buf, board.Summary(c.Data, now))
 			}
 		}
 		if in.Fresh {
