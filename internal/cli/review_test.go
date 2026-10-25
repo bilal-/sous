@@ -114,6 +114,10 @@ func TestReviewScopeAndReminder(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "review the API fix") || strings.Contains(out, "review the web fix") {
 		t.Fatalf("%d %s %s", code, out, errs)
 	}
+	out, errs, code = f.run("review", "-p", p)
+	if code != 0 || !strings.Contains(out, "review the API fix") || strings.Contains(out, "review the web fix") {
+		t.Fatalf("by path: %d %s %s", code, out, errs)
+	}
 	out, errs, code = f.run()
 	if code != 0 || !strings.Contains(out, "2 notes to review") || !strings.Contains(out, "sous review") {
 		t.Fatalf("%d %s %s", code, out, errs)

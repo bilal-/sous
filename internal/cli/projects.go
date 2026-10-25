@@ -71,10 +71,10 @@ func resolveProject(e *Env, term string) (project.Project, int) {
 	if term == "." {
 		term = "" // "." is the project you are in
 	}
-	// No term means "the repo I'm in" — capture must work even when
-	// config.toml is broken or absent. Only a term needs roots.
+	// No term (or an explicit path) means a repo on disk — capture must work
+	// even when config.toml is broken or absent. Only a name needs roots.
 	var roots, ignore []string
-	if term != "" {
+	if term != "" && !project.IsPath(term) {
 		cfg, code := e.config()
 		if code != 0 {
 			return project.Project{}, code

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/bilal-/sous/internal/text"
 	"io"
+	"path/filepath"
 	"strings"
 )
 
@@ -91,10 +92,35 @@ func Match(ps []Project, term string) (Project, error) {
 // ErrNotInProject: no term was given and cwd is not inside a repo.
 var ErrNotInProject = errors.New("not inside a project")
 
-// Resolve implements the -p rule: a term goes through the ladder over the
-// discovered projects; no term means the repo containing cwd, which need
-// not be under a root (it is still a fine place to take a note).
+// IsPath reports whether term is written as a filesystem path rather than
+// a project name or org/name.
+func IsPath(term string) bool {
+	return term == "." || term == ".." || filepath.IsAbs(term) ||
+		strings.HasPrefix(term, "./") || strings.HasPrefix(term, "../") || strings.HasPrefix(term, "~/")
+}
+
+// Resolve implements the -p rule: a path resolves on disk; a name goes
+// through the ladder over the discovered projects; no term (or ".") means
+// the repo containing cwd, which need not be under a root (it is still a
+// fine place to take a note).
 func Resolve(roots, ignore []string, term, cwd, home string, warn io.Writer) (Project, error) {
+	if term == "." {
+		term = ""
+	}
+	if IsPath(term) {
+		dir := term
+		if strings.HasPrefix(dir, "~/") && home != "" {
+			dir = filepath.Join(home, dir[2:])
+		} else if !filepath.IsAbs(dir) {
+			dir = filepath.Join(cwd, dir)
+		}
+		if isDir(dir) {
+			if root, ok := ForPath(dir, home); ok {
+				return Describe(root), nil
+			}
+		}
+		return Project{}, fmt.Errorf("%w '%s' (try: sous projects)", ErrNoMatch, term)
+	}
 	if term != "" {
 		if warn == nil {
 			warn = io.Discard

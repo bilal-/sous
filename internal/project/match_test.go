@@ -2,7 +2,10 @@ package project
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
+
+	"github.com/bilal-/sous/internal/testutil"
 )
 
 func fake(names ...string) []Project {
@@ -53,5 +56,20 @@ func TestExactOrgNameBeatsPrefix(t *testing.T) {
 	p, err := Match(ps, "org/r1")
 	if err != nil || p.Name != "r1" {
 		t.Fatalf("%v %v", p, err)
+	}
+}
+
+func TestResolvePath(t *testing.T) {
+	home := t.TempDir()
+	repo := filepath.Join(home, "ws", "acme", "api")
+	testutil.Repo(t, repo, true, "")
+	for _, term := range []string{repo, "~/ws/acme/api", "./acme/api"} {
+		p, err := Resolve(nil, nil, term, filepath.Join(home, "ws"), home, nil)
+		if err != nil || p.Name != "api" || p.Org != "acme" {
+			t.Fatalf("Resolve(%q): %+v %v", term, p, err)
+		}
+	}
+	if _, err := Resolve(nil, nil, filepath.Join(home, "missing"), home, home, nil); !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("missing path: %v", err)
 	}
 }
