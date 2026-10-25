@@ -560,3 +560,94 @@ func TestTheFakeAgentSpeaksForEveryHarness(t *testing.T) {
 		}
 	}
 }
+
+// Every harness in All has a case here covering hook placement, fresh vs
+// resumed hook input, hook replies, transcripts, and dash-prefixed prompts
+// in headless runs. A new harness with no case here fails.
+func TestEveryHarnessConforms(t *testing.T) {
+	cases := map[string]struct {
+		freshInput   string
+		resumedInput string
+		transcript   string
+	}{
+		"claude": {
+			freshInput:   `{"session_id":"s1","cwd":"/code/acme/api","transcript_path":"/t.jsonl","source":"startup"}`,
+			resumedInput: `{"session_id":"s1","cwd":"/code/acme/api","source":"resume"}`,
+			transcript:   `{"type":"assistant","message":{"content":[{"type":"text","text":"Done: the index is rebuilt."}]}}` + "\n",
+		},
+		"codex": {
+			freshInput:   `{"session_id":"s1","cwd":"/code/acme/api","transcript_path":"/t.jsonl","source":"startup"}`,
+			resumedInput: `{"session_id":"s1","cwd":"/code/acme/api","source":"resume"}`,
+			transcript:   `{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Done: the index is rebuilt."}]}}` + "\n",
+		},
+		"agy": {
+			freshInput:   `{"conversationId":"s1","workspacePaths":["/code/acme/api"],"transcriptPath":"/t.jsonl","invocationNum":0,"initialNumSteps":1}`,
+			resumedInput: `{"conversationId":"s1","workspacePaths":["/code/acme/api"],"invocationNum":1,"initialNumSteps":1}`,
+			transcript:   `{"step_index":1,"source":"MODEL","type":"PLANNER_RESPONSE","content":"Done: the index is rebuilt."}` + "\n",
+		},
+		"opencode": {
+			freshInput:   `{"session_id":"s1","cwd":"/code/acme/api","source":"startup"}`,
+			resumedInput: `{"session_id":"s1","cwd":"/code/acme/api","source":"resume"}`,
+		},
+	}
+	for _, h := range All {
+		c, ok := cases[h.Name]
+		if !ok {
+			t.Errorf("harness %s has no conformance case in TestEveryHarnessConforms", h.Name)
+			continue
+		}
+		t.Run(h.Name, func(t *testing.T) {
+			home := t.TempDir()
+			hookFile := h.HookFile(home)
+			for _, hk := range h.Hooks {
+				oldCmd := Cmd{Exe: "/old/sous", Role: hk.Role, Agent: h.Name}
+				if changed, err := h.Format.Place(hookFile, hk.Event, oldCmd); err != nil || !changed {
+					t.Fatalf("first Place(%s): changed=%v err=%v", hk.Event, changed, err)
+				}
+				if changed, err := h.Format.Place(hookFile, hk.Event, oldCmd); err != nil || changed {
+					t.Fatalf("second Place(%s): changed=%v err=%v", hk.Event, changed, err)
+				}
+				newCmd := Cmd{Exe: "/new/sous", Role: hk.Role, Agent: h.Name}
+				if changed, err := h.Format.Place(hookFile, hk.Event, newCmd); err != nil || !changed {
+					t.Fatalf("moved Place(%s): changed=%v err=%v", hk.Event, changed, err)
+				}
+				cmds, err := h.Format.Commands(hookFile, hk.Event)
+				if err != nil || !slices.Contains(cmds, newCmd.String()) || slices.Contains(cmds, oldCmd.String()) {
+					t.Fatalf("Commands(%s): %q %v", hk.Event, cmds, err)
+				}
+			}
+			in := h.Parse([]byte(c.freshInput))
+			if !in.Fresh || in.SessionID != "s1" || in.CWD != "/code/acme/api" {
+				t.Errorf("fresh Parse: %+v", in)
+			}
+			if h.Parse([]byte(c.resumedInput)).Fresh {
+				t.Errorf("resumed input parsed as fresh")
+			}
+			if !h.Parse([]byte("not json")).Fresh {
+				t.Errorf("invalid input must default to fresh")
+			}
+			if got := h.ReplyTo(RoleStart, "[sous] brief"); !strings.Contains(got, "[sous] brief") {
+				t.Errorf("ReplyTo start: %q", got)
+			}
+			if (h.Last != nil) != (c.transcript != "") {
+				t.Fatalf("Last=%v vs transcript fixture=%v", h.Last != nil, c.transcript != "")
+			}
+			if h.Last != nil {
+				tp := filepath.Join(t.TempDir(), "transcript.jsonl")
+				os.WriteFile(tp, []byte(c.transcript), 0o644)
+				if got := h.Last(tp); got != "Done: the index is rebuilt." {
+					t.Errorf("Last: %q", got)
+				}
+			}
+			if h.Headless != nil {
+				r := Run{Prompt: "-dash-prompt", Answer: "-dash-answer", Session: "s1", Worktree: "/w", Dir: t.TempDir()}
+				for _, args := range [][]string{h.Headless.Start(r), h.Headless.Resume(r)} {
+					last := args[len(args)-1]
+					if !strings.HasPrefix(last, "-p=") && !slices.Contains(args, "--") {
+						t.Errorf("dash-prefixed prompt/answer is not guarded against flag parsing: %q", args)
+					}
+				}
+			}
+		})
+	}
+}
