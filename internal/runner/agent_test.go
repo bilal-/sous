@@ -81,6 +81,18 @@ func TestStartRefusesWhatItCannotRun(t *testing.T) {
 	if _, err := a.Start(Request{ID: 2, UID: "u2", Project: repo, Brief: "b"}); !errors.Is(err, ErrNotSetUp) {
 		t.Fatalf("no claude: %v", err)
 	}
+	testutil.FakeBin(t, "claude", "")
+	broken, _ := Builtin("claude", a.Home, filepath.Join(t.TempDir(), "missing-sous"), time.Hour)
+	req := Request{ID: 8, UID: "u8", Project: repo, Brief: "b"}
+	if _, err := broken.Start(req); err == nil {
+		t.Fatal("missing watcher exe must fail")
+	}
+	if _, err := os.Stat(a.dir("u8")); !os.IsNotExist(err) {
+		t.Fatalf("failed start left run folder behind: %v", err)
+	}
+	if ref, err := a.Start(req); err != nil || ref != "claude:u8" {
+		t.Fatalf("retry after failed launch: %q %v", ref, err)
+	}
 }
 
 // A push from inside the run fails, and the repo's config

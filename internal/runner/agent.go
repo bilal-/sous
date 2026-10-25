@@ -114,15 +114,26 @@ func (a *Agent) Start(req Request) (string, error) {
 		os.RemoveAll(dir)
 		return "", fmt.Errorf("making the worktree: %v", err)
 	}
+	cleanup := func() {
+		project.Git(req.Project, "worktree", "remove", "--force", m.Worktree)
+		project.Git(req.Project, "branch", "-D", m.Branch)
+		os.RemoveAll(dir)
+	}
 	m.GitDirs = commitDirs(m.Worktree)
 	if err := writeJSON(dir, "run.json", m); err != nil {
+		cleanup()
 		return "", err
 	}
 	lock, err := lockRun(dir)
 	if err != nil {
+		cleanup()
 		return "", err
 	}
-	return ref, a.launch(dir, false, lock)
+	if err := a.launch(dir, false, lock); err != nil {
+		cleanup()
+		return "", err
+	}
+	return ref, nil
 }
 
 // commitDirs: where a commit in worktree writes, outside it: the shared
