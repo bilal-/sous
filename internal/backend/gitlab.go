@@ -61,7 +61,7 @@ func (gitlabCLI) TargetFromRef(ref tracker.Ref) Target {
 // api returns stdout on success and the stderr text as both the string and
 // the error on failure (View classifies GitLab's 404 messages from it).
 func (gitlabCLI) api(t Target, args ...string) (string, error) {
-	out, err := tracker.GLabRun(t.Host, append([]string{"api"}, args...)...)
+	out, err := tracker.Run(tracker.GitLab, t.Host, append([]string{"api"}, args...)...)
 	if err != nil {
 		return err.Error(), err
 	}

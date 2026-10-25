@@ -19,6 +19,9 @@ type Kind struct {
 	// Ready says why the tool cannot work for identity (a GitHub account,
 	// a GitLab host) right now: missing, logged out, no token.
 	Ready func(identity string) error
+	// Run runs the tool as identity with args: stdout on success, stderr as
+	// the error.
+	Run func(identity string, args ...string) ([]byte, error)
 	// Check is what sous doctor asks it, with the settings it reads.
 	Check func(cfg *config.Config) []Result
 }
@@ -33,14 +36,14 @@ const (
 // Kinds are the built in trackers.
 var Kinds = []Kind{
 	{
-		Name: GitHub, Tool: "gh", Host: GitHubHost, PublicHosts: []string{GitHubHost}, Ready: GHReady,
+		Name: GitHub, Tool: "gh", Host: GitHubHost, PublicHosts: []string{GitHubHost}, Ready: GHReady, Run: GHRun,
 		URL: func(r Ref) string {
 			return "https://github.com/" + r.Repo + "/issues/" + r.Number // GitHub redirects PR numbers
 		},
 		Check: func(cfg *config.Config) []Result { return checkGitHub(cfg.Identities(config.KeyGitHubAccount)) },
 	},
 	{
-		Name: GitLab, Tool: "glab", PublicHosts: []string{"gitlab.com"}, Ready: glabReady,
+		Name: GitLab, Tool: "glab", PublicHosts: []string{"gitlab.com"}, Ready: glabReady, Run: GLabRun,
 		URL: func(r Ref) string {
 			kind := "issues"
 			if r.MR {
@@ -60,4 +63,13 @@ func KindOf(name string) (Kind, bool) {
 		}
 	}
 	return Kind{}, false
+}
+
+// Run runs the built in tracker called name as identity with args.
+func Run(name, identity string, args ...string) ([]byte, error) {
+	k, ok := KindOf(name)
+	if !ok || k.Run == nil {
+		return nil, ErrNotInstalled
+	}
+	return k.Run(identity, args...)
 }

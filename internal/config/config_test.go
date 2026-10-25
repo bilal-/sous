@@ -185,6 +185,9 @@ func TestKeysComeFromConfigFields(t *testing.T) {
 	if got := KeyNames(); got != "roots, ignore, agent, runner, refresh_hours, run_minutes, plugins, gitlab_hosts" {
 		t.Fatal(got)
 	}
+	if got := strings.Join(ProjectKeys, ", "); got != "backend, github_account" {
+		t.Fatal(got)
+	}
 	k, _ := KeyNamed("refresh_hours")
 	if v, err := k.Parse([]string{"3"}); err != nil || v != 3 {
 		t.Fatal(v, err)

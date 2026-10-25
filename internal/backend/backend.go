@@ -72,14 +72,26 @@ func builtin(make func(Deps) Implementation) func(Deps) map[string]plugin.Op {
 	return func(d Deps) map[string]plugin.Op { return Ops(make(d)) }
 }
 
+var remoteBackends = map[string]func(Deps) Implementation{
+	tracker.GitHub: func(d Deps) Implementation { return GitHub(d.Home, d.Cfg) },
+	tracker.GitLab: func(d Deps) Implementation { return GitLab(d.Home, d.Cfg) },
+}
+
 // Registry is the built in backends, in detection order: a project's own
-// follow-ups file before any remote host. markdown is offline: its items
-// live in the project, so asking about them never leaves the machine.
+// follow-ups file before any remote host, then each tracker in tracker.Kinds.
+// markdown is offline: its items live in the project, so asking about them
+// never leaves the machine.
 var Registry = plugin.Registry[Deps]{Axis: plugin.AxisBackend, Builtins: []plugin.Builtin[Deps]{
 	{Name: "markdown", Offline: true, Ops: builtin(func(Deps) Implementation { return Markdown{} })},
-	{Name: tracker.GitHub, Ops: builtin(func(d Deps) Implementation { return GitHub(d.Home, d.Cfg) })},
-	{Name: tracker.GitLab, Ops: builtin(func(d Deps) Implementation { return GitLab(d.Home, d.Cfg) })},
 }}
+
+func init() {
+	for _, k := range tracker.Kinds {
+		if make, ok := remoteBackends[k.Name]; ok {
+			Registry.Builtins = append(Registry.Builtins, plugin.Builtin[Deps]{Name: k.Name, Ops: builtin(make)})
+		}
+	}
+}
 
 var timeout = plugin.Timeout // overridable in tests
 

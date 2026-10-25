@@ -42,7 +42,7 @@ func TestTablesAgree(t *testing.T) {
 		if !slices.Contains(backend.Registry.Names(), k.Name) || !slices.Contains(signal.Registry.Names(), k.Name) {
 			t.Errorf("tracker %s needs a built in backend and signal of that name", k.Name)
 		}
-		if k.Tool == "" || k.URL == nil || k.Check == nil || len(k.PublicHosts) == 0 {
+		if k.Tool == "" || k.URL == nil || k.Ready == nil || k.Run == nil || k.Check == nil || len(k.PublicHosts) == 0 {
 			t.Errorf("tracker %s is incomplete: %+v", k.Name, k)
 		}
 	}

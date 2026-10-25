@@ -43,7 +43,7 @@ func (g githubCLI) TargetFromRef(ref tracker.Ref) Target {
 // run executes gh for the target's account: stdout on success, stderr as
 // the error.
 func (g githubCLI) run(t Target, args ...string) (string, error) {
-	out, err := tracker.GHRun(t.Identity, args...)
+	out, err := tracker.Run(tracker.GitHub, t.Identity, args...)
 	return strings.TrimSpace(string(out)), err
 }
 

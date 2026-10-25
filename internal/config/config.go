@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"sort"
 	"strconv"
@@ -42,12 +43,9 @@ const (
 	KeyRunner = "runner"
 )
 
-// ProjectKeys are the per-project settings sous reads.
-var ProjectKeys = []string{KeyBackend, KeyGitHubAccount}
-
 type ProjectConfig struct {
-	Backend       string
-	GitHubAccount string
+	Backend       string `toml:"backend"`
+	GitHubAccount string `toml:"github_account"`
 	Raw           map[string]string
 }
 
@@ -63,7 +61,15 @@ func (c *Config) Project(orgName string) ProjectConfig {
 	for k, v := range c.Projects[orgName] {
 		raw[k] = v
 	}
-	return ProjectConfig{Backend: raw[KeyBackend], GitHubAccount: raw[KeyGitHubAccount], Raw: raw}
+	pc := ProjectConfig{Raw: raw}
+	v := reflect.ValueOf(&pc).Elem()
+	t := v.Type()
+	for i := range t.NumField() {
+		if name := t.Field(i).Tag.Get("toml"); name != "" {
+			v.Field(i).SetString(raw[name])
+		}
+	}
+	return pc
 }
 
 // Identities: every distinct value of key across projects, sorted — e.g.

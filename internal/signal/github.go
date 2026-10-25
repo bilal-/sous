@@ -22,7 +22,7 @@ type ghPR struct {
 
 func ghSearch(account string, extra ...string) ([]Hit, error) {
 	args := append([]string{"search", "prs", "--state=open", "--limit", strconv.Itoa(searchLimit), "--json", "repository,number,title,updatedAt"}, extra...)
-	out, err := tracker.GHRun(account, args...)
+	out, err := tracker.Run(tracker.GitHub, account, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func ghSearch(account string, extra ...string) ([]Hit, error) {
 // ghFailingChecks: your open pull requests whose latest checks failed. One
 // GraphQL search; pending, passing or absent checks are not failing.
 func ghFailingChecks(account string) ([]Hit, error) {
-	out, runErr := tracker.GHRun(account, "api", "--hostname", tracker.GitHubHost, "graphql", "-f", "query="+checksQuery)
+	out, runErr := tracker.Run(tracker.GitHub, account, "api", "--hostname", tracker.GitHubHost, "graphql", "-f", "query="+checksQuery)
 	var resp struct {
 		Data *struct {
 			Search struct {

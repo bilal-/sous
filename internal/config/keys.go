@@ -53,6 +53,21 @@ func KeyNames() string {
 	return strings.Join(names, ", ")
 }
 
+// ProjectKeys are the per-project settings sous reads, read from
+// ProjectConfig's own fields so the list can never fall behind them.
+var ProjectKeys = projectKeys()
+
+func projectKeys() []string {
+	t := reflect.TypeOf(ProjectConfig{})
+	var keys []string
+	for i := range t.NumField() {
+		if name := t.Field(i).Tag.Get("toml"); name != "" {
+			keys = append(keys, name)
+		}
+	}
+	return keys
+}
+
 // Parse turns values typed on the command line into this setting's value:
 // one word for a text setting, a positive whole number, or a list.
 func (k Key) Parse(args []string) (any, error) {

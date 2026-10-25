@@ -98,17 +98,29 @@ func ReadLinesLenient(r io.Reader) ([]Signal, int) {
 // failed (partial output is still kept by the runner).
 type Scanner func(paths []string, w, warn io.Writer, now time.Time) error
 
-// Registry is the built-in scanners, in order. A scanner is only built
-// when it runs: building the gitlab scanner asks glab which hosts it knows,
-// and a local-only caller must never pay for that. git is offline: it never
-// touches the network, so the resume view (and so the session hook and sous
-// go) may run it; the board runs them all, and here reads what the rest
-// last found from observed.json.
+var remoteScanners = map[string]func(*config.Config) Scanner{
+	tracker.GitHub: ScanGitHub,
+	tracker.GitLab: ScanGitLab,
+}
+
+// Registry is the built-in scanners, in order: git first, then each tracker
+// in tracker.Kinds. A scanner is only built when it runs: building the
+// gitlab scanner asks glab which hosts it knows, and a local-only caller
+// must never pay for that. git is offline: it never touches the network, so
+// the resume view (and so the session hook and sous go) may run it; the
+// board runs them all, and here reads what the rest last found from
+// observed.json.
 var Registry = plugin.Registry[*config.Config]{Axis: plugin.AxisSignal, Builtins: []plugin.Builtin[*config.Config]{
 	{Name: "git", Offline: true, Ops: scanOps(func(*config.Config) Scanner { return ScanGit })},
-	{Name: tracker.GitHub, Ops: scanOps(ScanGitHub)},
-	{Name: tracker.GitLab, Ops: scanOps(ScanGitLab)},
 }}
+
+func init() {
+	for _, k := range tracker.Kinds {
+		if make, ok := remoteScanners[k.Name]; ok {
+			Registry.Builtins = append(Registry.Builtins, plugin.Builtin[*config.Config]{Name: k.Name, Ops: scanOps(make)})
+		}
+	}
+}
 
 // scanOps is a built-in scanner's one call, `scan`: paths on stdin, JSON
 // Lines out. The scanner says what went wrong on stderr itself.
