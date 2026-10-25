@@ -43,9 +43,9 @@ Tracked with `sous note --file`; tick a box to close it in sous too.
 - [ ] harness: Kimi Code (~/.kimi-code/config.toml [[hooks]]; SessionStart cannot add context, so inject once on UserPromptSubmit). Docs only <!-- sous:0275e8018b1b -->
 - [ ] harness: Amp (TypeScript plugin in ~/.config/amp/plugins; agent.start returns a message). Docs only <!-- sous:a0ba73a9fc41 -->
 - [ ] harness: Goose and Cline: verify current lifecycle hooks and context injection before adding a harness; use an instruction to run sous here --brief while integration is unverified <!-- sous:7856df15f47b -->
-- [ ] setup: remove the sous skill sous left in ~/.gemini/antigravity/skills before 0.10 (setup now writes ~/.gemini/config/skills; Antigravity still documents the old location as [legacy supported](https://www.antigravity.google/docs/skills)) <!-- sous:12a2f8f5cefb -->
-- [ ] architecture: one tracker list (internal/trackers) that backend.Registry and signal.Registry derive from, as launcher and runner derive from harness.All; generic Kind.Run in place of GHRun/GLabRun/… <!-- sous:61c587c7bb37 -->
-- [ ] architecture: per-tracker settings in config (github_account, gitlab_hosts are named by hand in config and cli/config.go) <!-- sous:33219706bcae -->
+- [x] setup: remove the sous skill sous left in ~/.gemini/antigravity/skills before 0.10 (setup now writes ~/.gemini/config/skills; Antigravity still documents the old location as [legacy supported](https://www.antigravity.google/docs/skills)) <!-- sous:12a2f8f5cefb -->
+- [x] architecture: one tracker list (internal/trackers) that backend.Registry and signal.Registry derive from, as launcher and runner derive from harness.All; generic Kind.Run in place of GHRun/GLabRun/… <!-- sous:61c587c7bb37 -->
+- [x] architecture: per-tracker settings in config (github_account, gitlab_hosts are named by hand in config and cli/config.go) <!-- sous:33219706bcae -->
 - [ ] architecture: tracker.Client{Home, Cache, Env} made in cli and passed down, in place of tracker's globals (Init, token and host caches, ResetCache) <!-- sous:4491631ca0e8 -->
-- [ ] architecture: per-harness test fixtures (testdata/<name>/) and one harnesstest.Run over harness.All, so a new agent is one file; signaltest.Run for the GitHub and GitLab signals too <!-- sous:2b18c3ec9bae -->
-- [ ] board: a run's quoted question cut short loses its closing quote ("Two fixtures… · sous reply) in the session brief and board; cut inside the quote, keep the mark (board/note.go) <!-- sous:1484537e9662 -->
+- [x] architecture: per-harness test fixtures (testdata/<name>/) and one harnesstest.Run over harness.All, so a new agent is one file; signaltest.Run for the GitHub and GitLab signals too <!-- sous:2b18c3ec9bae -->
+- [x] board: a run's quoted question cut short loses its closing quote ("Two fixtures… · sous reply) in the session brief and board; cut inside the quote, keep the mark (board/note.go) <!-- sous:1484537e9662 -->
