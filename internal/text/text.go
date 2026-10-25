@@ -57,8 +57,9 @@ func AsOf(t, now time.Time) string {
 	return When(t)
 }
 
-// Ellipsize shortens s to at most n runes, ending in "…" when cut. Counting
-// runes, not bytes, keeps a cut from splitting a character.
+// Ellipsize shortens s to at most n runes, ending in "…" when cut (or "…\""
+// when cutting inside a trailing quoted phrase). Counting runes, not bytes,
+// keeps a cut from splitting a character.
 func Ellipsize(s string, n int) string {
 	r := []rune(s)
 	if len(r) <= n {
@@ -67,7 +68,32 @@ func Ellipsize(s string, n int) string {
 	if n <= 0 {
 		return ""
 	}
+	if n >= 3 && r[len(r)-1] == '"' {
+		if open, slash := openQuote(r[:n-2]); open {
+			end := n - 2
+			if slash && end > 1 {
+				end--
+			}
+			return string(r[:end]) + "…\""
+		}
+	}
 	return string(r[:n-1]) + "…"
+}
+
+func openQuote(r []rune) (open, danglingSlash bool) {
+	for i := 0; i < len(r); i++ {
+		if r[i] == '\\' {
+			if i+1 == len(r) {
+				return open, true
+			}
+			i++
+			continue
+		}
+		if r[i] == '"' {
+			open = !open
+		}
+	}
+	return open, false
 }
 
 // Fit is head, s and tail on one line of at most LineRunes, s cut to make

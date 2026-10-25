@@ -17,6 +17,8 @@ func TestEllipsizeIsRuneSafe(t *testing.T) {
 		{"exactly10!", 10, "exactly10!"},
 		{"eleven chars", 10, "eleven ch…"},
 		{"ééééé", 3, "éé…"},
+		{`run needs you · task · "Two fixtures disagree"`, 35, `run needs you · task · "Two fixtu…"`},
+		{`run needs you · a very long task name here · "short?"`, 30, `run needs you · a very long t…`},
 	} {
 		if got := Ellipsize(c.in, c.n); got != c.want {
 			t.Errorf("Ellipsize(%q, %d) = %q, want %q", c.in, c.n, got, c.want)

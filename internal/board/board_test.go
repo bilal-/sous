@@ -198,6 +198,13 @@ func TestRunsAreRoutedByState(t *testing.T) {
 	var b strings.Builder
 	Render(&b, d)
 	testutil.Contains(t, b.String(), "running · fix the flaky test", `run needs you · fix the flaky test · "which fixture?"`, "run done, review it · fix the flaky test · sous/run-3", "run failed · fix the flaky test · which fixture?", "(status unavailable: claude: timed out)")
+
+	longQ := mk(6, "needs_you")
+	longQ.Run.Text = "Two fixtures in checkout_spec disagree on the tax rate and discount order"
+	b.Reset()
+	Render(&b, &Data{Checked: 1, RenderedAt: now, Threads: []thread.View{longQ}})
+	testutil.Contains(t, b.String(), `…"`, cutNote)
+	testutil.Contains(t, RunsWaiting([]thread.View{longQ}), `…" · sous reply 6 "<answer>"`)
 }
 
 // A run whose state could not be read makes the headline say ?.
