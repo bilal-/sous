@@ -7,6 +7,29 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.12.1]
+
+### Fixed
+
+* A run's quoted question cut short on the board or in `here --brief` keeps
+  its closing quote (`…"`).
+* Starting a session outside any project preserves cached run and tracker
+  warnings in the summary headline.
+* A built-in runner whose watcher fails to launch cleans up the worktree,
+  branch and run folder it created, so a retry with the same `--key` can
+  start cleanly.
+* `-p` project resolution in `sous note`, `sous review` and `sous config`
+  accepts explicit filesystem paths (`/abs`, `./rel`, `../rel`, `~/...`),
+  matching `sous here` and `sous go`.
+* `sous setup` removes the legacy Antigravity skill at
+  `~/.gemini/antigravity/skills/sous/SKILL.md` left by pre-0.10 installs.
+* `sous doctor` names unreadable org folders under configured project roots
+  alongside unreadable roots.
+* Concurrent `tracker.Init` and `tracker.ParseRemote` calls no longer race
+  on `~/.ssh/config` host alias loading.
+* `here`, `filing`, the `git` signal and the `herdr` integration avoid
+  redundant `git` and `sous here --json` subprocess calls.
+
 ## [0.12.0]
 
 ### Added
