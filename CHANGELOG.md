@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.22.0]
+
 ### Changed
 
 * `sous serve` is laid out for finding and acting, not just reading: a
