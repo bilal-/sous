@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,6 +65,33 @@ func TestGoldenBoard(t *testing.T) {
 	golden(t, "board_empty", b.Bytes())
 }
 
+// Runs get their own groups above the rest, in the order the person acts on
+// them: what needs an answer, what is moving, what waits for review.
+func TestGoldenBoardRuns(t *testing.T) {
+	now := time.Date(2026, 9, 27, 9, 2, 0, 0, time.UTC)
+	ago := func(m int) time.Time { return now.Add(-time.Duration(m) * time.Minute) }
+	run := func(id int, project, text string, r thread.Run, since time.Time) thread.View {
+		return thread.View{Thread: thread.Thread{ID: id, Project: project, Kind: thread.Them, Text: text, Since: since, Run: &r}}
+	}
+	d := &Data{
+		Projects: []project.Project{{Path: "/ws/acme/web"}, {Path: "/ws/acme/app"}, {Path: "/ws/acme/billing"}},
+		Threads: []thread.View{
+			run(91, "/ws/acme/web", "checkout redesign", thread.Run{Runner: "claude", Ref: "claude:1", State: thread.RunNeedsYou, Text: "which fixture should win?"}, ago(30)),
+			run(92, "/ws/acme/app", "add dark mode", thread.Run{Runner: "orchid", Ref: "orchid:2", State: thread.RunRunning, Phase: thread.PhaseReviewing,
+				Progress: &thread.RunProgress{Done: 3, Total: 7, Step: "reviewing T4"}}, ago(12)),
+			run(93, "/ws/acme/web", "pairing timeout", thread.Run{Runner: "claude", Ref: "claude:3", State: thread.RunRunning}, ago(2)),
+			run(88, "/ws/acme/billing", "retry note writes", thread.Run{Runner: "claude", Ref: "claude:4", State: thread.RunDone, Phase: thread.PhaseReady, Branch: "sous/run-88",
+				Result: &thread.RunResult{Base: "b", Commit: "c", Files: &thread.RunFiles{Changed: 4}, Checks: []thread.RunCheck{{Name: "go test", Status: "passed", Required: true}}}}, ago(90)),
+			{Thread: thread.Thread{ID: 1, Project: "/ws/acme/billing", Kind: thread.Me, Text: "need final copy for the pricing page", Since: now.Add(-6 * 24 * time.Hour)}},
+		},
+		Plugins: []signal.PluginStatus{{Name: "git", Status: "ok"}},
+		Checked: 3, RenderedAt: now,
+	}
+	var b bytes.Buffer
+	Render(&b, d)
+	golden(t, "board_runs", b.Bytes())
+}
+
 func TestGoldenHere(t *testing.T) {
 	now := time.Date(2026, 9, 27, 9, 0, 0, 0, time.UTC)
 	msg := "tests pass, next is the widget layout for the home screen"
@@ -92,4 +120,34 @@ func TestGoldenHere(t *testing.T) {
 	var b bytes.Buffer
 	RenderHere(&b, d, now, false)
 	golden(t, "here", b.Bytes())
+}
+
+// sous show for a run says where it is, what it asks and what its result
+// holds, as its runner reports them.
+func TestRenderNoteRunDetail(t *testing.T) {
+	now := time.Date(2026, 9, 27, 9, 2, 0, 0, time.UTC)
+	v := thread.View{Thread: thread.Thread{ID: 88, Project: "/ws/acme/billing", Kind: thread.Them, Text: "retry note writes", Since: now.Add(-time.Hour),
+		Run: &thread.Run{Runner: "claude", Ref: "claude:4", State: thread.RunDone, Phase: thread.PhaseReady, Branch: "sous/run-88",
+			Result: &thread.RunResult{Summary: "retry on EBUSY", Base: "b", Commit: "4ab2c3d4e5f6a7b8c9d0", Files: &thread.RunFiles{Changed: 4, LinesAdded: 88, LinesRemoved: 12},
+				Checks: []thread.RunCheck{{Name: "go test ./...", Status: "passed", Required: true}, {Name: "lint", Status: "not_run"}}, Review: &thread.RunReview{By: "codex", Independent: true}}}}}
+	var b bytes.Buffer
+	RenderNote(&b, v, now, "/home/sam")
+	for _, want := range []string{"result: retry on EBUSY · 4 files, +88 −12 · reviewed by codex · commit 4ab2c3d4e5f6", "check: go test ./... (passed, required)", "check: lint (not run)"} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("missing %q in:\n%s", want, b.String())
+		}
+	}
+	v.Run = &thread.Run{Runner: "orchid", Ref: "orchid:2", State: thread.RunNeedsYou, Text: "which fixture?",
+		Question: &thread.RunQuestion{ID: "q", Token: "t", Text: "which fixture?", Choices: []string{"keep old", "use new"}, Other: true}}
+	b.Reset()
+	RenderNote(&b, v, now, "/home/sam")
+	if !strings.Contains(b.String(), "choices: keep old · use new, or your own words") {
+		t.Errorf("%s", b.String())
+	}
+	v.Run = &thread.Run{Runner: "orchid", Ref: "orchid:2", State: thread.RunRunning, Phase: thread.PhaseBlocked, Reason: "rate limited"}
+	b.Reset()
+	RenderNote(&b, v, now, "/home/sam")
+	if !strings.Contains(b.String(), "blocked: rate limited") {
+		t.Errorf("%s", b.String())
+	}
 }

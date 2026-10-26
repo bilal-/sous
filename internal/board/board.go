@@ -138,20 +138,24 @@ func Render(w io.Writer, d *Data) { RenderSaved(w, d, d.RenderedAt) }
 // day says which day.
 func RenderSaved(w io.Writer, d *Data, now time.Time) {
 	s := Classify(d)
+	g := groupRuns(&s)
 	switch {
 	case d.Checked == 0:
 		fmt.Fprintln(w, "sous · nothing checked · no projects in your project folders")
-	case s.Total() == 0 && len(s.Why) == 0:
+	case s.Total()+g.total() == 0 && len(s.Why) == 0:
 		fmt.Fprintln(w, "sous · 0 on you · nothing waiting")
 	case len(s.Why) > 0:
-		fmt.Fprintf(w, "sous · ? on you (%s) · %d found · %d on others · %d unfinished\n", strings.Join(s.Why, ", "), len(s.Me), len(s.Them), len(s.Unfinished))
+		fmt.Fprintf(w, "sous · %s? on you (%s) · %d found · %d on others · %d unfinished\n", g.counts(), strings.Join(s.Why, ", "), len(s.Me), len(s.Them), len(s.Unfinished))
 	default:
-		fmt.Fprintln(w, "sous · "+s.Counts())
+		fmt.Fprintln(w, "sous · "+g.counts()+s.Counts())
 	}
 	cut := false
-	section := func(title string, rows []Row) {
+	section := func(title, hint string, rows []Row) {
 		if len(rows) == 0 {
 			return
+		}
+		if hint != "" {
+			title += " · " + hint
 		}
 		fmt.Fprintf(w, "\n  %s\n", title)
 		for _, r := range rows {
@@ -159,9 +163,12 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 			cut = cut || r.cut() && !signal.IsID(r.ID)
 		}
 	}
-	section("on you", s.Me)
-	section("on others", s.Them)
-	section("unfinished", s.Unfinished)
+	section("needs you", `sous reply <n> "<answer>"`, g.needsYou)
+	section("in progress", "", g.inProgress)
+	section("ready to review", "sous show <n>", g.ready)
+	section("on you", "", s.Me)
+	section("on others", "", s.Them)
+	section("unfinished", "", s.Unfinished)
 	if cut {
 		fmt.Fprintln(w, cutNote)
 	}

@@ -109,6 +109,29 @@ sous · 2 on you · 1 on others · 3 unfinished
 * **unfinished**: work left in git: uncommitted files, unpushed commits,
   stashes, branches that were never pushed. Oldest first.
 
+Runs come first, in their own groups, in the order you act on them:
+
+```
+sous · 1 needs you · 2 running · 1 ready · 21 on you · 2 on others · 20 unfinished
+
+  needs you · sous reply <n> "<answer>"
+  91              web                       checkout redesign · "which fixture should win?"               30m
+
+  in progress
+  92              app                       add dark mode · reviewing T4 · 3 of 7                         12m
+
+  ready to review · sous show <n>
+  88              billing                   retry note writes · 4 files · checks passed · sous/run-88     1h
+```
+
+* **needs you**: runs waiting on your answer, with their question.
+* **in progress**: runs at work, with their step and how far they have got
+  when their runner says.
+* **ready to review**: finished runs, with what their result holds.
+
+A run that failed stays on you. Groups with nothing in them are left out,
+and so are their counts.
+
 Every row has an id (a note number like `3`, or a row id like
 `s:0b4ac59dfd33`) and an age: how long it has been waiting.
 
@@ -504,8 +527,8 @@ Options:
 ### `sous go <project> --run`
 
 You, or your agent, can hand a task to an agent that works on it in the
-background. The run shows on the board: waiting on others while it works,
-then on you when it is done, needs an answer, or failed. The context your
+background. The run shows on the board: in progress while it works, then
+under needs you or ready to review, or on you if it failed. The context your
 agent gets when a session starts lists the runs that need you first.
 
 ```

@@ -255,5 +255,5 @@ func TestBoardAsksTrackersAndRunnersAtOnce(t *testing.T) {
 			t.Errorf("the %s was asked alone:\n%s", who, out)
 		}
 	}
-	testutil.Contains(t, out, "filed on the slow tracker", "running · a slow task")
+	testutil.Contains(t, out, "filed on the slow tracker", "in progress", "a slow task · running")
 }

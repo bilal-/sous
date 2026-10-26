@@ -197,7 +197,7 @@ func TestRunsAreRoutedByState(t *testing.T) {
 	}
 	var b strings.Builder
 	Render(&b, d)
-	testutil.Contains(t, b.String(), "running · fix the flaky test", `run needs you · fix the flaky test · "which fixture?"`, "run done, review it · fix the flaky test · sous/run-3", "run failed · fix the flaky test · which fixture?", "(status unavailable: claude: timed out)")
+	testutil.Contains(t, b.String(), "in progress\n  1 ", "fix the flaky test · running", "needs you", `fix the flaky test · "which fixture?"`, "ready to review", "fix the flaky test · which fixture? · sous/run-3", "on you\n  4 ", "run failed · fix the flaky test · which fixture?", "(status unavailable: claude: timed out)")
 
 	longQ := mk(6, "needs_you")
 	longQ.Run.Text = "Two fixtures in checkout_spec disagree on the tax rate and discount order"

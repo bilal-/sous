@@ -7,6 +7,18 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+
+* The board puts runs first, in their own groups: **needs you** (with the
+  question), **in progress** (with the step and how far it has got when the
+  runner says) and **ready to review** (with what the result holds). The
+  headline counts them. A failed run stays on you.
+
+### Added
+
+* `sous show` for a run shows its step and progress, a question's choices,
+  and its result: summary, files, who reviewed it, and each check.
+
 ## [0.15.0]
 
 ### Added

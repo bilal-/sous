@@ -94,6 +94,7 @@ func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
 			line += " · " + r.Text
 		}
 		fmt.Fprintf(w, "%s (%s)\n", line, r.Runner)
+		renderRunDetail(w, r)
 		if v.RunErr != "" {
 			fmt.Fprintf(w, "   status unavailable: %s\n", v.RunErr)
 		}
@@ -113,6 +114,58 @@ func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
 	if next := Next(v); len(next) > 0 {
 		fmt.Fprintf(w, "   next: %s\n", strings.Join(next, " · "))
 	}
+}
+
+// renderRunDetail is what a runner that describes itself says beyond the
+// state: where it is, what it asks, and what its result holds, each as the
+// runner reports it.
+func renderRunDetail(w io.Writer, r *thread.Run) {
+	if r.State.Working() {
+		if d := groupDetail(r); d != "" {
+			fmt.Fprintf(w, "   %s\n", strings.TrimPrefix(d, " · "))
+		}
+	}
+	if q := r.Question; q != nil && len(q.Choices) > 0 {
+		choices := strings.Join(q.Choices, " · ")
+		if q.Other {
+			choices += ", or your own words"
+		}
+		fmt.Fprintf(w, "   choices: %s\n", choices)
+	}
+	res := r.Result
+	if res == nil {
+		return
+	}
+	summary := []string{}
+	if res.Summary != "" {
+		summary = append(summary, res.Summary)
+	}
+	if res.Files != nil {
+		summary = append(summary, fmt.Sprintf("%s, +%d −%d", plural(res.Files.Changed, "file"), res.Files.LinesAdded, res.Files.LinesRemoved))
+	}
+	if rv := res.Review; rv != nil {
+		by := "reviewed by " + rv.By
+		if !rv.Independent {
+			by += " (same vendor)"
+		}
+		summary = append(summary, by)
+	}
+	fmt.Fprintf(w, "   result: %s · commit %s\n", strings.Join(summary, " · "), shortCommit(res.Commit))
+	for _, c := range res.Checks {
+		status := strings.ReplaceAll(c.Status, "_", " ")
+		if c.Required {
+			status += ", required"
+		}
+		fmt.Fprintf(w, "   check: %s (%s)\n", c.Name, status)
+	}
+}
+
+// shortCommit is a commit as people read one.
+func shortCommit(c string) string {
+	if len(c) > 12 {
+		return c[:12]
+	}
+	return c
 }
 
 // RunsWaiting lists the runs, in every project, that wait on the user
