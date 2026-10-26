@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.15.0]
+
 ### Added
 
 * `sous integration --protocol 1 watch` sends only the changed items after
