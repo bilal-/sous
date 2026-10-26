@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.17.0]
+
 ### Added
 
 * `sous approve <n> [--commit <sha>]` publishes a run's result: the runner
