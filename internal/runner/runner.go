@@ -29,6 +29,9 @@ type Request struct {
 	Project  string `json:"project"`
 	Brief    string `json:"brief"`
 	HereFile string `json:"here_file,omitempty"`
+	// Check: the project's check command, from its settings, which a runner
+	// may run on the work before reporting it ready.
+	Check string `json:"check,omitempty"`
 }
 
 // State is how a run is going: thread.RunState, which notes store.
@@ -163,6 +166,34 @@ func Reply(ctx context.Context, r Runner, project, ref, answer string, q *thread
 		in = plugin.Request(req)
 	}
 	return optional(r, "reply")(call(ctx, r, in, "reply", project, ref))
+}
+
+// Approve asks r to accept commit as the run's result and name the branch
+// that holds it, for sous to push. A commit that is no longer the result
+// is ErrConflict; a runner without approve, ErrUnsupported.
+func Approve(ctx context.Context, r Runner, project, ref, commit, op string) (Approval, error) {
+	req := struct {
+		V      int    `json:"v"`
+		Commit string `json:"commit"`
+		Op     string `json:"op,omitempty"`
+	}{plugin.Version, commit, op}
+	a, err := call(ctx, r, plugin.Request(req), "approve", project, ref)
+	if err := optional(r, "approve")(a, err); err != nil {
+		return Approval{}, err
+	}
+	var ap Approval
+	switch {
+	case json.Unmarshal([]byte(a.Out), &ap) != nil:
+		return Approval{}, fmt.Errorf("%s approve: not a JSON line: %.60q", r.Name, a.Out)
+	case ap.Commit != commit || ap.Branch == "":
+		return Approval{}, fmt.Errorf("%s approve: answered branch %q at %q for commit %q", r.Name, ap.Branch, ap.Commit, commit)
+	}
+	return ap, nil
+}
+
+// Discard turns a run's result down; the work stays until clean.
+func Discard(ctx context.Context, r Runner, project, ref string) error {
+	return optional(r, "discard")(call(ctx, r, nil, "discard", project, ref))
 }
 
 // Stop ends a run; stopping twice is fine.

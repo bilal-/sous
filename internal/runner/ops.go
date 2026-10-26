@@ -17,6 +17,8 @@ type Implementation interface {
 	Reply(project, ref, answer string) error
 	Stop(project, ref string) error
 	Clean(project, ref string) error
+	Approve(project, ref, commit string) (Approval, error)
+	Discard(project, ref string) error
 }
 
 // ops adapts an Implementation to the contract: usage errors exit 2,
@@ -59,11 +61,28 @@ func ops(impl Implementation) map[string]plugin.Op {
 			if len(args) != 0 {
 				return plugin.Usage(stderr, "describe")
 			}
-			b, _ := json.Marshal(Capabilities{V: plugin.Version, Calls: baseCalls})
+			b, _ := json.Marshal(Capabilities{V: plugin.Version, Calls: append(append([]string{}, baseCalls...), "approve", "discard"), Fields: []string{"phase", "result"}})
 			fmt.Fprintln(stdout, string(b))
 			return plugin.ExitOK
 		},
-		"stop":  plugin.RefCall("stop", func(project, ref string, _ io.Reader, _ io.Writer) error { return impl.Stop(project, ref) }),
-		"clean": plugin.RefCall("clean", func(project, ref string, _ io.Reader, _ io.Writer) error { return impl.Clean(project, ref) }),
+		"approve": plugin.RefCall("approve", func(project, ref string, stdin io.Reader, stdout io.Writer) error {
+			var req struct {
+				Commit string `json:"commit"`
+			}
+			if err := json.NewDecoder(stdin).Decode(&req); err != nil || req.Commit == "" {
+				return fmt.Errorf("%w: approve takes JSON naming the commit", plugin.ErrUnsupported)
+			}
+			ap, err := impl.Approve(project, ref, req.Commit)
+			if err != nil {
+				return err
+			}
+			ap.V = plugin.Version
+			b, _ := json.Marshal(ap)
+			fmt.Fprintln(stdout, string(b))
+			return nil
+		}),
+		"discard": plugin.RefCall("discard", func(project, ref string, _ io.Reader, _ io.Writer) error { return impl.Discard(project, ref) }),
+		"stop":    plugin.RefCall("stop", func(project, ref string, _ io.Reader, _ io.Writer) error { return impl.Stop(project, ref) }),
+		"clean":   plugin.RefCall("clean", func(project, ref string, _ io.Reader, _ io.Writer) error { return impl.Clean(project, ref) }),
 	}
 }

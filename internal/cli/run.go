@@ -17,7 +17,8 @@ import (
 
 // dispatcher builds the runs use case layer for this invocation.
 func (e *Env) dispatcher() *runs.Dispatcher {
-	return &runs.Dispatcher{Store: e.store(), Runners: runner.Registry.All(e.Exe, e.Cfg.Plugins), Now: time.Now}
+	return &runs.Dispatcher{Store: e.store(), Runners: runner.Registry.All(e.Exe, e.Cfg.Plugins), Now: time.Now, OpenDraft: runs.DraftOpener(e.Cfg),
+		CheckFor: func(path string) string { return e.Cfg.Project(project.OrgName(path)).Check }}
 }
 
 // goRun: sous go <project> --run <brief|-> [-a <runner>] [--key <text>].

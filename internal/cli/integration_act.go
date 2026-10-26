@@ -20,9 +20,11 @@ import (
 // Version 1's actions a host runs with an op it made. Each is done once per
 // op (runs.Ops), however often the host asks, and answers with one outcome.
 var integrationActs = map[string]func(e *Env, target string, in []byte, a argv) (string, runs.Outcome){
-	"run":   actRun,
-	"stop":  actStop,
-	"reply": actReply,
+	"run":     actRun,
+	"stop":    actStop,
+	"reply":   actReply,
+	"approve": actApprove,
+	"discard": actDiscard,
 }
 
 // The most a host may send on standard input, by action.
@@ -53,6 +55,8 @@ func cmdIntegrationAct(e *Env, a argv, v int, action string) int {
 		return fail(e, exitUsage, "%s", usage)
 	case a.has("question") && action != "reply":
 		return fail(e, exitUsage, "--question goes with reply\n%s", usage)
+	case a.has("commit") != (action == "approve"):
+		return fail(e, exitUsage, "--commit goes with approve, and approve needs it\n%s", usage)
 	}
 	op, target := a.value("op"), a.pos[1]
 	var in []byte
@@ -64,7 +68,7 @@ func cmdIntegrationAct(e *Env, a argv, v int, action string) int {
 		in = b
 	}
 	var id string
-	o := runs.Ops{Store: e.store(), Now: time.Now}.Do(op, action, opHash(action, target, a.value("question"), in), func() runs.Outcome {
+	o := runs.Ops{Store: e.store(), Now: time.Now}.Do(op, action, opHash(action, target, a.value("question"), a.value("commit"), in), func() runs.Outcome {
 		if max, ok := actInputMax[action]; ok && (len(in) > max || strings.TrimSpace(string(in)) == "") {
 			return runs.Outcome{Outcome: runs.Refused, Reason: "bad_input"}
 		}
@@ -172,6 +176,18 @@ func runErr(id int, step string, err error) runs.Outcome {
 		return runs.Outcome{Outcome: runs.Conflict, ID: n, Reason: "wrong_phase"}
 	case errors.Is(err, runner.ErrUnsupported):
 		return runs.Outcome{Outcome: runs.Refused, ID: n, Reason: "unsupported"}
+	case errors.Is(err, runs.ErrCommitChanged):
+		return runs.Outcome{Outcome: runs.Conflict, ID: n, Reason: "commit_changed"}
+	case errors.Is(err, runs.ErrNoResult):
+		return runs.Outcome{Outcome: runs.Conflict, ID: n, Reason: "wrong_phase"}
+	case errors.Is(err, runs.ErrPrivateState):
+		return runs.Outcome{Outcome: runs.Refused, ID: n, Reason: "private_state"}
+	case errors.Is(err, runs.ErrBadBranch):
+		return runs.Outcome{Outcome: runs.Refused, ID: n, Reason: "bad_branch"}
+	}
+	var pe runs.PublishError
+	if errors.As(err, &pe) {
+		return runs.Outcome{Outcome: runs.Failed, ID: n, Reason: pe.Stage + "_failed: " + pe.Err.Error()}
 	}
 	o := failed(step, err)
 	o.ID = n
@@ -200,6 +216,28 @@ func actReply(e *Env, target string, in []byte, a argv) (string, runs.Outcome) {
 	}
 	if err := e.dispatcher().ReplyTo(e.ctx(), id, q, string(in), a.value("op")); err != nil {
 		return target, runErr(id, "reply", err)
+	}
+	return target, runs.Outcome{Outcome: runs.Done, ID: target}
+}
+
+func actApprove(e *Env, target string, _ []byte, a argv) (string, runs.Outcome) {
+	id, refused := noteOf(e, target)
+	if refused != nil {
+		return "", *refused
+	}
+	if _, err := e.dispatcher().Approve(e.ctx(), id, a.value("commit"), a.value("op")); err != nil {
+		return target, runErr(id, "approve", err)
+	}
+	return target, runs.Outcome{Outcome: runs.Done, ID: target}
+}
+
+func actDiscard(e *Env, target string, _ []byte, _ argv) (string, runs.Outcome) {
+	id, refused := noteOf(e, target)
+	if refused != nil {
+		return "", *refused
+	}
+	if err := e.dispatcher().Discard(e.ctx(), id); err != nil {
+		return target, runErr(id, "discard", err)
 	}
 	return target, runs.Outcome{Outcome: runs.Done, ID: target}
 }

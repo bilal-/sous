@@ -7,6 +7,28 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+* `sous approve <n> [--commit <sha>]` publishes a run's result: the runner
+  accepts it, sous pushes exactly that commit to the run's branch (never
+  forced) and opens a draft pull request with `gh` or `glab`, finding the
+  one it opened before. Each stage is recorded, so approving again after a
+  failure carries on. sous refuses branches outside the runner's own,
+  branches that moved off the approved commit, and work carrying a
+  runner's private state (`.orchid/`).
+* `sous discard <n>` turns a run's result down.
+* The built in runners report phases and a result: committed work, with
+  the files it changed and the outcome of the project's `check` command
+  (a new project setting), which runs in the worktree when the agent
+  finishes. A failed check fails the run. They answer `approve` and
+  `discard`.
+* Runners may answer optional `approve` and `discard` calls; the start
+  request carries `check`. `sous runner check` checks that approving a
+  commit that is not the result exits `4`.
+* Version 1 integration: `approve` (write_public, confirm) and `discard`
+  actions, a paged `diff` read of a run's result, and `publication` on runs,
+  whose phase reads `published` once the pull request is open.
+
 ## [0.16.0]
 
 ### Changed

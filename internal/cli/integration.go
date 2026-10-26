@@ -34,7 +34,13 @@ func cmdIntegration(e *Env, a argv) int {
 	if _, ok := integrationActs[call]; ok {
 		return cmdIntegrationAct(e, a, v, call)
 	}
-	if len(a.pos) > 1 || a.has("op") || a.has("question") || a.has("max-bytes") && call != "watch" {
+	if call == "diff" {
+		return cmdIntegrationDiff(e, a, v)
+	}
+	if a.has("page") {
+		return fail(e, exitUsage, "--page goes with diff")
+	}
+	if len(a.pos) > 1 || a.has("op") || a.has("question") || a.has("commit") || a.has("max-bytes") && call != "watch" {
 		return fail(e, exitUsage, "usage: sous integration [describe|snapshot|watch] [--protocol <n>] [--json]")
 	}
 	switch call {

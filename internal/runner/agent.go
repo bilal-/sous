@@ -51,6 +51,8 @@ type runMeta struct {
 	Limit    time.Duration `json:"limit"`
 	// GitDirs: the folders outside the worktree that a commit writes to.
 	GitDirs []string `json:"git_dirs,omitempty"`
+	Base    string   `json:"base,omitempty"`  // the commit the work starts from
+	Check   string   `json:"check,omitempty"` // the project's check command
 }
 
 func (a *Agent) dir(uid string) string { return filepath.Join(a.Home, "runs", uid) }
@@ -110,6 +112,10 @@ func (a *Agent) Start(req Request) (string, error) {
 		here, _ = os.ReadFile(req.HereFile)
 	}
 	m.Prompt = prompt(m.Branch, string(here), req.Brief)
+	m.Check = req.Check
+	if base, err := project.Git(req.Project, "rev-parse", "HEAD"); err == nil {
+		m.Base = strings.TrimSpace(base)
+	}
 	if _, err := project.Git(req.Project, "worktree", "add", "-q", "-b", m.Branch, m.Worktree, "HEAD"); err != nil {
 		os.RemoveAll(dir)
 		return "", fmt.Errorf("making the worktree: %v", err)

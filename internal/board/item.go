@@ -65,6 +65,8 @@ type RunItem struct {
 	Progress *thread.RunProgress `json:"progress,omitempty"`
 	Question *thread.RunQuestion `json:"question,omitempty"`
 	Result   *thread.RunResult   `json:"result,omitempty"`
+	// Publication: how far publishing an approved result got.
+	Publication *thread.RunPublication `json:"publication,omitempty"`
 }
 
 // Item is r as --json shows it.
@@ -78,7 +80,7 @@ func (r Row) Item() Item {
 	if r.Run != nil {
 		it.Run = &RunItem{Runner: r.Run.Runner, State: r.Run.State, Text: r.Run.Text, Branch: r.Run.Branch, Worktree: r.Run.Worktree,
 			Log: r.Run.Log, Key: r.Run.Key, Brief: r.Run.Brief, CheckedAt: r.Run.Checked, Error: r.RunErr,
-			Phase: r.Run.Phase, Reason: r.Run.Reason, Progress: r.Run.Progress, Question: r.Run.Question, Result: r.Run.Result}
+			Phase: r.Run.Phase, Reason: r.Run.Reason, Progress: r.Run.Progress, Question: r.Run.Question, Result: r.Run.Result, Publication: r.Run.Publication}
 	}
 	if r.ClosedAt != nil {
 		by := "you"

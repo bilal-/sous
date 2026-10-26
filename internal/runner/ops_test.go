@@ -59,3 +59,8 @@ func TestOpsSpeakTheContract(t *testing.T) {
 		t.Fatal("usage is exit 2")
 	}
 }
+
+func (m *memRunner) Approve(_, _, commit string) (Approval, error) {
+	return Approval{Branch: "sous/run-1", Commit: commit, Base: "b"}, nil
+}
+func (m *memRunner) Discard(_, _ string) error { return nil }

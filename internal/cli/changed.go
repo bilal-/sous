@@ -26,6 +26,8 @@ type changedJSON struct {
 	Joined bool `json:"joined,omitempty"`
 	// Run: for go --run, the run it started or found.
 	Run *board.RunItem `json:"run,omitempty"`
+	// Publication: for approve, how far publishing got.
+	Publication *thread.RunPublication `json:"publication,omitempty"`
 	// Error: part of it could not be done (noted, but not filed: why).
 	Error string `json:"error,omitempty"`
 }
@@ -46,13 +48,15 @@ const (
 	didReplied        = "replied"
 	didStarted        = "started"
 	didAlreadyStarted = "already_started"
+	didApproved       = "approved"
+	didDiscarded      = "discarded"
 	// What sous config did to a setting.
 	didSet       = "set"
 	didUnset     = "unset"
 	didUnchanged = "unchanged"
 )
 
-var dids = []string{didNoted, didAlreadyNoted, didReviewed, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didCleaned, didFiled, didReplied, didStarted, didAlreadyStarted,
+var dids = []string{didNoted, didAlreadyNoted, didReviewed, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didCleaned, didFiled, didReplied, didStarted, didAlreadyStarted, didApproved, didDiscarded,
 	didSet, didUnset, didUnchanged}
 
 // changed prints c: as JSON, or as what it did and what to do next on

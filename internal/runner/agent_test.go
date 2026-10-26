@@ -15,6 +15,7 @@ import (
 
 	"github.com/bilal-/sous/internal/harness/harnesstest"
 	"github.com/bilal-/sous/internal/testutil"
+	"github.com/bilal-/sous/internal/thread"
 )
 
 // gitRepo makes a repo with one commit and a remote it could push to.
@@ -478,3 +479,48 @@ func TestAgentsRunInTheirWorktree(t *testing.T) {
 // lines is args as the fake agent writes them, one to a line; a last ""
 // leaves the prompt that follows open.
 func lines(args ...string) string { return strings.Join(args, "\n") }
+
+// Finished, committed work is the run's result: ready when its checks
+// passed, approved only for the commit it holds, failed when a required
+// check failed.
+func TestBuiltinResultAndApproval(t *testing.T) {
+	a, ref, dir := startedRun(t, "claude", time.Minute)
+	var m runMeta
+	readJSON(dir, "run.json", &m)
+	if m.Base == "" {
+		t.Fatal("start records the commit the work starts from")
+	}
+	os.WriteFile(filepath.Join(m.Worktree, "fix.txt"), []byte("one\ntwo\n"), 0o600)
+	exec.Command("git", "-C", m.Worktree, "add", "fix.txt").Run()
+	exec.Command("git", "-C", m.Worktree, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "work").Run()
+	m.Check = "true"
+	writeJSON(dir, "result.json", result{Checks: runCheck(m)})
+	st, err := a.Status("", ref)
+	if err != nil || st.State != Done || st.Phase != thread.PhaseReady || st.Result == nil || st.Result.Base != m.Base ||
+		st.Result.Files.Added != 1 || st.Result.Files.LinesAdded != 2 || len(st.Result.Checks) != 1 || st.Result.Checks[0].Status != "passed" {
+		t.Fatalf("%+v %+v %v", st, st.Result, err)
+	}
+	if _, err := a.Approve("", ref, m.Base); !errors.Is(err, ErrConflict) {
+		t.Fatalf("approving another commit: %v", err)
+	}
+	ap, err := a.Approve("", ref, st.Result.Commit)
+	if err != nil || ap.Branch != m.Branch || ap.Commit != st.Result.Commit || ap.Base != m.Base {
+		t.Fatalf("%+v %v", ap, err)
+	}
+	if again, _ := a.Approve("", ref, st.Result.Commit); again != ap {
+		t.Fatal("approving twice gives the same answer")
+	}
+	if st, _ := a.Status("", ref); st.Phase != thread.PhaseApproved {
+		t.Fatalf("%+v", st)
+	}
+	m.Check = "false"
+	writeJSON(dir, "result.json", result{Checks: runCheck(m)})
+	if st, _ := a.Status("", ref); st.State != Failed || st.Phase != thread.PhaseFailed || !strings.Contains(st.Text, "checks failed") {
+		t.Fatalf("%+v", st)
+	}
+	writeJSON(dir, "result.json", result{})
+	a.Discard("", ref)
+	if st, _ := a.Status("", ref); st.Phase != thread.PhaseDiscarded || st.State != Failed {
+		t.Fatalf("%+v", st)
+	}
+}

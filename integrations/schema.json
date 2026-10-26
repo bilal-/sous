@@ -99,7 +99,8 @@
         "key": {"type": "string"}, "brief": {"type": "string"}, "checked_at": {"$ref": "#/$defs/nullableTime"},
         "log_tail": {"$ref": "#/$defs/strings"}, "error": {"type": "string"},
         "phase": {"type": "string"}, "reason": {"type": "string"},
-        "progress": {"type": "object"}, "question": {"type": "object"}, "result": {"type": "object"}
+        "progress": {"type": "object"}, "question": {"type": "object"}, "result": {"type": "object"},
+        "publication": {"type": "object"}
       }
     },
     "project": {

@@ -331,6 +331,8 @@ Options:
   actions below. Asking again with the same op and input never does it
   twice.
 * `--question <id>:<token>`: with `reply`, the question being answered.
+* `--commit <sha>`: with `approve`, the commit the person reviewed.
+* `--page <n>`: with `diff`, which page of the result, from 1.
 
 Version 1 actions, for a host (each with `--protocol 1 --op <op>`, the
 target after `--`):
@@ -342,6 +344,12 @@ target after `--`):
 * `reply --question <id>:<token> -- <n>`: answer the question named, the
   answer on standard input (4 KB at most). If the run now asks something
   else, nothing is sent.
+* `approve --commit <sha> -- <n>`: publish the result if it is still that
+  commit, as `sous approve` does.
+* `discard -- <n>`: turn the result down.
+
+And one read, with no op: `diff --page <n> -- <n>` prints a run's result
+as a patch, 32 KB a page, with `pages` saying how many there are.
 
 Each prints one outcome (one JSON object with `--json`): `done`,
 `already_done` (that op was done before), `in_progress` (it is being done
@@ -388,11 +396,11 @@ under another kind, `next` starts with the `sous kind` that changes it. With `--
 that changes something answers this way, and `did` says what happened
 (`noted`, `already_noted`, `edited`, `kind`, `snoozed`, `closed`,
 `already_closed`, `reviewed` (kept open after a review), `cleaned` (a closed run's worktree removed by
-`done --clean`), `filed`, `replied`, and for `go --run` `started` and
-`already_started`). An answer may also carry `kind` (after `kind`, or
-when `note` found the note under another kind), `until` (after
-`snooze`), `joined` (`note` joined lines into one), `run` (after
-`go --run`), and `error`, for a part that could not be done: a note
+`done --clean`), `filed`, `replied`, `approved`, `discarded`, and for
+`go --run` `started` and `already_started`). An answer may also carry
+`kind` (after `kind`, or when `note` found the note under another kind),
+`until` (after `snooze`), `joined` (`note` joined lines into one), `run`
+(after `go --run`), `publication` (after `approve`), and `error`, for a part that could not be done: a note
 saved but not filed, a run whose runner cannot clean up.
 
 Options:
@@ -584,6 +592,44 @@ Answers a run that needs you. The agent carries on in the same session. A
 run that is still working cannot be answered yet, and one that never
 started a session cannot carry on: start a new run with the answer in its
 brief.
+
+### `sous approve <n>`
+
+Publishes a run's result once you have reviewed it. The runner accepts it
+and names its branch, sous pushes exactly the result's commit to that
+branch (never forced), then opens a draft pull request with `gh` or
+`glab`, or finds the one it opened before. Runs themselves never push.
+
+```
+sous approve 88
+sous approve 88 --commit 4ab2c3d4e5f6
+```
+
+Options:
+
+* `--commit <sha>`: approve only if the result is still this commit, the
+  one you reviewed. Without it, the result the run holds now is approved.
+* `--json`: what it did, with `publication`: the branch, the commit, the
+  remote and the pull request.
+
+Each stage is recorded as it is reached (accepted, pushed, published). If
+one fails, `sous approve <n>` again carries on from there. sous refuses to
+publish a branch outside the runner's own (`sous/…` or `<runner>/…`), a
+branch that moved off the approved commit, or work that carries a
+runner's private state (`.orchid/`).
+
+### `sous discard <n>`
+
+Turns a run's result down. Its work stays until `sous done <n> --clean`.
+A result already approved cannot be discarded.
+
+```
+sous discard 88
+```
+
+Options:
+
+* `--json`: what it did, and what to do next.
 
 ### `sous done <n> --clean` for a run
 
@@ -835,6 +881,7 @@ remote_runs = "true"           # a host (a phone through Shellbell) may start ru
 | `[projects."<org>/<name>"]` or `[projects."<org>/*"]` | | Settings for one project, or every project in an org folder. |
 | `backend` | picked for you | Where `sous file` sends this project's notes: `markdown`, `github`, `gitlab`, or a plugin's name. |
 | `github_account` | `gh`'s active account | Which `gh` account to use for these projects, when you have more than one. |
+| `check` | none | A command that checks a run's work, run in its worktree when the agent finishes (`make test`). A failed check fails the run; a run with no check is ready without one. |
 | `remote_runs` | off | `"true"` lets a host start runs in these projects through `sous integration --protocol 1 run`. Starting runs yourself with `sous go --run` needs nothing. |
 
 ## Files sous keeps

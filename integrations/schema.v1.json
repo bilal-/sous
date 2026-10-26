@@ -17,6 +17,9 @@
     },
     {
       "$ref": "#/$defs/error"
+    },
+    {
+      "$ref": "#/$defs/diff"
     }
   ],
   "$defs": {
@@ -768,9 +771,12 @@
           "type": "string"
         },
         "pr": {
-          "$ref": "#/$defs/nullableString"
+          "type": "string"
         },
         "error": {
+          "type": "string"
+        },
+        "base": {
           "type": "string"
         }
       }
@@ -996,6 +1002,48 @@
         },
         "item": {
           "$ref": "#/$defs/item"
+        }
+      }
+    },
+    "diff": {
+      "type": "object",
+      "required": [
+        "kind",
+        "v",
+        "id",
+        "base",
+        "commit",
+        "page",
+        "pages",
+        "patch"
+      ],
+      "properties": {
+        "kind": {
+          "const": "diff"
+        },
+        "v": {
+          "const": 1
+        },
+        "id": {
+          "type": "string"
+        },
+        "base": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pages": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "patch": {
+          "type": "string",
+          "description": "git diff base commit, at most 32 KB a page, cut at line ends"
         }
       }
     }

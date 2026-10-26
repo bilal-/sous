@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -58,6 +59,11 @@ func Check(ctx context.Context, r Runner, project string, o CheckOptions) []stri
 	}
 	if o.Finish != nil && st.State != Done && st.State != NeedsYou {
 		fail("after finish: %s %q; want done or needs_you", st.State, st.Text)
+	}
+	if caps.Has("approve") {
+		if _, err := Approve(ctx, r, project, ref, strings.Repeat("0", 40), ""); !errors.Is(err, ErrConflict) {
+			fail("approve of a commit that is not the result: %v; want exit 4", err)
+		}
 	}
 	for range 2 {
 		if err := Stop(ctx, r, project, ref); err != nil {

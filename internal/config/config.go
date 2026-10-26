@@ -48,7 +48,9 @@ type ProjectConfig struct {
 	GitHubAccount string `toml:"github_account"`
 	// RemoteRuns "true": a host (a phone through Shellbell) may start runs here.
 	RemoteRuns string `toml:"remote_runs"`
-	Raw        map[string]string
+	// Check is the command that checks a run's work before it is ready.
+	Check string `toml:"check"`
+	Raw   map[string]string
 }
 
 // Project resolves the per-project settings for "org/name": an exact

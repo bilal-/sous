@@ -102,6 +102,8 @@ type Run struct {
 	Progress *RunProgress `json:"progress,omitempty"`
 	Question *RunQuestion `json:"question,omitempty"`
 	Result   *RunResult   `json:"result,omitempty"`
+	// Publication: sous's own record of publishing an approved result.
+	Publication *RunPublication `json:"publication,omitempty"`
 }
 
 // Belongs: is this thread about the project at path (or with this remote)?

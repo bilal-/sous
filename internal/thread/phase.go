@@ -76,6 +76,26 @@ type RunResult struct {
 	Review  *RunReview `json:"review,omitempty"` // as the runner reports it
 }
 
+// RunPublication is how far sous got publishing an approved result: the
+// runner accepted it, sous pushed it, then opened a draft PR. Each stage is
+// recorded as it is reached, so approving again carries on from there.
+type RunPublication struct {
+	Stage  string `json:"stage"` // accepted | pushed | published
+	Commit string `json:"commit"`
+	Base   string `json:"base,omitempty"`
+	Branch string `json:"branch,omitempty"`
+	Remote string `json:"remote,omitempty"`
+	PR     string `json:"pr,omitempty"`
+	Error  string `json:"error,omitempty"` // why the next stage failed last time
+}
+
+// The stages of a publication, in order.
+const (
+	PubAccepted  = "accepted"
+	PubPushed    = "pushed"
+	PubPublished = "published"
+)
+
 // RunFiles counts what a result changed.
 type RunFiles struct {
 	Changed      int `json:"changed"`

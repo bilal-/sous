@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/testutil"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -148,4 +149,61 @@ func mustAtoi(t *testing.T, s string) int {
 		t.Fatal(err)
 	}
 	return n
+}
+
+// A host approves the exact commit it showed: sous pushes it and, with no
+// tracker it knows for the remote, says the pull request is left to do,
+// keeping how far it got. diff shows the result a page at a time.
+func TestIntegrationApproveDiffDiscard(t *testing.T) {
+	f := fixture(t)
+	origin := testutil.Bare(t, filepath.Join(t.TempDir(), "origin.git"))
+	p := testutil.Repo(t, filepath.Join(f.WS, "acme", "api"), true, origin)
+	base := strings.TrimSpace(f.git(p, "rev-parse", "HEAD"))
+	f.git(p, "checkout", "-q", "-b", "sous/run-1")
+	os.WriteFile(filepath.Join(p, "fix.txt"), []byte("fixed\n"), 0o600)
+	f.git(p, "add", "fix.txt")
+	f.git(p, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "fix")
+	commit := strings.TrimSpace(f.git(p, "rev-parse", "HEAD"))
+	f.git(p, "checkout", "-q", "-")
+	ru := f.plugin("sous-runner-fake", `case "$1" in
+describe) echo '{"v":0,"calls":["start","status","stop","approve","discard"],"fields":["phase","result"]}';;
+start) cat > /dev/null; echo fake:1;;
+status) echo '{"v":0,"state":"done","phase":"ready","result":{"base":"`+base+`","commit":"`+commit+`"}}';;
+approve) cat > /dev/null; echo '{"v":0,"branch":"sous/run-1","commit":"`+commit+`","base":"`+base+`"}';;
+discard) ;;
+stop) ;;
+esac`)
+	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + ru + "\"]\nrunner = \"fake\"\n[projects.\"acme/api\"]\nremote_runs = \"true\"\n")
+	run, _ := f.act("fix it", "run", "--op", "op-run0000000000001", "--", p)
+	f.run("show", run.ID)
+	out, errs, code := f.run("integration", "--protocol", "1", "--json", "diff", "--page", "1", "--", run.ID)
+	var d struct {
+		Commit string `json:"commit"`
+		Pages  int    `json:"pages"`
+		Patch  string `json:"patch"`
+	}
+	if code != 0 || json.Unmarshal([]byte(out), &d) != nil || d.Commit != commit || d.Pages != 1 || !strings.Contains(d.Patch, "+fixed") {
+		t.Fatalf("diff: %d %q %q", code, out, errs)
+	}
+	if o, code := f.act("", "approve", "--op", "op-approve000000001", "--commit", base, "--", run.ID); code != 4 || o.Reason != "commit_changed" {
+		t.Fatalf("stale commit: %+v %d", o, code)
+	}
+	o, code := f.act("", "approve", "--op", "op-approve000000002", "--commit", commit, "--", run.ID)
+	if code != 1 || o.Outcome != "failed" || !strings.HasPrefix(o.Reason, "pr_failed") {
+		t.Fatalf("approve: %+v %d", o, code)
+	}
+	if got := strings.TrimSpace(f.git(origin, "rev-parse", "refs/heads/sous/run-1")); got != commit {
+		t.Fatalf("pushed %q", got)
+	}
+	th, _ := thread.Get(&store.Store{Home: f.SousHome}, mustAtoi(t, run.ID))
+	if th.Run.Publication == nil || th.Run.Publication.Stage != thread.PubPushed {
+		t.Fatalf("%+v", th.Run.Publication)
+	}
+	if o, code := f.act("", "discard", "--op", "op-discard000000001", "--", run.ID); code != 4 || o.Reason != "commit_changed" {
+		t.Fatalf("discard after approve: %+v %d", o, code)
+	}
+	run2, _ := f.act("fix it again", "run", "--op", "op-run0000000000002", "--", p)
+	if out, errs, code := f.run("discard", run2.ID, "--json"); code != 0 || !strings.Contains(out, `"did": "discarded"`) {
+		t.Fatalf("discard: %d %q %q", code, out, errs)
+	}
 }

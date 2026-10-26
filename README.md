@@ -440,6 +440,8 @@ Each public command explains itself with `--help`.
 | `sous go <project> [-a agent]` | start your agent in a project |
 | `sous go <project> --run <brief>` | hand a task to an agent in the background |
 | `sous reply <n> "answer"` | answer a run that needs you |
+| `sous approve <n>` | publish a run's result: push its branch and open a draft PR |
+| `sous discard <n>` | turn a run's result down |
 | `sous setup [folder...]` | set everything up; folders say where your projects are |
 | `sous config [key value...]` | see or change settings |
 | `sous doctor` | check the setup, and how to fix what is not right |
@@ -488,6 +490,8 @@ github_account = "work-account"
 
 [projects."acme/billing"]      # one project
 backend = "markdown"           # always file to FOLLOWUPS.md here
+check = "make test"            # what checks a run's work before it is ready
+remote_runs = "true"           # a host (a phone through Shellbell) may start runs here
 ```
 
 If you use more than one GitHub account, `github_account` picks the one

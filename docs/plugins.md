@@ -183,6 +183,8 @@ owns checking whether its worker is alive.
 | `reply <project> <ref>` | the person's answer on standard input | | `0` carrying on, `1` failed, `2` replies not supported. Optional |
 | `clean <project> <ref>` | | | `0` cleaned, `1` failed, `2` not supported. Optional: remove what a finished run left, keeping its work |
 | `describe` | | one JSON line | `0` described. Optional: what else you speak (below) |
+| `approve <project> <ref>` | JSON on standard input | one JSON line | `0` accepted, `1` failed, `2` not supported, `4` the result is no longer that commit. Optional |
+| `discard <project> <ref>` | | | `0` discarded, `1` failed, `2` not supported. Optional: the person turned the result down; keep the work until `clean` |
 
 `reply` may also exit `4` when the question it answers has moved on; sous
 tells the person rather than retrying. A runner whose `describe` names the
@@ -241,7 +243,31 @@ a line) is called exactly as before. The fields, beside `state`:
 | `result` | the work offered for review: its `base` commit, the `commit` that holds it, a `summary`, `files` counts, the `checks` you ran (`passed`, `failed` or `not_run`, and whether `required`), and who did the `review` |
 
 Once a run reports a `result`, its `commit` never changes: new work is a
-new commit and a new result. Once `stop` has answered `0`, no later status
+new commit and a new result.
+
+`approve` is how the person accepts a result. sous sends the commit they
+reviewed, and the op of the host that asked:
+
+```json
+{"v":0,"commit":"4ab2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0","op":"op-3c4d5e6f7a8b9c0d"}
+```
+
+If it is still your result, record that and answer with the local branch
+that holds exactly that commit, and the commit it started from:
+
+```json
+{"v":0,"branch":"orchid/result/r-014","commit":"4ab2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0","base":"9f1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c"}
+```
+
+Never push: sous pushes that commit to that branch and opens the draft
+pull request. The branch must start with `sous/` or your runner's name
+and a slash, and nothing between `base` and `commit` may carry your
+private state (`.orchid/`): sous refuses to publish either. Approving the
+same commit twice gives the same answer; another commit exits `4`.
+
+The `start` request may carry `check`: the project's check command, from
+its settings. Run it on the work before reporting it ready, and report it
+in `checks` with `required` set. Once `stop` has answered `0`, no later status
 reports `queued`, `planning`, `working` or `reviewing` for that run.
 
 Rules that matter:

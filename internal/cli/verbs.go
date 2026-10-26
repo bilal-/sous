@@ -37,7 +37,7 @@ var verbs []verb
 
 func init() {
 	verbs = []verb{
-		{"integration", cmdIntegration, true, false, &argSpec{values: []string{"protocol", "op", "question", "max-bytes"}, max: 2}, "sous integration [describe|snapshot|watch|run|stop|reply] [--protocol <n>] [--max-bytes <n>] [--op <op>] [--question <id>:<token>] native host discovery, cached tasks and changes; run, stop and reply are version 1 actions"},
+		{"integration", cmdIntegration, true, false, &argSpec{values: []string{"protocol", "op", "question", "commit", "max-bytes", "page"}, max: 2}, "sous integration [describe|snapshot|watch|run|stop|reply|approve|discard|diff] [--protocol <n>] [--max-bytes <n>] [--op <op>] [--question <id>:<token>] [--commit <sha>] [--page <n>] native host discovery, cached tasks and changes; run, stop, reply, approve, discard and diff are version 1 calls"},
 		{"here", cmdHere, true, true, &argSpec{max: 1}, "sous here [path]  where was I, for the current project"},
 		{"report", cmdReport, true, false, exactly(0, []string{"week", "open"}, nil), "sous report [--week] [--open]   what changed since the last report; --open shows the page"},
 		{"review", cmdReview, true, false, exactly(0, nil, []string{"p", "keep"}), "sous review [-p <project>] [--keep <n>] check old follow-ups; --keep leaves one open for another week"},
@@ -51,6 +51,8 @@ func init() {
 		{"config", cmdConfig, true, false, &argSpec{bools: []string{"unset", "add", "remove"}, values: []string{"p"}, max: -1}, "sous config [<key> <value...>] [-p <project>] [--unset] [--add] [--remove]   show or change settings; -p for one project or org/*"},
 		{"go", cmdGo, true, false, exactly(1, []string{"where"}, []string{"a|agent", "in", "run", "key"}), "sous go <project> [-a <agent>] [--run <brief|->] [--key <text>] [--where] [--in <folder>]   start your agent there; --run hands it a task in the background"},
 		{"show", cmdShow, true, false, exactly(1, nil, nil), "sous show <n>     one note in full; for a run, how it is going"},
+		{"approve", cmdApprove, true, false, exactly(1, nil, []string{"commit"}), "sous approve <n> [--commit <sha>]   publish a run's result: push its branch and open a draft PR"},
+		{"discard", cmdDiscard, true, false, exactly(1, nil, nil), "sous discard <n>   turn a run's result down; its work stays until done --clean"},
 		{"reply", cmdReply, true, false, &argSpec{min: 2, max: 2, raw: true}, `sous reply <n> "<answer>"   answer a run that needs you; it carries on`},
 		{"setup", cmdSetup, false, false, &argSpec{bools: append([]string{"print-skill", "no-shell"}, harness.Flags()...), max: -1}, "sous setup [folder...] [--no-shell] [--print-skill]" + setupFlags() + "   set everything up; folders say where your projects are"},
 		{"doctor", cmdDoctor, true, false, exactly(0, nil, nil), "sous doctor       check that sous is set up and working, and how to fix what is not"},

@@ -17,6 +17,7 @@ import (
 
 	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/plugin"
+	"github.com/bilal-/sous/internal/thread"
 )
 
 // result is result.json: how the agent ended.
@@ -27,6 +28,9 @@ type result struct {
 	Reason  string    `json:"reason,omitempty"` // why it ended without the agent saying: out of time
 	Stopped bool      `json:"stopped,omitempty"`
 	Ended   time.Time `json:"ended"`
+	// Checks: the project's check command run on the work, when the agent
+	// finished it.
+	Checks []thread.RunCheck `json:"checks,omitempty"`
 }
 
 // Watch runs the agent for one run (or, with resume, carries on after a
@@ -89,6 +93,9 @@ func (a *Agent) Watch(dir string, resume bool) error {
 			return err
 		}
 	}
+	if state, _ := parseMarker(r.Message); r.Exit == 0 && r.Reason == "" && !r.Stopped && state != NeedsYou {
+		r.Checks = runCheck(m)
+	}
 	return writeJSON(dir, "result.json", r)
 }
 
@@ -105,9 +112,9 @@ func (a *Agent) Status(_, ref string) (Status, error) {
 	var r result
 	if readJSON(dir, "result.json", &r) != nil {
 		if watcherAlive(dir) {
-			st.State = Running
+			st.State, st.Phase = Running, thread.PhaseWorking
 		} else {
-			st.State, st.Text = Failed, "stopped without a result"
+			st.State, st.Phase, st.Text = Failed, thread.PhaseFailed, "stopped without a result"
 			if why := tail(filepath.Join(dir, watcherLog)); why != "" {
 				st.Text += ": " + finalLine(why)
 			}
@@ -130,6 +137,7 @@ func (a *Agent) Status(_, ref string) (Status, error) {
 	if st.State != Failed && uncommitted(m.Worktree) {
 		st.Text += " (changes not committed, in the worktree)"
 	}
+	describeRun(&st, dir, m, r)
 	return st, nil
 }
 

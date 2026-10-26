@@ -34,6 +34,11 @@ type Dispatcher struct {
 	Store   *store.Store
 	Runners []runner.Runner
 	Now     func() time.Time
+	// OpenDraft opens a draft pull request for branch in the project, or
+	// finds the one already open, and returns its address.
+	OpenDraft func(project, branch, title, body string) (string, error)
+	// CheckFor is the project's check command, handed to the runner.
+	CheckFor func(project string) string
 }
 
 // Names are the runners there are, for messages.
@@ -62,7 +67,11 @@ func (d *Dispatcher) Start(ctx context.Context, p project.Project, brief, key, n
 	if err != nil {
 		return id, false, err
 	}
-	ref, err := runner.Start(ctx, r, runner.Request{ID: id, UID: th.UID, Project: p.Path, Brief: brief, HereFile: hereFile})
+	req := runner.Request{ID: id, UID: th.UID, Project: p.Path, Brief: brief, HereFile: hereFile}
+	if d.CheckFor != nil {
+		req.Check = d.CheckFor(p.Path)
+	}
+	ref, err := runner.Start(ctx, r, req)
 	if err != nil {
 		if serr := thread.SetRun(d.Store, id, func(run *thread.Run) { run.State, run.Text = runner.Failed, "did not start: "+err.Error() }); serr != nil {
 			return id, false, fmt.Errorf("%w (and marking the run failed: %v)", err, serr)

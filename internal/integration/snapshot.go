@@ -175,6 +175,18 @@ func (Reader) v1Run(item *Item) {
 	if run.Question == nil {
 		run.Question = thread.Run{State: run.State, Text: run.Text}.Asked()
 	}
+	if run.Result != nil {
+		item.Actions = append(item.Actions, "diff")
+	}
+	pub := run.Publication
+	switch {
+	case pub != nil && pub.Stage == thread.PubPublished:
+		run.Phase = "published"
+	case pub != nil:
+		item.Actions = append(item.Actions, "approve") // carries on from where it stopped
+	case run.Result != nil && run.Phase == thread.PhaseReady:
+		item.Actions = append(item.Actions, "approve", "discard")
+	}
 }
 
 func stableItem(item Item) Item {
