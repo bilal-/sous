@@ -319,7 +319,9 @@ A row you know about but cannot act on yet:
     sous report --week --open
 
 This opens a simple page in your browser: what is new on you, what got
-closed, which projects you worked in, and what needs a look. Plain
+closed, which projects you worked in, and what needs a look. If you use
+[Lavish](https://github.com/kunchenguid/lavish-axi), it opens there, where
+you can mark it up for an agent. Plain
 `sous report` shows what changed since your last report, right in the
 terminal.
 

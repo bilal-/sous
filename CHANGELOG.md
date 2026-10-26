@@ -7,6 +7,14 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+* `sous report --open` opens the page in
+  [Lavish](https://github.com/kunchenguid/lavish-axi) when you have it
+  (`lavish-axi` on your `PATH`, or its skill installed and `npx` available),
+  so you can mark it up and hand your notes to an agent. Without Lavish, or
+  when it fails, the page opens in your browser as before.
+
 ## [0.20.0]
 
 ### Added

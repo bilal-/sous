@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"time"
@@ -54,22 +55,24 @@ func cmdReport(e *Env, a argv) int {
 	return code
 }
 
-// openReport writes the page and opens it with the platform opener. When
-// no opener works the path is printed, and the report does not count as
-// seen yet.
+// openReport writes the page and opens it in Lavish when the person has it,
+// else with the platform opener. When nothing opens it the path is printed,
+// and the report does not count as seen yet.
 func openReport(e *Env, r report.Report) (code int, seen bool) {
 	page, err := report.WritePage(e.Home, r)
 	if err != nil {
 		return fail(e, exitFailed, "%v", err), false
 	}
-	opener := "open" // macOS
-	if _, err := exec.LookPath(opener); err != nil {
-		opener = "xdg-open"
+	for _, argv := range report.Viewers(e.UserHome, page) {
+		// npx may fetch Lavish the first time; a viewer that hangs gives way to the next.
+		ctx, cancel := context.WithTimeout(e.ctx(), 2*time.Minute)
+		err := exec.CommandContext(ctx, argv[0], argv[1:]...).Run()
+		cancel()
+		if err == nil {
+			fmt.Fprintf(e.Stderr, "→ %s (in %s)\n", page, report.ViewerName(argv))
+			return 0, true
+		}
 	}
-	if err := exec.Command(opener, page).Run(); err != nil {
-		fmt.Fprintf(e.Stdout, "report written to %s\n", page)
-		return 0, false
-	}
-	fmt.Fprintf(e.Stderr, "→ %s\n", page)
-	return 0, true
+	fmt.Fprintf(e.Stdout, "report written to %s\n", page)
+	return 0, false
 }
