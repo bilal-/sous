@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.18.0]
+
 ### Added
 
 * A project's own `runner` setting picks the runner for runs there, in
