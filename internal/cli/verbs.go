@@ -37,7 +37,7 @@ var verbs []verb
 
 func init() {
 	verbs = []verb{
-		{"integration", cmdIntegration, true, false, &argSpec{values: []string{"protocol"}, max: 1}, "sous integration [describe|snapshot|watch] [--protocol <n>] native host discovery, cached tasks and changes"},
+		{"integration", cmdIntegration, true, false, &argSpec{values: []string{"protocol", "op", "question"}, max: 2}, "sous integration [describe|snapshot|watch|run|stop|reply] [--protocol <n>] [--op <op>] [--question <id>:<token>] native host discovery, cached tasks and changes; run, stop and reply are version 1 actions"},
 		{"here", cmdHere, true, true, &argSpec{max: 1}, "sous here [path]  where was I, for the current project"},
 		{"report", cmdReport, true, false, exactly(0, []string{"week", "open"}, nil), "sous report [--week] [--open]   what changed since the last report; --open shows the page"},
 		{"review", cmdReview, true, false, exactly(0, nil, []string{"p", "keep"}), "sous review [-p <project>] [--keep <n>] check old follow-ups; --keep leaves one open for another week"},

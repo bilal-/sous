@@ -140,9 +140,29 @@ func GetStatus(ctx context.Context, r Runner, project, ref string) (Status, erro
 	return st, nil
 }
 
-// Reply passes the person's answer to a run that needs them.
-func Reply(ctx context.Context, r Runner, project, ref, answer string) error {
-	return optional(r, "reply")(call(ctx, r, []byte(answer), "reply", project, ref))
+// Reply passes the person's answer to a run that needs them. A runner whose
+// describe names question gets JSON naming the question answered (q, when
+// known) and the op asking, and may refuse a stale one with exit 4
+// (ErrConflict); any other gets the answer as it is.
+func Reply(ctx context.Context, r Runner, project, ref, answer string, q *thread.RunQuestion, op string) error {
+	in := []byte(answer)
+	if Describe(ctx, r).Speaks("question") {
+		type asked struct {
+			ID    string `json:"id"`
+			Token string `json:"token"`
+		}
+		req := struct {
+			V        int    `json:"v"`
+			Op       string `json:"op,omitempty"`
+			Question *asked `json:"question,omitempty"`
+			Answer   string `json:"answer"`
+		}{V: plugin.Version, Op: op, Answer: answer}
+		if q != nil {
+			req.Question = &asked{q.ID, q.Token}
+		}
+		in = plugin.Request(req)
+	}
+	return optional(r, "reply")(call(ctx, r, in, "reply", project, ref))
 }
 
 // Stop ends a run; stopping twice is fine.

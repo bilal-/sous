@@ -133,6 +133,7 @@ func (d *Dispatcher) record(v *thread.View, st runner.Status) {
 	set := func(run *thread.Run) {
 		run.State, run.Text, run.Checked = st.State, st.Text, &now
 		run.Branch, run.Worktree, run.Log = st.Branch, st.Worktree, st.Log
+		run.Phase, run.Reason, run.Progress, run.Question, run.Result = st.Phase, st.Reason, st.Progress, st.Question, st.Result
 	}
 	run := *v.Run
 	set(&run)
@@ -207,16 +208,70 @@ func (d *Dispatcher) runOf(th thread.Thread) (thread.Thread, runner.Runner, erro
 	return th, r, err
 }
 
+// ErrStale: the question a reply names is not the one the run waits on now.
+var ErrStale = errors.New("the question moved on")
+
+// ErrNotWaiting: a reply names a question, but the run waits on none.
+var ErrNotWaiting = errors.New("is not waiting on a question")
+
 // Reply passes the person's answer to the run; it carries on.
 func (d *Dispatcher) Reply(ctx context.Context, id int, answer string) error {
+	return d.ReplyTo(ctx, id, "", answer, "")
+}
+
+// ReplyTo passes an answer to the question named "<id>:<token>", asking
+// the runner first which question it waits on: one that moved on is
+// ErrStale and the answer is never sent. An empty question answers
+// whatever the run last asked, as sous reply does by hand. op is the
+// host's, passed on so the runner can keep its own receipt.
+func (d *Dispatcher) ReplyTo(ctx context.Context, id int, question, answer, op string) error {
 	th, r, err := d.run(id)
 	if err != nil {
 		return err
 	}
-	if err := runner.Reply(ctx, r, th.Project, th.Run.Ref, answer); err != nil {
+	q := th.Run.Asked()
+	if question != "" {
+		v := d.Refresh(ctx, []thread.View{{Thread: th}}, false)[0]
+		if v.RunErr != "" {
+			return fmt.Errorf("asking run %d which question it waits on: %s", id, v.RunErr)
+		}
+		switch q = v.Run.Asked(); {
+		case q == nil:
+			return fmt.Errorf("run %d %w", id, ErrNotWaiting)
+		case q.ID+":"+q.Token != question:
+			return fmt.Errorf("run %d now asks %q: %w", id, q.Text, ErrStale)
+		}
+	}
+	if err := runner.Reply(ctx, r, th.Project, th.Run.Ref, answer, q, op); err != nil {
+		if errors.Is(err, runner.ErrConflict) {
+			return fmt.Errorf("%w: %v", ErrStale, err)
+		}
 		return err
 	}
-	return thread.SetRun(d.Store, id, func(run *thread.Run) { run.State, run.Text = runner.Running, "" })
+	return thread.SetRun(d.Store, id, func(run *thread.Run) {
+		run.State, run.Text, run.Question = runner.Running, "", nil
+		if run.Phase != "" {
+			run.Phase = thread.PhaseWorking
+		}
+	})
+}
+
+// Stop stops an open run and leaves its note open, reading as stopped,
+// for the person to look at and close.
+func (d *Dispatcher) Stop(ctx context.Context, id int) error {
+	th, r, err := d.run(id)
+	if err != nil {
+		return err
+	}
+	if err := runner.Stop(ctx, r, th.Project, th.Run.Ref); err != nil {
+		return err
+	}
+	return thread.SetRun(d.Store, id, func(run *thread.Run) {
+		run.State, run.Text, run.Question = runner.Failed, "stopped", nil
+		if run.Phase != "" {
+			run.Phase = thread.PhaseStopped
+		}
+	})
 }
 
 // on makes one call to a note's run through its runner, open or closed:

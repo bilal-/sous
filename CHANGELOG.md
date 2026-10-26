@@ -7,6 +7,23 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+* Version 1 integration actions for a host: `run` (start a run in a
+  project, the brief on standard input), `stop` and `reply`, each through
+  `sous integration --protocol 1 <action> --op <op>`. An op is done once,
+  however often the host asks: a repeat gets the same outcome, and the same
+  op with other input is refused. sous keeps every op in `ops.json`.
+* `remote_runs = "true"` in a project's settings lets a host start runs
+  there. It is off until you turn it on.
+* A reply from a host names the question it answers; if the run now asks
+  something else, the answer is never sent. A runner whose `describe` names
+  `question` gets the question, answer and op as JSON on `reply`.
+* Runs keep the phase, progress, question and result their runner reports,
+  and show them in `--json` and version 1 snapshots, where open runs also
+  offer `stop`.
+* Exit codes `4` (conflict) and `5` (in progress) for integration actions.
+
 ## [0.13.0]
 
 ### Added

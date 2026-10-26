@@ -46,7 +46,9 @@ const (
 type ProjectConfig struct {
 	Backend       string `toml:"backend"`
 	GitHubAccount string `toml:"github_account"`
-	Raw           map[string]string
+	// RemoteRuns "true": a host (a phone through Shellbell) may start runs here.
+	RemoteRuns string `toml:"remote_runs"`
+	Raw        map[string]string
 }
 
 // Project resolves the per-project settings for "org/name": an exact

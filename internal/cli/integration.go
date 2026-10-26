@@ -31,6 +31,12 @@ func cmdIntegration(e *Env, a argv) int {
 		}
 		v = n
 	}
+	if _, ok := integrationActs[call]; ok {
+		return cmdIntegrationAct(e, a, v, call)
+	}
+	if len(a.pos) > 1 || a.has("op") || a.has("question") {
+		return fail(e, exitUsage, "usage: sous integration [describe|snapshot|watch] [--protocol <n>] [--json]")
+	}
 	switch call {
 	case "describe":
 		if v == integration.Version1 {
@@ -72,7 +78,7 @@ func cmdIntegration(e *Env, a argv) int {
 		}
 		return 0
 	default:
-		return fail(e, exitUsage, "integration calls are describe, snapshot and watch\nusage: sous integration [describe|snapshot|watch] [--protocol <n>] [--json]")
+		return fail(e, exitUsage, "integration calls are describe, snapshot and watch, and with --protocol 1 run, stop and reply\nusage: sous integration [describe|snapshot|watch] [--protocol <n>] [--json]")
 	}
 }
 

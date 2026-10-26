@@ -1,6 +1,10 @@
 package thread
 
-import "time"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"time"
+)
 
 // RunPhase is where a run is, in more detail than its state: what a runner
 // that describes itself as speaking phases reports beside the state. The
@@ -92,4 +96,18 @@ type RunCheck struct {
 type RunReview struct {
 	By          string `json:"by"`
 	Independent bool   `json:"independent"` // a different vendor from the one that did the work
+}
+
+// Asked is the question a run is waiting on, nil when it waits on none. A
+// runner that does not report questions gets one made from its words, so
+// an answer typed before the words changed is still caught.
+func (r Run) Asked() *RunQuestion {
+	switch {
+	case r.Question != nil:
+		return r.Question
+	case r.State != RunNeedsYou:
+		return nil
+	}
+	sum := sha256.Sum256([]byte(r.Text))
+	return &RunQuestion{ID: "q", Token: hex.EncodeToString(sum[:6]), Text: r.Text}
 }

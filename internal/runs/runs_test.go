@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
 	"github.com/bilal-/sous/internal/runner/runnertest"
@@ -238,5 +239,34 @@ func TestTidyWaitsAndPaces(t *testing.T) {
 	d.Tidy(context.Background())
 	if got := count(); got != 2*TidyAtOnce+1 {
 		t.Fatalf("a day later it is asked again: %d", got)
+	}
+}
+
+// A runner that reports phases has them kept on the note and shown on its
+// board item; a later answer without them clears them, as it is the
+// runner's word that counts.
+func TestRefreshRecordsPhases(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	status := filepath.Join(t.TempDir(), "status")
+	os.WriteFile(status, []byte(`{"v":0,"state":"needs_you","phase":"needs_you","text":"which fixture?","progress":{"done":3,"total":7,"step":"reviewing T4"},"question":{"id":"q1","token":"t9","text":"which fixture?","choices":["keep","new"]}}`), 0o600)
+	r := runnertest.Fake(t, `start) echo fake:1;; status) cat "`+status+`";;`)
+	d := &Dispatcher{Store: s, Runners: []runner.Runner{r}, Now: time.Now}
+	id, _, _ := d.Start(context.Background(), project.Project{Path: "/p"}, "b", "", "fake", "", "")
+	views, _ := thread.Runs(s, time.Now())
+	d.Refresh(context.Background(), views, false)
+	th, _ := thread.Get(s, id)
+	if th.Run.Phase != thread.PhaseNeedsYou || th.Run.Progress.Total != 7 || th.Run.Question.Token != "t9" {
+		t.Fatalf("%+v", th.Run)
+	}
+	item := board.ThreadRow(thread.View{Thread: th}, time.Now()).Item()
+	if item.Run.Phase != thread.PhaseNeedsYou || item.Run.Question.ID != "q1" || item.Run.Progress.Step != "reviewing T4" {
+		t.Fatalf("%+v", item.Run)
+	}
+	os.WriteFile(status, []byte(`{"v":0,"state":"running"}`), 0o600)
+	views, _ = thread.Runs(s, time.Now())
+	d.Refresh(context.Background(), views, false)
+	th, _ = thread.Get(s, id)
+	if th.Run.Phase != "" || th.Run.Question != nil || th.Run.Progress != nil {
+		t.Fatalf("%+v", th.Run)
 	}
 }

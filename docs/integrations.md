@@ -215,14 +215,28 @@ What version 1 changes, beside version 0:
   standard input, `confirm` when the host must ask first, and `op` when the
   action takes `--op <op>`. `effect` gains `write_public`; a host refuses
   to run an effect it does not know.
-* **Runs** carry `phase`, `reason`, `progress`, `question`, `result`,
-  `publication` and `fresh`. Derive "needs you", "in progress" and "ready
+* **Runs** carry `phase`, `reason`, `progress`, `question`, `result` and
+  `publication`; `error` already says the runner could not be asked this
+  time, and `checked_at` how old the answer is. Derive "needs you", "in progress" and "ready
   to approve" from `phase`; `section` keeps its version 0 values. An
   unknown phase is shown as reported, never as finished.
 * **Outcomes**: every action that takes `--op` prints one `outcome`
-  object. The same `op` with the same input always gets the same outcome
+  object. The same `op` with the same input gets the same outcome
   (`already_done` when it was done before); the same `op` with different
-  input is `refused` with `op_reused`.
+  input is `refused` with `op_reused`. Done, conflict and a refusal of the
+  input itself (`bad_input`) are final. A failure, a refusal that depends
+  on settings (`not_allowed_project`) and `not_ready` are not: the same op
+  may be tried again and may come out differently. sous keeps every op it
+  was asked for, so an op is never done twice, however late the repeat.
+* **Ops** are 16 to 64 letters, digits, `-` and `_`, made by the host, one
+  per thing the person asked for. Fill `{op}` in an action's `argv` with it.
+
+The actions so far: `run` (start a run in a project whose settings allow
+`remote_runs`, the brief on standard input), `stop` and `reply` (naming
+the question as `<id>:<token>` from the item's `run.question`; every run
+that waits on the person has one, made from its words when its runner
+does not report questions). A snapshot lists `stop` and `reply` on the
+items they apply to; `run` is offered per project.
 * **Watch** sends changed items only after its first snapshot, with a
   `meta` object for board fields that changed, and keeps every line under
   `--max-bytes`, leaving lower sections out and counting them in

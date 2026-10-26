@@ -96,7 +96,9 @@
         "runner": {"type": "string"}, "state": {"enum": ["starting", "running", "needs_you", "done", "failed"]},
         "text": {"type": "string"}, "branch": {"type": "string"}, "worktree": {"type": "string"}, "log": {"type": "string"},
         "key": {"type": "string"}, "brief": {"type": "string"}, "checked_at": {"$ref": "#/$defs/nullableTime"},
-        "log_tail": {"$ref": "#/$defs/strings"}, "error": {"type": "string"}
+        "log_tail": {"$ref": "#/$defs/strings"}, "error": {"type": "string"},
+        "phase": {"type": "string"}, "reason": {"type": "string"},
+        "progress": {"type": "object"}, "question": {"type": "object"}, "result": {"type": "object"}
       }
     },
     "project": {

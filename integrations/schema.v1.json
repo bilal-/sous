@@ -606,10 +606,6 @@
         },
         "publication": {
           "$ref": "#/$defs/publication"
-        },
-        "fresh": {
-          "type": "boolean",
-          "description": "false when the runner could not be asked on the last look; show the age from checked_at"
         }
       }
     },

@@ -59,6 +59,13 @@ type DescriptionV1 struct {
 // SchemaV1 is where version 1's schema lives.
 const SchemaV1 = "https://raw.githubusercontent.com/bilal-/sous/main/integrations/schema.v1.json"
 
+// act is an action's argv on version 1: the host fills {op} with an op it
+// made, and the target goes last, after --.
+func act(action, target string, flags ...string) []string {
+	argv := append([]string{"sous", "integration", "--protocol", "1", "--json", action, "--op", "{op}"}, flags...)
+	return append(argv, "--", target)
+}
+
 // DescribeV1 is version 1's description. Its commands carry --protocol 1,
 // so a host runs them as given and stays on version 1.
 func DescribeV1(version string) DescriptionV1 {
@@ -82,7 +89,9 @@ func DescribeV1(version string) DescriptionV1 {
 			{ID: "open", Title: "Open project", Argv: []string{"sous", "go", "--in", "{project}", "--", "{project}"}, Parameters: []Parameter{proj}, Scope: "project", Format: "terminal", Effect: "launch", Offline: true, Terminal: true},
 			{ID: "snooze", Title: "Snooze", Argv: []string{"sous", "snooze", "--json", "--", "{id}"}, Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "write_private", Offline: true},
 			{ID: "done", Title: "Close note", Argv: []string{"sous", "done", "--json", "--", "{id}"}, Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "write_private"},
-			{ID: "reply", Title: "Answer run", Argv: []string{"sous", "reply", "--json", "--", "{id}", "{answer}"}, Parameters: []Parameter{id, {Name: "answer", Type: "string", Required: true, MaxBytes: 4096}}, Scope: "item", Format: "json", Effect: "write_private"},
+			{ID: "run", Title: "Start a run", Argv: act("run", "{project}"), Parameters: []Parameter{proj, {Name: "brief", Type: "text", Required: true, MaxBytes: 16 << 10}}, Scope: "project", Input: "stdin", Format: "json", Effect: "launch", Op: true},
+			{ID: "stop", Title: "Stop run", Argv: act("stop", "{id}"), Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "write_private", Op: true},
+			{ID: "reply", Title: "Answer run", Argv: act("reply", "{id}", "--question", "{question}"), Parameters: []Parameter{id, {Name: "question", Type: "question", Required: true}, {Name: "answer", Type: "text", Required: true, MaxBytes: 4 << 10}}, Scope: "item", Input: "stdin", Format: "json", Effect: "write_private", Op: true},
 			{ID: "note", Title: "Remember a note", Argv: []string{"sous", "note", "--json", "--", "{text}"}, Cwd: "{project}", Parameters: []Parameter{proj, {Name: "text", Type: "string", Required: true, MaxBytes: 4096}}, Scope: "project", Format: "json", Effect: "write_private", Offline: true},
 		},
 	}

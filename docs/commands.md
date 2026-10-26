@@ -300,6 +300,27 @@ Options:
 * `--protocol <n>`: answer protocol version `n`. `0` is the default; `1` is
   a draft beside it ([integrations.md](integrations.md#version-1-draft)).
   Any other version exits `2`.
+* `--op <op>`: with `--protocol 1`, the id a host made for one of the
+  actions below. Asking again with the same op and input never does it
+  twice.
+* `--question <id>:<token>`: with `reply`, the question being answered.
+
+Version 1 actions, for a host (each with `--protocol 1 --op <op>`, the
+target after `--`):
+
+* `run -- <project>`: start a run in a project whose settings say
+  `remote_runs = "true"`, the brief on standard input (16 KB at most),
+  with the configured runner.
+* `stop -- <n>`: stop a run; its note stays open, reading as stopped.
+* `reply --question <id>:<token> -- <n>`: answer the question named, the
+  answer on standard input (4 KB at most). If the run now asks something
+  else, nothing is sent.
+
+Each prints one outcome (one JSON object with `--json`): `done`,
+`already_done` (that op was done before), `in_progress` (it is being done
+right now), `refused` (exit `2`), `conflict` (exit `4`: what it names has
+moved on), `failed` (exit `1`; the same op may be tried again) or
+`not_ready` (exit `3`). `in_progress` exits `5`.
 * `--json`: `describe` and `snapshot` return one JSON object. `watch` emits
   one JSON object per line (NDJSON): `snapshot`, `changes` or `unavailable`
   events. Empty arrays are `[]`. A new baseline includes no item changes;
@@ -770,6 +791,7 @@ github_account = "work-account"   # which gh account to use for these projects
 
 [projects."acme/billing"]      # one project; an exact name wins over org/*
 backend = "markdown"           # always file to FOLLOWUPS.md, creating it if needed
+remote_runs = "true"           # a host (a phone through Shellbell) may start runs here
 ```
 
 | Setting | Default | What it does |
@@ -785,6 +807,7 @@ backend = "markdown"           # always file to FOLLOWUPS.md, creating it if nee
 | `[projects."<org>/<name>"]` or `[projects."<org>/*"]` | | Settings for one project, or every project in an org folder. |
 | `backend` | picked for you | Where `sous file` sends this project's notes: `markdown`, `github`, `gitlab`, or a plugin's name. |
 | `github_account` | `gh`'s active account | Which `gh` account to use for these projects, when you have more than one. |
+| `remote_runs` | off | `"true"` lets a host start runs in these projects through `sous integration --protocol 1 run`. Starting runs yourself with `sous go --run` needs nothing. |
 
 ## Files sous keeps
 
@@ -797,6 +820,7 @@ Everything lives in `~/.sous` (or `SOUS_HOME`).
 | `observed.json` | what sous has seen before: when each row first appeared, and what you snoozed |
 | `sessions.json` | the last agent session in each project |
 | `cache.json` | the saved board, for new shells and the menu bar |
+| `ops.json` | each action a host asked for by op, and how it came out, so asking again never does it twice |
 | `report.json` | when you last saw a report, where the next one starts |
 | `install-id` | a random id for this install, used in older filing markers. Do not delete it. |
 | `here/` | the files `sous go` hands to agents, one per project |

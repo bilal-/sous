@@ -185,7 +185,14 @@ owns checking whether its worker is alive.
 | `describe` | | one JSON line | `0` described. Optional: what else you speak (below) |
 
 `reply` may also exit `4` when the question it answers has moved on; sous
-tells the person rather than retrying.
+tells the person rather than retrying. A runner whose `describe` names the
+`question` field gets JSON on `reply` instead of the bare answer: the
+question answered, the answer, and the op of the host that asked, which a
+runner can keep to answer a repeat the same way:
+
+```json
+{"v":0,"op":"op-4d5e6f7a8b9c0d1e","question":{"id":"q-12","token":"7f3a"},"answer":"use new"}
+```
 
 The `start` request:
 

@@ -149,6 +149,9 @@ func (r Reader) Read(ctx context.Context) (Snapshot, error) {
 			if item.Run != nil && item.Run.State == thread.RunNeedsYou && item.Run.Error == "" {
 				item.Actions = append(item.Actions, "reply")
 			}
+			if r.V >= Version1 && item.Run != nil && item.ClosedAt == nil {
+				r.v1Run(item)
+			}
 		}
 	}
 	s.Complete = available && r.Configured && len(s.Problems) == 0
@@ -156,6 +159,19 @@ func (r Reader) Read(ctx context.Context) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	return s, nil
+}
+
+// v1Run adds what version 1 shows of an open run: stop while it works or
+// waits on the person, and the question it waits on, made from its words
+// when its runner does not report questions.
+func (Reader) v1Run(item *Item) {
+	run := item.Run
+	if run.State.Working() || run.State == thread.RunNeedsYou {
+		item.Actions = append(item.Actions, "stop")
+	}
+	if run.Question == nil {
+		run.Question = thread.Run{State: run.State, Text: run.Text}.Asked()
+	}
 }
 
 func stableItem(item Item) Item {

@@ -39,7 +39,7 @@ clean) exit 2;;`)
 	if err != nil || st.State != NeedsYou || st.Text != "which fixture?" {
 		t.Fatalf("status: %+v %v", st, err)
 	}
-	if err := Reply(ctx, r, "/code/acme/billing", ref, "use main's"); err != nil {
+	if err := Reply(ctx, r, "/code/acme/billing", ref, "use main's", nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(filepath.Join(filepath.Dir(r.Argv[0]), "answer")); string(b) != "use main's" {
@@ -148,7 +148,7 @@ func TestStatusPhases(t *testing.T) {
 // Exit 4 from reply: the question moved on. It is not a failure to retry.
 func TestReplyConflict(t *testing.T) {
 	r := fakeRunner(t, `reply) echo "question q1 was replaced" >&2; exit 4;;`)
-	if err := Reply(context.Background(), r, "/p", "fake:1", "keep"); !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "replaced") {
+	if err := Reply(context.Background(), r, "/p", "fake:1", "keep", nil, ""); !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "replaced") {
 		t.Fatalf("%v", err)
 	}
 }

@@ -94,6 +94,14 @@ type Run struct {
 	Checked  *time.Time `json:"checked,omitempty"` // when the state was last asked
 	Cleaned  *time.Time `json:"cleaned,omitempty"` // when what it left behind was removed
 	Tidied   *time.Time `json:"tidied,omitempty"`  // when sous last tried to clean it up itself
+
+	// What a runner that describes itself reports beside the state, as it
+	// last said it (phase.go).
+	Phase    RunPhase     `json:"phase,omitempty"`
+	Reason   string       `json:"reason,omitempty"`
+	Progress *RunProgress `json:"progress,omitempty"`
+	Question *RunQuestion `json:"question,omitempty"`
+	Result   *RunResult   `json:"result,omitempty"`
 }
 
 // Belongs: is this thread about the project at path (or with this remote)?

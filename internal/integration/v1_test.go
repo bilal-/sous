@@ -3,6 +3,7 @@ package integration
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +12,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/bilal-/sous/internal/board"
+	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/thread"
 )
 
 // The v1 schema names every public field of the v1 types that exist, and
@@ -233,5 +240,31 @@ func TestValidatorCatches(t *testing.T) {
 		if len(validate(defs, defs[kind], v, kind)) == 0 {
 			t.Errorf("%s: passed", name)
 		}
+	}
+}
+
+// Version 1 offers stop on an open run and names the question it waits on;
+// version 0 shows the same board exactly as before.
+func TestReaderV1Runs(t *testing.T) {
+	st := &store.Store{Home: t.TempDir()}
+	p := project.Project{Path: t.TempDir(), Name: "api"}
+	now := time.Now().UTC()
+	id, _, _ := thread.NoteRun(st, p, "pick a fixture", "op-0123456789abcdef", "codex", "human", now)
+	thread.SetRun(st, id, func(r *thread.Run) {
+		r.Ref, r.State, r.Text = "codex:1", thread.RunNeedsYou, "which fixture?"
+	})
+	views, _ := thread.Open(st, now)
+	board.WriteCache(st, &board.Data{Projects: []project.Project{p}, Threads: views, Checked: 1, RenderedAt: now})
+	s1, err := Reader{Store: st, Configured: true, Now: now, V: Version1}.Read(context.Background())
+	if err != nil || len(s1.Items) != 1 {
+		t.Fatalf("%+v %v", s1, err)
+	}
+	it := s1.Items[0]
+	if s1.V != 1 || !slices.Contains(it.Actions, "stop") || !slices.Contains(it.Actions, "reply") || it.Run.Question == nil || it.Run.Question.Token == "" {
+		t.Fatalf("v1: %+v %+v", it.Actions, it.Run)
+	}
+	s0, _ := Reader{Store: st, Configured: true, Now: now}.Read(context.Background())
+	if it := s0.Items[0]; slices.Contains(it.Actions, "stop") || it.Run.Question != nil {
+		t.Fatalf("v0: %+v %+v", it.Actions, it.Run)
 	}
 }

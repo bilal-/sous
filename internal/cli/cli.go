@@ -44,7 +44,7 @@ const usageHeader = `sous %s: one list of what is waiting on you, across every p
 
 const usageFooter = `
 Flags: --json (what a command shows or changed) · --brief (here) · {modes}
-Exit:  0 ok · 1 failure · 2 usage or ambiguity · 3 not ready: no board yet (--cached, --ambient), or the agent or runner is not set up (go)
+Exit:  0 ok · 1 failure · 2 usage or ambiguity · 3 not ready: no board yet (--cached, --ambient), or the agent or runner is not set up (go) · 4 conflict, 5 in progress (integration actions)
 Put -- before a note that starts with a dash.
 
 For agents:

@@ -59,6 +59,12 @@ type RunItem struct {
 	LogTail []string `json:"log_tail,omitempty"`
 	// Error: its state could not be read this time; State is the last known.
 	Error string `json:"error,omitempty"`
+	// What a runner that describes itself reports beside the state.
+	Phase    thread.RunPhase     `json:"phase,omitempty"`
+	Reason   string              `json:"reason,omitempty"`
+	Progress *thread.RunProgress `json:"progress,omitempty"`
+	Question *thread.RunQuestion `json:"question,omitempty"`
+	Result   *thread.RunResult   `json:"result,omitempty"`
 }
 
 // Item is r as --json shows it.
@@ -71,7 +77,8 @@ func (r Row) Item() Item {
 	}
 	if r.Run != nil {
 		it.Run = &RunItem{Runner: r.Run.Runner, State: r.Run.State, Text: r.Run.Text, Branch: r.Run.Branch, Worktree: r.Run.Worktree,
-			Log: r.Run.Log, Key: r.Run.Key, Brief: r.Run.Brief, CheckedAt: r.Run.Checked, Error: r.RunErr}
+			Log: r.Run.Log, Key: r.Run.Key, Brief: r.Run.Brief, CheckedAt: r.Run.Checked, Error: r.RunErr,
+			Phase: r.Run.Phase, Reason: r.Run.Reason, Progress: r.Run.Progress, Question: r.Run.Question, Result: r.Run.Result}
 	}
 	if r.ClosedAt != nil {
 		by := "you"
