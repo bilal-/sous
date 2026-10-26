@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.20.0]
+
 ### Added
 
 * `sous serve`: the board as a web page on this computer, live. It answers
