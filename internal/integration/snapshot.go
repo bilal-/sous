@@ -43,6 +43,9 @@ type Snapshot struct {
 	Problems    []string              `json:"problems"`
 	Checked     int                   `json:"checked"`
 	Unavailable int                   `json:"unavailable"`
+	// Omitted: version 1, items a watch left out to keep under its byte
+	// limit, counted by section.
+	Omitted map[string]int `json:"omitted,omitempty"`
 }
 
 // Reader overlays current notes and local runner/backend answers onto the

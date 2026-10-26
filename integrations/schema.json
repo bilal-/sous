@@ -67,7 +67,8 @@
         "projects": {"type": "array", "items": {"$ref": "#/$defs/project"}},
         "sources": {"type": "array", "items": {"$ref": "#/$defs/source"}},
         "problems": {"$ref": "#/$defs/strings"},
-        "checked": {"type": "integer", "minimum": 0}, "unavailable": {"type": "integer", "minimum": 0}
+        "checked": {"type": "integer", "minimum": 0}, "unavailable": {"type": "integer", "minimum": 0},
+        "omitted": {"type": "object", "description": "version 1 only"}
       }
     },
     "item": {
@@ -122,6 +123,7 @@
         "type": {"enum": ["snapshot", "changes", "unavailable"]}, "revision": {"type": "string"},
         "previous_revision": {"type": "string"}, "snapshot": {"$ref": "#/$defs/snapshot"},
         "changes": {"type": "array", "items": {"$ref": "#/$defs/change"}}, "error": {"type": "string"},
+        "meta": {"type": "object", "description": "version 1 only"},
         "exit": {"enum": [1, 3]}
       },
       "oneOf": [

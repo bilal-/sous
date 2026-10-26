@@ -300,6 +300,10 @@ Options:
 * `--protocol <n>`: answer protocol version `n`. `0` is the default; `1` is
   a draft beside it ([integrations.md](integrations.md#version-1-draft)).
   Any other version exits `2`.
+* `--max-bytes <n>`: with `--protocol 1` and `watch`, no line is longer
+  than `n` bytes (at least 16384). A baseline too long leaves out the
+  oldest items of the lowest sections first and counts them in `omitted`;
+  a change too long is sent as such a baseline.
 * `--op <op>`: with `--protocol 1`, the id a host made for one of the
   actions below. Asking again with the same op and input never does it
   twice.
@@ -325,7 +329,8 @@ moved on), `failed` (exit `1`; the same op may be tried again) or
   one JSON object per line (NDJSON): `snapshot`, `changes` or `unavailable`
   events. Empty arrays are `[]`. A new baseline includes no item changes;
   the host should load it quietly. `changes` includes the full snapshot
-  and deltas keyed by stable task identity. A removal means the item left
+  and deltas keyed by stable task identity; on version 1 it carries only
+  the deltas, and `meta` with any board fields that changed. A removal means the item left
   the projection, and does not prove the work was completed.
 
 Examples:

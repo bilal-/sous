@@ -310,3 +310,18 @@ func TestIntegrationProtocolVersions(t *testing.T) {
 		t.Fatalf("v2: %d %q", code, errs)
 	}
 }
+
+// --max-bytes keeps a version 1 watch's lines short; it is refused below
+// its minimum, on version 0, and on calls other than watch.
+func TestIntegrationWatchMaxBytesFlag(t *testing.T) {
+	f := fixture(t)
+	for _, args := range [][]string{
+		{"integration", "--protocol", "1", "watch", "--max-bytes", "100"},
+		{"integration", "watch", "--max-bytes", "20000"},
+		{"integration", "--protocol", "1", "snapshot", "--max-bytes", "20000"},
+	} {
+		if _, _, code := f.run(args...); code != exitUsage {
+			t.Errorf("%v: %d", args, code)
+		}
+	}
+}

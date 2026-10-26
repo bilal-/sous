@@ -34,7 +34,7 @@ func cmdIntegration(e *Env, a argv) int {
 	if _, ok := integrationActs[call]; ok {
 		return cmdIntegrationAct(e, a, v, call)
 	}
-	if len(a.pos) > 1 || a.has("op") || a.has("question") {
+	if len(a.pos) > 1 || a.has("op") || a.has("question") || a.has("max-bytes") && call != "watch" {
 		return fail(e, exitUsage, "usage: sous integration [describe|snapshot|watch] [--protocol <n>] [--json]")
 	}
 	switch call {
@@ -67,7 +67,15 @@ func cmdIntegration(e *Env, a argv) int {
 		ctx, stop := ossignal.NotifyContext(e.ctx(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		enc := json.NewEncoder(e.Stdout)
-		err := integration.Watch(ctx, v, func(ctx context.Context) (integration.Snapshot, error) { return integrationSnapshot(e, ctx, v) }, time.Second, func(event integration.Event) error {
+		st := integration.Stream{V: v, Interval: time.Second}
+		if mb := a.value("max-bytes"); mb != "" {
+			n, err := strconv.Atoi(mb)
+			if err != nil || n < minWatchBytes || v < integration.Version1 {
+				return fail(e, exitUsage, "--max-bytes takes a number of bytes, at least %d, with --protocol 1", minWatchBytes)
+			}
+			st.MaxBytes = n
+		}
+		err := st.Run(ctx, func(ctx context.Context) (integration.Snapshot, error) { return integrationSnapshot(e, ctx, v) }, func(event integration.Event) error {
 			if e.JSON {
 				return enc.Encode(noNulls(reflect.ValueOf(event)).Interface())
 			}
@@ -98,6 +106,10 @@ func integrationSnapshot(e *Env, ctx context.Context, v int) (integration.Snapsh
 		},
 	}).Read(ctx)
 }
+
+// minWatchBytes is the smallest line limit a watch takes: enough for the
+// board's own fields and a handful of items.
+const minWatchBytes = 16 << 10
 
 func joinInts(ns []int) string {
 	s := make([]string, len(ns))

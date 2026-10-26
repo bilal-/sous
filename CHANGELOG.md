@@ -7,6 +7,13 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+* `sous integration --protocol 1 watch` sends only the changed items after
+  its first snapshot, with `meta` for board fields that changed.
+  `--max-bytes <n>` keeps every line under `n` bytes, leaving the oldest
+  items of the lowest sections out first and counting them in `omitted`.
+
 ## [0.14.0]
 
 ### Added

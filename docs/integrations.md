@@ -238,9 +238,14 @@ that waits on the person has one, made from its words when its runner
 does not report questions). A snapshot lists `stop` and `reply` on the
 items they apply to; `run` is offered per project.
 * **Watch** sends changed items only after its first snapshot, with a
-  `meta` object for board fields that changed, and keeps every line under
-  `--max-bytes`, leaving lower sections out and counting them in
-  `omitted`.
+  `meta` object for board fields that changed (each replaces the one held;
+  absent ones did not change). With `--max-bytes <n>` (at least 16384) no
+  line is longer: a baseline leaves out the oldest items of the lowest
+  sections first (snoozed, ideas, unfinished, on others, on you) and counts
+  them in `omitted`, and a change too long is sent as such a baseline. The
+  revision is always the whole board's. A host never takes a left-out item
+  as removed; it may later arrive as `item.updated`, which a host that
+  does not hold it adds.
 
 ## Contract checks
 

@@ -34,7 +34,7 @@ func TestSchemaV1NamesEveryPublicField(t *testing.T) {
 	if schema.ID != DescribeV1("test").Schema {
 		t.Fatalf("schema ID %q disagrees with discovery", schema.ID)
 	}
-	for name, value := range map[string]any{"description": DescriptionV1{}, "action": ActionV1{}, "parameter": Parameter{}} {
+	for name, value := range map[string]any{"description": DescriptionV1{}, "action": ActionV1{}, "parameter": Parameter{}, "meta": Meta{}} {
 		shape := schema.Defs[name]
 		fields := jsonFields(reflect.TypeOf(value))
 		for field, always := range fields {

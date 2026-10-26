@@ -813,14 +813,6 @@
         "unavailable": {
           "type": "integer",
           "minimum": 0
-        },
-        "omitted": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "description": "items left out to keep a watch line under --max-bytes, counted by section"
         }
       }
     },
