@@ -83,6 +83,8 @@ type fakeProvider struct {
 	Snapshot     integration.Snapshot
 	Started      chan struct{}
 	Stopped      chan struct{}
+	started      sync.Once // a reconnect calls Watch again
+	stopped      sync.Once
 	Projects     map[string]project.Project
 	ProjectCalls int
 }
@@ -94,15 +96,17 @@ func (p *fakeProvider) Describe(context.Context) (integration.Description, error
 func (p *fakeProvider) Read(context.Context) (integration.Snapshot, error) { return p.Snapshot, nil }
 func (p *fakeProvider) Watch(ctx context.Context, emit func(integration.Event) error) error {
 	if p.Started != nil {
-		close(p.Started)
+		p.started.Do(func() { close(p.Started) })
+	}
+	if p.Stopped != nil {
+		// Every way out stops the child, including an emit that failed
+		// because herdr went away while the baseline was being sent.
+		defer p.stopped.Do(func() { close(p.Stopped) })
 	}
 	if err := emit(event("snapshot", p.Snapshot)); err != nil {
 		return err
 	}
 	<-ctx.Done()
-	if p.Stopped != nil {
-		close(p.Stopped)
-	}
 	return ctx.Err()
 }
 func (p *fakeProvider) Project(_ context.Context, cwd string) (project.Project, error) {
