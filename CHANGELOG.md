@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.21.0]
+
 ### Added
 
 * `sous report --open` opens the page in
