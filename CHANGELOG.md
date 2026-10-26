@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.13.0]
+
 ### Added
 
 * `sous runner check <program>` holds any runner program to the runner
