@@ -243,11 +243,7 @@ Options:
   "since your last report" mark.
 * `--open`: write the report as a page (`~/.sous/report.html`) and open it
   in your browser. The page has no scripts and loads nothing from the
-  internet. If you have [Lavish](https://github.com/kunchenguid/lavish-axi)
-  (`lavish-axi` on your `PATH`, or its agent skill installed and `npx`
-  available), the page opens there instead, so you can mark it up and hand
-  your notes to an agent. Lavish is never needed: without it, or if it
-  fails, the page opens in your browser.
+  internet.
 * `--json`: `new_on_you`, `new_on_others`, `new_ideas` and `closed` as
   items, `worked`, `attention`, and `now` (how many are waiting at the end
   of the window). It does not advance the report's seen mark: the next report

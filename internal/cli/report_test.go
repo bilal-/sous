@@ -27,10 +27,8 @@ func TestReportCLI(t *testing.T) {
 		t.Fatalf("--json: %d %s", code, out)
 	}
 	// --open writes the page and opens it (fake `open` records its argument).
-	// A Lavish that fails gives way to the browser.
 	opened := filepath.Join(f.Home, "opened")
 	f.bin("open", "echo \"$1\" > "+opened+"")
-	f.bin("lavish-axi", "exit 1")
 	if _, errs, code := f.run("report", "--week", "--open"); code != 0 {
 		t.Fatalf("%d %s", code, errs)
 	}
@@ -44,31 +42,6 @@ func TestReportCLI(t *testing.T) {
 	}
 	if _, _, code := f.run("report", "--bogus"); code != 2 {
 		t.Fatal("unknown flag exits 2")
-	}
-}
-
-// With Lavish, the page opens there, reopened even if the person ended
-// the last one; the browser is not asked.
-func TestReportOpensInLavish(t *testing.T) {
-	f := fixture(t)
-	p := f.mkrepo("acme/api", true)
-	f.runIn(p, "note", "-k", "me", "fresh note")
-	lavished, opened := filepath.Join(f.Home, "lavished"), filepath.Join(f.Home, "opened")
-	f.bin("lavish-axi", "echo \"$@\" > "+lavished)
-	f.bin("open", "touch "+opened)
-	_, errs, code := f.run("report", "--open")
-	if code != 0 || !strings.Contains(errs, "in Lavish") {
-		t.Fatalf("%d %s", code, errs)
-	}
-	page := filepath.Join(f.SousHome, "report.html")
-	if got, _ := os.ReadFile(lavished); strings.TrimSpace(string(got)) != page+" --reopen" {
-		t.Fatalf("lavish-axi called with %q", got)
-	}
-	if _, err := os.Stat(opened); err == nil {
-		t.Fatal("the browser opened too")
-	}
-	if out, _, _ := f.run("report"); strings.Contains(out, "fresh note") {
-		t.Fatalf("a report shown in Lavish was seen:\n%s", out)
 	}
 }
 

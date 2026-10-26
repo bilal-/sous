@@ -7,6 +7,13 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.21.1]
+
+### Removed
+
+* `sous report --open` no longer tries Lavish; it opens the page in your
+  browser, as before 0.21.0.
+
 ## [0.21.0]
 
 ### Added
