@@ -7,6 +7,23 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+* `sous runner check <program>` holds any runner program to the runner
+  contract from the command line: it starts a real run (in a scratch
+  repository unless `--project` names one), stops it, and lists every rule
+  broken. `--json` and `--wait` are supported.
+* Runners can describe themselves with an optional `describe` call and then
+  report a run's `phase`, `progress`, `question` and `result` beside its
+  state. sous checks that a known phase agrees with the state and that a
+  result names its commit. The built in runners answer `describe`.
+* Exit code `4` (conflict) for any plugin call: understood, but what it
+  names has moved on. `reply` may use it when the question was replaced.
+* `sous integration --protocol 1`: a draft version 1 of the native
+  integration protocol beside version 0, with its whole shape in
+  `integrations/schema.v1.json` and examples in `integrations/examples/v1`.
+  Version 0 is unchanged; its description now lists `versions`.
+
 ## [0.12.1]
 
 ### Fixed

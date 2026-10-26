@@ -8,6 +8,7 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -41,7 +42,9 @@ const (
 	Failed   = thread.RunFailed
 )
 
-// Status is status's one line of JSON.
+// Status is status's one line of JSON. Phase and what follows it come
+// only from a runner whose describe names them; State is always there, so
+// a reader that knows only states still reads the line right.
 type Status struct {
 	V        int    `json:"v"`
 	State    State  `json:"state"`
@@ -49,6 +52,27 @@ type Status struct {
 	Branch   string `json:"branch,omitempty"`
 	Worktree string `json:"worktree,omitempty"`
 	Log      string `json:"log,omitempty"`
+
+	Phase    thread.RunPhase     `json:"phase,omitempty"`
+	Reason   string              `json:"reason,omitempty"` // why it is blocked or failed
+	Progress *thread.RunProgress `json:"progress,omitempty"`
+	Question *thread.RunQuestion `json:"question,omitempty"`
+	Result   *thread.RunResult   `json:"result,omitempty"`
+}
+
+// check holds a status line to the contract beyond its state: a known
+// phase agrees with the state, and a result names its commit.
+func (st Status) check() error {
+	if want, ok := st.Phase.State(); ok && want != st.State {
+		return fmt.Errorf("phase %q beside state %q (want %q)", st.Phase, st.State, want)
+	}
+	if st.Result != nil && (st.Result.Commit == "" || st.Result.Base == "") {
+		return errors.New("result without its base and commit")
+	}
+	if st.Question != nil && (st.Question.ID == "" || st.Question.Token == "") {
+		return errors.New("question without its id and token")
+	}
+	return nil
 }
 
 var (
@@ -56,6 +80,8 @@ var (
 	ErrUnsupported = plugin.ErrUnsupported
 	// ErrNotSetUp: start exited 3; the reason says what is missing.
 	ErrNotSetUp = plugin.ErrNotSetUp
+	// ErrConflict: reply or approve exited 4; what it named moved on.
+	ErrConflict = plugin.ErrConflict
 )
 
 // Runner is a runner as sous calls it. A built in runner is Offline: it
@@ -108,6 +134,9 @@ func GetStatus(ctx context.Context, r Runner, project, ref string) (Status, erro
 	case !st.State.Reported():
 		return Status{}, fmt.Errorf("%s status: unknown state %q", r.Name, st.State)
 	}
+	if err := st.check(); err != nil {
+		return Status{}, fmt.Errorf("%s status: %w", r.Name, err)
+	}
 	return st, nil
 }
 
@@ -138,6 +167,8 @@ func optional(r Runner, op string) func(plugin.Answer, error) error {
 			return err
 		case a.Code == plugin.ExitRefused:
 			return fmt.Errorf("%s %s: %w", r.Name, op, ErrUnsupported)
+		case a.Code == plugin.ExitConflict:
+			return plugin.Conflicted(r.Name, op, a)
 		}
 		return nil
 	}

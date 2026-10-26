@@ -6,6 +6,7 @@ discovers the work, and performs the person's requested actions through its CLI.
 
 The interface is `sous.integration`, version **0**. It has its own version,
 separate from the command's release, the four plugin axes and state files.
+Version **1** is a draft beside it; see [Version 1](#version-1-draft).
 The complete herdr plugin is included in
 [`integrations/herdr`](../integrations/herdr/README.md): a Tasks pane, sidebar
 summaries, notifications, project links and CLI actions. It consumes this
@@ -185,6 +186,48 @@ The `context` and action outputs follow their existing command guides in
 and a clear line on stderr, with the command's exit code. The `watch` stream
 is the explicit exception to the usual single-value JSON output.
 
+## Version 1 (draft)
+
+Version 1 adds what a phone or any remote host needs to start work and
+follow it: run phases, progress, questions, results, starting and stopping
+runs, approving a result, and operation ids that make every action safe to
+repeat. A host asks for it with `--protocol 1` on every call:
+
+```sh
+sous integration --protocol 1 --json
+```
+
+The answer lists `versions` (every version this sous answers) and
+`draft`. While `draft` is `true`, version 1 may still change, and sous
+fills it in release by release; build against
+[`integrations/schema.v1.json`](../integrations/schema.v1.json), which is the
+whole of it, and the examples in
+[`integrations/examples/v1`](../integrations/examples/v1). Its advertised
+commands carry `--protocol 1`, so a host that runs them as given stays on
+version 1. Without the flag, sous answers version 0 exactly as before, and
+version 0's description lists `versions` so a host can find version 1.
+
+What version 1 changes, beside version 0:
+
+* **Actions** declare a `scope` (`global`, `project` or `item`), typed
+  `parameters` (`id`, `project`, `string`, `text`, `commit`, `question`,
+  with `max_bytes`), `input: "stdin"` when the one text parameter goes on
+  standard input, `confirm` when the host must ask first, and `op` when the
+  action takes `--op <op>`. `effect` gains `write_public`; a host refuses
+  to run an effect it does not know.
+* **Runs** carry `phase`, `reason`, `progress`, `question`, `result`,
+  `publication` and `fresh`. Derive "needs you", "in progress" and "ready
+  to approve" from `phase`; `section` keeps its version 0 values. An
+  unknown phase is shown as reported, never as finished.
+* **Outcomes**: every action that takes `--op` prints one `outcome`
+  object. The same `op` with the same input always gets the same outcome
+  (`already_done` when it was done before); the same `op` with different
+  input is `refused` with `op_reused`.
+* **Watch** sends changed items only after its first snapshot, with a
+  `meta` object for board fields that changed, and keeps every line under
+  `--max-bytes`, leaving lower sections out and counting them in
+  `omitted`.
+
 ## Contract checks
 
 `make ci` covers discovery without setup, unavailable and newer state,
@@ -192,4 +235,5 @@ current notes and snoozes, offline run reconciliation, stable identity,
 change suppression, failure recovery, literal action arguments and a real
 watch process against a throwaway home. No test contacts herdr, a tracker,
 or an agent for real. Adding an action or changing the wire format requires
-updating the schema, this guide and the command help together.
+updating the schema, this guide and the command help together. The v1
+examples are validated against `schema.v1.json` by the same tests.

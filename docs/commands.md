@@ -297,6 +297,9 @@ Calls:
 
 Options:
 
+* `--protocol <n>`: answer protocol version `n`. `0` is the default; `1` is
+  a draft beside it ([integrations.md](integrations.md#version-1-draft)).
+  Any other version exits `2`.
 * `--json`: `describe` and `snapshot` return one JSON object. `watch` emits
   one JSON object per line (NDJSON): `snapshot`, `changes` or `unavailable`
   events. Empty arrays are `[]`. A new baseline includes no item changes;
@@ -309,6 +312,7 @@ Examples:
     sous integration --json
     sous integration snapshot --json
     sous integration watch --json
+    sous integration --protocol 1 --json
 
 The host chooses when to notify and runs advertised actions only on the
 person's request. Substitute parameters as whole argument values, with the
@@ -705,7 +709,8 @@ plugin. See [plugins.md](plugins.md).
 | `sous signal <name> scan` | Run a built in signal (`git`, `github`, `gitlab`). Project folders on standard input, one JSON line per finding out. |
 | `sous backend <name> <call> ...` | Run a built in backend (`markdown`, `github`, `gitlab`): `detect`, `file`, `status`, `close` or `url`. |
 | `sous launcher <name> run <folder>` | Start a built in launcher (`claude`, `codex`, `agy`, `opencode`) in a folder. |
-| `sous runner <name> <call> ...` | Run a built in runner (`claude`, `codex`, `agy`, `opencode`): `start`, `status`, `reply`, `stop` or `clean`. |
+| `sous runner <name> <call> ...` | Run a built in runner (`claude`, `codex`, `agy`, `opencode`): `describe`, `start`, `status`, `reply`, `stop` or `clean`. |
+| `sous runner check <program> [--project <folder>] [--wait <seconds>] [--json]` | Check any runner program against the runner contract: it starts a real run, then stops it. Exit `1` lists what it broke. |
 | `sous hook session-start\|session-end <agent>` | What the agent hooks run. Always exits `0` and never holds up a session. |
 
 ## How project names are matched

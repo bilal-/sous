@@ -63,6 +63,7 @@ Every kind of plugin ends every call with the same exit codes:
 | `1` | failed: say why on standard error. Exit `1` with nothing on standard error is a plain no |
 | `2` | refused: the request was not understood, or the call is an optional one you do not have. Say why on standard error |
 | `3` | not set up: what you need (a tool, a login, a token) is missing on this machine. Say what |
+| `4` | conflict: the request was understood but no longer fits, because what it names has moved on (a question was replaced). Say why |
 
 The sections below say which of these each call may use.
 
@@ -181,6 +182,10 @@ owns checking whether its worker is alive.
 | `stop <project> <ref>` | | | `0` stopped (stopping twice is fine), `1` failed. Any other exit code is read as not stopped |
 | `reply <project> <ref>` | the person's answer on standard input | | `0` carrying on, `1` failed, `2` replies not supported. Optional |
 | `clean <project> <ref>` | | | `0` cleaned, `1` failed, `2` not supported. Optional: remove what a finished run left, keeping its work |
+| `describe` | | one JSON line | `0` described. Optional: what else you speak (below) |
+
+`reply` may also exit `4` when the question it answers has moved on; sous
+tells the person rather than retrying.
 
 The `start` request:
 
@@ -202,6 +207,35 @@ The `status` answer:
 
 `state` is `running`, `needs_you`, `done` or `failed`. `text` is one short
 line: the question, the summary, or the reason. The rest are optional.
+
+A runner can say more about a run than its state. It names the fields it
+reports in its `describe` answer, and sous reads none that it did not name:
+
+```json
+{"v":0,"calls":["start","status","stop","reply","clean"],"fields":["phase","progress","question","result"]}
+```
+
+`calls` names every call you answer, `fields` every status field below
+you report. A runner without `describe` (any answer but exit `0` with such
+a line) is called exactly as before. The fields, beside `state`:
+
+```json
+{"v":0,"state":"needs_you","phase":"needs_you","text":"which fixture should win?",
+ "progress":{"done":3,"total":7,"step":"reviewing T4"},
+ "question":{"id":"q-12","token":"7f3a","text":"which fixture should win?","choices":["keep old","use new"],"other":true}}
+```
+
+| Field | Means |
+|---|---|
+| `phase` | where the run is: `queued`, `planning`, `working`, `reviewing`, `blocked` (stuck on the computer; say why in `reason`), `needs_you`, `ready`, `approved`, `failed`, `stopped`, `discarded`. A known phase must agree with `state`: the first five are `running`, `needs_you` is `needs_you`, `ready` and `approved` are `done`, the last three are `failed`. Others may come; send them beside the nearest state |
+| `reason` | why the run is blocked or failed |
+| `progress` | `done` of `total` tasks, and the current `step` in plain words |
+| `question` | what you asked: an `id` and a `token` that change whenever the question does, its `text`, any `choices`, `other` when free text is welcome too, and `expires_at` if it lapses |
+| `result` | the work offered for review: its `base` commit, the `commit` that holds it, a `summary`, `files` counts, the `checks` you ran (`passed`, `failed` or `not_run`, and whether `required`), and who did the `review` |
+
+Once a run reports a `result`, its `commit` never changes: new work is a
+new commit and a new result. Once `stop` has answered `0`, no later status
+reports `queued`, `planning`, `working` or `reviewing` for that run.
 
 Rules that matter:
 
@@ -250,6 +284,15 @@ func TestOrchidConforms(t *testing.T) {
 	})
 }
 ```
+
+A runner in any language can be checked without a sous checkout. This
+starts a real run, in a scratch repository unless `--project` names one,
+then stops it, and lists every rule it broke:
+
+    sous runner check ~/.sous/plugins/sous-runner-orchid [--project <folder>] [--wait <seconds>] [--json]
+
+`--wait` gives the run that long to finish before it is stopped. The exit
+code is `0` when the runner conforms and `1` when it does not.
 
 Run your plugin by hand with the examples above too. If it works there, it
 works in sous.

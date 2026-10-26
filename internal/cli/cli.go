@@ -427,7 +427,7 @@ func dispatch(e *Env, cmd string, rest []string) int {
 	// A verb that has no use for --json or --brief refuses it: silently
 	// ignoring it would let a caller believe it took effect.
 	switch {
-	case e.JSON && !v.json:
+	case e.JSON && !v.json && !runnerCheck(cmd, rest):
 		return fail(e, exitUsage, "%s does not take --json", cmd)
 	case e.Brief && !v.brief:
 		return fail(e, exitUsage, "%s does not take --brief", cmd)

@@ -32,6 +32,9 @@ func cmdLauncher(e *Env, a argv) int {
 }
 
 func cmdRunner(e *Env, a argv) int {
+	if len(a.pos) > 0 && a.pos[0] == "check" {
+		return cmdRunnerCheck(e, a.pos[1:])
+	}
 	return runner.Registry.Serve(runner.Deps{Home: e.Home, Exe: e.Exe, Limit: e.Cfg.RunLimit()}, a.pos, e.Stdin, e.Stdout, e.Stderr)
 }
 

@@ -273,3 +273,40 @@ func TestIntegrationRefusesUnknownCall(t *testing.T) {
 		t.Fatalf("unknown integration call: %d %q", code, errs)
 	}
 }
+
+// A host asks for version 1 with --protocol 1 on every call; without it,
+// sous answers version 0 as before. An unknown version is refused.
+func TestIntegrationProtocolVersions(t *testing.T) {
+	f := fixture(t)
+	var d struct {
+		V          int  `json:"v"`
+		Draft      bool `json:"draft"`
+		Versions   []int
+		Operations map[string]struct {
+			Argv []string `json:"argv"`
+		} `json:"operations"`
+	}
+	out, errs, code := f.run("integration", "--protocol", "1", "--json")
+	if code != 0 || json.Unmarshal([]byte(out), &d) != nil || d.V != 1 || !d.Draft || !slices.Contains(d.Operations["snapshot"].Argv, "--protocol") {
+		t.Fatalf("v1: %d %q %q", code, out, errs)
+	}
+	out, _, _ = f.run("integration", "--json")
+	d.Draft = false
+	if json.Unmarshal([]byte(out), &d) != nil || d.V != 0 || d.Draft || slices.Contains(d.Operations["snapshot"].Argv, "--protocol") || !slices.Equal(d.Versions, []int{0, 1}) {
+		t.Fatalf("v0: %q", out)
+	}
+	p := f.mkrepo("acme/api", true)
+	f.runIn(p, "note", "-k", "me", "check retry fix")
+	st := &store.Store{Home: f.SousHome}
+	views, _ := thread.Open(st, time.Now())
+	board.WriteCache(st, &board.Data{Projects: []project.Project{{Path: p, Name: "api", Org: "acme"}}, Threads: views, Checked: 1, RenderedAt: time.Now().UTC()})
+	var s struct {
+		V int `json:"v"`
+	}
+	if out, errs, code := f.run("integration", "snapshot", "--protocol", "1", "--json"); code != 0 || json.Unmarshal([]byte(out), &s) != nil || s.V != 1 {
+		t.Fatalf("snapshot v1: %d %q %q", code, out, errs)
+	}
+	if _, errs, code := f.run("integration", "--protocol", "2", "--json"); code != exitUsage || !strings.Contains(errs, "0 and 1") {
+		t.Fatalf("v2: %d %q", code, errs)
+	}
+}

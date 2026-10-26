@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-func RenderDescription(w io.Writer, d Description) {
-	fmt.Fprintf(w, "sous integration · %s v%d · %s\n", d.Protocol, d.V, d.Version)
+func RenderDescription(w io.Writer, protocol string, v int, version string) {
+	fmt.Fprintf(w, "sous integration · %s v%d · %s\n", protocol, v, version)
 	fmt.Fprintln(w, "sous integration snapshot --json · current notes and local runs, last remote snapshot")
 	fmt.Fprintln(w, "sous integration watch --json · baseline and changes as newline-delimited JSON")
 	fmt.Fprintln(w, "sous integration --json · discovery and task actions")

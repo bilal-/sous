@@ -53,6 +53,7 @@ type Reader struct {
 	Configured bool
 	Now        time.Time
 	Reconcile  board.Reconciler
+	V          int // the protocol version asked for
 }
 
 func (r Reader) Read(ctx context.Context) (Snapshot, error) {
@@ -79,7 +80,7 @@ func (r Reader) Read(ctx context.Context) (Snapshot, error) {
 	if r.Reconcile != nil {
 		d.Threads = r.Reconcile(ctx, d.Threads)
 	}
-	s := Snapshot{Kind: "snapshot", V: Version, Provider: Provider, Configured: r.Configured, Available: available,
+	s := Snapshot{Kind: "snapshot", V: r.V, Provider: Provider, Configured: r.Configured, Available: available,
 		ObservedAt: now.UTC(), Items: []Item{}, Projects: append([]project.Project{}, d.Projects...), Sources: append([]signal.PluginStatus{}, d.Plugins...),
 		Checked: d.Checked, Unavailable: d.Unavailable}
 	if available {

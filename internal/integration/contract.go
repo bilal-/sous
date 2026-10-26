@@ -32,6 +32,7 @@ type Action struct {
 type Description struct {
 	Kind           string               `json:"kind"`
 	V              int                  `json:"v"`
+	Versions       []int                `json:"versions,omitempty"` // every version this sous answers; ask with --protocol <n>
 	Provider       string               `json:"provider"`
 	Protocol       string               `json:"protocol"`
 	Version        string               `json:"version"`
@@ -45,7 +46,7 @@ type Description struct {
 
 func Describe(version string) Description {
 	return Description{
-		Kind: "description", V: Version, Provider: Provider, Protocol: Protocol, Version: version,
+		Kind: "description", V: Version, Versions: Versions, Provider: Provider, Protocol: Protocol, Version: version,
 		Repository:     "https://github.com/bilal-/sous",
 		Documentation:  "https://github.com/bilal-/sous/blob/main/docs/integrations.md",
 		Schema:         "https://raw.githubusercontent.com/bilal-/sous/main/integrations/schema.json",

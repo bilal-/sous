@@ -1,6 +1,7 @@
 package runner_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,6 +35,9 @@ func TestBuiltinsConform(t *testing.T) {
 			repo := testutil.Repo(t, t.TempDir(), true, "")
 			exe, _ := os.Executable()
 			r := runner.Registry.Discover(exe, []string{name}, nil)[0]
+			if c := runner.Describe(context.Background(), r); !c.Described || !c.Has("reply") || !c.Has("clean") {
+				t.Errorf("describe: %+v", c)
+			}
 			runnertest.RunDoor(t, r, repo, func(ref string) {
 				uid := ref[len(name)+1:]
 				os.WriteFile(filepath.Join(home, "runs", uid, "worktree", "go"), nil, 0o600)

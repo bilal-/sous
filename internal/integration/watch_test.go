@@ -26,7 +26,7 @@ func TestWatchBaselineChangesAndFailureRecovery(t *testing.T) {
 	defer cancel()
 	index := 0
 	var events []Event
-	err := Watch(ctx, func(context.Context) (Snapshot, error) {
+	err := Watch(ctx, Version, func(context.Context) (Snapshot, error) {
 		if index == len(steps) {
 			cancel()
 			return Snapshot{}, context.Canceled
@@ -62,7 +62,7 @@ func TestWatchBaselineChangesAndFailureRecovery(t *testing.T) {
 func TestWatchStopsWhenHostCannotRead(t *testing.T) {
 	want := errors.New("host closed its pipe")
 	reads := 0
-	err := Watch(context.Background(), func(context.Context) (Snapshot, error) {
+	err := Watch(context.Background(), Version, func(context.Context) (Snapshot, error) {
 		reads++
 		return Snapshot{Revision: "a"}, nil
 	}, time.Millisecond, func(Event) error { return want })
@@ -76,7 +76,7 @@ func TestWatchReportsMissingSnapshotAndCanStartLater(t *testing.T) {
 	defer cancel()
 	reads := 0
 	var events []Event
-	err := Watch(ctx, func(context.Context) (Snapshot, error) {
+	err := Watch(ctx, Version, func(context.Context) (Snapshot, error) {
 		reads++
 		if reads <= 2 {
 			return Snapshot{}, ErrNotReady

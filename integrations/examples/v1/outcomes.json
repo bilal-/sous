@@ -1,0 +1,8 @@
+[
+  {"kind": "outcome", "v": 1, "op": "op-7f3a9c2e1b4d6f80", "action": "run", "id": "91", "outcome": "done"},
+  {"kind": "outcome", "v": 1, "op": "op-7f3a9c2e1b4d6f80", "action": "run", "id": "91", "outcome": "already_done"},
+  {"kind": "outcome", "v": 1, "op": "op-3c4d5e6f7a8b9c0d", "action": "approve", "id": "88", "outcome": "in_progress"},
+  {"kind": "outcome", "v": 1, "op": "op-4d5e6f7a8b9c0d1e", "action": "reply", "id": "91", "outcome": "conflict", "reason": "stale_question"},
+  {"kind": "outcome", "v": 1, "op": "op-5e6f7a8b9c0d1e2f", "action": "run", "outcome": "refused", "reason": "not_allowed_project"},
+  {"kind": "outcome", "v": 1, "op": "op-6f7a8b9c0d1e2f3a", "action": "approve", "id": "88", "outcome": "failed", "reason": "push_failed"}
+]

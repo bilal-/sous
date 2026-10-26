@@ -21,11 +21,16 @@ const (
 	ExitRefused = 2
 	// ExitNotSetUp: what the plugin needs is missing or logged out.
 	ExitNotSetUp = 3
+	// ExitConflict: the request was understood but no longer fits: the
+	// question it answers was replaced, the commit it names moved on.
+	ExitConflict = 4
 )
 
 var (
 	// ErrUnsupported: an optional call this plugin does not have.
 	ErrUnsupported = errors.New("not supported")
+	// ErrConflict: the state moved on since the caller looked (exit 4).
+	ErrConflict = errors.New("conflict")
 	// ErrNotSetUp: the plugin cannot work on this machine yet; the reason
 	// says what is missing.
 	ErrNotSetUp = errors.New("not set up")
@@ -39,8 +44,9 @@ const (
 )
 
 // Exit is how a built in ends a call: nil is ExitOK, ErrUnsupported is
-// ExitRefused, ErrNotSetUp is ExitNotSetUp, anything else ExitFailed. The
-// reason goes to stderr, except for a silent ErrNo.
+// ExitRefused, ErrNotSetUp is ExitNotSetUp, ErrConflict is ExitConflict,
+// anything else ExitFailed. The reason goes to stderr, except for a silent
+// ErrNo.
 func Exit(err error, stderr io.Writer) int {
 	switch {
 	case err == nil:
@@ -51,8 +57,11 @@ func Exit(err error, stderr io.Writer) int {
 		return ExitFailed
 	}
 	fmt.Fprintln(stderr, err)
-	if errors.Is(err, ErrNotSetUp) {
+	switch {
+	case errors.Is(err, ErrNotSetUp):
 		return ExitNotSetUp
+	case errors.Is(err, ErrConflict):
+		return ExitConflict
 	}
 	return ExitFailed
 }

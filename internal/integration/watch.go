@@ -30,7 +30,7 @@ type Event struct {
 // Watch sends a baseline, changes, and availability transitions. It is a
 // projection of current state, not a journal: a host reconnects by accepting
 // another baseline. The host owns cancellation and notification policy.
-func Watch(ctx context.Context, read func(context.Context) (Snapshot, error), interval time.Duration, emit func(Event) error) error {
+func Watch(ctx context.Context, v int, read func(context.Context) (Snapshot, error), interval time.Duration, emit func(Event) error) error {
 	if interval <= 0 {
 		interval = time.Second
 	}
@@ -46,7 +46,7 @@ func Watch(ctx context.Context, read func(context.Context) (Snapshot, error), in
 		if ctx.Err() != nil {
 			return nil
 		}
-		e := Event{Kind: "event", V: Version, Provider: Provider, Changes: []Change{}}
+		e := Event{Kind: "event", V: v, Provider: Provider, Changes: []Change{}}
 		if previous != nil {
 			e.Revision = previous.Revision
 		}

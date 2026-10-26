@@ -59,7 +59,7 @@ func fakeSousProcess() {
 		return s, err
 	}
 	if os.Args[2] == "watch" {
-		_ = integration.Watch(ctx, read, 20*time.Millisecond, func(e integration.Event) error { return json.NewEncoder(os.Stdout).Encode(e) })
+		_ = integration.Watch(ctx, integration.Version, read, 20*time.Millisecond, func(e integration.Event) error { return json.NewEncoder(os.Stdout).Encode(e) })
 		return
 	}
 	s, err := read(ctx)

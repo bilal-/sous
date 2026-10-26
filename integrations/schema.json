@@ -28,6 +28,7 @@
       "required": ["kind", "v", "provider", "protocol", "version", "repository", "documentation", "schema", "poll_interval_ms", "operations", "actions"],
       "properties": {
         "kind": {"const": "description"}, "v": {"const": 0}, "provider": {"const": "sous"},
+        "versions": {"type": "array", "items": {"type": "integer"}},
         "protocol": {"const": "sous.integration"}, "version": {"type": "string"},
         "repository": {"type": "string"}, "documentation": {"type": "string"}, "schema": {"type": "string"},
         "poll_interval_ms": {"type": "integer", "minimum": 1},

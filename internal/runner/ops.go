@@ -55,6 +55,14 @@ func ops(impl Implementation) map[string]plugin.Op {
 			}
 			return impl.Reply(project, ref, string(answer))
 		}),
+		"describe": func(args []string, _ io.Reader, stdout, stderr io.Writer) int {
+			if len(args) != 0 {
+				return plugin.Usage(stderr, "describe")
+			}
+			b, _ := json.Marshal(Capabilities{V: plugin.Version, Calls: baseCalls})
+			fmt.Fprintln(stdout, string(b))
+			return plugin.ExitOK
+		},
 		"stop":  plugin.RefCall("stop", func(project, ref string, _ io.Reader, _ io.Writer) error { return impl.Stop(project, ref) }),
 		"clean": plugin.RefCall("clean", func(project, ref string, _ io.Reader, _ io.Writer) error { return impl.Clean(project, ref) }),
 	}

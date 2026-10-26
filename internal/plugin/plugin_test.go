@@ -205,3 +205,20 @@ func TestCallNotSetUpIsSaidOnce(t *testing.T) {
 		}
 	}
 }
+
+// Exit 4 is an answer, like 0 and 2: the call was understood and refused
+// because the state moved on. Its reason travels with it.
+func TestCallConflictIsAnAnswer(t *testing.T) {
+	p := testutil.Script(t, t.TempDir(), "p", `echo "question changed" >&2; exit 4`)
+	a, err := Call(context.Background(), "x", "reply", []string{p}, nil, time.Second)
+	if err != nil || a.Code != ExitConflict || a.Reason != "question changed" {
+		t.Fatalf("%+v %v", a, err)
+	}
+	if got := Conflicted("x", "reply", a); !errors.Is(got, ErrConflict) || !strings.Contains(got.Error(), "question changed") {
+		t.Fatalf("%v", got)
+	}
+	var errb strings.Builder
+	if code := Exit(fmt.Errorf("stale: %w", ErrConflict), &errb); code != ExitConflict || !strings.Contains(errb.String(), "stale") {
+		t.Fatalf("%d %q", code, errb.String())
+	}
+}

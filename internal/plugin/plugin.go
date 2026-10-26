@@ -124,7 +124,7 @@ type Answer struct {
 }
 
 // Call runs one contract call and reads its exit code the way every kind of
-// plugin does: 0 and 2 are answers; 1 is a failure, its reason on standard
+// plugin does: 0, 2 and 4 are answers; 1 is a failure, its reason on standard
 // error (ErrNo when silent); anything else, a timeout, or a program that
 // cannot run is an error.
 func Call(ctx context.Context, name, op string, argv []string, stdin []byte, timeout time.Duration) (Answer, error) {
@@ -137,7 +137,7 @@ func Call(ctx context.Context, name, op string, argv []string, stdin []byte, tim
 	}
 	msg := strings.TrimSpace(res.Stderr)
 	switch res.Code {
-	case 0, 2:
+	case ExitOK, ExitRefused, ExitConflict:
 		return Answer{Out: strings.TrimSpace(res.Stdout), Code: res.Code, Reason: msg}, nil
 	case 1:
 		if msg == "" {
@@ -162,6 +162,15 @@ func Refused(name, op string, a Answer) error {
 		return fmt.Errorf("%s %s: refused (exit 2)", name, op)
 	}
 	return fmt.Errorf("%s %s: refused: %s", name, op, a.Reason)
+}
+
+// Conflicted is the error for an exit 4: the call no longer fits what the
+// plugin holds, with its reason.
+func Conflicted(name, op string, a Answer) error {
+	if a.Reason == "" {
+		return fmt.Errorf("%s %s: %w (exit 4)", name, op, ErrConflict)
+	}
+	return fmt.Errorf("%s %s: %w: %s", name, op, ErrConflict, a.Reason)
 }
 
 // GroupCommand is a command in a process group of its own: when ctx ends,
