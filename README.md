@@ -440,6 +440,7 @@ Each public command explains itself with `--help`.
 | `sous go <project> [-a agent]` | start your agent in a project |
 | `sous go <project> --run <brief>` | hand a task to an agent in the background |
 | `sous reply <n> "answer"` | answer a run that needs you |
+| `sous serve` | the board as a web page on this computer |
 | `sous approve <n>` | publish a run's result: push its branch and open a draft PR |
 | `sous discard <n>` | turn a run's result down |
 | `sous setup [folder...]` | set everything up; folders say where your projects are |

@@ -96,7 +96,8 @@ const (
 	PubPublished = "published"
 )
 
-// RunFiles counts what a result changed.
+// RunFiles counts what a result changed: every file it touched, and of
+// those how many it added or removed.
 type RunFiles struct {
 	Changed      int `json:"changed"`
 	Added        int `json:"added"`

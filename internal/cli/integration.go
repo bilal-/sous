@@ -15,6 +15,7 @@ import (
 
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/integration"
+	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -125,6 +126,7 @@ func readSnapshot(e *Env, ctx context.Context, v int, askRunners bool) (integrat
 	current.Cfg, current.cfgErr = cfg, nil
 	now := time.Now().UTC()
 	return (integration.Reader{Store: e.store(), Configured: len(cfg.Roots) > 0, Now: now, V: v,
+		RunsAllowed: func(path string) bool { return cfg.Project(project.OrgName(path)).RemoteRuns == "true" },
 		Reconcile: func(ctx context.Context, views []thread.View) []thread.View {
 			views = reconcile(&current, ctx, views, now, true)
 			if askRunners {

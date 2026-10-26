@@ -49,6 +49,9 @@ func TestAXI4And5ReadVerbsAnswerWhenEmpty(t *testing.T) {
 		if v.args != nil && v.args.min > 0 {
 			continue // needs something to show (show <n>, go --run): tested with one
 		}
+		if v.name == "serve" {
+			continue // runs until stopped, like integration watch: TestServePrintsAWorkingAddress
+		}
 		out, errs, code := f.runIn(p, v.name)
 		if code != 0 && !(v.name == "doctor" && code == 1) || strings.TrimSpace(out) == "" { // doctor: 1 means problems found
 			t.Errorf("%s: %d %q %q", v.name, code, out, errs)
@@ -67,8 +70,8 @@ func TestAXI6NeverPrompts(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("acme/chime", true)
 	for _, v := range verbs {
-		if v.args == nil || v.name == "setup" || v.name == "go" {
-			continue // doors are protocol; setup writes real dotfiles; go execs
+		if v.args == nil || v.name == "setup" || v.name == "go" || v.name == "serve" {
+			continue // doors are protocol; setup writes real dotfiles; go execs; serve runs until stopped
 		}
 		done := make(chan struct{})
 		go func() { f.runIn(p, v.name); close(done) }()

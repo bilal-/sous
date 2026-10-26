@@ -70,8 +70,17 @@ func Next(v thread.View) []string {
 	}
 	// org/name: a folder name alone may match more than one project.
 	fill := strings.NewReplacer("{n}", fmt.Sprint(v.ID), "{project}", project.OrgName(v.Project), "{key}", shellWord(v.Run.Key))
+	next := look(v.Run).next
+	switch pub := v.Run.Publication; {
+	case pub != nil && pub.Stage == thread.PubPublished:
+		next = []string{"sous done {n}"}
+	case pub != nil:
+		next = []string{"sous approve {n}", "sous show {n}"} // carries on from where it stopped
+	case v.Run.State == thread.RunDone && v.Run.Result != nil:
+		next = []string{"sous approve {n}", "sous discard {n}", "sous done {n} --clean"}
+	}
 	var out []string
-	for _, c := range look(v.Run).next {
+	for _, c := range next {
 		out = append(out, fill.Replace(c))
 	}
 	return out
@@ -89,8 +98,8 @@ func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
 		fmt.Fprintf(w, "   filed: %s\n", *v.Ref)
 	}
 	if r := v.Run; r != nil {
-		line := "   " + look(r).label
-		if r.Text != "" {
+		line := "   " + groupLabel(r)
+		if r.Text != "" && !r.State.Working() {
 			line += " · " + r.Text
 		}
 		fmt.Fprintf(w, "%s (%s)\n", line, r.Runner)
@@ -151,6 +160,16 @@ func renderRunDetail(w io.Writer, r *thread.Run) {
 		summary = append(summary, by)
 	}
 	fmt.Fprintf(w, "   result: %s · commit %s\n", strings.Join(summary, " · "), shortCommit(res.Commit))
+	if pub := r.Publication; pub != nil {
+		line := "   published: " + pub.Stage + " · " + pub.Branch
+		if pub.PR != "" {
+			line += " · " + pub.PR
+		}
+		if pub.Error != "" {
+			line += " · stopped: " + pub.Error
+		}
+		fmt.Fprintln(w, line)
+	}
 	for _, c := range res.Checks {
 		status := strings.ReplaceAll(c.Status, "_", " ")
 		if c.Required {

@@ -596,6 +596,33 @@ run that is still working cannot be answered yet, and one that never
 started a session cannot carry on: start a new run with the answer in its
 brief.
 
+### `sous serve`
+
+The board as a web page on this computer, for as long as you keep it open.
+It shows the same groups as the terminal (needs you, in progress, ready to
+review, then the rest), live, and lets you answer a run, start a task in a
+project that allows `remote_runs`, view a result's changes, approve or
+discard it, stop a run, and close or snooze a row.
+
+```
+sous serve
+sous serve --open --port 0
+```
+
+Options:
+
+* `--port <n>`: the port to listen on, `7428` unless told; `0` picks any
+  free one.
+* `--open`: open the page in your browser.
+* `--json`: print `{"url": "…"}` instead of the line for people.
+
+It listens on 127.0.0.1 only. The address it prints carries a secret, kept
+in `~/.sous/serve.token` so a bookmark keeps working; a browser that did not
+come through it is refused, and so is any request naming another host or
+posting from another page. Every action it runs is one `sous integration
+--protocol 1` action, with an op, so a click that is sent twice is done once.
+Ctrl-C stops it.
+
 ### `sous approve <n>`
 
 Publishes a run's result once you have reviewed it. The runner accepts it
@@ -904,6 +931,7 @@ Everything lives in `~/.sous` (or `SOUS_HOME`).
 | `sessions.json` | the last agent session in each project |
 | `cache.json` | the saved board, for new shells and the menu bar |
 | `ops.json` | each action a host asked for by op, and how it came out, so asking again never does it twice |
+| `serve.token` | the secret in the address `sous serve` prints |
 | `report.json` | when you last saw a report, where the next one starts |
 | `install-id` | a random id for this install, used in older filing markers. Do not delete it. |
 | `here/` | the files `sous go` hands to agents, one per project |

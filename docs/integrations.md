@@ -249,6 +249,15 @@ items they apply to; `run` is offered per project.
   as removed; it may later arrive as `item.updated`, which a host that
   does not hold it adds.
 
+## Design: tokens and display rules
+
+Every surface draws the same JSON with its own components. What makes them
+one product is [`integrations/design`](../integrations/design/README.md):
+`tokens.json` (colours, the colour and word for each group, type, radii,
+spacing) and the display rules (group order, which phase goes in which
+group, plain words, what Approve must show, ops). `sous serve`'s page
+follows them; so should any other host.
+
 ## Contract checks
 
 `make ci` covers discovery without setup, unavailable and newer state,

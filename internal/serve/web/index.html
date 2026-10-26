@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>sous</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/app.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="mark" aria-hidden="true">&gt;_</span>
+    <span class="word">sous</span>
+  </div>
+  <p class="counts" id="counts" aria-live="polite">Reading the board…</p>
+  <div class="top-actions">
+    <span class="live" id="live" title="Connection to sous">connecting</span>
+    <button class="primary" id="new-task" type="button">New task</button>
+  </div>
+</header>
+
+<main id="board" aria-busy="true">
+  <div class="problems" id="problems" hidden></div>
+  <div id="groups"></div>
+  <p class="empty" id="empty" hidden>Nothing waiting on you.</p>
+</main>
+
+<dialog id="task-dialog" aria-labelledby="task-title">
+  <form method="dialog" id="task-form">
+    <h2 id="task-title">New task</h2>
+    <p class="hint" id="task-none" hidden>No project lets a run start from here yet. Turn one on with
+      <code>sous config -p acme/api remote_runs true</code>.</p>
+    <label for="task-project">Project</label>
+    <select id="task-project" required></select>
+    <label for="task-brief">What to do, why, and what done means</label>
+    <textarea id="task-brief" rows="7" maxlength="16000" required
+      placeholder="Fix the flaky test in checkout_spec. It fails about 1 in 5 runs since the fixtures changed. Done means it passes 20 times in a row."></textarea>
+    <div class="row-end">
+      <button type="button" class="quiet" data-close>Cancel</button>
+      <button type="submit" class="primary" id="task-start">Start</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="confirm-dialog" aria-labelledby="confirm-title">
+  <form method="dialog">
+    <h2 id="confirm-title"></h2>
+    <p id="confirm-body"></p>
+    <div class="row-end">
+      <button type="button" class="quiet" data-close>Cancel</button>
+      <button type="submit" class="primary" id="confirm-yes">Yes</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="diff-dialog" class="wide" aria-labelledby="diff-title">
+  <div class="diff-head">
+    <h2 id="diff-title">Changes</h2>
+    <span class="mono faint" id="diff-commit"></span>
+    <button type="button" class="quiet" data-close>Close</button>
+  </div>
+  <pre class="diff" id="diff-body"></pre>
+  <div class="row-end">
+    <span class="faint" id="diff-page"></span>
+    <button type="button" class="quiet" id="diff-prev">Previous</button>
+    <button type="button" class="quiet" id="diff-next">Next</button>
+  </div>
+</dialog>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+</body>
+</html>

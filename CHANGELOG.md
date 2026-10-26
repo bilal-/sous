@@ -7,6 +7,30 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+* `sous serve`: the board as a web page on this computer, live. It answers
+  runs, starts tasks in projects that allow `remote_runs`, shows a result's
+  changes, approves or discards it, stops runs, and closes or snoozes rows.
+  It listens on 127.0.0.1 only, lets in only the browser that opened the
+  address it printed, and runs every action as a `sous integration
+  --protocol 1` action with an op. Dark and light.
+* `integrations/design`: the tokens and display rules every surface shares,
+  the page and Shellbell's phone screen alike.
+* Version 1 snapshots list `run_projects`: the projects a host may start
+  runs in.
+
+### Changed
+
+* The board's headline leaves out counts that are zero when nothing is
+  missing (`sous · 1 needs you · 2 running · 1 ready · 1 on you`); with a
+  gap it still shows every count.
+* A ready run's row says how many files and whether its checks passed, and
+  no longer the branch, so it fits.
+* `sous show` names a run's state the way the board does (needs you, in
+  progress, ready to review, published), and a ready run's next steps are
+  `sous approve` and `sous discard`. A published run shows its pull request.
+
 ## [0.19.0]
 
 ### Added

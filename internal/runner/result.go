@@ -96,7 +96,7 @@ func numstat(worktree, base, commit string) *thread.RunFiles {
 	var f thread.RunFiles
 	for _, l := range strings.Split(out, "\n") {
 		switch fields := strings.Fields(l); {
-		case len(fields) >= 3 && fields[0] != "create" && fields[0] != "delete":
+		case len(fields) >= 3 && fields[0] != "create" && fields[0] != "delete" && fields[0] != "mode":
 			f.Changed++
 			a, _ := strconv.Atoi(fields[0])
 			d, _ := strconv.Atoi(fields[1])

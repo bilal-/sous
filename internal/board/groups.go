@@ -45,6 +45,25 @@ func groupRuns(s *Sections) runGroups {
 	return g
 }
 
+// headline is the board's counts when nothing is missing: every group and
+// section that holds something, the empty ones left out. With a gap the
+// board says so instead, with every count, so nothing missing reads as zero.
+func headline(g runGroups, s Sections) string {
+	parts := strings.TrimSuffix(g.counts(), " · ")
+	for _, c := range []struct {
+		n    int
+		what string
+	}{{len(s.Me), "on you"}, {len(s.Them), "on others"}, {len(s.Unfinished), "unfinished"}} {
+		if c.n > 0 {
+			if parts != "" {
+				parts += " · "
+			}
+			parts += fmt.Sprintf("%d %s", c.n, c.what)
+		}
+	}
+	return parts
+}
+
 func (g runGroups) total() int { return len(g.needsYou) + len(g.inProgress) + len(g.ready) }
 
 // counts is the headline's start for the runs: "1 needs you · 2 running · ",
@@ -95,6 +114,10 @@ func groupDetail(r *thread.Run) string {
 			parts = append(parts, fmt.Sprintf("%d of %d", p.Done, p.Total))
 		}
 	case r.State == thread.RunDone:
+		if pub := r.Publication; pub != nil && pub.Stage == thread.PubPublished {
+			parts = append(parts, "draft PR open")
+			break
+		}
 		if res := r.Result; res != nil {
 			if res.Files != nil {
 				parts = append(parts, plural(res.Files.Changed, "file"))
@@ -102,8 +125,9 @@ func groupDetail(r *thread.Run) string {
 			if c := checksWord(res.Checks); c != "" {
 				parts = append(parts, c)
 			}
+			break // sous show has the branch and the rest
 		}
-		if len(parts) == 0 && r.Text != "" {
+		if r.Text != "" {
 			parts = append(parts, r.Text)
 		}
 		if r.Branch != "" {
@@ -137,10 +161,8 @@ func checksWord(checks []thread.RunCheck) string {
 		return plural(failed, "check") + " failed"
 	case notRun == len(checks):
 		return "checks not run"
-	case notRun > 0:
-		return "checks passed · " + fmt.Sprint(notRun) + " not run"
 	}
-	return "checks passed"
+	return "checks passed" // sous show lists any not run
 }
 
 func plural(n int, word string) string {
@@ -148,4 +170,19 @@ func plural(n int, word string) string {
 		return "1 " + word
 	}
 	return fmt.Sprintf("%d %ss", n, word)
+}
+
+// groupLabel is a run's state in the board's words, for sous show.
+func groupLabel(r *thread.Run) string {
+	switch {
+	case r.State == thread.RunNeedsYou:
+		return "needs you"
+	case r.State.Working():
+		return "in progress"
+	case r.State == thread.RunDone && r.Publication != nil && r.Publication.Stage == thread.PubPublished:
+		return "published"
+	case r.State == thread.RunDone:
+		return "ready to review"
+	}
+	return look(r).label
 }

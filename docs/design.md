@@ -37,6 +37,7 @@ you pick. It never takes over how you work.**
   folder that is gone or a row that is out of date says so.
 * **No API key, no background service.** Anything that needs an AI is done
   by the agent you already use, which runs sous like any other command.
+  `sous serve` runs only while you keep it open.
 * **It hands work off, and keeps track of it.** Your agent can hand a task
   to a runner, which works on it in the background. sous shows how it is
   going, and tells you when it is done or needs you. Work you handed off
@@ -72,7 +73,7 @@ Four groups, and each grows in one direction:
 | `sous`, `here`, `<project>`, `projects`, `report`, `review` | What is waiting on me? Where was I? What changed? What needs checking? | **signals** |
 | `note`, `edit`, `kind`, `snooze`, `done`, `file` | Remember this, for that project | **backends** |
 | `go` | Take me there | **launchers** |
-| `go --run`, `show`, `reply` | Do this for me, and tell me how it went | **runners** |
+| `go --run`, `show`, `reply`, `approve`, `discard` | Do this for me, and tell me how it went | **runners** |
 
 Plain `sous` always shows the board. `here`, the session hooks and `go` stay
 on your machine and finish quickly: they never wait on the network.
@@ -99,6 +100,16 @@ through herdr's APIs. Its observer and versioned cache belong to that plugin,
 live in herdr's plugin state directory, and stop with the herdr server or when
 the plugin is disabled. Sous has no detached observer or service of its own.
 The host plugin owns any explicitly configured refresh interval.
+
+`sous serve` is one more host of the same contract: a web page on this
+computer that runs the same `sous integration --protocol 1` calls, so it and
+Shellbell's phone screen draw the same JSON. It is not a service: it runs
+while you keep it open, listens on 127.0.0.1 only, and lets in only the
+browser that opened the address it printed (a secret in the address sets a
+cookie; the Host and Origin of every request are checked). The look the two
+share is data, not code: [`integrations/design`](../integrations/design/README.md)
+holds the tokens and display rules each surface follows with its own
+components.
 
 The native host contract has its own protocol version. Its guide, schema
 and host discovery records live in [integrations.md](integrations.md) and

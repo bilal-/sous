@@ -147,7 +147,7 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 	case len(s.Why) > 0:
 		fmt.Fprintf(w, "sous · %s? on you (%s) · %d found · %d on others · %d unfinished\n", g.counts(), strings.Join(s.Why, ", "), len(s.Me), len(s.Them), len(s.Unfinished))
 	default:
-		fmt.Fprintln(w, "sous · "+g.counts()+s.Counts())
+		fmt.Fprintln(w, "sous · "+headline(g, s))
 	}
 	cut := false
 	section := func(title, hint string, rows []Row) {

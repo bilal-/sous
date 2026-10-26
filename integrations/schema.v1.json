@@ -430,6 +430,10 @@
             "minimum": 1
           },
           "description": "items left out to keep a watch line under --max-bytes, counted by section"
+        },
+        "run_projects": {
+          "$ref": "#/$defs/strings",
+          "description": "projects a host may start runs in (remote_runs)"
         }
       }
     },

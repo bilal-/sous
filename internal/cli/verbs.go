@@ -54,6 +54,7 @@ func init() {
 		{"approve", cmdApprove, true, false, exactly(1, nil, []string{"commit"}), "sous approve <n> [--commit <sha>]   publish a run's result: push its branch and open a draft PR"},
 		{"discard", cmdDiscard, true, false, exactly(1, nil, nil), "sous discard <n>   turn a run's result down; its work stays until done --clean"},
 		{"reply", cmdReply, true, false, &argSpec{min: 2, max: 2, raw: true}, `sous reply <n> "<answer>"   answer a run that needs you; it carries on`},
+		{"serve", cmdServe, true, false, exactly(0, []string{"open"}, []string{"port"}), "sous serve [--port <n>] [--open]   the board as a web page on this computer"},
 		{"setup", cmdSetup, false, false, &argSpec{bools: append([]string{"print-skill", "no-shell"}, harness.Flags()...), max: -1}, "sous setup [folder...] [--no-shell] [--print-skill]" + setupFlags() + "   set everything up; folders say where your projects are"},
 		{"doctor", cmdDoctor, true, false, exactly(0, nil, nil), "sous doctor       check that sous is set up and working, and how to fix what is not"},
 		{"version", cmdVersion, false, false, exactly(0, nil, nil), "sous version"},

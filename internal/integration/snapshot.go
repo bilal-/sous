@@ -46,6 +46,9 @@ type Snapshot struct {
 	// Omitted: version 1, items a watch left out to keep under its byte
 	// limit, counted by section.
 	Omitted map[string]int `json:"omitted,omitempty"`
+	// RunProjects: version 1, the projects a host may start runs in
+	// (remote_runs), so it offers only those.
+	RunProjects []string `json:"run_projects,omitempty"`
 }
 
 // Reader overlays current notes and local runner/backend answers onto the
@@ -57,6 +60,9 @@ type Reader struct {
 	Now        time.Time
 	Reconcile  board.Reconciler
 	V          int // the protocol version asked for
+	// RunsAllowed says whether a host may start runs in a project, for
+	// version 1's run_projects.
+	RunsAllowed func(path string) bool
 }
 
 func (r Reader) Read(ctx context.Context) (Snapshot, error) {
@@ -154,6 +160,13 @@ func (r Reader) Read(ctx context.Context) (Snapshot, error) {
 			}
 			if r.V >= Version1 && item.Run != nil && item.ClosedAt == nil {
 				r.v1Run(item)
+			}
+		}
+	}
+	if r.V >= Version1 && r.RunsAllowed != nil {
+		for _, p := range s.Projects {
+			if !missing[p.Path] && r.RunsAllowed(p.Path) {
+				s.RunProjects = append(s.RunProjects, p.Path)
 			}
 		}
 	}

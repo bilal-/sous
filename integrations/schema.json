@@ -68,7 +68,8 @@
         "sources": {"type": "array", "items": {"$ref": "#/$defs/source"}},
         "problems": {"$ref": "#/$defs/strings"},
         "checked": {"type": "integer", "minimum": 0}, "unavailable": {"type": "integer", "minimum": 0},
-        "omitted": {"type": "object", "description": "version 1 only"}
+        "omitted": {"type": "object", "description": "version 1 only"},
+        "run_projects": {"$ref": "#/$defs/strings", "description": "version 1 only"}
       }
     },
     "item": {

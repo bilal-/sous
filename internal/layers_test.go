@@ -17,7 +17,7 @@ const module = "github.com/bilal-/sous/"
 // across its own tier.
 var tiers = [][]string{
 	{"cli"},
-	{"doctor"},
+	{"doctor", "serve"},
 	{"report", "install", "integration"},
 	{"board", "filing", "runs", "hook", "launcher"},
 	{"signal", "backend", "runner"},
