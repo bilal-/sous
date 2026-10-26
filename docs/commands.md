@@ -218,6 +218,13 @@ Every project sous can see: org, name, host and the age of the last commit.
 Give a name to filter the list; a name that matches nothing says so and
 exits `0` (`[]` with `--json`).
 
+A git worktree (`git worktree add`) is part of its repo's project, not a
+project of its own. The repo is listed once, even when the worktree is the
+folder sous found; the board shows each worktree's uncommitted and unpushed
+work under the repo, naming the worktree (`2 files uncommitted · feat/x ·
+worktree app-feature`), and a note made inside a worktree belongs to the
+repo. A submodule, and a worktree of a bare repo, stay projects of their own.
+
 Options:
 
 * `--root <folder>`: look in this folder instead of your configured roots.
@@ -599,10 +606,15 @@ brief.
 ### `sous serve`
 
 The board as a web page on this computer, for as long as you keep it open.
-It shows the same groups as the terminal (needs you, in progress, ready to
-review, then the rest), live, and lets you answer a run, start a task in a
-project that allows `remote_runs`, view a result's changes, approve or
-discard it, stop a run, and close or snooze a row.
+It updates live. The Inbox shows what to act on, in the terminal's order
+(needs you, in progress, ready to review, on you); the sidebar adds agent
+runs, waiting on others, ideas, unfinished work, everything, and each
+project with something open. Search, filter by where an item came from,
+group by status or project, and open any item to see all of it: answer a
+run, view a result's changes, approve or discard it, stop a run, close or
+snooze it, or hand it to an agent in a project that allows `remote_runs`.
+Select several to close or snooze them at once. Keys: `/` search, `j` and
+`k` move, Enter opens, `e` done, `s` snooze, `x` select, `n` new task.
 
 ```
 sous serve

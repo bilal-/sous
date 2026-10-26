@@ -16,7 +16,10 @@ code but these two things:
 1. **Order by what the person does next.** Groups, top to bottom:
    needs you, in progress, ready to review, then on you, on others,
    unfinished. Ideas and snoozed items belong in a project's own view,
-   not on the board.
+   not on the board. A surface with room for views (the web page) may
+   keep its first view to what to act on, the run groups and on you,
+   and give on others, ideas and unfinished work views of their own, in
+   this same order.
 2. **Group runs by phase, not by section.** An item with a `run` goes in a
    group from `run.phase`, falling back to `run.state` when there is no
    phase:

@@ -11,32 +11,81 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand">
+  <button class="quiet menu" id="menu" type="button" aria-label="Views and projects" aria-controls="side">☰</button>
+  <a class="brand" href="#" aria-label="sous, the inbox">
     <span class="mark" aria-hidden="true">&gt;_</span>
     <span class="word">sous</span>
+  </a>
+  <div class="search">
+    <input id="search" type="search" placeholder="Search notes, projects, branches" autocomplete="off" aria-label="Search">
+    <kbd>/</kbd>
   </div>
   <p class="counts" id="counts" aria-live="polite">Reading the board…</p>
   <div class="top-actions">
     <span class="live" id="live" title="Connection to sous">connecting</span>
-    <button class="primary" id="new-task" type="button">New task</button>
+    <button class="primary" id="new-task" type="button" title="Hand a task to an agent (n)">New task</button>
   </div>
 </header>
 
-<main id="board" aria-busy="true">
-  <div class="problems" id="problems" hidden></div>
-  <div id="groups"></div>
-  <p class="empty" id="empty" hidden>Nothing waiting on you.</p>
-</main>
+<div class="app">
+  <nav class="side" id="side" aria-label="Views and projects">
+    <ul class="views" id="views"></ul>
+    <div class="side-head">
+      <h2>Projects</h2>
+      <input id="project-filter" type="search" placeholder="Filter" aria-label="Filter projects" autocomplete="off">
+    </div>
+    <div id="projects"></div>
+    <p class="keys"><kbd>j</kbd><kbd>k</kbd> move · <kbd>↵</kbd> open · <kbd>e</kbd> done · <kbd>s</kbd> snooze · <kbd>x</kbd> select · <kbd>n</kbd> new task</p>
+  </nav>
+
+  <main class="list" id="board" aria-busy="true">
+    <div class="problems" id="problems" hidden></div>
+    <div class="toolbar">
+      <div class="title">
+        <h1 id="view-title">Inbox</h1>
+        <span class="n" id="view-count"></span>
+        <button class="quiet small" id="view-run" type="button" hidden>New task here</button>
+      </div>
+      <div class="controls">
+        <div class="chips" id="sources" role="group" aria-label="Show from"></div>
+        <label class="pick">Group
+          <select id="group-by">
+            <option value="status">by status</option>
+            <option value="project">by project</option>
+            <option value="none">none</option>
+          </select>
+        </label>
+        <label class="pick">Sort
+          <select id="sort-by">
+            <option value="new">newest first</option>
+            <option value="old">oldest first</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div class="bulk" id="bulk" hidden>
+      <span id="bulk-n"></span>
+      <button type="button" id="bulk-done">Done</button>
+      <button type="button" class="quiet" id="bulk-snooze">Snooze</button>
+      <button type="button" class="quiet" id="bulk-clear">Clear</button>
+    </div>
+    <div id="groups"></div>
+    <div class="empty" id="empty" hidden></div>
+  </main>
+
+  <aside class="detail" id="detail" aria-label="Item" hidden></aside>
+</div>
 
 <dialog id="task-dialog" aria-labelledby="task-title">
   <form method="dialog" id="task-form">
     <h2 id="task-title">New task</h2>
-    <p class="hint" id="task-none" hidden>No project lets a run start from here yet. Turn one on with
+    <p class="hint">An agent works on it in its own worktree. You answer its questions and approve the result here.</p>
+    <p class="hint warn" id="task-none" hidden>No project lets a run start from here yet. Turn one on with
       <code>sous config -p acme/api remote_runs true</code>.</p>
     <label for="task-project">Project</label>
     <select id="task-project" required></select>
     <label for="task-brief">What to do, why, and what done means</label>
-    <textarea id="task-brief" rows="7" maxlength="16000" required
+    <textarea id="task-brief" rows="8" maxlength="16000" required
       placeholder="Fix the flaky test in checkout_spec. It fails about 1 in 5 runs since the fixtures changed. Done means it passes 20 times in a row."></textarea>
     <div class="row-end">
       <button type="button" class="quiet" data-close>Cancel</button>
