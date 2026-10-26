@@ -81,7 +81,15 @@ func cmdIntegration(e *Env, a argv) int {
 			}
 			st.MaxBytes = n
 		}
-		err := st.Run(ctx, func(ctx context.Context) (integration.Snapshot, error) { return integrationSnapshot(e, ctx, v) }, func(event integration.Event) error {
+		var asked time.Time
+		err := st.Run(ctx, func(ctx context.Context) (integration.Snapshot, error) {
+			// Version 0 promises an offline watch; version 1 asks runner plugins.
+			ask := v >= integration.Version1 && time.Since(asked) >= askRunnersEvery
+			if ask {
+				asked = time.Now()
+			}
+			return readSnapshot(e, ctx, v, ask)
+		}, func(event integration.Event) error {
 			if e.JSON {
 				return enc.Encode(noNulls(reflect.ValueOf(event)).Interface())
 			}
@@ -99,6 +107,16 @@ func cmdIntegration(e *Env, a argv) int {
 // A watch outlives a config edit. Read settings again for each snapshot,
 // while retaining the environment and store selected for this invocation.
 func integrationSnapshot(e *Env, ctx context.Context, v int) (integration.Snapshot, error) {
+	return readSnapshot(e, ctx, v, false)
+}
+
+// askRunnersEvery is how often a watch asks runner plugins how their runs
+// are going; between, it reads what they said last, as a snapshot does.
+const askRunnersEvery = 5 * time.Second
+
+// readSnapshot reads the board; with askRunners, runner plugins are asked
+// too, each within its status time. Trackers stay offline either way.
+func readSnapshot(e *Env, ctx context.Context, v int, askRunners bool) (integration.Snapshot, error) {
 	cfg, err := config.Load(e.Home, e.UserHome)
 	if err != nil {
 		return integration.Snapshot{}, err
@@ -108,7 +126,11 @@ func integrationSnapshot(e *Env, ctx context.Context, v int) (integration.Snapsh
 	now := time.Now().UTC()
 	return (integration.Reader{Store: e.store(), Configured: len(cfg.Roots) > 0, Now: now, V: v,
 		Reconcile: func(ctx context.Context, views []thread.View) []thread.View {
-			return reconcile(&current, ctx, views, now, true)
+			views = reconcile(&current, ctx, views, now, true)
+			if askRunners {
+				views = current.dispatcher().Refresh(ctx, views, false)
+			}
+			return views
 		},
 	}).Read(ctx)
 }

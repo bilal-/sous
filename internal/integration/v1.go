@@ -75,6 +75,9 @@ func DescribeV1(version string) DescriptionV1 {
 		if name == "describe" || name == "snapshot" || name == "watch" {
 			op.Argv = append([]string{"sous", "integration", "--protocol", "1"}, op.Argv[2:]...)
 		}
+		if name == "watch" {
+			op.Offline = false // it asks runner plugins, which may leave the machine
+		}
 		ops[name] = op
 	}
 	id := Parameter{Name: "id", Type: "id", Required: true}

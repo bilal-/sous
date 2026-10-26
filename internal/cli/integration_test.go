@@ -325,3 +325,67 @@ func TestIntegrationWatchMaxBytesFlag(t *testing.T) {
 		}
 	}
 }
+
+// A watch asks runner plugins how their runs are going, so a run's change
+// reaches the host without anyone running sous show.
+func TestIntegrationWatchAsksRunnerPlugins(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	status := filepath.Join(f.Home, "status")
+	os.WriteFile(status, []byte(`{"v":0,"state":"running"}`), 0o600)
+	ru := f.plugin("sous-runner-fake", `case "$1" in
+start) cat > /dev/null; echo fake:1;;
+status) cat "`+status+`";;
+stop) ;;
+esac`)
+	f.writeConfig("roots = [\"" + f.WS + "\"]\nplugins = [\"" + ru + "\"]\n")
+	if _, errs, code := f.run("go", "acme/api", "--run", "a task", "-a", "fake"); code != 0 {
+		t.Fatal(errs)
+	}
+	if _, errs, code := f.run("--refresh"); code != 0 {
+		t.Fatal(errs)
+	}
+	cmd := sousCmd(f, f.Home, "integration", "--protocol", "1", "watch", "--json")
+	cmd.Stdin, cmd.Stderr = strings.NewReader(""), io.Discard
+	pipe, _ := cmd.StdoutPipe()
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cmd.Process.Kill(); cmd.Wait() }()
+	lines := make(chan integration.Event, 8)
+	go func() {
+		r := bufio.NewReader(pipe)
+		for {
+			line, err := r.ReadBytes('\n')
+			if err != nil {
+				return
+			}
+			var e integration.Event
+			json.Unmarshal(line, &e)
+			lines <- e
+		}
+	}()
+	select {
+	case e := <-lines:
+		if e.Type != "snapshot" {
+			t.Fatalf("%+v", e)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("no baseline")
+	}
+	_ = p
+	os.WriteFile(status, []byte(`{"v":0,"state":"needs_you","text":"which fixture?"}`), 0o600)
+	deadline := time.After(15 * time.Second)
+	for {
+		select {
+		case e := <-lines:
+			for _, c := range e.Changes {
+				if c.Item != nil && c.Item.Run != nil && c.Item.Run.State == thread.RunNeedsYou {
+					return
+				}
+			}
+		case <-deadline:
+			t.Fatal("the runner's change never reached the watch")
+		}
+	}
+}

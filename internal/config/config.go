@@ -50,7 +50,9 @@ type ProjectConfig struct {
 	RemoteRuns string `toml:"remote_runs"`
 	// Check is the command that checks a run's work before it is ready.
 	Check string `toml:"check"`
-	Raw   map[string]string
+	// Runner is the runner for runs here, in place of the top-level one.
+	Runner string `toml:"runner"`
+	Raw    map[string]string
 }
 
 // Project resolves the per-project settings for "org/name": an exact
@@ -368,6 +370,15 @@ func (c *Config) RunAgent() string {
 		return c.Runner
 	}
 	return c.Agent
+}
+
+// RunAgentFor is the runner for runs in the project orgName: its own
+// runner setting, else RunAgent.
+func (c *Config) RunAgentFor(orgName string) string {
+	if r := c.Project(orgName).Runner; r != "" {
+		return r
+	}
+	return c.RunAgent()
 }
 
 // ChangeList adds items not already in have, or removes them, keeping order.

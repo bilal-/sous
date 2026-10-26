@@ -237,7 +237,9 @@ the question as `<id>:<token>` from the item's `run.question`; every run
 that waits on the person has one, made from its words when its runner
 does not report questions). A snapshot lists `stop` and `reply` on the
 items they apply to; `run` is offered per project.
-* **Watch** sends changed items only after its first snapshot, with a
+* **Watch** asks runner plugins how their runs are going every 5 seconds
+  (version 0 only reads what they said last), so its `offline` is false.
+  It sends changed items only after its first snapshot, with a
   `meta` object for board fields that changed (each replaces the one held;
   absent ones did not change). With `--max-bytes <n>` (at least 16384) no
   line is longer: a baseline leaves out the oldest items of the lowest

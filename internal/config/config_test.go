@@ -185,7 +185,7 @@ func TestKeysComeFromConfigFields(t *testing.T) {
 	if got := KeyNames(); got != "roots, ignore, agent, runner, refresh_hours, run_minutes, plugins, gitlab_hosts" {
 		t.Fatal(got)
 	}
-	if got := strings.Join(ProjectKeys, ", "); got != "backend, github_account, remote_runs, check" {
+	if got := strings.Join(ProjectKeys, ", "); got != "backend, github_account, remote_runs, check, runner" {
 		t.Fatal(got)
 	}
 	k, _ := KeyNamed("refresh_hours")
@@ -205,5 +205,16 @@ func TestSetRootsRefusesACommentedArray(t *testing.T) {
 	os.WriteFile(filepath.Join(home, "config.toml"), []byte(in), 0o644)
 	if err := SetRoots(home, "/h", []string{"~/code"}); err == nil || !strings.Contains(err.Error(), "comments") {
 		t.Fatal(err)
+	}
+}
+
+func TestRunAgentFor(t *testing.T) {
+	c := Default()
+	c.Runner = "codex"
+	c.Projects = map[string]map[string]string{"acme/*": {"runner": "orchid"}, "acme/web": {"runner": "claude"}}
+	for org, want := range map[string]string{"acme/api": "orchid", "acme/web": "claude", "other/x": "codex"} {
+		if got := c.RunAgentFor(org); got != want {
+			t.Errorf("%s: %s, want %s", org, got, want)
+		}
 	}
 }

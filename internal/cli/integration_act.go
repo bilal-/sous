@@ -134,7 +134,7 @@ func actRun(e *Env, target string, in []byte, a argv) (string, runs.Outcome) {
 		return "", runs.Outcome{Outcome: runs.Refused, Reason: "not_allowed_project"}
 	}
 	_, hereFile := hereContext(e, p, io.Discard)
-	id, _, err := e.dispatcher().Start(e.ctx(), p, string(in), a.value("op"), cfg.RunAgent(), e.Source, hereFile)
+	id, _, err := e.dispatcher().Start(e.ctx(), p, string(in), a.value("op"), cfg.RunAgentFor(project.OrgName(p.Path)), e.Source, hereFile)
 	n := ""
 	if id > 0 {
 		n = strconv.Itoa(id)

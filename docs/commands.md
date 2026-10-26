@@ -323,6 +323,9 @@ Options:
 * `--protocol <n>`: answer protocol version `n`. `0` is the default; `1` is
   a draft beside it ([integrations.md](integrations.md#version-1-draft)).
   Any other version exits `2`.
+* With `--protocol 1`, `watch` also asks runner plugins how their runs are
+  going, every 5 seconds, each within its status time, so a plugin's run
+  changes on the host without `sous show`. Version 0 stays offline.
 * `--max-bytes <n>`: with `--protocol 1` and `watch`, no line is longer
   than `n` bytes (at least 16384). A baseline too long leaves out the
   oldest items of the lowest sections first and counts them in `omitted`;
@@ -882,6 +885,7 @@ remote_runs = "true"           # a host (a phone through Shellbell) may start ru
 | `backend` | picked for you | Where `sous file` sends this project's notes: `markdown`, `github`, `gitlab`, or a plugin's name. |
 | `github_account` | `gh`'s active account | Which `gh` account to use for these projects, when you have more than one. |
 | `check` | none | A command that checks a run's work, run in its worktree when the agent finishes (`make test`). A failed check fails the run; a run with no check is ready without one. |
+| `runner` | the top-level `runner` | The runner for runs in these projects, in place of the top-level one: `sous go --run` without `-a`, and runs a host starts. |
 | `remote_runs` | off | `"true"` lets a host start runs in these projects through `sous integration --protocol 1 run`. Starting runs yourself with `sous go --run` needs nothing. |
 
 ## Files sous keeps

@@ -7,6 +7,14 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+* A project's own `runner` setting picks the runner for runs there, in
+  place of the top-level one.
+* `sous integration --protocol 1 watch` asks runner plugins how their runs
+  are going every 5 seconds, so a plugin's run (Orchid's, say) changes on
+  the host without `sous show`. Version 0 stays offline.
+
 ## [0.17.0]
 
 ### Added
