@@ -7,6 +7,13 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+* `sous doctor` checks remote runs where a project allows them: that each
+  one's runner exists and, for a plugin, describes itself; that it has a
+  `check`; and which publishing credentials in sous's environment a run
+  would inherit.
+
 ## [0.18.0]
 
 ### Added

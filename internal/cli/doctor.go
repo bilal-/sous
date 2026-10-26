@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"time"
 
@@ -15,7 +16,7 @@ func cmdDoctor(e *Env, _ argv) int {
 	checks := doctor.Run(doctor.Inputs{
 		UserHome: e.UserHome, SousHome: e.Home, Exe: e.Exe,
 		Shell: e.Shell, GOOS: runtime.GOOS, Zdotdir: e.Zdotdir,
-		Cfg: e.Cfg, CfgErr: e.cfgErr, Now: time.Now(),
+		Cfg: e.Cfg, CfgErr: e.cfgErr, Now: time.Now(), Env: os.Environ(),
 	})
 	problems, warnings := doctor.Count(checks, doctor.Bad), doctor.Count(checks, doctor.Warn)
 	code := 0

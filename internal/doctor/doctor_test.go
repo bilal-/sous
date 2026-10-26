@@ -124,3 +124,35 @@ func TestConfigChecksNamesUnreadableOrgFolder(t *testing.T) {
 		t.Fatalf("%+v", cs)
 	}
 }
+
+// Remote runs are checked only where a project allows them: its runner
+// must exist, it should have a check, and credentials a run would inherit
+// are named.
+func TestRemoteRunChecks(t *testing.T) {
+	cfg := config.Default()
+	if got := remoteRunChecks(Inputs{Cfg: cfg}); got != nil {
+		t.Fatalf("nothing allowed, nothing said: %+v", got)
+	}
+	cfg.Projects = map[string]map[string]string{
+		"acme/api": {"remote_runs": "true", "check": "make test"},
+		"acme/web": {"remote_runs": "true", "runner": "nope"},
+		"acme/old": {"remote_runs": "false"},
+	}
+	got := remoteRunChecks(Inputs{Cfg: cfg, Exe: "/bin/sous", Env: []string{"GH_TOKEN=x", "HOME=/h", "SSH_AUTH_SOCK="}})
+	byName := map[string]Check{}
+	for _, c := range got {
+		byName[c.Name] = c
+	}
+	if c := byName["remote runs"]; c.Status != OK || !strings.Contains(c.Detail, "acme/api, acme/web") || strings.Contains(c.Detail, "acme/old") {
+		t.Errorf("%+v", c)
+	}
+	if c := byName["remote runs in acme/api"]; c.Status != OK || !strings.Contains(c.Detail, "runner claude") {
+		t.Errorf("%+v", c)
+	}
+	if c := byName["remote runs in acme/web"]; c.Status != Bad || !strings.Contains(c.Fix, "runner") {
+		t.Errorf("%+v", c)
+	}
+	if c := byName["run credentials"]; c.Status != Warn || !strings.Contains(c.Detail, "GH_TOKEN") || strings.Contains(c.Detail, "SSH_AUTH_SOCK") {
+		t.Errorf("%+v", c)
+	}
+}

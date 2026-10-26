@@ -745,6 +745,10 @@ settings or repairing files. It checks:
 * each plugin you listed, and that its name is one sous will use
 * the agent each built in runner starts (`claude`, `codex`, `agy`, `opencode`): a missing one
   is worth a look, since `go --run` cannot use it
+* when a project allows `remote_runs`: which ones, that each one's runner
+  exists (and, for a plugin, describes itself), that it has a `check`, and
+  any publishing credentials in sous's environment (`GH_TOKEN`,
+  `SSH_AUTH_SOCK` and the like) that a run would inherit
 * your notes, sessions and observations files
 * how old the saved board is, and each source its last refresh could not
   read, with the reason (this is what a `?` on the board means)

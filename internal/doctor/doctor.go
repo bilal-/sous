@@ -51,6 +51,7 @@ type Inputs struct {
 	Cfg                     *config.Config
 	CfgErr                  error
 	Now                     time.Time
+	Env                     []string // the environment runs would inherit
 }
 
 // Run makes every check, in the order a person would fix them: config and
@@ -65,6 +66,7 @@ func Run(in Inputs) []Check {
 		out = append(out, trackerChecks(in.Cfg)...)
 		out = append(out, pluginChecks(in.Cfg.Plugins)...)
 		out = append(out, runnerChecks(in.UserHome)...)
+		out = append(out, remoteRunChecks(in)...)
 	}
 	out = append(out, dataChecks(in.SousHome, in.Now)...)
 	return append(out, boardChecks(in)...)
