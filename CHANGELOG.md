@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.14.0]
+
 ### Added
 
 * Version 1 integration actions for a host: `run` (start a run in a
