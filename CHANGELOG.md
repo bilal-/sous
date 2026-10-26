@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.19.0]
+
 ### Added
 
 * `sous doctor` checks remote runs where a project allows them: that each
