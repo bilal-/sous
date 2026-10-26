@@ -80,18 +80,48 @@ func scanOne(p string, w, warn io.Writer, now time.Time) bool {
 	if _, err := gitOut(p, "rev-parse", "--verify", "-q", "HEAD"); err != nil {
 		return freshRepo(p, warn)
 	}
-	r := gitRepo{p: p, w: w, warn: warn, now: now}
-	r.branch, _ = gitOut(p, "branch", "--show-current")
-	if r.branch == "" {
-		r.branch = "(detached)"
-	}
+	r := gitRepo{p: p, project: p, w: w, warn: warn, now: now}
+	r.branch = branchOf(p)
 	r.dirty()
 	r.unpushed()
+	// The stash is the repo's, shared by its worktrees: counted once, here.
 	if st := r.must("stash", "list"); st != "" {
 		r.emit("stash", Unfinished, strconv.Itoa(countLines(st))+" stashes", now, "")
 	}
 	r.lastCommit()
+	r.worktrees()
 	return true
+}
+
+func branchOf(p string) string {
+	if b, _ := gitOut(p, "branch", "--show-current"); b != "" {
+		return b
+	}
+	return "(detached)"
+}
+
+// runBranch is the branch sous's own runner gives each run. Its worktree
+// is the run's, shown as the run, so it is not unfinished work too.
+const runBranch = "sous/run-"
+
+// worktrees: each linked worktree's uncommitted and unpushed work, under
+// this repo's project. A worktree is a place to work on a branch, not a
+// project of its own; its rows name it, so the person can find it.
+func (r gitRepo) worktrees() {
+	wts, err := project.Worktrees(r.p)
+	if err != nil {
+		fmt.Fprintf(r.warn, "sous-signal-git: git worktree list failed in %s: %v\n", r.p, err)
+		return
+	}
+	for _, wt := range wts {
+		if strings.HasPrefix(wt.Branch, runBranch) {
+			continue
+		}
+		t := gitRepo{p: wt.Path, project: r.project, at: wt.Path, w: r.w, warn: r.warn, now: r.now}
+		t.branch = branchOf(wt.Path)
+		t.dirty()
+		t.unpushed()
+	}
 }
 
 // freshRepo: no HEAD is fine in a new repo; anything git itself cannot
@@ -111,12 +141,21 @@ func freshRepo(p string, warn io.Writer) bool {
 // gitRepo is one repo being scanned: each check emits its own signal.
 type gitRepo struct {
 	p, branch string
+	project   string // the project the rows belong to: p, or the repo whose worktree p is
+	at        string // a linked worktree's folder, "" for the repo itself
 	w, warn   io.Writer
 	now       time.Time
 }
 
+// emit writes one signal. A worktree's rows are keyed by its folder, so
+// each worktree's work is its own row, and say which worktree it is.
 func (r gitRepo) emit(key string, kind Kind, text string, observed time.Time, state string) {
-	WriteLine(r.w, Signal{ID: ID(r.p, "git:"+key), Project: r.p, Kind: kind, Text: text, Observed: observed, State: state})
+	id := "git:" + key
+	if r.at != "" {
+		id += ":" + r.at
+		text += " · worktree " + filepath.Base(r.at)
+	}
+	WriteLine(r.w, Signal{ID: ID(r.project, id), Project: r.project, Kind: kind, Text: text, Observed: observed, State: state})
 }
 
 // must runs git, reporting a failure on warn; "" then.

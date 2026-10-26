@@ -7,6 +7,26 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+
+* `sous serve` is laid out for finding and acting, not just reading: a
+  sidebar of views (Inbox, Agent runs, On you, Waiting on others, Ideas,
+  Unfinished work, Everything) and of projects by organisation, a search
+  box, source filters, grouping by status or project, collapsible groups,
+  a detail pane for each item, selecting several to close or snooze, and
+  keyboard keys. The address keeps the view, search and open item, so
+  back, forward and bookmarks work.
+* `integrations/design/tokens.json` adds a colour for ideas.
+
+### Fixed
+
+* A git worktree is no longer a project of its own. The repo is listed
+  once; each worktree's uncommitted and unpushed work shows under it,
+  naming the worktree; the repo's stash shows once instead of once per
+  worktree; and a note or agent session started inside a worktree belongs
+  to the repo. Worktrees of sous's own runs stay out of unfinished work:
+  they show as their runs.
+
 ## [0.21.1]
 
 ### Removed

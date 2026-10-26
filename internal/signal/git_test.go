@@ -196,3 +196,57 @@ func TestGitDirtyStateFollowsContent(t *testing.T) {
 		t.Fatalf("%q %q %q", s1, s2, s3)
 	}
 }
+
+// A repo's worktrees are scanned with it, under its project: each
+// worktree's own work is its own row naming it, the shared stash is
+// counted once, and a sous run's worktree is left to the run.
+func TestScanGitWorktrees(t *testing.T) {
+	ws, _ := filepath.EvalSymlinks(t.TempDir())
+	app := repo(t, filepath.Join(ws, "app"), true)
+	a, b := filepath.Join(ws, "app-a"), filepath.Join(ws, "app-b")
+	git(t, app, "worktree", "add", "-q", "-b", "feat/a", a)
+	git(t, app, "worktree", "add", "-q", "-b", "feat/b", b)
+	git(t, app, "worktree", "add", "-q", "-b", "sous/run-7", filepath.Join(ws, "run"))
+	os.WriteFile(filepath.Join(a, "x"), nil, 0o644)
+	os.WriteFile(filepath.Join(b, "y"), []byte("y"), 0o644)
+	git(t, b, "add", "y")
+	git(t, b, "stash", "-q")
+
+	sigs, warn := scan(t, app)
+	if warn != "" {
+		t.Fatal(warn)
+	}
+	ids := map[string]bool{}
+	stashes := 0
+	for _, s := range sigs {
+		if s.Project != app {
+			t.Errorf("%q is filed under %s", s.Text, s.Project)
+		}
+		if ids[s.ID] {
+			t.Errorf("two rows share %s", s.ID)
+		}
+		ids[s.ID] = true
+		if strings.Contains(s.Text, "stash") {
+			stashes++
+		}
+		if strings.Contains(s.Text, "run-7") {
+			t.Errorf("a sous run's worktree shows: %q", s.Text)
+		}
+	}
+	if stashes != 1 {
+		t.Errorf("the stash shows %d times", stashes)
+	}
+	for _, want := range []string{
+		"1 file uncommitted · feat/a · worktree app-a",
+		"feat/a has no upstream · worktree app-a",
+		"feat/b has no upstream · worktree app-b",
+	} {
+		if find(sigs, want) == nil {
+			t.Errorf("missing %q in %+v", want, sigs)
+		}
+	}
+	// The repo's own rows keep their ids, so a snooze on them still holds.
+	if s := find(sigs, "stashes"); s == nil || s.ID != ID(app, "git:stash") {
+		t.Errorf("stash id changed: %+v", s)
+	}
+}

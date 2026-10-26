@@ -191,7 +191,32 @@ func TestReconcileUpstreamState(t *testing.T) {
 	}
 }
 
+// submodule makes lib a submodule of p and returns its folder: a checkout
+// whose .git is a file, like a worktree, but a repo of its own.
+func submodule(f *fx, p string) string {
+	lib := f.mkrepo("a/lib", true)
+	f.git(p, "-c", "protocol.file.allow=always", "submodule", "add", "-q", lib, "lib")
+	sub := filepath.Join(p, "lib")
+	os.WriteFile(filepath.Join(sub, "FOLLOWUPS.md"), []byte("# F\n"), 0o644)
+	return sub
+}
+
 func TestFileRefusesGitFileCheckouts(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("a/r", true)
+	sub := submodule(f, p)
+	f.runIn(sub, "note", "-k", "me", "from a submodule")
+	if _, errs, code := f.run("file", "1"); code != 1 || !strings.Contains(errs, "worktree or submodule") {
+		t.Fatalf("%d %q", code, errs)
+	}
+	if _, _, code := f.runIn(sub, "note", "--file", "-p", sub, "explicit"); code != 0 {
+		t.Fatal("explicit -p allows it")
+	}
+}
+
+// A note made in a worktree is the repo's, so it files into the repo's
+// own checkout, where its marker cannot vanish with the branch.
+func TestFileFromAWorktreeFilesInTheRepo(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("a/r", true)
 	os.WriteFile(filepath.Join(p, "FOLLOWUPS.md"), []byte("# F\n"), 0o644)
@@ -199,11 +224,14 @@ func TestFileRefusesGitFileCheckouts(t *testing.T) {
 	f.git(p, "worktree", "add", "-q", wt, "-b", "feature")
 	os.WriteFile(filepath.Join(wt, "FOLLOWUPS.md"), []byte("# F\n"), 0o644)
 	f.runIn(wt, "note", "-k", "me", "from worktree")
-	if _, errs, code := f.run("file", "1"); code != 1 || !strings.Contains(errs, "worktree") {
+	if _, errs, code := f.run("file", "1"); code != 0 {
 		t.Fatalf("%d %q", code, errs)
 	}
-	if _, _, code := f.runIn(wt, "note", "--file", "-p", "r-wt", "explicit"); code != 0 {
-		t.Fatal("explicit -p allows it")
+	if md, _ := os.ReadFile(filepath.Join(p, "FOLLOWUPS.md")); !strings.Contains(string(md), "from worktree") {
+		t.Fatalf("repo:\n%s", md)
+	}
+	if md, _ := os.ReadFile(filepath.Join(wt, "FOLLOWUPS.md")); strings.Contains(string(md), "from worktree") {
+		t.Fatalf("worktree:\n%s", md)
 	}
 }
 
@@ -236,10 +264,7 @@ func TestFileForceAndRefile(t *testing.T) {
 	f := fixture(t)
 	p := f.mkrepo("a/r", true)
 	os.WriteFile(filepath.Join(p, "FOLLOWUPS.md"), []byte("# F\n"), 0o644)
-	wt := filepath.Join(f.WS, "a", "r-wt")
-	f.git(p, "worktree", "add", "-q", wt, "-b", "feature")
-	os.WriteFile(filepath.Join(wt, "FOLLOWUPS.md"), []byte("# F\n"), 0o644)
-	f.runIn(wt, "note", "-k", "me", "from worktree")
+	f.runIn(submodule(f, p), "note", "-k", "me", "from a submodule")
 	if _, errs, code := f.run("file", "1"); code != 1 || !strings.Contains(errs, "--force") {
 		t.Fatalf("refusal must name the escape hatch: %d %q", code, errs)
 	}

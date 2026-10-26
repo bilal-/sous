@@ -44,7 +44,8 @@ func ignored(rel string, ignore []string) bool {
 }
 
 // Discover walks each root to depth 2, stops at the first .git, never descends
-// into a repo. Returns projects sorted by path and the count of missing roots.
+// into a repo. A linked worktree it finds is its main repo's project, listed
+// once. Returns projects sorted by path and the count of missing roots.
 func Discover(roots, ignore []string, warn io.Writer) ([]Project, int) {
 	seen := map[string]bool{}
 	var out []Project
@@ -112,6 +113,13 @@ func add(out *[]Project, seen map[string]bool, root, path string, ignore []strin
 		return
 	}
 	seen[path] = true
+	if main, ok := MainOf(path); ok { // a worktree stands for its repo
+		if seen[main] {
+			return
+		}
+		seen[main] = true
+		path = main
+	}
 	*out = append(*out, Describe(path))
 }
 
@@ -192,7 +200,8 @@ func joinRemote(host, path string) string {
 	return host + "/" + strings.TrimPrefix(path, "/")
 }
 
-// ForPath returns the repo root containing path.
+// ForPath returns the repo root containing path. Inside a linked worktree
+// that is the main repo's root: the worktree is part of its project.
 //
 // A repo whose root is the home folder (a dotfiles repo) is not a project:
 // otherwise every folder under home would belong to it.
@@ -202,6 +211,9 @@ func ForPath(path, home string) (string, bool) {
 		return "", false
 	}
 	root := strings.TrimSpace(out)
+	if main, ok := MainOf(root); ok {
+		root = main
+	}
 	if home != "" && samePath(root, home) {
 		return "", false
 	}

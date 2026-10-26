@@ -257,3 +257,43 @@ func TestBoardAsksTrackersAndRunnersAtOnce(t *testing.T) {
 	}
 	testutil.Contains(t, out, "filed on the slow tracker", "in progress", "a slow task · running")
 }
+
+// A worktree is part of its repo's project: the board lists the repo
+// once, its worktree's work under it, and a note made in the worktree
+// lands on the repo too.
+func TestWorktreesBelongToTheirRepo(t *testing.T) {
+	f := fixture(t)
+	app := f.mkrepo("acme/app", true)
+	wt := filepath.Join(f.WS, "acme", "app-feature")
+	f.git(app, "worktree", "add", "-q", "-b", "feat/x", wt)
+	os.WriteFile(filepath.Join(wt, "x"), nil, 0o644)
+	f.writeConfig("roots = [\"" + f.WS + "\"]\n")
+	if _, errs, code := f.runIn(wt, "note", "-k", "me", "made in the worktree"); code != 0 {
+		t.Fatal(errs)
+	}
+	out, _, _ := f.run("--json", "projects")
+	if strings.Contains(out, "app-feature") || !strings.Contains(out, `"name": "app"`) {
+		t.Fatalf("projects:\n%s", out)
+	}
+	j, _, _ := f.run("--json")
+	var b struct {
+		OnYou      []struct{ Project, Text string } `json:"on_you"`
+		Unfinished []struct{ Project, Text string } `json:"unfinished"`
+	}
+	if err := json.Unmarshal([]byte(j), &b); err != nil {
+		t.Fatal(err)
+	}
+	if len(b.OnYou) != 1 || b.OnYou[0].Project != app {
+		t.Errorf("note: %+v", b.OnYou)
+	}
+	found := false
+	for _, u := range b.Unfinished {
+		if u.Project != app {
+			t.Errorf("%q is under %s", u.Text, u.Project)
+		}
+		found = found || u.Text == "1 file uncommitted · feat/x · worktree app-feature"
+	}
+	if !found {
+		t.Errorf("the worktree's work is missing: %+v", b.Unfinished)
+	}
+}

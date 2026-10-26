@@ -85,6 +85,13 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 	if in.Reconcile != nil {
 		ths = in.Reconcile(ctx, ths)
 	}
+	// A note made in a worktree belongs to its repo's project, like the
+	// worktree itself.
+	for i := range ths {
+		if main, ok := project.MainOf(ths[i].Project); ok {
+			ths[i].Project = main
+		}
+	}
 	// A scoped board (explicit folder) shows only that folder's threads. The
 	// full board keeps every open thread: a note whose clone is gone is still
 	// a commitment, shown rather than dropped.
