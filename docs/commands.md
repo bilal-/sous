@@ -613,8 +613,11 @@ project with something open. Search, filter by where an item came from,
 group by status or project, and open any item to see all of it: answer a
 run, view a result's changes, approve or discard it, stop a run, close or
 snooze it, or hand it to an agent in a project that allows `remote_runs`.
-Select several to close or snooze them at once. Keys: `/` search, `j` and
-`k` move, Enter opens, `e` done, `s` snooze, `x` select, `n` new task.
+Select several to close or snooze them at once. A project whose `origin`
+is on the web (GitHub, GitLab or another host) links to it in a new tab
+from the sidebar, the project's heading, its group and each item's detail.
+Keys: `/` search, `j` and `k` move, Enter opens, `e` done, `s` snooze, `x`
+select, `n` new task, `g` opens the project's repo.
 
 ```
 sous serve

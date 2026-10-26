@@ -35,7 +35,7 @@
       <input id="project-filter" type="search" placeholder="Filter" aria-label="Filter projects" autocomplete="off">
     </div>
     <div id="projects"></div>
-    <p class="keys"><kbd>j</kbd><kbd>k</kbd> move · <kbd>↵</kbd> open · <kbd>e</kbd> done · <kbd>s</kbd> snooze · <kbd>x</kbd> select · <kbd>n</kbd> new task</p>
+    <p class="keys"><kbd>j</kbd><kbd>k</kbd> move · <kbd>↵</kbd> open · <kbd>e</kbd> done · <kbd>s</kbd> snooze · <kbd>x</kbd> select · <kbd>n</kbd> new task · <kbd>g</kbd> open repo</p>
   </nav>
 
   <main class="list" id="board" aria-busy="true">
@@ -44,6 +44,7 @@
       <div class="title">
         <h1 id="view-title">Inbox</h1>
         <span class="n" id="view-count"></span>
+        <span id="view-site"></span>
         <button class="quiet small" id="view-run" type="button" hidden>New task here</button>
       </div>
       <div class="controls">

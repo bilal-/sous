@@ -7,6 +7,15 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.23.0]
+
+### Added
+
+* `sous serve` links each project to its repo on GitHub, GitLab or wherever
+  `origin` lives, opening in a new tab: beside the project in the sidebar,
+  next to its name when you open it, on its group and in an item's detail.
+  `g` opens the repo of the item you are on.
+
 ## [0.22.0]
 
 ### Changed

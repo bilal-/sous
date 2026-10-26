@@ -129,6 +129,23 @@ function projectOf(path) {
   const parts = (path || "").split("/");
   return p || { path, name: parts[parts.length - 1] || path, org: parts[parts.length - 2] || "" };
 }
+// The project's page on its forge, from origin's host/org/repo. An ssh
+// alias (a host with no dot) has no page to open.
+function siteOf(p) {
+  const host = p && p.remote ? p.remote.split("/")[0] : "";
+  if (!host.includes(".") || !p.remote.includes("/")) return null;
+  const word = { "github.com": "GitHub", "gitlab.com": "GitLab", "bitbucket.org": "Bitbucket", "codeberg.org": "Codeberg" }[host] || host;
+  return { href: "https://" + p.remote, word };
+}
+function siteLink(p, cls, text) {
+  const site = siteOf(p);
+  if (!site) return null;
+  const a = el("a", cls, text === undefined ? site.word + " ↗" : text);
+  a.href = site.href; a.target = "_blank"; a.rel = "noopener noreferrer";
+  a.title = "Open " + p.remote + " in a new tab";
+  a.addEventListener("click", (e) => e.stopPropagation());
+  return a;
+}
 const canRun = (path) => ((state.snap && state.snap.run_projects) || []).includes(path);
 
 // A tracker ref as words and, when it can be, a link.
@@ -361,6 +378,8 @@ function renderSide() {
       const hot = all.some((i) => i.project === p.path && statusOf(i) === "needs_you");
       li.append(navButton(p.name, counts.get(p.path), state.project === p.path,
         () => go({ project: p.path, view: null, open: null }), hot ? "--needs" : null, hot));
+      const site = siteLink(p, "ext", "↗");
+      if (site) { site.setAttribute("aria-label", site.title); li.append(site); }
       ul.append(li);
     }
     box.append(ul);
@@ -378,6 +397,10 @@ function renderList() {
   $("view-count").textContent = shown.length === base.length ? String(shown.length) : `${shown.length} of ${base.length}`;
   const runHere = $("view-run");
   runHere.hidden = !(proj && canRun(proj.path));
+  const site = $("view-site");
+  site.replaceChildren();
+  const link = proj && siteLink(proj, "site");
+  if (link) site.append(link);
   document.title = (proj ? proj.name : v.word) + " · sous";
 
   // Source chips: only the sources this view has, with how many each.
@@ -443,7 +466,9 @@ function groupBlock(g) {
     if (g.project) {
       const open = el("a", "go", "Open project");
       open.href = "#project=" + encodeURIComponent(g.project.path);
+      const site = siteLink(g.project, "go");
       h.append(open);
+      if (site) h.append(site);
     }
     sec.append(h);
   }
@@ -591,7 +616,7 @@ function detailParts(item) {
     } else fact("Tracker", ref.word + (item.upstream && item.upstream.state ? " · " + item.upstream.state : ""));
   }
   if (item.stale) fact("Stale", "not reviewed in a while; sous review asks about it");
-  if (p.remote) fact("Remote", p.remote);
+  if (p.remote) fact("Remote", siteLink(p, null, p.remote + " ↗") || p.remote);
   out.push(facts);
 
   const sec = el("div", "d-section");
@@ -918,6 +943,11 @@ function onKey(e) {
     case "e": quick("done", targets()); break;
     case "s": quick("snooze", targets()); break;
     case "n": e.preventDefault(); openTask(); break;
+    case "g": {
+      const site = siteOf(projectOf(cur ? cur.project : state.project));
+      if (site) window.open(site.href, "_blank", "noopener");
+      break;
+    }
   }
 }
 
