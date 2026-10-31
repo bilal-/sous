@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Runner checks stop the run they started when polling fails or the check is canceled.
+
 - Project check commands stop with their run, respect its deadline, and remain stoppable if the watcher dies.
 
 - Run cleanup is serialized with starts and replies, so it cannot delete a run that is being resumed.

@@ -23,8 +23,7 @@ type CheckOptions struct {
 // got wrong, nothing when it conforms. It really starts a run in project,
 // with a brief asking for no changes, then stops it; it leaves the run's
 // files for the runner's clean, which may rightly refuse to drop work.
-func Check(ctx context.Context, r Runner, project string, o CheckOptions) []string {
-	var bad []string
+func Check(ctx context.Context, r Runner, project string, o CheckOptions) (bad []string) {
 	fail := func(format string, a ...any) { bad = append(bad, fmt.Sprintf(format, a...)) }
 	caps := Describe(ctx, r)
 	uid := make([]byte, 6)
@@ -34,6 +33,17 @@ func Check(ctx context.Context, r Runner, project string, o CheckOptions) []stri
 	if err != nil {
 		return append(bad, fmt.Sprintf("start: %v", err))
 	}
+	stopped := false
+	defer func() {
+		if stopped {
+			return
+		}
+		cleanup, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		if err := Stop(cleanup, r, project, ref); err != nil {
+			fail("cleanup stop: %v", err)
+		}
+	}()
 	if again, err := Start(ctx, r, req); err != nil || again != ref {
 		fail("start again with the same uid gave %q, %v; want %q", again, err, ref)
 	}
@@ -69,6 +79,7 @@ func Check(ctx context.Context, r Runner, project string, o CheckOptions) []stri
 		if err := Stop(ctx, r, project, ref); err != nil {
 			return append(bad, fmt.Sprintf("stop (stopping twice is fine): %v", err))
 		}
+		stopped = true
 	}
 	if caps.Speaks("phase") {
 		st, err := GetStatus(ctx, r, project, ref)
