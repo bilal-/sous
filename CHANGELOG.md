@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Concurrent starts wait for run initialization; incomplete run folders are refused and preserved instead of reported as successful starts.
+
 - Stopping the web server cancels its active calls and watch subprocesses and waits for shutdown cleanup.
 
 - A selected or bookmarked snoozed item keeps a readable web detail pane, including any active run controls and draft reply.

@@ -84,7 +84,28 @@ func prompt(branch, here, brief string) string {
 }
 
 func (a *Agent) Start(req Request) (string, error) {
-	return a.start(req)
+	var ref string
+	err := a.withLifecycleLock(a.Name+":"+req.UID, func() error {
+		var err error
+		ref, err = a.start(req)
+		return err
+	})
+	return ref, err
+}
+
+// withLifecycleLock serializes operations that create, resume or remove a run.
+// The lock survives removal of the run directory. watcher.lock separately
+// means that a watcher or agent is alive; cleanup must not claim that lock.
+func (a *Agent) withLifecycleLock(ref string, change func() error) error {
+	uid, err := a.uidOf(ref)
+	if err != nil {
+		return err
+	}
+	home := filepath.Join(a.Home, "runs")
+	if err := os.MkdirAll(home, 0o700); err != nil {
+		return err
+	}
+	return (&store.Store{Home: home}).Locked(uid, change)
 }
 
 func (a *Agent) start(req Request) (string, error) {
@@ -94,7 +115,13 @@ func (a *Agent) start(req Request) (string, error) {
 	}
 	dir := a.dir(req.UID)
 	if _, err := os.Stat(filepath.Join(dir, "run.json")); err == nil {
-		return ref, nil // started before: safe to repeat
+		var meta runMeta
+		if err := readJSON(dir, "run.json", &meta); err != nil {
+			return "", fmt.Errorf("reading run %s: %w", ref, err)
+		}
+		return ref, nil // started before: safe repeat
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
 	}
 	if _, err := exec.LookPath(a.h.Bin); err != nil {
 		return "", fmt.Errorf("%w: %s is not installed", ErrNotSetUp, a.h.Bin)
@@ -106,7 +133,7 @@ func (a *Agent) start(req Request) (string, error) {
 		return "", err
 	}
 	if err := os.Mkdir(dir, 0o700); errors.Is(err, os.ErrExist) {
-		return ref, nil // another start of this run got here first
+		return "", fmt.Errorf("run directory %s has no initialization record; inspect it before trying again", dir)
 	} else if err != nil {
 		return "", err
 	}
