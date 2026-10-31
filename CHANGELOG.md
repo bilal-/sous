@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Ending or deleting an opencode session preserves other sessions’ final messages and clears only that session’s message tracking.
+
 - Runner approvals reject unsupported request and response versions before accepting an approval; malformed approval requests explain their usage.
 
 - Runner checks stop the run they started when polling fails or the check is canceled.

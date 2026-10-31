@@ -11,8 +11,14 @@ const timeout = {{timeoutMs}}
 
 export const Sous = async ({ directory }) => {
   const told = new Map() // session → what sous said at its start
-  const assistant = new Set() // ids of the assistant's messages
+  const assistant = new Map() // message → session; older payloads name it in a part
   const last = new Map() // session → the assistant's last text
+  const forget = (session) => {
+    if (!session) return
+    for (const [id, owner] of assistant) {
+      if (owner === session) assistant.delete(id)
+    }
+  }
   return {
     // The start is asked for once per session, before its first model
     // call, and waited for: it is what the agent is told. A session that
@@ -28,18 +34,22 @@ export const Sous = async ({ directory }) => {
     },
     event: async ({ event }) => {
       const p = event.properties || {}
-      if (event.type === "message.updated" && p.info && p.info.role === "assistant") assistant.add(p.info.id)
-      if (event.type === "message.part.updated" && p.part && p.part.type === "text" && assistant.has(p.part.messageID) && p.part.text) {
-        last.set(p.part.sessionID, p.part.text)
+      if (event.type === "message.updated" && p.info && p.info.role === "assistant") {
+        assistant.set(p.info.id, p.info.sessionID || assistant.get(p.info.id))
+      }
+      if (event.type === "message.part.updated" && p.part && assistant.has(p.part.messageID)) {
+        assistant.set(p.part.messageID, p.part.sessionID || assistant.get(p.part.messageID))
+        if (p.part.type === "text" && p.part.text) last.set(p.part.sessionID, p.part.text)
       }
       // The end is told and not waited for: opencode carries on at once.
       if (event.type === "session.idle" && p.sessionID) {
         tell(end, { session_id: p.sessionID, cwd: directory, last_message: last.get(p.sessionID) || "" })
-        assistant.clear()
+        forget(p.sessionID)
       }
       if (event.type === "session.deleted" && p.info) {
         told.delete(p.info.id)
         last.delete(p.info.id)
+        forget(p.info.id)
       }
     },
   }
