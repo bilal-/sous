@@ -1,15 +1,19 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -18,19 +22,33 @@ const checkLimit = 30 * time.Minute
 
 // runCheck runs the project's check command in the run's worktree, when
 // its settings name one and the agent committed work to check.
-func runCheck(m runMeta) []thread.RunCheck {
+func runCheck(parent context.Context, dir string, m runMeta) []thread.RunCheck {
 	if m.Check == "" || m.Base == "" || uncommitted(m.Worktree) || head(m.Worktree) == m.Base {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), checkLimit)
+	ctx, cancel := context.WithTimeout(parent, checkLimit)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "sh", "-c", m.Check)
+	cmd := plugin.GroupCommand(ctx, "sh", "-c", m.Check)
 	cmd.Dir, cmd.Env = m.Worktree, agentEnv(m)
-	out, err := cmd.CombinedOutput()
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	err := cmd.Start()
+	if err == nil {
+		// Stop must reach the active check even if its watcher dies.
+		writeErr := store.WriteFile(filepath.Join(dir, "agent.pgid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0o600)
+		if writeErr != nil {
+			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		}
+		err = cmd.Wait()
+		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		if writeErr != nil {
+			err = fmt.Errorf("recording the check process: %w", writeErr)
+		}
+	}
 	c := thread.RunCheck{Name: m.Check, Status: "passed", Required: true}
 	if err != nil {
 		c.Status = "failed"
-		fmt.Fprintf(os.Stderr, "check %q failed: %v\n%s", m.Check, err, lastBytes(out, 2048)) // into watcher.log
+		fmt.Fprintf(os.Stderr, "check %q failed: %v\n%s", m.Check, err, lastBytes(out.Bytes(), 2048)) // into watcher.log
 	}
 	return []thread.RunCheck{c}
 }

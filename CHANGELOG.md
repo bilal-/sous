@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Project check commands stop with their run, respect its deadline, and remain stoppable if the watcher dies.
+
 - Run cleanup is serialized with starts and replies, so it cannot delete a run that is being resumed.
 
 - Concurrent starts wait for run initialization; incomplete run folders are refused and preserved instead of reported as successful starts.

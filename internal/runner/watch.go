@@ -71,13 +71,9 @@ func (a *Agent) Watch(dir string, resume bool) error {
 		runErr = cmd.Wait()
 		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) // anything it left running ends with it
 	}
-	r := result{Ended: time.Now().UTC()}
+	r := result{}
 	var ee *exec.ExitError
 	switch {
-	case errors.Is(limited.Err(), context.DeadlineExceeded):
-		r.Exit, r.Reason = -1, fmt.Sprintf("ran out of time (%s)", m.Limit)
-	case ctx.Err() != nil:
-		r.Exit, r.Stopped = -1, true
 	case errors.As(runErr, &ee):
 		r.Exit = ee.ExitCode()
 	case runErr != nil:
@@ -93,9 +89,16 @@ func (a *Agent) Watch(dir string, resume bool) error {
 			return err
 		}
 	}
-	if state, _ := parseMarker(r.Message); r.Exit == 0 && r.Reason == "" && !r.Stopped && state != NeedsYou {
-		r.Checks = runCheck(m)
+	if state, _ := parseMarker(r.Message); r.Exit == 0 && r.Reason == "" && ctx.Err() == nil && state != NeedsYou {
+		r.Checks = runCheck(ctx, dir, m)
 	}
+	switch {
+	case errors.Is(limited.Err(), context.DeadlineExceeded):
+		r.Exit, r.Reason = -1, fmt.Sprintf("ran out of time (%s)", m.Limit)
+	case ctx.Err() != nil:
+		r.Exit, r.Stopped, r.Reason = -1, true, ""
+	}
+	r.Ended = time.Now().UTC()
 	return writeJSON(dir, "result.json", r)
 }
 

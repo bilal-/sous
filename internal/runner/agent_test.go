@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -494,7 +495,7 @@ func TestBuiltinResultAndApproval(t *testing.T) {
 	exec.Command("git", "-C", m.Worktree, "add", "fix.txt").Run()
 	exec.Command("git", "-C", m.Worktree, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "work").Run()
 	m.Check = "true"
-	writeJSON(dir, "result.json", result{Checks: runCheck(m)})
+	writeJSON(dir, "result.json", result{Checks: runCheck(context.Background(), dir, m)})
 	st, err := a.Status("", ref)
 	if err != nil || st.State != Done || st.Phase != thread.PhaseReady || st.Result == nil || st.Result.Base != m.Base ||
 		st.Result.Files.Added != 1 || st.Result.Files.LinesAdded != 2 || len(st.Result.Checks) != 1 || st.Result.Checks[0].Status != "passed" {
@@ -514,7 +515,7 @@ func TestBuiltinResultAndApproval(t *testing.T) {
 		t.Fatalf("%+v", st)
 	}
 	m.Check = "false"
-	writeJSON(dir, "result.json", result{Checks: runCheck(m)})
+	writeJSON(dir, "result.json", result{Checks: runCheck(context.Background(), dir, m)})
 	if st, _ := a.Status("", ref); st.State != Failed || st.Phase != thread.PhaseFailed || !strings.Contains(st.Text, "checks failed") {
 		t.Fatalf("%+v", st)
 	}
