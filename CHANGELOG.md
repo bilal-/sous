@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Changed
 
+- Integration examples now exercise the complete message union and reject malformed fields, revisions, timestamps and ambiguous shapes.
+
 - `make test` and CI now run the offline MemoryCore experiment tests; local checks require Python 3.9 or newer.
 
 ### Fixed

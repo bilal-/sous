@@ -6,9 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -100,6 +102,9 @@ func TestExamplesV1Validate(t *testing.T) {
 				}
 				docs = append(docs, v)
 			}
+			if err := sc.Err(); err != nil {
+				t.Fatal(err)
+			}
 		default:
 			var v any
 			if err := json.Unmarshal(b, &v); err != nil {
@@ -112,34 +117,58 @@ func TestExamplesV1Validate(t *testing.T) {
 			}
 		}
 		for i, doc := range docs {
-			kind, _ := doc.(map[string]any)["kind"].(string)
-			if _, ok := defs[kind]; !ok {
-				t.Fatalf("%s[%d]: kind %q", f.Name(), i, kind)
-			}
-			for _, p := range validate(defs, defs[kind], doc, kind) {
-				t.Errorf("%s[%d]: %s", f.Name(), i, p)
+			for _, problem := range validate(defs, schema, doc, fmt.Sprintf("%s[%d]", f.Name(), i)) {
+				t.Error(problem)
 			}
 		}
 	}
 }
 
-// validate is enough of JSON Schema for these examples: $ref, required,
-// const, enum, type, properties, items, additionalProperties and oneOf on
-// the variant that names it. It keeps sous at one dependency.
+// validate checks the vocabulary used by our examples, after the schema itself
+// passes TestSchemaV1ValidationVocabulary. This is a test helper, not a general
+// JSON Schema implementation; new keywords need validation and negative fixtures.
 func validate(defs map[string]any, schema any, v any, at string) []string {
-	s, _ := schema.(map[string]any)
-	if ref, ok := s["$ref"].(string); ok {
-		return validate(defs, defs[strings.TrimPrefix(ref, "#/$defs/")], v, at)
+	if allowed, ok := schema.(bool); ok {
+		if !allowed {
+			return []string{at + ": forbidden value"}
+		}
+		return nil
 	}
+	s, _ := schema.(map[string]any)
 	var bad []string
-	if c, ok := s["const"]; ok && fmt.Sprint(c) != fmt.Sprint(v) {
+	if ref, ok := s["$ref"].(string); ok {
+		target, found := defs[strings.TrimPrefix(ref, "#/$defs/")]
+		if !strings.HasPrefix(ref, "#/$defs/") || !found {
+			return []string{at + ": unknown reference " + ref}
+		}
+		bad = append(bad, validate(defs, target, v, at)...)
+	}
+	if c, ok := s["const"]; ok && !reflect.DeepEqual(c, v) {
 		bad = append(bad, fmt.Sprintf("%s: %v, want %v", at, v, c))
 	}
-	if e, ok := s["enum"].([]any); ok && !slices.ContainsFunc(e, func(x any) bool { return fmt.Sprint(x) == fmt.Sprint(v) }) {
+	if e, ok := s["enum"].([]any); ok && !slices.ContainsFunc(e, func(x any) bool { return reflect.DeepEqual(x, v) }) {
 		bad = append(bad, fmt.Sprintf("%s: %v is not one of %v", at, v, e))
 	}
 	if typ, ok := s["type"]; ok && !typeOK(typ, v) {
 		bad = append(bad, fmt.Sprintf("%s: %T is not %v", at, v, typ))
+	}
+	if n, ok := v.(float64); ok {
+		if min, ok := s["minimum"].(float64); ok && n < min {
+			bad = append(bad, fmt.Sprintf("%s: %v is less than %v", at, n, min))
+		}
+	}
+	if str, ok := v.(string); ok {
+		if pattern, ok := s["pattern"].(string); ok {
+			matches, err := regexp.MatchString(pattern, str)
+			if err != nil || !matches {
+				bad = append(bad, at+": does not match "+pattern)
+			}
+		}
+		if s["format"] == "date-time" {
+			if _, err := time.Parse(time.RFC3339Nano, strings.ToUpper(str)); err != nil {
+				bad = append(bad, at+": not an RFC3339 time")
+			}
+		}
 	}
 	if obj, ok := v.(map[string]any); ok {
 		for _, r := range asList(s["required"]) {
@@ -151,31 +180,32 @@ func validate(defs map[string]any, schema any, v any, at string) []string {
 		for k, val := range obj {
 			if p, ok := props[k]; ok {
 				bad = append(bad, validate(defs, p, val, at+"."+k)...)
-			} else if ap, ok := s["additionalProperties"].(map[string]any); ok {
+			} else if ap, ok := s["additionalProperties"]; ok {
 				bad = append(bad, validate(defs, ap, val, at+"."+k)...)
 			}
 		}
-		for _, alt := range asList(s["oneOf"]) {
-			a := alt.(map[string]any)
-			if props, ok := a["properties"].(map[string]any); ok && obj["type"] == props["type"].(map[string]any)["const"] {
-				bad = append(bad, validate(defs, a, v, at)...)
+	}
+	if alts := asList(s["oneOf"]); len(alts) > 0 {
+		matches := 0
+		var best []string
+		for i, alt := range alts {
+			problems := validate(defs, alt, v, at)
+			if len(problems) == 0 {
+				matches++
+			}
+			if i == 0 || len(problems) < len(best) {
+				best = problems
+			}
+		}
+		if matches != 1 {
+			bad = append(bad, fmt.Sprintf("%s: matches %d oneOf alternatives, want one", at, matches))
+			if matches == 0 {
+				bad = append(bad, best...)
 			}
 		}
 	}
-	// oneOf as a union of shapes (null or a definition): one must fit.
-	if alts := asList(s["oneOf"]); len(alts) > 0 && !hasVariants(alts) {
-		var best []string
-		for i, alt := range alts {
-			p := validate(defs, alt, v, at)
-			if len(p) == 0 {
-				best = nil
-				break
-			}
-			if i == 0 || len(p) < len(best) {
-				best = p
-			}
-		}
-		bad = append(bad, best...)
+	if n, ok := s["not"]; ok && len(validate(defs, n, v, at)) == 0 {
+		bad = append(bad, at+": matches forbidden shape")
 	}
 	if list, ok := v.([]any); ok {
 		for i, x := range list {
@@ -189,16 +219,22 @@ func typeOK(typ, v any) bool {
 	for _, t := range append(asList(typ), typ) {
 		switch t {
 		case "object":
-			_, ok := v.(map[string]any)
-			return ok
+			if _, ok := v.(map[string]any); ok {
+				return true
+			}
 		case "array":
-			_, ok := v.([]any)
-			return ok
+			if _, ok := v.([]any); ok {
+				return true
+			}
 		case "string":
 			if _, ok := v.(string); ok {
 				return true
 			}
-		case "integer", "number":
+		case "integer":
+			if n, ok := v.(float64); ok && n == math.Trunc(n) {
+				return true
+			}
+		case "number":
 			if _, ok := v.(float64); ok {
 				return true
 			}
@@ -213,11 +249,6 @@ func typeOK(typ, v any) bool {
 		}
 	}
 	return false
-}
-
-func hasVariants(alts []any) bool {
-	_, ok := alts[0].(map[string]any)["properties"]
-	return ok
 }
 
 func asList(v any) []any { l, _ := v.([]any); return l }
