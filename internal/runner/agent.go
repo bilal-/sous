@@ -355,6 +355,10 @@ func (a *Agent) reply(ref, answer string) error {
 // the agent do, so a process that later got the same pid is never touched.
 // Stopping a finished or cleaned run changes nothing.
 func (a *Agent) Stop(_, ref string) error {
+	return a.stop(ref)
+}
+
+func (a *Agent) stop(ref string) error {
 	if gone, err := a.gone(ref); gone || err != nil {
 		return err
 	}
