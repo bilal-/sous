@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- The MemoryCore experiment keeps its scoped stale context when search hits are malformed or HTTP responses are truncated.
+
 - An opencode end hook that exits before reading its input no longer crashes the hosting agent.
 
 - Ending or deleting an opencode session preserves other sessions’ final messages and clears only that session’s message tracking.

@@ -3,7 +3,9 @@
 import argparse
 import copy
 import hashlib
+from http.client import HTTPException
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -77,13 +79,20 @@ class MemoryCore:
             if not isinstance(payload, dict) or payload.get("code") != 0 or "data" not in payload:
                 raise MemoryUnavailable("MemoryCore returned an error envelope")
             return payload["data"]
-        except (HTTPError, URLError, OSError, ValueError) as error:
+        except (HTTPError, URLError, HTTPException, OSError, ValueError) as error:
             raise MemoryUnavailable("MemoryCore request failed: " + str(error)) from error
 
     def search(self, query, isolation):
         data = self.post("/v3/conversation/search", dict(isolation, query=query, limit=10))
         if not isinstance(data, dict) or not isinstance(data.get("messages"), list):
             raise MemoryUnavailable("unexpected MemoryCore search response")
+        for hit in data["messages"]:
+            if not isinstance(hit, dict) or not isinstance(hit.get("content"), str):
+                raise MemoryUnavailable("unexpected MemoryCore search hit")
+            score = hit.get("score", 0)
+            if (not isinstance(score, (int, float)) or isinstance(score, bool)
+                    or (isinstance(score, float) and not math.isfinite(score))):
+                raise MemoryUnavailable("unexpected MemoryCore search score")
         return data["messages"]
 
 
