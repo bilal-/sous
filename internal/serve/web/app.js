@@ -821,22 +821,29 @@ async function send(body, quiet) {
     toast("Not sent yet; it goes when sous is back.", "--needs");
     return "unsent";
   }
-  if (out.outcome === "in_progress") return "in_progress"; // the first is still being done; ask again later
+  // Done and snooze use ordinary CLI acknowledgements; run actions use
+  // integration outcomes. Accept only the acknowledgement for this action.
+  const acknowledged = !out.error && (
+    (body.action === "done" && ["closed", "already_closed"].includes(out.did)) ||
+    (body.action === "snooze" && out.did === "snoozed")
+  );
+  const outcome = out.outcome || (acknowledged ? "done" : undefined);
+  if (outcome === "in_progress") return "in_progress"; // the first is still being done; ask again later
   const p = pending();
   delete p[body.op];
   savePending(p);
-  const ok = out.outcome === "done" || out.outcome === "already_done";
+  const ok = outcome === "done" || outcome === "already_done";
   if (ok && quiet) return "done";
   const words = {
     done: "Done", already_done: "Done", refused: "Refused", conflict: "That changed in the meantime",
     failed: "Failed", not_ready: "sous is not set up for that",
   };
-  const role = ok ? "--ready" : out.outcome === "conflict" ? "--needs" : "--failed";
-  let msg = (words[out.outcome] || out.error || "Something went wrong") + " · " + body.action;
+  const role = ok ? "--ready" : outcome === "conflict" ? "--needs" : "--failed";
+  let msg = (words[outcome] || out.error || "Something went wrong") + " · " + body.action;
   if (out.reason) msg += ": " + out.reason.replace(/_/g, " ");
   if (out.reason === "not_allowed_project") msg += " (sous config -p <project> remote_runs true)";
   toast(msg, role);
-  return ok ? "done" : out.outcome || "failed";
+  return ok ? "done" : outcome || "failed";
 }
 
 let resending = false;

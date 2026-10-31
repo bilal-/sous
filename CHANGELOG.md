@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- The web page recognizes successful Done and Snooze acknowledgements instead of reporting them as failures.
+
 - Simultaneous web server starts keep the same saved bookmark secret.
 
 - Effort summaries use tracker answers and upstream closures from the current refresh, while offline views retain unchecked remote answers.
