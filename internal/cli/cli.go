@@ -118,10 +118,11 @@ type Env struct {
 	PluginTimeout time.Duration
 	// Deadline, when set, bounds the whole verb (plugins and tracker status
 	// probes together); the session hook sets it under its guard.
-	Deadline time.Time
-	cfgErr   error
-	vctx     context.Context
-	cancel   context.CancelFunc
+	Deadline  time.Time
+	cfgErr    error
+	vctx      context.Context
+	cancel    context.CancelFunc
+	jsonLines bool // terminal errors must stay on one line after a watch starts
 }
 
 func (e *Env) pluginTimeout() time.Duration {
@@ -296,7 +297,12 @@ func failWith(e *Env, ej errorJSON) int {
 	if e.JSON {
 		// A caller that asked for JSON reads stdout: the error is there too.
 		// Written directly, never through writeJSON, which fails through here.
-		b, _ := json.MarshalIndent(ej, "", "  ")
+		var b []byte
+		if e.jsonLines {
+			b, _ = json.Marshal(ej)
+		} else {
+			b, _ = json.MarshalIndent(ej, "", "  ")
+		}
 		fmt.Fprintf(e.Stdout, "%s\n", b)
 	}
 	return ej.Exit

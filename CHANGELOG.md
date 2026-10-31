@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Integration watches honor the byte limit for metadata, errors and newlines, and report when the limit cannot hold the remaining state.
+
 - Integration watches update the host when the projects permitted to start runs change.
 
 - Integration actions return one JSON outcome when configuration or project lookup fails.

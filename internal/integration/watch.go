@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/bilal-/sous/internal/board"
 	"reflect"
 	"time"
@@ -92,17 +93,20 @@ func (st Stream) Run(ctx context.Context, read func(context.Context) (Snapshot, 
 			e.Changes = changes(*previous, s)
 			if v >= Version1 {
 				e.Snapshot, e.Meta = nil, meta(*previous, s)
-				if st.MaxBytes > 0 && size(e) > st.MaxBytes {
+				if st.MaxBytes > 0 && size(e)+1 > st.MaxBytes {
 					e = Event{Kind: "event", V: v, Provider: Provider, Type: "snapshot", Revision: s.Revision, Snapshot: &s, Changes: []Change{}}
 				}
 			}
 			previous, send = &s, true
 		}
 		if send && e.Type == "snapshot" && st.MaxBytes > 0 {
-			trimmed := trim(*e.Snapshot, st.MaxBytes-(size(e)-size(*e.Snapshot)))
+			trimmed := trim(*e.Snapshot, st.MaxBytes-1-(size(e)-size(*e.Snapshot)))
 			e.Snapshot = &trimmed
 		}
 		if send {
+			if st.MaxBytes > 0 && size(e)+1 > st.MaxBytes {
+				return fmt.Errorf("watch exceeds --max-bytes %d after trimming; increase the limit", st.MaxBytes)
+			}
 			if err := emit(e); err != nil {
 				return err
 			}

@@ -247,7 +247,11 @@ items they apply to; `run` is offered per project.
   them in `omitted`, and a change too long is sent as such a baseline. The
   revision is always the whole board's. A host never takes a left-out item
   as removed; it may later arrive as `item.updated`, which a host that
-  does not hold it adds.
+  does not hold it adds. If metadata or an error still cannot fit after
+  trimming, the watch ends with exit `1` and one compact JSON error line
+  explaining the limit. Reconnect with a larger limit; this terminal error
+  is distinct from a recoverable `unavailable` event. The byte count includes
+  the newline.
 
 ## Design: tokens and display rules
 

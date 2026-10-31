@@ -83,6 +83,7 @@ func cmdIntegration(e *Env, a argv) int {
 			st.MaxBytes = n
 		}
 		var asked time.Time
+		e.jsonLines = true
 		err := st.Run(ctx, func(ctx context.Context) (integration.Snapshot, error) {
 			// Version 0 promises an offline watch; version 1 asks runner plugins.
 			ask := v >= integration.Version1 && time.Since(asked) >= askRunnersEvery
