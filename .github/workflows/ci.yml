@@ -24,6 +24,7 @@ jobs:
       - name: gofmt
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go mod tidy -diff
+      - run: make test-experiments
       - run: go vet ./...
       - run: go test -race ./...
       - name: build

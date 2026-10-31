@@ -19,7 +19,8 @@ Running `sous` with nothing else always shows the board.
 
 ## Build and test
 
-    make test      # go vet, then every test with the race detector. Run it before every commit.
+    make test      # offline experiment tests, go vet, and Go race tests. Run before every commit.
+    make test-experiments  # offline Python tests only; requires Python 3.9+
     make ci        # formatting, module tidiness and make test; staticcheck if installed
     make build     # bin/sous, with the version from git describe
     make install   # link bin/sous into ~/.local/bin

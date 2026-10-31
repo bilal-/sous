@@ -7,6 +7,10 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+
+- `make test` and CI now run the offline MemoryCore experiment tests; local checks require Python 3.9 or newer.
+
 ### Fixed
 
 - The MemoryCore experiment keeps its scoped stale context when search hits are malformed or HTTP responses are truncated.

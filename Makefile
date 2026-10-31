@@ -2,7 +2,7 @@ MODULE   := github.com/bilal-/sous
 VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS  := -s -w -X $(MODULE)/internal/cli.Version=$(VERSION)
 
-.PHONY: build herdr test cover lint ci install release-dry clean tap
+.PHONY: build herdr test test-experiments cover lint ci install release-dry clean tap
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/sous ./cmd/sous
@@ -10,8 +10,11 @@ build:
 herdr:
 	CGO_ENABLED=0 go build -trimpath -o integrations/herdr/sous-herdr ./integrations/herdr
 
-test:
+test: test-experiments
 	go vet ./... && go test -race ./...
+
+test-experiments:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s experiments/memory-core -p 'test_*.py'
 
 cover:
 	go test -coverpkg=./... -coverprofile=coverage.out ./... >/dev/null

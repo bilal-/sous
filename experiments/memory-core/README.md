@@ -117,14 +117,17 @@ is authorized.
 
 ## Reproduce
 
-Requirements: Python 3.9+, Node.js 22.16+ with SQLite FTS5, and npm. Installation
+Offline regression tests require only Python 3.9+ and run with
+`make test-experiments`. They are also included in `make test` and CI.
+
+The full experiment requires Python 3.9+, Node.js 22.16+ with SQLite FTS5, and npm. Installation
 needs internet access; the experiment itself uses loopback connections only.
 Use a new destination and output directory each time. The runtime argument
 must be the source produced by `prepare.py`; do not point it at an edited
 upstream checkout when comparing the saved results.
 
 ```sh
-python3 -m unittest discover -s experiments/memory-core -p 'test_*.py'
+make test-experiments
 
 python3 experiments/memory-core/prepare.py \
   --destination /tmp/acme-memory-source

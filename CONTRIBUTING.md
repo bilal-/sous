@@ -27,11 +27,12 @@ you spend time on it.
 
 ## Working on the code
 
-You need Go 1.27.1 or newer (see [go.mod](go.mod)) and `git`.
+You need Go 1.27.1 or newer (see [go.mod](go.mod)) and `git`. Running the
+checks also requires Python 3.9 or newer for the offline experiment tests.
 
     make build     # build bin/sous
-    make test      # go vet, then every test with the race detector
-    make ci        # formatting, module tidiness, vet and race tests; staticcheck if installed
+    make test    # offline experiment tests, go vet, and Go race tests
+    make ci      # formatting, module tidiness and make test; staticcheck if installed
 
 Before you send a change:
 
