@@ -113,16 +113,23 @@ func Path(sousHome string) string { return filepath.Join(sousHome, "config.toml"
 
 // Load reads config.toml from sousHome; ~ in paths means userHome.
 func Load(sousHome, userHome string) (*Config, error) {
-	c := Default()
 	b, err := os.ReadFile(Path(sousHome))
 	if errors.Is(err, os.ErrNotExist) {
-		return c, nil
+		return Default(), nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	if _, err := toml.Decode(string(b), c); err != nil {
-		return nil, err
+	c, _, err := decode(b, userHome)
+	return c, err
+}
+
+// decode applies the same defaults and path expansion to any config read.
+func decode(b []byte, userHome string) (*Config, toml.MetaData, error) {
+	c := Default()
+	md, err := toml.Decode(string(b), c)
+	if err != nil {
+		return nil, md, err
 	}
 	for i, r := range c.Roots {
 		c.Roots[i] = Expand(userHome, r)
@@ -130,7 +137,7 @@ func Load(sousHome, userHome string) (*Config, error) {
 	for i, p := range c.Plugins {
 		c.Plugins[i] = Expand(userHome, p)
 	}
-	return c, nil
+	return c, md, nil
 }
 
 // RefreshWindow: how old the cached board may get before the shell

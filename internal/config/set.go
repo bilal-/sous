@@ -20,23 +20,29 @@ import (
 // The result is checked to mean exactly the old file plus this one change,
 // or nothing is written.
 func Set(sousHome string, table []string, key string, value any) error {
-	return store.EditFile(Path(sousHome), 0o644, func(b []byte) ([]byte, error) {
-		old := string(b)
-		if start, _, found := findKey(old, table, key); found && value != nil && valueHasComment(old, start) {
-			return nil, fmt.Errorf("%s has comments inside it that a new value would lose; edit %s by hand", key, Path(sousHome))
-		}
-		out := edit(old, table, key, value)
-		// Checked even when the text did not change: an unset that found no
-		// line while the setting is there (written some other way) must
-		// fail, not report it removed.
-		if err := sameButFor(old, out, table, key, value); err != nil {
-			return nil, fmt.Errorf("%v; edit %s by hand", err, Path(sousHome))
-		}
-		if out == old {
-			return nil, nil
-		}
-		return []byte(out), nil
+	path := Path(sousHome)
+	return store.EditFile(path, 0o644, func(b []byte) ([]byte, error) {
+		return editSetting(path, b, table, key, value)
 	})
+}
+
+// editSetting verifies one edit against the bytes read under the file lock.
+func editSetting(path string, b []byte, table []string, key string, value any) ([]byte, error) {
+	old := string(b)
+	if start, _, found := findKey(old, table, key); found && value != nil && valueHasComment(old, start) {
+		return nil, fmt.Errorf("%s has comments inside it that a new value would lose; edit %s by hand", key, path)
+	}
+	out := edit(old, table, key, value)
+	// Checked even when the text did not change: an unset that found no
+	// line while the setting is there (written some other way) must
+	// fail, not report it removed.
+	if err := sameButFor(old, out, table, key, value); err != nil {
+		return nil, fmt.Errorf("%v; edit %s by hand", err, path)
+	}
+	if out == old {
+		return nil, nil
+	}
+	return []byte(out), nil
 }
 
 // edit is the text change: replace the key's value, add the key where its
