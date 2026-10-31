@@ -49,7 +49,15 @@ git -c user.name=Sam -c user.email=sam@example.invalid commit -qm work
 	defer a.Stop("", ref)
 	waitFor(t, func() bool {
 		pid, err := os.ReadFile(entered)
-		return err == nil && strings.TrimSpace(string(pid)) == readString(a.dir(req.UID), "agent.pgid")
+		if err != nil {
+			return false
+		}
+		worker, err := strconv.Atoi(strings.TrimSpace(string(pid)))
+		if err != nil {
+			return false
+		}
+		group, err := syscall.Getpgid(worker)
+		return err == nil && strconv.Itoa(group) == readString(a.dir(req.UID), "agent.pgid")
 	})
 	deadline := time.Now().Add(3500 * time.Millisecond)
 	if killWatcher {

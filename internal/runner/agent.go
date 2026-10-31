@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -40,15 +39,17 @@ func Builtin(name, home, exe string, limit time.Duration) (*Agent, bool) {
 
 // runMeta is run.json: what the watcher needs to start or resume the agent.
 type runMeta struct {
-	Name     string        `json:"name"`
-	ID       int           `json:"id"`
-	Project  string        `json:"project"`
-	Worktree string        `json:"worktree"`
-	Branch   string        `json:"branch"`
-	Prompt   string        `json:"prompt"`
-	Session  string        `json:"session,omitempty"`
-	Answer   string        `json:"answer,omitempty"` // the reply the next watcher passes on
-	Limit    time.Duration `json:"limit"`
+	OwnerVersion int           `json:"owner_version,omitempty"`
+	Generation   string        `json:"generation,omitempty"`
+	Name         string        `json:"name"`
+	ID           int           `json:"id"`
+	Project      string        `json:"project"`
+	Worktree     string        `json:"worktree"`
+	Branch       string        `json:"branch"`
+	Prompt       string        `json:"prompt"`
+	Session      string        `json:"session,omitempty"`
+	Answer       string        `json:"answer,omitempty"` // the reply the next watcher passes on
+	Limit        time.Duration `json:"limit"`
 	// GitDirs: the folders outside the worktree that a commit writes to.
 	GitDirs []string `json:"git_dirs,omitempty"`
 	Base    string   `json:"base,omitempty"`  // the commit the work starts from
@@ -115,9 +116,12 @@ func (a *Agent) start(req Request) (string, error) {
 	}
 	dir := a.dir(req.UID)
 	if _, err := os.Stat(filepath.Join(dir, "run.json")); err == nil {
-		var meta runMeta
-		if err := readJSON(dir, "run.json", &meta); err != nil {
+		_, meta, err := a.meta(ref)
+		if err != nil {
 			return "", fmt.Errorf("reading run %s: %w", ref, err)
+		}
+		if _, err := ownershipState(dir, meta); err != nil {
+			return "", err
 		}
 		return ref, nil // started before: safe repeat
 	} else if !errors.Is(err, os.ErrNotExist) {
@@ -137,7 +141,11 @@ func (a *Agent) start(req Request) (string, error) {
 	} else if err != nil {
 		return "", err
 	}
-	m := runMeta{Name: a.Name, ID: req.ID, Project: req.Project, Worktree: filepath.Join(dir, "worktree"), Branch: fmt.Sprintf("sous/run-%d", req.ID), Limit: a.Limit}
+	generation, err := newOwnerID()
+	if err != nil {
+		return "", err
+	}
+	m := runMeta{OwnerVersion: 1, Generation: generation, Name: a.Name, ID: req.ID, Project: req.Project, Worktree: filepath.Join(dir, "worktree"), Branch: fmt.Sprintf("sous/run-%d", req.ID), Limit: a.Limit}
 	var here []byte
 	if req.HereFile != "" {
 		here, _ = os.ReadFile(req.HereFile)
@@ -224,6 +232,9 @@ func watcherAlive(dir string) bool {
 // that waits on the agent.
 func (a *Agent) launch(dir string, resume bool, lock *os.File) error {
 	defer lock.Close()
+	if err := prepareAttempt(dir); err != nil {
+		return err
+	}
 	os.Remove(filepath.Join(dir, "watcher.pid"))
 	os.Remove(filepath.Join(dir, "agent.pgid"))
 	args := []string{"runner", a.Name, "watch", dir, "--lock-fd", "3"}
@@ -307,6 +318,9 @@ func (a *Agent) meta(ref string) (string, runMeta, error) {
 	if err := readJSON(dir, "run.json", &m); err != nil {
 		return "", m, fmt.Errorf("no run %s here", ref)
 	}
+	if err := m.ownershipVersion(); err != nil {
+		return "", m, err
+	}
 	return dir, m, nil
 }
 
@@ -336,6 +350,10 @@ func (a *Agent) reply(ref, answer string) error {
 	} else if err != nil {
 		return err
 	}
+	if _, err := finishedStage(dir, m); err != nil {
+		lock.Close()
+		return err
+	}
 	if m.Session == "" {
 		lock.Close()
 		return errors.New("the agent never started a session, so it cannot carry on; start a new run with the answer in the brief")
@@ -345,12 +363,11 @@ func (a *Agent) reply(ref, answer string) error {
 		lock.Close()
 		return err
 	}
-	os.Remove(filepath.Join(dir, "result.json"))
 	return a.launch(dir, true, lock)
 }
 
-// Stop asks the watcher to stop its agent (it records "stopped"), then waits
-// for the run's lock to be released, using the saved agent group as a fallback.
+// Stop writes a generation-specific request for the workload owner, then waits
+// for cleanup evidence and the run lock. Saved process IDs are diagnostic only.
 // The lifecycle lock keeps a new attempt from launching while Stop observes
 // and records completion. Stopping a finished or cleaned run changes nothing.
 func (a *Agent) Stop(_, ref string) error {
@@ -361,42 +378,52 @@ func (a *Agent) stop(ref string) error {
 	if gone, err := a.gone(ref); gone || err != nil {
 		return err
 	}
-	dir, _, err := a.meta(ref)
+	dir, m, err := a.meta(ref)
 	if err != nil {
 		return err
 	}
-	signal := func(file string, sig syscall.Signal, group bool) bool {
-		pid, err := strconv.Atoi(readString(dir, file))
-		if err != nil || pid <= 0 {
-			return false
-		}
-		if group {
-			pid = -pid
-		}
-		return syscall.Kill(pid, sig) == nil
+	live, err := ownershipState(dir, m)
+	if err != nil {
+		return err
 	}
-	asked := false
-	for i := 0; i < 60 && watcherAlive(dir); i++ {
-		switch {
-		case !asked && i < 40:
-			// A watcher just launched may not have said its pid yet: ask
-			// until one hears.
-			asked = signal("watcher.pid", syscall.SIGTERM, false) ||
-				signal("agent.pgid", syscall.SIGTERM, true) // no watcher: the agent carries on alone
-		case i == 40:
-			signal("agent.pgid", syscall.SIGKILL, true)
-			signal("watcher.pid", syscall.SIGKILL, false)
+	if live {
+		if err := requestStop(dir, m); err != nil {
+			return err
 		}
-		time.Sleep(50 * time.Millisecond)
+		until := time.Now().Add(3 * time.Second)
+		for live && time.Now().Before(until) {
+			time.Sleep(25 * time.Millisecond)
+			live, err = runLive(dir)
+			if err != nil {
+				return err
+			}
+		}
+		if live {
+			if _, err := finishedStage(dir, m); err != nil {
+				return err
+			}
+			return errors.New("run is still active after stop; wait for its watcher to finish")
+		}
 	}
-	if watcherAlive(dir) {
-		return errors.New("the watcher did not stop")
+	out, err := finishedStage(dir, m)
+	if err != nil {
+		return err
 	}
 	var r result
-	if readJSON(dir, "result.json", &r) != nil {
-		return writeJSON(dir, "result.json", result{Exit: -1, Stopped: true, Ended: time.Now().UTC()})
+	if readJSON(dir, "result.json", &r) == nil {
+		return nil
 	}
-	return nil
+	r = result{Exit: -1, Stopped: true, Ended: time.Now().UTC()}
+	if out != nil {
+		r.Exit, r.Stopped, r.Reason = out.Exit, out.Stopped, out.Error
+		if out.TimedOut {
+			r.Reason = fmt.Sprintf("ran out of time (%s)", m.Limit)
+		}
+		if !r.Stopped && r.Reason == "" {
+			r.Reason = "watcher ended before recording the result"
+		}
+	}
+	return writeJSON(dir, "result.json", r)
 }
 
 // gone: ref's run was cleaned away, folder and all.
@@ -425,7 +452,11 @@ func (a *Agent) clean(ref string) error {
 	if err != nil {
 		return err
 	}
-	if watcherAlive(dir) {
+	live, err := ownershipState(dir, m)
+	if err != nil {
+		return err
+	}
+	if live {
 		return fmt.Errorf("run %d is still working; stop it first", m.ID)
 	}
 	if _, err := os.Stat(m.Worktree); err == nil {

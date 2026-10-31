@@ -218,6 +218,26 @@ are local; no model endpoint, embeddings, transcript extraction or daemon is
 required. Agents capture useful context during authorized work and cite the
 project's own documents. Keyword retrieval remains explicit about its limits.
 
+## Built in run ownership
+
+A built in runner starts one agent and, when configured, one project check. Each
+attempt has a fresh private generation. A workload owner keeps a direct child as
+the live process-group anchor, signals that group before reaping the child, then
+publishes a versioned outcome. Saved process IDs are diagnostics, never authority
+to signal. Stop requests name the generation, so a request from an earlier attempt
+cannot stop a resumed one. The agent and check share an absolute attempt deadline;
+the owner enforces it even if the watcher dies. Only the run lock is inherited by
+the workload; the private outcome channel is not.
+
+A missing or invalid ownership outcome remains unavailable even if the lock is
+free or a later result file appears. Status, stop, reply and cleanup preserve that
+uncertainty and the worktree. An already completed legacy run with a result can be
+read or resumed under new ownership. A live legacy run cannot be safely stopped
+through its saved process IDs; an unresolved legacy run cannot be resumed or
+cleaned automatically. This does not add retrying or scheduling. The guarantee
+covers signalable processes that remain in the owned group; agent permissions,
+not the runner, govern whether a tool can escape it or start independent work.
+
 ## Reviewing unfinished work
 
 `sous review` refreshes the board and selects notes not reviewed for seven

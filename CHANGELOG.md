@@ -15,6 +15,10 @@ upgraded, never broken.
 
 ### Fixed
 
+- Built in runners stop only their owned process group, including orphaned agents
+  and checks. Lost completion evidence keeps work unavailable and protected; older
+  live runs are not signalled through saved process IDs.
+
 - Named project briefings retain their private memory scope. Ambiguous current-directory
   aliases and unavailable scope discovery are explicit, and never merge private context.
 

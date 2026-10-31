@@ -1,9 +1,7 @@
 package runner
 
 import (
-	"fmt"
 	"io"
-	"slices"
 	"time"
 
 	"github.com/bilal-/sous/internal/harness"
@@ -30,6 +28,8 @@ func init() {
 			a, _ := Builtin(h.Name, d.Home, d.Exe, d.Limit)
 			ops := ops(a)
 			ops["watch"] = watchOp(a)
+			ops["own"] = ownerOp(a, false)
+			ops["anchor"] = ownerOp(a, true)
 			return ops
 		}})
 	}
@@ -40,13 +40,26 @@ func init() {
 // The agent inherits it too, so the run reads as working while either lives.
 func watchOp(a *Agent) plugin.Op {
 	return func(args []string, _ io.Reader, _, stderr io.Writer) int {
-		if len(args) < 1 {
-			return plugin.Usage(stderr, "watch <uid> [--resume]")
+		if (len(args) != 3 && len(args) != 4) || args[1] != "--lock-fd" || args[2] != "3" || len(args) == 4 && args[3] != "--resume" {
+			return plugin.Usage(stderr, "watch <dir> --lock-fd 3 [--resume]")
 		}
-		if err := a.Watch(args[0], slices.Contains(args, "--resume")); err != nil {
-			fmt.Fprintln(stderr, err)
-			return plugin.ExitFailed
+		lock, err := ownedLock(args[0])
+		if err != nil {
+			return plugin.Exit(err, stderr)
 		}
-		return plugin.ExitOK
+		defer lock.Close()
+		return plugin.Exit(a.watch(args[0], len(args) == 4, lock), stderr)
+	}
+}
+
+func ownerOp(a *Agent, isAnchor bool) plugin.Op {
+	return func(args []string, stdin io.Reader, _, stderr io.Writer) int {
+		if len(args) != 0 {
+			return plugin.Usage(stderr, "private runner owner takes its request on stdin")
+		}
+		if isAnchor {
+			return plugin.Exit(anchor(stdin), stderr)
+		}
+		return plugin.Exit(a.own(stdin), stderr)
 	}
 }

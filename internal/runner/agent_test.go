@@ -169,7 +169,9 @@ func TestTwoRepliesStartOneWatcher(t *testing.T) {
 func TestReplyCarriesOn(t *testing.T) {
 	a, ref, dir := startedRun(t, "claude", time.Minute)
 	claudeSays(t, `SOUS: needs you which one?`, 0)
-	a.Watch(dir, false)
+	if err := a.Watch(dir, false); err != nil {
+		t.Fatal(err)
+	}
 	if err := a.Reply("", ref, "the new one"); err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +185,9 @@ func TestReplyCarriesOn(t *testing.T) {
 	}
 	// The resumed watcher passes --resume and the answer.
 	testutil.FakeBin(t, "claude", `echo "$*" > args; printf '{"result":"SOUS: done ok","session_id":"s-1"}\n'`)
-	a.Watch(dir, true)
+	if err := a.Watch(dir, true); err != nil {
+		t.Fatal(err)
+	}
 	if args := readString(m.Worktree, "args"); !strings.Contains(args, "--resume s-1") || !strings.HasSuffix(args, "the new one") {
 		t.Fatalf("args %q", args)
 	}
@@ -263,7 +267,9 @@ func TestCleanKeepsABranchWithCommits(t *testing.T) {
 func TestUncommittedWorkIsKeptAndShown(t *testing.T) {
 	a, ref, dir := startedRun(t, "claude", time.Minute)
 	testutil.FakeBin(t, "claude", `echo fixed > fix.txt; printf '{"result":"SOUS: done fixed it","session_id":"s"}\n'`)
-	a.Watch(dir, false)
+	if err := a.Watch(dir, false); err != nil {
+		t.Fatal(err)
+	}
 	st, _ := a.Status("", ref)
 	if st.State != Done || !strings.Contains(st.Text, "fixed it") || !strings.Contains(st.Text, "not committed") {
 		t.Fatalf("%+v", st)
@@ -289,11 +295,15 @@ func TestPromptsAreNeverFlags(t *testing.T) {
 	for _, name := range Registry.Names() {
 		a, ref, dir := startedRun(t, name, time.Minute)
 		testutil.FakeBin(t, name, fakeAgent)
-		a.Watch(dir, false)
+		if err := a.Watch(dir, false); err != nil {
+			t.Fatal(err)
+		}
 		a.Reply("", ref, "--help is fine")
 		var m runMeta
 		readJSON(dir, "run.json", &m)
-		a.Watch(dir, true)
+		if err := a.Watch(dir, true); err != nil {
+			t.Fatal(err)
+		}
 		args := strings.Split(readString(m.Worktree, "args"), "\n")
 		n := len(args)
 		afterDashes := args[n-1] == "--help is fine" && slices.Contains(args[max(n-3, 0):n-1], "--")
@@ -368,7 +378,9 @@ func TestAgentsMayCommitAndNoMore(t *testing.T) {
 			if resume {
 				a.Reply("", ref, "go on")
 			}
-			a.Watch(dir, resume)
+			if err := a.Watch(dir, resume); err != nil {
+				t.Fatal(err)
+			}
 			args := readString(m.Worktree, "args")
 			common := filepath.Join(m.Project, ".git")
 			switch name {
@@ -463,7 +475,9 @@ func TestAgentsRunInTheirWorktree(t *testing.T) {
 	for _, name := range Registry.Names() {
 		a, _, dir := startedRun(t, name, time.Minute)
 		testutil.FakeBin(t, name, `pwd -P > where; `+fakeAgent)
-		a.Watch(dir, false)
+		if err := a.Watch(dir, false); err != nil {
+			t.Fatal(err)
+		}
 		var m runMeta
 		readJSON(dir, "run.json", &m)
 		wt, _ := filepath.EvalSymlinks(m.Worktree)
@@ -495,7 +509,7 @@ func TestBuiltinResultAndApproval(t *testing.T) {
 	exec.Command("git", "-C", m.Worktree, "add", "fix.txt").Run()
 	exec.Command("git", "-C", m.Worktree, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "work").Run()
 	m.Check = "true"
-	writeJSON(dir, "result.json", result{Checks: runCheck(context.Background(), dir, m)})
+	writeJSON(dir, "result.json", result{Checks: checkedRun(t, a, dir, m)})
 	st, err := a.Status("", ref)
 	if err != nil || st.State != Done || st.Phase != thread.PhaseReady || st.Result == nil || st.Result.Base != m.Base ||
 		st.Result.Files.Added != 1 || st.Result.Files.LinesAdded != 2 || len(st.Result.Checks) != 1 || st.Result.Checks[0].Status != "passed" {
@@ -515,7 +529,7 @@ func TestBuiltinResultAndApproval(t *testing.T) {
 		t.Fatalf("%+v", st)
 	}
 	m.Check = "false"
-	writeJSON(dir, "result.json", result{Checks: runCheck(context.Background(), dir, m)})
+	writeJSON(dir, "result.json", result{Checks: checkedRun(t, a, dir, m)})
 	if st, _ := a.Status("", ref); st.State != Failed || st.Phase != thread.PhaseFailed || !strings.Contains(st.Text, "checks failed") {
 		t.Fatalf("%+v", st)
 	}
@@ -524,4 +538,23 @@ func TestBuiltinResultAndApproval(t *testing.T) {
 	if st, _ := a.Status("", ref); st.Phase != thread.PhaseDiscarded || st.State != Failed {
 		t.Fatalf("%+v", st)
 	}
+}
+
+func checkedRun(t *testing.T, a *Agent, dir string, m runMeta) []thread.RunCheck {
+	t.Helper()
+	lock, err := lockRun(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close()
+	owner := *a
+	owner.Exe, err = os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	checks, _, err := owner.runCheck(context.Background(), dir, m, lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return checks
 }

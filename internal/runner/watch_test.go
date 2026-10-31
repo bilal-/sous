@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -62,7 +63,9 @@ func TestWatchThenStatus(t *testing.T) {
 func TestFailureWithoutAMessageShowsTheLog(t *testing.T) {
 	a, ref, dir := startedRun(t, "claude", time.Minute)
 	testutil.FakeBin(t, "claude", `echo "API error: overloaded" >&2; exit 1`)
-	a.Watch(dir, false)
+	if err := a.Watch(dir, false); err != nil {
+		t.Fatal(err)
+	}
 	if st, _ := a.Status("", ref); st.State != Failed || st.Text != "exit 1: API error: overloaded" {
 		t.Fatalf("%+v", st)
 	}
@@ -119,7 +122,9 @@ func TestWatchTimeLimit(t *testing.T) {
 	a, ref, dir := startedRun(t, "claude", 300*time.Millisecond)
 	testutil.FakeBin(t, "claude", "sleep 30")
 	start := time.Now()
-	a.Watch(dir, false)
+	if err := a.Watch(dir, false); err != nil {
+		t.Fatal(err)
+	}
 	if time.Since(start) > 5*time.Second {
 		t.Fatal("the limit did not stop the agent")
 	}
@@ -137,7 +142,9 @@ printf 'Done.\nSOUS: done fixed\n' > "$out"`
 func TestCodexSessionAndLastMessage(t *testing.T) {
 	a, ref, dir := startedRun(t, "codex", time.Minute)
 	testutil.FakeBin(t, "codex", codexWrites)
-	a.Watch(dir, false)
+	if err := a.Watch(dir, false); err != nil {
+		t.Fatal(err)
+	}
 	var m runMeta
 	readJSON(dir, "run.json", &m)
 	if st, _ := a.Status("", ref); st.State != Done || st.Text != "fixed" || m.Session != "th-9" {
@@ -152,7 +159,9 @@ func TestCodexSessionAndLastMessage(t *testing.T) {
 func TestWatchRunsInTheWorktreeWithPushBlocked(t *testing.T) {
 	a, _, dir := startedRun(t, "claude", time.Minute)
 	testutil.FakeBin(t, "claude", `pwd > where; env | grep -c GIT_CONFIG_KEY_ > keys; printf '{"result":"SOUS: done x","session_id":"s"}\n'`)
-	a.Watch(dir, false)
+	if err := a.Watch(dir, false); err != nil {
+		t.Fatal(err)
+	}
 	wt := filepath.Join(dir, "worktree")
 	if where := readString(wt, "where"); !strings.HasSuffix(where, "/runs/u3/worktree") {
 		t.Fatalf("ran in %q", where)
@@ -163,4 +172,28 @@ func TestWatchRunsInTheWorktreeWithPushBlocked(t *testing.T) {
 	if st, _ := os.Stat(filepath.Join(dir, "log")); st.Mode().Perm() != 0o600 {
 		t.Fatal("log must be private")
 	}
+}
+
+// In-process watcher tests keep the fake detached launcher, but execute the
+// real private ownership door through this test binary.
+func (a *Agent) Watch(dir string, resume bool) error {
+	lock, err := lockRun(dir)
+	until := time.Now().Add(5 * time.Second)
+	for errors.Is(err, errWorking) && time.Now().Before(until) {
+		time.Sleep(time.Millisecond)
+		lock, err = lockRun(dir)
+	}
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	if err := prepareAttempt(dir); err != nil {
+		return err
+	}
+	owner := *a
+	owner.Exe, err = os.Executable()
+	if err != nil {
+		return err
+	}
+	return owner.watch(dir, resume, lock)
 }

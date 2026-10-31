@@ -741,10 +741,17 @@ not added to those roots. Antigravity uses accept-edits mode and reports
 commands denied by its settings as needing you. opencode uses its
 configured permissions. A run is stopped after `run_minutes` (60 by default).
 
-A run interrupted by a computer restart shows as failed, "stopped without
-a result". Built in runners do not resume automatically. If an agent
-session was recorded, an explicit `sous reply` can carry on in it. For
-automatic recovery after a restart, use a runner plugin.
+The attempt deadline also bounds its project check. Stopping still reaches an
+owned agent or check if its watcher has died; a resumed attempt ignores old stop
+requests. Built in runners do not resume automatically.
+
+If completion cannot be confirmed after a lost supervisor or restart, the run is
+unavailable and its work is kept. Inspect its saved work and original runner before
+recovering it; sous will not guess that it stopped, resume it, or remove its
+worktree. A completed older run with a result can still be resumed by `sous reply`.
+An older live run without authenticated ownership must finish in its original
+runner; sous refuses to signal a process from a saved ID. For automatic recovery
+policy, use a runner plugin.
 
 A run is a note, so `snooze`, `edit` and `done` work on it.
 

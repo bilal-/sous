@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strconv"
@@ -16,7 +15,6 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/harness"
-	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -33,13 +31,19 @@ type result struct {
 	Checks []thread.RunCheck `json:"checks,omitempty"`
 }
 
-// Watch runs the agent for one run (or, with resume, carries on after a
+// watch runs the agent for one run (or, with resume, carries on after a
 // reply) and records how it ended. It is the only process that waits on
 // the agent, and it exits when the agent does.
-func (a *Agent) Watch(dir string, resume bool) error {
+func (a *Agent) watch(dir string, resume bool, lock *os.File) error {
 	var m runMeta
 	if err := readJSON(dir, "run.json", &m); err != nil {
 		return err
+	}
+	if err := m.ownershipVersion(); err != nil {
+		return err
+	}
+	if m.OwnerVersion != 1 {
+		return errors.New("watcher requires an owned attempt")
 	}
 	if err := os.WriteFile(filepath.Join(dir, "watcher.pid"), []byte(strconv.Itoa(os.Getpid())), 0o600); err != nil {
 		return err
@@ -56,28 +60,32 @@ func (a *Agent) Watch(dir string, resume bool) error {
 	}
 	limited, cancel := context.WithTimeout(context.Background(), m.Limit)
 	defer cancel()
-	ctx, unhook := signal.NotifyContext(limited, syscall.SIGTERM, syscall.SIGINT) // sous done: stop
+	signaled, unhook := signal.NotifyContext(limited, syscall.SIGTERM, syscall.SIGINT) // sous done: stop
 	defer unhook()
-	cmd := plugin.GroupCommand(ctx, a.h.Bin, args...)
-	cmd.Dir = m.Worktree
-	cmd.Env = agentEnv(m)
-	cmd.Stdout, cmd.Stderr = logf, logf
-	runErr := cmd.Start()
-	if runErr == nil {
-		// Recorded so stop can reach the agent even if this watcher dies.
-		if err := os.WriteFile(filepath.Join(dir, "agent.pgid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0o600); err != nil {
-			fmt.Fprintf(os.Stderr, "stop reaches the agent only through this watcher: %v\n", err) // into watcher.log
+	ctx, cancelStop := context.WithCancel(signaled)
+	defer cancelStop()
+	go func() {
+		ticker := time.NewTicker(25 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if stopped, err := receivedStop(ownedStage{Dir: dir, Generation: m.Generation}); err == nil && stopped {
+					cancelStop()
+					return
+				}
+			}
 		}
-		runErr = cmd.Wait()
-		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) // anything it left running ends with it
+	}()
+	outState, err := a.runStage(ctx, dir, m, append([]string{a.h.Bin}, args...), lock, logf, logf)
+	if err != nil {
+		return err
 	}
-	r := result{}
-	var ee *exec.ExitError
-	switch {
-	case errors.As(runErr, &ee):
-		r.Exit = ee.ExitCode()
-	case runErr != nil:
-		r.Exit, r.Reason = -1, runErr.Error()
+	r := result{Exit: outState.Exit, Reason: outState.Error, Stopped: outState.Stopped}
+	if outState.TimedOut {
+		r.Reason = fmt.Sprintf("ran out of time (%s)", m.Limit)
 	}
 	out, _ := os.ReadFile(filepath.Join(dir, "log"))
 	out = out[min(int(start), len(out)):] // this attempt's output only
@@ -90,7 +98,18 @@ func (a *Agent) Watch(dir string, resume bool) error {
 		}
 	}
 	if state, _ := parseMarker(r.Message); r.Exit == 0 && r.Reason == "" && ctx.Err() == nil && state != NeedsYou {
-		r.Checks = runCheck(ctx, dir, m)
+		var checked stageOutcome
+		r.Checks, checked, err = a.runCheck(ctx, dir, m, lock)
+		if checked.Stopped {
+			r.Exit, r.Stopped = -1, true
+		}
+		deadline, _ := limited.Deadline()
+		if checked.TimedOut && !time.Now().Before(deadline) {
+			r.Exit, r.Reason = -1, fmt.Sprintf("ran out of time (%s)", m.Limit)
+		}
+		if err != nil {
+			return err
+		}
 	}
 	switch {
 	case errors.Is(limited.Err(), context.DeadlineExceeded):
@@ -111,10 +130,14 @@ func (a *Agent) Status(_, ref string) (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
+	live, err := ownershipState(dir, m)
+	if err != nil {
+		return Status{}, err
+	}
 	st := Status{Branch: m.Branch, Worktree: m.Worktree, Log: filepath.Join(dir, "log")}
 	var r result
 	if readJSON(dir, "result.json", &r) != nil {
-		if watcherAlive(dir) {
+		if live {
 			st.State, st.Phase = Running, thread.PhaseWorking
 		} else {
 			st.State, st.Phase, st.Text = Failed, thread.PhaseFailed, "stopped without a result"

@@ -187,7 +187,15 @@ owns checking whether its worker is alive.
 | `discard <project> <ref>` | | | `0` discarded, `1` failed, `2` not supported. Optional: the person turned the result down; keep the work until `clean` |
 
 `reply` may also exit `4` when the question it answers has moved on; sous
-tells the person rather than retrying. A runner whose `describe` names the
+tells the person rather than retrying. Built in runners keep their watcher, workload owner and group anchor behind
+private implementation calls. These are not runner-plugin contract operations.
+Their stop requests are bound to one attempt; completion is published only after
+owned-group cleanup. If ownership or completion evidence is lost, status and
+mutations report failure and keep the work. Plugins remain responsible for their
+own worker lifetime and safe recovery; a stored process ID alone does not prove
+that a process still belongs to the run.
+
+A runner whose `describe` names the
 `question` field gets JSON on `reply` instead of the bare answer: the
 question answered, the answer, and the op of the host that asked, which a
 runner can keep to answer a repeat the same way:
