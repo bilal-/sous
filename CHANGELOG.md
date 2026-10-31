@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+* Incomplete git scans keep previously known work as stale, including failed
+  status reads, unavailable repositories and unreadable linked worktrees.
 * Plugin conflicts no longer count as successful filing, closing or run starts;
   a refused upstream close leaves the private note open.
 * Recall totals include hidden matches when `--limit` is used; JSON reports

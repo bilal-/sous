@@ -32,7 +32,7 @@ func countLines(s string) int {
 }
 
 // ScanGit is the built-in git plugin: dirty, ahead, stash, no-upstream, last commit.
-// It never fails as a whole; a bad path is warned and skipped.
+// Partial output is kept, but an incomplete scan fails so prior work stays stale.
 func ScanGit(paths []string, w, warn io.Writer, now time.Time) error {
 	if _, err := exec.LookPath("git"); err != nil {
 		fmt.Fprintln(warn, "git not installed")
@@ -46,7 +46,10 @@ func ScanGit(paths []string, w, warn io.Writer, now time.Time) error {
 	var unreadable int
 	for _, p := range paths {
 		if _, err := os.Lstat(filepath.Join(p, ".git")); err != nil {
+			mu.Lock()
 			fmt.Fprintf(warn, "sous-signal-git: not a repo: %s\n", p)
+			unreadable++
+			mu.Unlock()
 			continue
 		}
 		wg.Add(1)
@@ -81,7 +84,7 @@ func scanOne(p string, w, warn io.Writer, now time.Time) bool {
 		return freshRepo(p, warn)
 	}
 	r := gitRepo{p: p, project: p, w: w, warn: warn, now: now}
-	r.branch = branchOf(p)
+	r.branch = r.branchName()
 	r.dirty()
 	r.unpushed()
 	// The stash is the repo's, shared by its worktrees: counted once, here.
@@ -90,11 +93,11 @@ func scanOne(p string, w, warn io.Writer, now time.Time) bool {
 	}
 	r.lastCommit()
 	r.worktrees()
-	return true
+	return !r.failed
 }
 
-func branchOf(p string) string {
-	if b, _ := gitOut(p, "branch", "--show-current"); b != "" {
+func (r *gitRepo) branchName() string {
+	if b := r.must("branch", "--show-current"); b != "" {
 		return b
 	}
 	return "(detached)"
@@ -107,10 +110,11 @@ const runBranch = "sous/run-"
 // worktrees: each linked worktree's uncommitted and unpushed work, under
 // this repo's project. A worktree is a place to work on a branch, not a
 // project of its own; its rows name it, so the person can find it.
-func (r gitRepo) worktrees() {
+func (r *gitRepo) worktrees() {
 	wts, err := project.Worktrees(r.p)
 	if err != nil {
 		fmt.Fprintf(r.warn, "sous-signal-git: git worktree list failed in %s: %v\n", r.p, err)
+		r.failed = true
 		return
 	}
 	for _, wt := range wts {
@@ -118,9 +122,10 @@ func (r gitRepo) worktrees() {
 			continue
 		}
 		t := gitRepo{p: wt.Path, project: r.project, at: wt.Path, w: r.w, warn: r.warn, now: r.now}
-		t.branch = branchOf(wt.Path)
+		t.branch = t.branchName()
 		t.dirty()
 		t.unpushed()
+		r.failed = r.failed || t.failed
 	}
 }
 
@@ -145,6 +150,7 @@ type gitRepo struct {
 	at        string // a linked worktree's folder, "" for the repo itself
 	w, warn   io.Writer
 	now       time.Time
+	failed    bool // any required read failed, including a linked worktree
 }
 
 // emit writes one signal. A worktree's rows are keyed by its folder, so
@@ -159,10 +165,12 @@ func (r gitRepo) emit(key string, kind Kind, text string, observed time.Time, st
 }
 
 // must runs git, reporting a failure on warn; "" then.
-func (r gitRepo) must(args ...string) string {
+func (r *gitRepo) must(args ...string) string {
 	out, err := gitOut(r.p, args...)
 	if err != nil {
 		fmt.Fprintf(r.warn, "sous-signal-git: git %s failed in %s: %v\n", args[0], r.p, err)
+		r.failed = true
+		return ""
 	}
 	return out
 }
@@ -171,19 +179,22 @@ func (r gitRepo) must(args ...string) string {
 // what changed in them (the diff itself, and which files are new), so any
 // further edit ends a snooze. The content of new untracked files is not
 // read.
-func (r gitRepo) dirty() {
+func (r *gitRepo) dirty() {
 	st := r.must("status", "--porcelain")
 	if st == "" {
 		return
 	}
-	diff, _ := gitOut(r.p, "diff", "HEAD")
+	diff := r.must("diff", "HEAD")
+	if r.failed {
+		return // an incomplete fingerprint must not replace the known state
+	}
 	sum := sha256.Sum256([]byte(st + "\x00" + diff))
 	r.emit("dirty", Unfinished, text.Plural(countLines(st), "file")+" uncommitted · "+r.branch, r.now, hex.EncodeToString(sum[:8]))
 }
 
 // unpushed: commits ahead of the upstream, or a branch other than the
 // default that was never pushed.
-func (r gitRepo) unpushed() {
+func (r *gitRepo) unpushed() {
 	if up, err := gitOut(r.p, "rev-parse", "--abbrev-ref", "-q", "@{u}"); err == nil && up != "" {
 		if n := r.must("rev-list", "--count", "@{u}..HEAD"); n != "" && n != "0" {
 			r.emit("ahead", Unfinished, fmt.Sprintf("%s commits unpushed · %s", n, r.branch), r.now, "")
@@ -207,9 +218,9 @@ func (r gitRepo) defaultBranch() string {
 }
 
 // lastCommit is information for here: the subject, dated by the commit.
-func (r gitRepo) lastCommit() {
-	out, err := gitOut(r.p, "log", "-1", "--format=%cI%x00%s")
-	if err != nil {
+func (r *gitRepo) lastCommit() {
+	out := r.must("log", "-1", "--format=%cI%x00%s")
+	if out == "" {
 		return
 	}
 	ts, subject, _ := strings.Cut(out, "\x00")
