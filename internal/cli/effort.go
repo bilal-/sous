@@ -38,11 +38,11 @@ func cmdEffort(e *Env, a argv) int {
 		}
 		var scopes []memory.Scope
 		for _, name := range a.values("project") {
-			p, code := resolveProject(e, name)
+			_, scope, code := resolveMemoryProject(e, name)
 			if code != 0 {
 				return code
 			}
-			scopes = append(scopes, memory.ForProject(e.Cfg, p))
+			scopes = append(scopes, scope)
 		}
 		selected := []effort.Effort{}
 		for _, group := range groups {
@@ -84,7 +84,7 @@ func cmdEffort(e *Env, a argv) int {
 		}
 		changes := effort.Changes{Memories: a.values("memory"), Refs: a.values("ref")}
 		for _, term := range a.values("project") {
-			p, code := resolveProject(e, term)
+			p, _, code := resolveMemoryProject(e, term)
 			if code != 0 {
 				return code
 			}

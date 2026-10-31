@@ -15,6 +15,9 @@ upgraded, never broken.
 
 ### Fixed
 
+- Named project briefings retain their private memory scope. Ambiguous current-directory
+  aliases and unavailable scope discovery are explicit, and never merge private context.
+
 - Stopping a run is serialized with resuming it, so a live resumed agent cannot inherit an obsolete stopped result.
 
 - The MemoryCore experiment keeps its scoped stale context when search hits are malformed or HTTP responses are truncated.

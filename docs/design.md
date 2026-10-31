@@ -194,6 +194,16 @@ not security against programs that can read the user's files. A replacement does
 not inherit sharing grants. Source references are pointers, never instructions
 for sous to fetch or execute.
 
+Explicit project names retain their discovered scope, including symlink aliases.
+An explicit filesystem path retains its physical checkout scope. Current-directory
+selection (including `.`) checks local discovery aliases and refuses to choose if
+any has a different private scope. Incomplete discovery or invalid configuration
+makes implicit context unavailable. Briefings still show local project facts and
+notes, with an attention message and no private memory or effort context. No
+selection rewrites stored scopes, retry keys, history or sharing grants. Old
+records remain accessible by ID; a history hint that cannot select the stored
+project exactly is labelled as a broader workspace-history query.
+
 Efforts collect project, note, memory and document links under a name. Their open,
 completed and blocked counts come from current notes and cached tracker status.
 Dependencies only explain what waits on what. Missing notes, projects or sources

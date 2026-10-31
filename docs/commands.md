@@ -170,6 +170,13 @@ Where you left off in a project, found by name from anywhere. The same as
 
 ### `sous here [path]`
 
+Bare `here` and session hooks treat the current directory as implicit. If aliases
+have different private memory scopes, or scope discovery is unavailable, project
+facts and notes still appear, while `context.available` is false with an attention
+message. `here <path>` explicitly selects the physical scope; `sous <project>` and
+`go <project>` preserve an explicitly named scope in their briefing.
+
+
 Where you left off in the project you are in, or the one at `path`:
 
 * the branch, the last commit and its message
@@ -434,6 +441,13 @@ stdin. The same capture is safe to retry; it returns the same `m:<number>`.
   starts with no sharing grants; share it explicitly if needed.
 * `--json`: the change response, `did: "remembered"` or `"already_remembered"`.
 
+An explicit project name keeps its named private scope; an explicit path keeps
+its physical checkout scope. If the current directory (or `-p .`) has aliases in
+different scopes, choose a name or an absolute path explicitly. The command
+fails with exit `2` instead of guessing. Unavailable scope discovery fails with
+exit `1`; neither case saves a memory. The same selection rule applies to scoped
+recall, `memory share/unshare --with` and `effort --project`.
+
 Set `SOUS_SOURCE=agent` for captures written by an agent. A forgotten capture
 stays forgotten on retry; write a new capture with a new key if intended.
 
@@ -460,8 +474,10 @@ keyword search; paraphrases may not match. An empty result succeeds.
 
 The count includes every matching record before `--limit`. Limited text output
 says how many are shown; repeat the same command without `--limit` to retrieve
-all matches. Hints from a project brief or a single record carry its project
-path, so they work from another working directory too.
+all matches. Hints from a project brief or single record carry an explicit selector, so they
+work from another working directory too. When an old or aliased scope cannot be
+selected by its physical path, the hint explicitly searches workspace history;
+`--show <m:id>` always retrieves the exact record.
 
 Text lists name each memory's project of origin and shorten long records and
 sources; use `--show` for its full scope and complete record. Verification

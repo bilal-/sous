@@ -49,7 +49,8 @@ func cmdRecall(e *Env, a argv) int {
 		for _, target := range r.SharedWith {
 			fmt.Fprintf(e.Stdout, "shared with · %s · %s\n", target.Workspace, target.Project)
 		}
-		fmt.Fprintf(e.Stdout, "sous recall -p %s --history for previous decisions and handoffs\n", text.ShellArg(r.Scope.Project))
+		flag, value, label := memory.HistoryTarget(e.Cfg, r.Scope)
+		fmt.Fprintf(e.Stdout, "sous recall %s %s --history for %s\n", flag, text.ShellArg(value), label)
 		return 0
 	}
 	selectors := 0
@@ -83,11 +84,11 @@ func cmdRecall(e *Env, a argv) int {
 			q.IDs = append(q.IDs, r.ID)
 		}
 	} else if !q.All && q.Workspace == "" {
-		p, code := resolveProject(e, a.value("p"))
+		_, scope, code := resolveMemoryProject(e, a.value("p"))
 		if code != 0 {
 			return code
 		}
-		q.Scope = memory.ForProject(e.Cfg, p)
+		q.Scope = scope
 	}
 	result, err := memory.Find(e.store(), q)
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/text"
@@ -111,7 +112,11 @@ func cmdPath(e *Env, arg string) int {
 	if err != nil {
 		return projectErr(e, err)
 	}
-	return cmdHere(e, argv{pos: []string{p.Path}})
+	root, ok := project.ForPath(p.Path, e.UserHome)
+	if !ok {
+		return fail(e, exitFailed, "project folder unavailable: %s", p.Path)
+	}
+	return showHere(e, root, p, memory.Explicit)
 }
 
 // cmdAmbient is what a new shell runs: the cached board, at most once per

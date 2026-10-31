@@ -17,11 +17,12 @@ import (
 
 // Context joins private history to current work without changing either.
 type Context struct {
-	Available bool            `json:"available"`
-	Scope     memory.Scope    `json:"scope"`
-	Memories  []memory.Record `json:"memories"`
-	Efforts   []EffortSummary `json:"efforts"`
-	Attention []string        `json:"attention"`
+	historyFlag, historyValue, historyLabel string
+	Available                               bool            `json:"available"`
+	Scope                                   memory.Scope    `json:"scope"`
+	Memories                                []memory.Record `json:"memories"`
+	Efforts                                 []EffortSummary `json:"efforts"`
+	Attention                               []string        `json:"attention"`
 }
 type EffortSummary struct {
 	ID          string         `json:"id"`
@@ -143,8 +144,12 @@ func ProjectContext(s *store.Store, sc memory.Scope, now time.Time, observed []t
 
 func renderContext(w io.Writer, c Context, brief bool) {
 	if len(c.Memories) > 0 {
-		recall := "sous recall -p " + text.ShellArg(c.Scope.Project)
-		fmt.Fprintf(w, "\nmemory · %d current\n  %s --history for earlier context\n", len(c.Memories), recall)
+		flag, value, label := c.historyFlag, c.historyValue, c.historyLabel
+		if flag == "" {
+			flag, value, label = "-p", c.Scope.Project, "earlier context"
+		}
+		recall := "sous recall " + flag + " " + text.ShellArg(value)
+		fmt.Fprintf(w, "\nmemory · %d current\n  %s --history for %s\n", len(c.Memories), recall, label)
 		records := c.Memories
 		if brief {
 			records = briefMemories(records, briefRows)

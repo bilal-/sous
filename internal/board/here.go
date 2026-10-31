@@ -44,7 +44,19 @@ type HereData struct {
 // shortcut); everything the board observed from remote trackers is read
 // back from observed.json. in.Signals is the list to run, normally
 // signal.Registry.Offline.
+type HereTarget struct {
+	ScopeError error
+	Root       string
+	Project    project.Project
+	Mode       memory.SelectionMode
+}
+
 func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
+	return BuildHereTarget(ctx, in, HereTarget{Root: root, Project: project.Project{Path: root}, Mode: memory.CurrentDirectory})
+}
+
+func BuildHereTarget(ctx context.Context, in Inputs, target HereTarget) (*HereData, error) {
+	root := target.Root
 	d := &HereData{Project: root, Name: filepath.Base(root), RenderedAt: in.Now.UTC()}
 	if r := project.Remote(root); r != "" {
 		d.Remote = &r
@@ -82,7 +94,18 @@ func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 	if d.RecentlyClosed, err = thread.RecentlyClosedUpstream(in.Store, root, remote, in.Now, 7*24*time.Hour); err != nil {
 		return nil, err
 	}
-	d.Context = ProjectContext(in.Store, memory.ForProject(in.Cfg, project.Project{Path: root, Remote: d.Remote}), in.Now, d.Threads)
+	target.Project.Remote = d.Remote
+	var sc memory.Scope
+	scopeErr := target.ScopeError
+	if scopeErr == nil {
+		sc, scopeErr = memory.ResolveScope(ctx, in.Cfg, target.Project, target.Mode)
+	}
+	if scopeErr != nil {
+		d.Context = Context{Memories: []memory.Record{}, Efforts: []EffortSummary{}, Attention: []string{scopeErr.Error()}}
+	} else {
+		d.Context = ProjectContext(in.Store, sc, in.Now, d.Threads)
+		d.Context.historyFlag, d.Context.historyValue, d.Context.historyLabel = memory.HistoryTarget(in.Cfg, sc)
+	}
 	return d, nil
 }
 

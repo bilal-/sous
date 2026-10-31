@@ -2,10 +2,12 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"time"
 
 	"github.com/bilal-/sous/internal/board"
+	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/thread"
@@ -26,13 +28,25 @@ func cmdHere(e *Env, a argv) int {
 	if real, err := filepath.EvalSymlinks(root); err == nil {
 		root = real
 	}
+	mode := memory.CurrentDirectory
+	if len(a.pos) == 1 {
+		mode = memory.Explicit
+	}
+	return showHere(e, root, project.Project{Path: root}, mode)
+}
+
+func showHere(e *Env, root string, selected project.Project, mode memory.SelectionMode) int {
 	now := time.Now()
 	ctx := e.ctx()
-	d, err := board.BuildHere(ctx, board.Inputs{
+	var scopeErr error
+	if mode == memory.CurrentDirectory && e.cfgErr != nil {
+		scopeErr = fmt.Errorf("private context unavailable: %w", e.cfgErr)
+	}
+	d, err := board.BuildHereTarget(ctx, board.Inputs{
 		Store: e.store(), Cfg: e.Cfg, Signals: signal.Registry.Offline(e.Exe),
 		Timeout: e.pluginTimeout(), Warn: e.Stderr, Now: now,
 		Reconcile: func(ctx context.Context, v []thread.View) []thread.View { return reconcile(e, ctx, v, now, true) },
-	}, root)
+	}, board.HereTarget{Root: root, Project: selected, Mode: mode, ScopeError: scopeErr})
 	if err != nil {
 		return fail(e, exitFailed, "%v", err)
 	}

@@ -11,6 +11,8 @@ import (
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/hook"
+	"github.com/bilal-/sous/internal/memory"
+	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -71,7 +73,7 @@ func sessionStart(e *Env, in harness.Input) string {
 	var runs string
 	if !guarded(func() {
 		if root, ok := hook.StartRoot(in, e.Cwd, e.UserHome); ok {
-			cmdHere(sub, argv{pos: []string{root}})
+			showHere(sub, root, project.Project{Path: root}, memory.CurrentDirectory)
 		} else if in.Fresh {
 			// Outside any project: what waits across them. The notes as
 			// they are now; what trackers and git said, from the saved

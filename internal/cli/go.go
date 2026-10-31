@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bilal-/sous/internal/launcher"
+	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
@@ -14,11 +15,14 @@ import (
 
 // hereContext is where the person left off in p, short, as an agent is
 // handed it, and the file it is saved in ("" when it could not be).
-func hereContext(e *Env, p project.Project, stderr io.Writer) ([]byte, string) {
+func hereContext(e *Env, p project.Project, stderr io.Writer, mode memory.SelectionMode) ([]byte, string) {
 	var here bytes.Buffer
 	sub := e.child(&here, stderr, true)
 	defer sub.close()
-	cmdHere(sub, argv{pos: []string{p.Path}})
+	root, ok := project.ForPath(p.Path, e.UserHome)
+	if ok {
+		showHere(sub, root, p, mode)
+	}
 	file, err := session.WriteContext(e.Home, p.Path, here.Bytes())
 	if err != nil {
 		file = ""
@@ -80,7 +84,7 @@ func cmdGo(e *Env, a argv) int {
 		return fail(e, exitFailed, "%v", err)
 	}
 	// Resume context: shown to the human, and handed to launchers via a file.
-	here, file := hereContext(e, p, e.Stderr)
+	here, file := hereContext(e, p, e.Stderr, scopeMode(a.pos[0]))
 	var env []string
 	if file != "" {
 		env = append(env, "SOUS_HERE_FILE="+file)

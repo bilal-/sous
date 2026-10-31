@@ -7,14 +7,16 @@ import (
 
 	"github.com/bilal-/sous/internal/effort"
 	"github.com/bilal-/sous/internal/memory"
+	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/thread"
 )
 
 func memoryErr(e *Env, err error) int {
+	var ambiguous memory.AmbiguousScope
 	var mv memory.ValidationError
 	var ev effort.ValidationError
 	var tv thread.ValidationError
-	if errors.As(err, &mv) || errors.As(err, &ev) || errors.As(err, &tv) || errors.Is(err, memory.ErrNotFound) || errors.Is(err, effort.ErrNotFound) || errors.Is(err, thread.ErrNotFound) {
+	if errors.As(err, &ambiguous) || errors.As(err, &mv) || errors.As(err, &ev) || errors.As(err, &tv) || errors.Is(err, memory.ErrNotFound) || errors.Is(err, effort.ErrNotFound) || errors.Is(err, thread.ErrNotFound) {
 		return fail(e, exitUsage, "%v", err)
 	}
 	return fail(e, exitFailed, "%v", err)
@@ -51,11 +53,11 @@ func cmdMemory(e *Env, a argv) int {
 		if !a.has("with") {
 			return fail(e, exitUsage, "%s needs --with <project>", action)
 		}
-		p, code := resolveProject(e, a.value("with"))
+		_, scope, code := resolveMemoryProject(e, a.value("with"))
 		if code != 0 {
 			return code
 		}
-		err = memory.Share(e.store(), id, memory.ForProject(e.Cfg, p), action == "share")
+		err = memory.Share(e.store(), id, scope, action == "share")
 		did = didShared
 		if action == "unshare" {
 			did = didUnshared
@@ -67,4 +69,26 @@ func cmdMemory(e *Env, a argv) int {
 		return memoryErr(e, err)
 	}
 	return e.changed(changedJSON{ID: id, Did: did, Next: []string{"sous recall --show " + id}}, id+" "+did)
+}
+
+func scopeMode(term string) memory.SelectionMode {
+	if term == "" || term == "." {
+		return memory.CurrentDirectory
+	}
+	return memory.Explicit
+}
+
+func resolveMemoryProject(e *Env, term string) (project.Project, memory.Scope, int) {
+	p, code := resolveProject(e, term)
+	if code != 0 {
+		return p, memory.Scope{}, code
+	}
+	if scopeMode(term) == memory.CurrentDirectory && e.cfgErr != nil {
+		return p, memory.Scope{}, fail(e, exitFailed, "private context unavailable: %v", e.cfgErr)
+	}
+	sc, err := memory.ResolveScope(e.ctx(), e.Cfg, p, scopeMode(term))
+	if err != nil {
+		return p, sc, memoryErr(e, err)
+	}
+	return p, sc, 0
 }

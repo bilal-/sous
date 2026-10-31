@@ -43,7 +43,7 @@ func goRun(e *Env, a argv, p project.Project, cfg *config.Config) int {
 		name = cfg.RunAgentFor(project.OrgName(p.Path))
 	}
 	d := e.dispatcher()
-	_, hereFile := hereContext(e, p, io.Discard)
+	_, hereFile := hereContext(e, p, io.Discard, scopeMode(a.pos[0]))
 	id, existed, err := d.Start(e.ctx(), p, brief, a.value("key"), name, e.Source, hereFile)
 	switch {
 	case errors.Is(err, runs.ErrNoRunner):

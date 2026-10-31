@@ -138,7 +138,7 @@ func actRun(e *Env, target string, in []byte, a argv) (string, runs.Outcome) {
 	if cfg.Project(project.OrgName(p.Path)).RemoteRuns != "true" {
 		return "", runs.Outcome{Outcome: runs.Refused, Reason: "not_allowed_project"}
 	}
-	_, hereFile := hereContext(e, p, io.Discard)
+	_, hereFile := hereContext(e, p, io.Discard, scopeMode(target))
 	id, _, err := e.dispatcher().Start(e.ctx(), p, string(in), a.value("op"), cfg.RunAgentFor(project.OrgName(p.Path)), e.Source, hereFile)
 	n := ""
 	if id > 0 {

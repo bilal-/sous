@@ -8,7 +8,7 @@ import (
 )
 
 func cmdRemember(e *Env, a argv) int {
-	p, code := resolveProject(e, a.value("p"))
+	_, scope, code := resolveMemoryProject(e, a.value("p"))
 	if code != 0 {
 		return code
 	}
@@ -27,7 +27,7 @@ func cmdRemember(e *Env, a argv) int {
 	if kind == "" {
 		kind = memory.Handoff
 	}
-	r, already, err := memory.Add(e.store(), memory.Input{Scope: memory.ForProject(e.Cfg, p), Kind: kind, Text: body, Source: a.value("source"), Author: e.Source, Key: a.value("key"), Supersedes: a.value("supersedes"), Verified: a.has("verified")}, time.Now())
+	r, already, err := memory.Add(e.store(), memory.Input{Scope: scope, Kind: kind, Text: body, Source: a.value("source"), Author: e.Source, Key: a.value("key"), Supersedes: a.value("supersedes"), Verified: a.has("verified")}, time.Now())
 	if err != nil {
 		return memoryErr(e, err)
 	}

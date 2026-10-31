@@ -4,6 +4,7 @@ package project
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -47,10 +48,103 @@ func ignored(rel string, ignore []string) bool {
 // into a repo. A linked worktree it finds is its main repo's project, listed
 // once. Returns projects sorted by path and the count of missing roots.
 func Discover(roots, ignore []string, warn io.Writer) ([]Project, int) {
-	seen := map[string]bool{}
+	paths, unavailable := discoverPaths(context.Background(), roots, ignore, warn, false)
 	var out []Project
+	for _, path := range paths {
+		out = append(out, Describe(path))
+	}
+	return out, unavailable
+}
+
+// AliasesForPath finds discovery identities for a physical checkout using only
+// local filesystem metadata. Incomplete discovery cannot establish uniqueness.
+type Alias struct{ Path, Selector string }
+
+func AliasesForPath(ctx context.Context, roots, ignore []string, physical string) ([]Alias, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	paths, unavailable := discoverPaths(ctx, roots, ignore, io.Discard, true)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if unavailable > 0 {
+		return nil, fmt.Errorf("private context unavailable: %d project folders could not be read", unavailable)
+	}
+	if real, err := filepath.EvalSymlinks(physical); err == nil {
+		physical = real
+	} else {
+		return nil, err
+	}
+	var candidates []Project
+	for _, path := range paths {
+		candidates = append(candidates, Project{Path: path, Name: filepath.Base(path), Org: filepath.Base(filepath.Dir(path))})
+	}
+	var aliases []Alias
+	for _, path := range paths {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		real, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return nil, fmt.Errorf("private context unavailable: %w", err)
+		}
+		if real == physical {
+			selector := ""
+			if selected, err := Match(candidates, OrgName(path)); err == nil && selected.Path == path {
+				selector = OrgName(path)
+			}
+			aliases = append(aliases, Alias{Path: path, Selector: selector})
+		}
+	}
+	return aliases, nil
+}
+
+func discoverPaths(ctx context.Context, roots, ignore []string, warn io.Writer, strict bool) ([]string, int) {
+	seen := map[string]bool{}
+	var out []string
 	unavailable := 0
+	isDir := func(path string) bool {
+		st, err := os.Stat(path)
+		if err != nil {
+			if strict {
+				unavailable++
+			}
+			return false
+		}
+		return st.IsDir()
+	}
+	isRepo := func(path string) bool {
+		gitfile := filepath.Join(path, ".git")
+		st, err := os.Lstat(gitfile)
+		if err != nil {
+			if strict && !os.IsNotExist(err) {
+				unavailable++
+			}
+			return false
+		}
+		if strict && !st.IsDir() {
+			b, err := os.ReadFile(gitfile)
+			if err != nil {
+				unavailable++
+				return false
+			}
+			if value, ok := strings.CutPrefix(strings.TrimSpace(string(b)), "gitdir:"); ok {
+				dir := abs(path, strings.TrimSpace(value))
+				if filepath.Base(filepath.Dir(dir)) == "worktrees" {
+					if _, err := os.ReadFile(filepath.Join(dir, "commondir")); err != nil {
+						unavailable++
+						return false
+					}
+				}
+			}
+		}
+		return true
+	}
 	for _, root := range roots {
+		if ctx.Err() != nil {
+			return out, unavailable + 1
+		}
 		root = filepath.Clean(root)
 		if abs, err := filepath.Abs(root); err == nil {
 			root = abs // ids and thread matching key on absolute paths
@@ -75,6 +169,9 @@ func Discover(roots, ignore []string, warn io.Writer) ([]Project, int) {
 			continue
 		}
 		for _, d1 := range level1 {
+			if ctx.Err() != nil {
+				return out, unavailable + 1
+			}
 			p1 := filepath.Join(root, d1.Name())
 			if !isDir(p1) { // os.Stat, not DirEntry.IsDir: symlinked repos and org folders count
 				continue
@@ -90,6 +187,9 @@ func Discover(roots, ignore []string, warn io.Writer) ([]Project, int) {
 				continue
 			}
 			for _, d2 := range level2 {
+				if ctx.Err() != nil {
+					return out, unavailable + 1
+				}
 				p2 := filepath.Join(p1, d2.Name())
 				if !isDir(p2) {
 					continue
@@ -100,11 +200,11 @@ func Discover(roots, ignore []string, warn io.Writer) ([]Project, int) {
 			}
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	sort.Strings(out)
 	return out, unavailable
 }
 
-func add(out *[]Project, seen map[string]bool, root, path string, ignore []string) {
+func add(out *[]string, seen map[string]bool, root, path string, ignore []string) {
 	if seen[path] {
 		return
 	}
@@ -120,7 +220,7 @@ func add(out *[]Project, seen map[string]bool, root, path string, ignore []strin
 		seen[main] = true
 		path = main
 	}
-	*out = append(*out, Describe(path))
+	*out = append(*out, path)
 }
 
 // OrgName is the "org/name" a project is known by in config and messages:
