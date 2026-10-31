@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/bilal-/sous/internal/text"
 )
 
 func RenderDescription(w io.Writer, protocol string, v int, version string) {
@@ -26,6 +28,10 @@ func RenderSnapshot(w io.Writer, s Snapshot) {
 func RenderEvent(w io.Writer, e Event) error {
 	if e.Type == "unavailable" {
 		_, err := fmt.Fprintf(w, "sous integration · unavailable · %s\n", e.Error)
+		return err
+	}
+	if e.Snapshot == nil {
+		_, err := fmt.Fprintf(w, "sous integration · %s · %s · %s\n", e.Type, text.Plural(len(e.Changes), "change"), e.Revision)
 		return err
 	}
 	_, err := fmt.Fprintf(w, "sous integration · %s · %d items · %s\n", e.Type, len(e.Snapshot.Items), e.Revision)

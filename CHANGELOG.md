@@ -9,6 +9,7 @@ upgraded, never broken.
 
 ### Fixed
 
+* Protocol 1 integration watches can print changed events as text without crashing.
 * Incomplete git scans keep previously known work as stale, including failed
   status reads, unavailable repositories and unreadable linked worktrees.
 * Plugin conflicts no longer count as successful filing, closing or run starts;
