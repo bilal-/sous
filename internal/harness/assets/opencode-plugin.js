@@ -71,6 +71,7 @@ function tell(command, input) {
   try {
     const child = spawn("sh", ["-c", command], { stdio: ["pipe", "ignore", "ignore"], detached: true })
     child.on("error", () => {})
+    child.stdin.on("error", () => {})
     child.stdin.end(JSON.stringify(input))
     child.unref()
   } catch {}

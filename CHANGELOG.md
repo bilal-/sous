@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- An opencode end hook that exits before reading its input no longer crashes the hosting agent.
+
 - Ending or deleting an opencode session preserves other sessions’ final messages and clears only that session’s message tracking.
 
 - Runner approvals reject unsupported request and response versions before accepting an approval; malformed approval requests explain their usage.
