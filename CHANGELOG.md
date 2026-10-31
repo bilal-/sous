@@ -13,6 +13,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Stopping a run is serialized with resuming it, so a live resumed agent cannot inherit an obsolete stopped result.
+
 - The MemoryCore experiment keeps its scoped stale context when search hits are malformed or HTTP responses are truncated.
 
 - An opencode end hook that exits before reading its input no longer crashes the hosting agent.

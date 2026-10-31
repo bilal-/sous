@@ -93,7 +93,7 @@ func (a *Agent) Start(req Request) (string, error) {
 	return ref, err
 }
 
-// withLifecycleLock serializes operations that create, resume or remove a run.
+// withLifecycleLock serializes operations that create, resume, stop or remove a run.
 // The lock survives removal of the run directory. watcher.lock separately
 // means that a watcher or agent is alive; cleanup must not claim that lock.
 func (a *Agent) withLifecycleLock(ref string, change func() error) error {
@@ -191,8 +191,8 @@ func uncommitted(worktree string) bool {
 	return err != nil || strings.TrimSpace(out) != ""
 }
 
-// lockRun takes the run's lock, which only a live watcher holds: the
-// kernel lets go of it when the watcher dies, however it dies. An error
+// lockRun takes the lock handed from launcher to watcher and agent. The
+// kernel releases it when the last holder closes it or exits. An error
 // says the run is still working.
 func lockRun(dir string) (*os.File, error) {
 	f, err := os.OpenFile(filepath.Join(dir, "watcher.lock"), os.O_CREATE|os.O_RDWR, 0o600)
@@ -349,13 +349,12 @@ func (a *Agent) reply(ref, answer string) error {
 	return a.launch(dir, true, lock)
 }
 
-// Stop asks the watcher to stop the agent (it records "stopped"), and makes
-// sure of it, reaching the agent's own group when the watcher is gone. It
-// signals only while the run's lock is held, which only the watcher and
-// the agent do, so a process that later got the same pid is never touched.
-// Stopping a finished or cleaned run changes nothing.
+// Stop asks the watcher to stop its agent (it records "stopped"), then waits
+// for the run's lock to be released, using the saved agent group as a fallback.
+// The lifecycle lock keeps a new attempt from launching while Stop observes
+// and records completion. Stopping a finished or cleaned run changes nothing.
 func (a *Agent) Stop(_, ref string) error {
-	return a.stop(ref)
+	return a.withLifecycleLock(ref, func() error { return a.stop(ref) })
 }
 
 func (a *Agent) stop(ref string) error {
