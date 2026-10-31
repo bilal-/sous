@@ -1015,6 +1015,9 @@ A short list of every command. `sous --help` does the same.
 
 ## Options for the shell and menu bar
 
+These standalone options take no extra arguments or `--json`. The same applies
+to the standalone `--help`, `-h` and `--version` options.
+
 These go first on the line, on their own.
 
 | Option | What it does |

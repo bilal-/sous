@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Standalone modes and integration subcommands reject arguments and flags they do not use.
+
 - Integration watches honor the byte limit for metadata, errors and newlines, and report when the limit cannot hold the remaining state.
 
 - Integration watches update the host when the projects permitted to start runs change.

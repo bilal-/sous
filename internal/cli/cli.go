@@ -340,7 +340,7 @@ func run(args []string, cwd string, stdin io.Reader, stdout, stderr io.Writer) i
 	case e.Brief && (len(args) == 0 || strings.HasPrefix(args[0], "-")):
 		return fail(e, exitUsage, "the board does not take --brief; sous here --brief is the short form")
 	case len(args) > 0 && strings.HasPrefix(args[0], "-"):
-		return runMode(e, args[0])
+		return runMode(e, args)
 	case len(args) == 0:
 		return cmdBoard(e, nil)
 	}
@@ -412,9 +412,16 @@ func init() {
 	}...)
 }
 
-func runMode(e *Env, flag string) int {
+func runMode(e *Env, args []string) int {
+	flag := args[0]
 	for _, m := range modes {
 		if m.flag == flag {
+			if len(args) != 1 {
+				return fail(e, exitUsage, "%s takes no arguments\nusage: sous %s", flag, flag)
+			}
+			if e.JSON {
+				return fail(e, exitUsage, "%s does not take --json\nusage: sous %s", flag, flag)
+			}
 			return m.run(e)
 		}
 	}

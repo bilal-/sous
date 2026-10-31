@@ -19,6 +19,9 @@ const diffPage = 32 << 10
 // and the commit the run reported, so what a host shows is what would be
 // approved.
 func cmdIntegrationDiff(e *Env, a argv, v int) int {
+	if code := flagsOnly(e, a, "protocol", "page"); code != 0 {
+		return code
+	}
 	usage := "usage: sous integration --protocol 1 diff [--page <n>] -- <n>"
 	if v != integration.Version1 || len(a.pos) != 2 {
 		return fail(e, exitUsage, "diff is a version 1 read; ask with --protocol 1\n%s", usage)

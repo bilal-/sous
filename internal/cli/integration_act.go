@@ -46,6 +46,9 @@ const (
 // note's number otherwise; run's brief and reply's answer come on standard
 // input.
 func cmdIntegrationAct(e *Env, a argv, v int, action string) int {
+	if code := flagsOnly(e, a, "protocol", "op", "question", "commit"); code != 0 {
+		return code
+	}
 	act := integrationActs[action]
 	usage := fmt.Sprintf("usage: sous integration --protocol 1 %s --op <op> -- <target>", action)
 	switch {
