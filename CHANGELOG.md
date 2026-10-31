@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Integration actions return one JSON outcome when configuration or project lookup fails.
+
 * Protocol 1 integration watches can print changed events as text without crashing.
 * Incomplete git scans keep previously known work as stale, including failed
   status reads, unavailable repositories and unreadable linked worktrees.

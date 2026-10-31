@@ -73,7 +73,9 @@ func cmdIntegrationAct(e *Env, a argv, v int, action string) int {
 			return runs.Outcome{Outcome: runs.Refused, Reason: "bad_input"}
 		}
 		var out runs.Outcome
-		id, out = act(e, target, in, a)
+		actionEnv := e.child(io.Discard, e.Stderr, false)
+		defer actionEnv.close()
+		id, out = act(actionEnv, target, in, a)
 		return out
 	})
 	if o.ID == "" {
