@@ -12,6 +12,7 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/text"
+	"github.com/bilal-/sous/internal/thread"
 )
 
 // Context joins private history to current work without changing either.
@@ -48,7 +49,7 @@ type EffortDetail struct {
 	AsOf       *time.Time      `json:"as_of"`
 }
 
-func EffortSummaries(s *store.Store, now time.Time) ([]EffortSummary, []string) {
+func EffortSummaries(s *store.Store, now time.Time, observed []thread.View) ([]EffortSummary, []string) {
 	es, err := effort.All(s)
 	if err != nil {
 		var previous []EffortSummary
@@ -68,7 +69,7 @@ func EffortSummaries(s *store.Store, now time.Time) ([]EffortSummary, []string) 
 			active = append(active, e)
 		}
 	}
-	for _, v := range DescribeEfforts(s, active, now) {
+	for _, v := range describeEfforts(s, active, now, observed) {
 		views = append(views, v.EffortSummary)
 		if len(v.Attention) > 0 {
 			problems = append(problems, v.Name+": "+strings.Join(v.Attention, "; "))
@@ -101,7 +102,7 @@ func scopeEfforts(views []EffortSummary, problems []string, known map[string]boo
 	return kept, issues
 }
 
-func ProjectContext(s *store.Store, sc memory.Scope, now time.Time) Context {
+func ProjectContext(s *store.Store, sc memory.Scope, now time.Time, observed []thread.View) Context {
 	c := Context{Available: true, Scope: sc, Memories: []memory.Record{}, Efforts: []EffortSummary{}, Attention: []string{}}
 	records, err := memory.Search(s, memory.Query{Scope: sc})
 	if err != nil {
@@ -130,7 +131,7 @@ func ProjectContext(s *store.Store, sc memory.Scope, now time.Time) Context {
 			selected = append(selected, e)
 		}
 	}
-	for _, v := range DescribeEfforts(s, selected, now) {
+	for _, v := range describeEfforts(s, selected, now, observed) {
 		c.Efforts = append(c.Efforts, v.EffortSummary)
 		c.Attention = append(c.Attention, v.Attention...)
 		if len(v.Attention) > 0 {

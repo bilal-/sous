@@ -82,7 +82,7 @@ func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 	if d.RecentlyClosed, err = thread.RecentlyClosedUpstream(in.Store, root, remote, in.Now, 7*24*time.Hour); err != nil {
 		return nil, err
 	}
-	d.Context = ProjectContext(in.Store, memory.ForProject(in.Cfg, project.Project{Path: root, Remote: d.Remote}), in.Now)
+	d.Context = ProjectContext(in.Store, memory.ForProject(in.Cfg, project.Project{Path: root, Remote: d.Remote}), in.Now, d.Threads)
 	return d, nil
 }
 

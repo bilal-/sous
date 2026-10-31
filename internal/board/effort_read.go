@@ -19,11 +19,23 @@ func DescribeEffort(s *store.Store, group effort.Effort, now time.Time) EffortDe
 // DescribeEfforts reads each linked store once for this projection. The snapshot
 // lasts only for this call; the next view reads current private state again.
 func DescribeEfforts(s *store.Store, groups []effort.Effort, now time.Time) []EffortDetail {
+	return describeEfforts(s, groups, now, nil)
+}
+
+func describeEfforts(s *store.Store, groups []effort.Effort, now time.Time, observed []thread.View) []EffortDetail {
 	out := make([]EffortDetail, 0, len(groups))
 	if len(groups) == 0 {
 		return out
 	}
 	r := readEffortSnapshot(s, groups)
+	for _, view := range observed {
+		// An offline check leaves remote trackers unanswered. Keep the
+		// cached observation unless this operation obtained a new answer.
+		note, ok := r.notes[view.ID]
+		if view.Upstream != "" && ok && note.UID == view.UID && note.Ref != nil && view.Ref != nil && *note.Ref == *view.Ref {
+			r.previous[view.UID] = view
+		}
+	}
 	for _, group := range groups {
 		out = append(out, r.describe(group, now))
 	}
@@ -97,6 +109,9 @@ func (r effortSnapshot) describe(e effort.Effort, now time.Time) EffortDetail {
 		view := thread.View{Thread: n, Snoozed: n.SnoozedUntil != nil && now.Before(*n.SnoozedUntil)}
 		if old, ok := r.previous[n.UID]; ok && n.Ref != nil && old.Ref != nil && *n.Ref == *old.Ref {
 			view.Upstream, view.UpstreamErr = old.Upstream, old.UpstreamErr
+		}
+		if n.Closed != nil && n.ClosedBy == thread.ClosedByUpstream {
+			view.Upstream, view.UpstreamErr = "closed", ""
 		}
 		if n.Ref != nil && view.Upstream == "" && n.Closed == nil {
 			view.Upstream, view.UpstreamErr = "error", "not checked; run sous --refresh"

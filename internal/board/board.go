@@ -87,6 +87,7 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 	if in.Reconcile != nil {
 		ths = in.Reconcile(ctx, ths)
 	}
+	es, problems := EffortSummaries(in.Store, in.Now, ths)
 	// A note made in a worktree belongs to its repo's project, like the
 	// worktree itself.
 	for i := range ths {
@@ -106,7 +107,6 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 		}
 		ths = kept
 	}
-	es, problems := EffortSummaries(in.Store, in.Now)
 	if len(in.Roots) > 0 {
 		es, problems = scopeEfforts(es, problems, known)
 	}
@@ -222,7 +222,7 @@ func ReadCurrentCache(s *store.Store, now time.Time) (*CacheDoc, error) {
 	if err != nil || c.Data == nil {
 		return c, err
 	}
-	c.Data.Efforts, c.Data.ContextAttention = EffortSummaries(s, now)
+	c.Data.Efforts, c.Data.ContextAttention = EffortSummaries(s, now, nil)
 	views, err := thread.Open(s, now)
 	if err != nil {
 		return nil, err

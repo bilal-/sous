@@ -44,7 +44,7 @@ func TestContextFailureIsExplicitAndBriefIsBounded(t *testing.T) {
 	now := time.Now()
 	sc := memory.Scope{Workspace: "work", Project: "/code/acme/api"}
 	os.WriteFile(filepath.Join(s.Home, "memory.json"), []byte(`{"version":99}`), 0600)
-	ctx := ProjectContext(s, sc, now)
+	ctx := ProjectContext(s, sc, now, nil)
 	if ctx.Available || len(ctx.Attention) == 0 {
 		t.Fatalf("%#v", ctx)
 	}
@@ -52,7 +52,7 @@ func TestContextFailureIsExplicitAndBriefIsBounded(t *testing.T) {
 	for i := range 8 {
 		memory.Add(s, memory.Input{Scope: sc, Kind: memory.Decision, Text: strings.Repeat("important decision ", 30) + string(rune('a'+i)), Source: "design.md#decision"}, now.Add(time.Duration(i)*time.Minute))
 	}
-	ctx = ProjectContext(s, sc, now)
+	ctx = ProjectContext(s, sc, now, nil)
 	var b bytes.Buffer
 	renderContext(&b, ctx, true)
 	if len(ctx.Memories) != 8 || strings.Count(b.String(), "  m:") != 5 || !strings.Contains(b.String(), "sous recall") {
@@ -77,7 +77,7 @@ func TestEffortProjectsDoNotImplicitlyShareMemory(t *testing.T) {
 	if err := effort.Link(s, c, e.ID, effort.Changes{Projects: []project.Project{b}, Memories: []string{r.ID}}, false); err != nil {
 		t.Fatal(err)
 	}
-	ctx := ProjectContext(s, memory.ForProject(c, b), now)
+	ctx := ProjectContext(s, memory.ForProject(c, b), now, nil)
 	if len(ctx.Efforts) != 1 || len(ctx.Memories) != 0 {
 		t.Fatalf("implicit sharing: %#v", ctx)
 	}
@@ -147,7 +147,7 @@ func TestScopedEffortsHideUnrelatedFailureDetailsAndRetainStaleSummary(t *testin
 	if err := os.WriteFile(filepath.Join(s.Home, "efforts.json"), []byte(`{"version":99}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	got, problems := EffortSummaries(s, now)
+	got, problems := EffortSummaries(s, now, nil)
 	got, problems = scopeEfforts(got, problems, map[string]bool{"/code/acme/api": true})
 	if len(got) != 1 || got[0].ID != "e:1" || !got[0].Stale || len(problems) != 2 || strings.Contains(strings.Join(problems, " "), "private") {
 		t.Fatalf("lost stale data or leaked other scope: %#v %v", got, problems)

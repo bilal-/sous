@@ -86,10 +86,12 @@ func (r Reader) Read(ctx context.Context) (Snapshot, error) {
 			return Snapshot{}, err
 		}
 		d = &board.Data{Threads: views, RenderedAt: now}
-		d.Efforts, d.ContextAttention = board.EffortSummaries(r.Store, now)
 	}
 	if r.Reconcile != nil {
 		d.Threads = r.Reconcile(ctx, d.Threads)
+	}
+	if r.Reconcile != nil || !available {
+		d.Efforts, d.ContextAttention = board.EffortSummaries(r.Store, now, d.Threads)
 	}
 	s := Snapshot{Kind: "snapshot", V: r.V, Provider: Provider, Configured: r.Configured, Available: available,
 		ObservedAt: now.UTC(), Items: []Item{}, Projects: append([]project.Project{}, d.Projects...), Sources: append([]signal.PluginStatus{}, d.Plugins...),

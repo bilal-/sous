@@ -124,7 +124,7 @@ func TestEffortEmptySelectionsIgnoreUnlinkedStores(t *testing.T) {
 			for _, name := range []string{"threads", "memory", "cache"} {
 				writeEffortFixture(t, s, name, map[string]int{"version": 99})
 			}
-			views, problems := EffortSummaries(s, now)
+			views, problems := EffortSummaries(s, now, nil)
 			if views == nil || len(views) != 0 || problems == nil || len(problems) != 0 {
 				t.Fatalf("unselected records consulted private stores: %+v %v", views, problems)
 			}
@@ -140,7 +140,7 @@ func TestEffortEmptySelectionsIgnoreUnlinkedStores(t *testing.T) {
 		for _, name := range []string{"threads", "cache"} {
 			writeEffortFixture(t, s, name, map[string]int{"version": 99})
 		}
-		got := ProjectContext(s, b, now)
+		got := ProjectContext(s, b, now, nil)
 		if !got.Available || len(got.Efforts) != 0 || len(got.Attention) != 0 {
 			t.Fatalf("unrelated effort leaked unavailable state: %+v", got)
 		}

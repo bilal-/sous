@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Effort summaries use tracker answers and upstream closures from the current refresh, while offline views retain unchecked remote answers.
+
 - Configuration replacements and removals report the change made under the file lock, including retries and project overrides.
 
 - Configuration list additions and removals retain concurrent edits, report retries accurately, and match home-relative paths.
