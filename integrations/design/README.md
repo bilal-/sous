@@ -58,7 +58,9 @@ code but these two things:
    and say how old it is.
 8. **Colour is never the only signal.** Each group has its word, and
    colour only repeats it.
-9. **Every action is an op.** Make one op id per thing the person asked
-   for, keep it until an outcome comes back, and send the same op again
-   after a reconnect. Show `already_done` as done; show `conflict` by
-   reloading the item and saying what changed.
+9. **Keep the op for actions that advertise one.** When an action declares
+   `op: true`, make one op id per thing the person asked for, keep it until an
+   outcome comes back, and send the same op again after reconnect. Show
+   `already_done` as done; show `conflict` by reloading the item and saying what
+   changed. Reads, project opening and ordinary note capture keep their advertised
+   command contract; do not add an unsupported `--op` flag.

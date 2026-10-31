@@ -10,9 +10,9 @@ everyday flow, start with the [README](../README.md). Run
 * [Memory and efforts](#memory-and-efforts): `remember`, `recall`, `memory`, `effort`
 * [Sharing a note](#sharing-a-note): `file`, `note --file`, `done --close`
 * [Going to a project](#going-to-a-project): `go`
-* [Handing work to an agent](#handing-work-to-an-agent): `go --run`, `show`, `reply`, `done --clean`
+* [Handing work to an agent](#handing-work-to-an-agent): `go --run`, `show`, `reply`, `approve`, `discard`, `done --clean`, `serve`
 * [Native host integration](#native-host-integration): `integration`
-* [Setting up](#setting-up): `setup`, `config`, `doctor`, `version`, `help`
+* [Setting up](#setting-up): `setup`, `config`, `doctor`, `version`, `help`, `update`
 * [Options for the shell and menu bar](#options-for-the-shell-and-menu-bar): `--ambient`, `--cached`, `--refresh`, `--menubar`
 * [Commands for plugins and hooks](#commands-for-plugins-and-hooks): `signal`, `backend`, `launcher`, `runner`, `hook`
 * [How project names are matched](#how-project-names-are-matched)
@@ -359,7 +359,10 @@ Options:
 * `--max-bytes <n>`: with `--protocol 1` and `watch`, no line is longer
   than `n` bytes (at least 16384). A baseline too long leaves out the
   oldest items of the lowest sections first and counts them in `omitted`;
-  a change too long is sent as such a baseline.
+  a change too long is sent as such a baseline. The byte count includes the newline.
+  If metadata or an error still cannot fit after trimming items, watch exits `1`
+  with one compact JSON error line; reconnect with a larger limit. This terminal
+  error is distinct from a recoverable `unavailable` event.
 * `--op <op>`: with `--protocol 1`, the id a host made for one of the
   actions below. Asking again with the same op and input never does it
   twice.
@@ -1079,7 +1082,7 @@ plugin. See [plugins.md](plugins.md).
 | `sous signal <name> scan` | Run a built in signal (`git`, `github`, `gitlab`). Project folders on standard input, one JSON line per finding out. |
 | `sous backend <name> <call> ...` | Run a built in backend (`markdown`, `github`, `gitlab`): `detect`, `file`, `status`, `close` or `url`. |
 | `sous launcher <name> run <folder>` | Start a built in launcher (`claude`, `codex`, `agy`, `opencode`) in a folder. |
-| `sous runner <name> <call> ...` | Run a built in runner (`claude`, `codex`, `agy`, `opencode`): `describe`, `start`, `status`, `reply`, `stop` or `clean`. |
+| `sous runner <name> <call> ...` | Run a built in runner (`claude`, `codex`, `agy`, `opencode`): `describe`, `start`, `status`, `reply`, `stop`, `approve`, `discard` and `clean`. |
 | `sous runner check <program> [--project <folder>] [--wait <seconds>] [--json]` | Check any runner program against the runner contract: it starts a real run, then stops it. Exit `1` lists what it broke. |
 | `sous hook session-start\|session-end <agent>` | What the agent hooks run. Always exits `0` and never holds up a session. |
 
@@ -1107,6 +1110,8 @@ code `2`. It never guesses.
 | `1` | Something failed: a data file, a tracker, a missing tool. The message says what. For `sous doctor`, something is broken. |
 | `2` | The command was wrong (unknown option, wrong arguments, bad value), a name matched more than one project, or a note number is not an open note (a closed one says when it closed, and `sous show <n>`). |
 | `3` | `--cached` or `--ambient` was asked for the board before there was one. A first board is being built. For `sous go`, the agent it starts is not installed; for `go --run`, the runner is not set up, and the run shows on the board as failed. (For a signal or runner plugin, exit `3` means "not set up here"; see [plugins.md](plugins.md).) |
+| `4` | A protocol 1 integration action conflicts with the current state, such as a changed question or result commit. |
+| `5` | The same protocol 1 operation is still in progress; retry with the same op and input. |
 
 ## Environment variables
 

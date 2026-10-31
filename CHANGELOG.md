@@ -9,6 +9,10 @@ upgraded, never broken.
 
 ### Changed
 
+- Updated the README and guides for private scopes, browser actions, runner
+  ownership, integration exit codes and checks. The pinned AXI principles and
+  documented output choices remain unchanged.
+
 - Integration examples now exercise the complete message union and reject malformed fields, revisions, timestamps and ambiguous shapes.
 
 - `make test` and CI now run the offline MemoryCore experiment tests; local checks require Python 3.9 or newer.

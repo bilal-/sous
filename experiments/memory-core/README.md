@@ -109,11 +109,12 @@ connecting it to sous's real board is not part of this pass.
   conflict resolution, deletion propagation, or production-scale behavior
   was measured.
 
-The useful next product work is a history of handoffs and decisions with
-sources, dates, explicit supersession, and workspace boundaries, connected to
-the current board. MemoryCore remains a candidate for optional extraction and
-retrieval once those contracts are clear and a separate live-model experiment
-is authorized.
+Sous now keeps sourced memory and effort links alongside the live board, with
+project and workspace boundaries, dates, verification and explicit supersession.
+Those product contracts do not depend on this experiment. MemoryCore remains a
+candidate for optional extraction and retrieval research; a separate live-model
+experiment still needs explicit authorization. The evidence above does not
+establish production suitability.
 
 ## Reproduce
 

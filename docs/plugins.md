@@ -51,8 +51,9 @@ sous runs a plugin only when it is listed in its settings:
 (or `plugins = [...]` in `~/.sous/config.toml`).
 
 Each run has a time limit: 15 seconds, or 3 for a `status` call, which sous
-makes for many items at once while someone waits. When time is up, sous
-stops your program and any programs it started. A launcher has no limit:
+makes for many items at once while someone waits. When time is up, sous stops
+the call's process group. A program that starts independent work outside that
+group must manage its lifetime itself. A launcher has no limit:
 sous hands the terminal over to it.
 
 Every kind of plugin ends every call with the same exit codes:
@@ -276,7 +277,8 @@ same commit twice gives the same answer; another commit exits `4`.
 The `start` request may carry `check`: the project's check command, from
 its settings. Run it on the work before reporting it ready, and report it
 in `checks` with `required` set. Once `stop` has answered `0`, no later status
-reports `queued`, `planning`, `working` or `reviewing` for that run.
+reports `queued`, `planning`, `working` or `reviewing` for that run until an
+explicit `reply` starts another attempt.
 
 Rules that matter:
 

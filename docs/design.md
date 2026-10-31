@@ -108,7 +108,7 @@ changes. The host owns its task interface, project navigation, notification
 policy and the child process's lifetime. Sous remains the source of task
 state and applies actions through its existing commands.
 
-The subscription overlays current private notes, signal snoozes, local
+The version 0 subscription overlays current private notes, signal snoozes, local
 filed-note status and built in runner reports on the last full board. It
 does not scan signals or contact remote trackers and external runners.
 The last refresh time stays visible, missing data stays explicit, and a
@@ -128,7 +128,8 @@ computer that runs the same `sous integration --protocol 1` calls, so it and
 Shellbell's phone screen draw the same JSON. It is not a service: it runs
 while you keep it open, listens on 127.0.0.1 only, and lets in only the
 browser that opened the address it printed (a secret in the address sets a
-cookie; the Host and Origin of every request are checked). The look the two
+cookie; the Host is checked on every request, and non-GET API
+requests also require the page's Origin). The look the two
 share is data, not code: [`integrations/design`](../integrations/design/README.md)
 holds the tokens and display rules each surface follows with its own
 components.
@@ -138,7 +139,9 @@ and host discovery records live in [integrations.md](integrations.md) and
 the repository's `integrations/` folder. Hosts execute action argument lists
 directly and invoke writes on the person's request. Private notes become
 shared only through explicit filing. A host may offer a separate refresh
-action; session startup and the subscription remain offline.
+action. Session startup, snapshots and the version 0 subscription remain
+offline. The version 1 subscription also polls external runner plugins every five
+seconds, so it may use the network; it never refreshes remote tracker signals.
 
 ## Data
 

@@ -297,10 +297,15 @@ sous effort "Account launch"
 An effort connects projects and existing notes around one outcome. Link notes
 with `--note`, then describe blockers with `depend --note 8 --after 7`.
 Counts follow current commitments; an effort never changes task status.
+
 Memory stays scoped to its project and workspace unless you explicitly share it.
-Use `--supersedes` when a decision changes, and `sous memory forget` to remove
-stored content. [The command guide](docs/commands.md#memory-and-efforts) covers
-scope, verification, sharing, history and retry behavior.
+An explicit project name keeps its named scope; an explicit absolute path
+selects its physical checkout. If the current directory has ambiguous scopes or
+scope discovery fails, briefings keep project facts and notes visible, flag the
+problem, and omit private context. Use `--supersedes` when a decision changes, and
+`sous memory forget` to remove stored content.
+[The command guide](docs/commands.md#memory-and-efforts) covers scope,
+verification, sharing, history and retry behavior.
 
 ### Catch a thought before it slips away
 
@@ -462,7 +467,7 @@ Each public command explains itself with `--help`.
 | `sous memory <action> <m:id>` | verify, forget, share or unshare a memory |
 | `sous effort [name]` | organize linked work and blockers across projects |
 | `sous projects [name]` | every project sous can see |
-| `sous integration [describe\|snapshot\|watch]` | native host discovery, offline tasks and changes |
+| `sous integration [<call>]` | native host discovery, snapshots, changes and requested actions |
 | `sous note [-p project] [-k me\|them\|idea] [--file] "text"` | write a note |
 | `sous edit <n> "text"` | change a note |
 | `sous kind <n> me\|them\|idea` | change whose move it is |
@@ -571,6 +576,12 @@ notifications and task actions through herdr's existing APIs. Build it with
 `make herdr`, then follow its guide to link or install it and configure the
 optional sidebar rows and shortcut. It requires no changes to herdr.
 
+The draft version 1 adds operation IDs for retryable actions, richer run state,
+and explicit review and publication. A host may start a run only in a project
+that allows `remote_runs`. Its watch polls runner plugins every five seconds and
+may use the network; its snapshots remain offline. Hosts use the advertised
+commands and action capabilities.
+
 The [integration guide](docs/integrations.md),
 [JSON schema](integrations/schema.json) and
 [provider discovery record](integrations/herdr/provider.json) describe the
@@ -610,9 +621,12 @@ every one, or to get to it quickly, but I will when time allows. Start with
 [CONTRIBUTING.md](CONTRIBUTING.md). The contributor guide for people and
 agents working on the code is [AGENTS.md](AGENTS.md).
 
+The checks also need Python 3.9 or newer for the offline memory experiment tests;
+building and running sous do not need Python.
+
     make build          # build bin/sous
-    make test           # go vet, then every test with the race detector
-    make ci             # formatting, module tidiness, vet and race tests; staticcheck if installed
+    make test           # offline experiment tests, go vet, then Go race tests
+    make ci             # formatting, module tidiness and make test; staticcheck if installed
 
 ## Status
 

@@ -6,6 +6,12 @@ and keeps its local state in `~/.sous` (or `SOUS_HOME`). sous has no hosted
 service of its own. Filing or closing a shared note writes to the selected
 backend when you explicitly request it.
 
+`sous approve` is an explicit public action: after review it pushes the result's
+commit to the run's branch and creates a draft pull request through `gh` or
+`glab`, or reuses an existing pull request. Integration hosts must request
+confirmation for that action and bind approval to the commit the person reviewed. Private `done` and `snooze`
+actions do not publish work or close upstream items.
+
 Agent handoffs include a project summary, which can contain your notes,
 relevant memories and effort links. Background runs also include the task brief.
 The agent may send that context and project files to its model provider under
@@ -22,6 +28,12 @@ Forgetting removes stored content and evidence, but cannot erase copies already
 included in agent context, exports or backups. Source references are stored
 without fetching their contents.
 
+An explicit project name retains its named private scope, while an absolute path
+selects its physical checkout. Implicit current-directory selection does not
+guess between aliases with different scopes. When discovery is incomplete or
+ambiguous, briefings keep local project facts and notes visible, report the
+problem, and omit private memory and effort context.
+
 When you hand a task to an agent (`sous go --run`), the built in runners
 start Claude Code, Codex, Antigravity or opencode on your machine. Each
 works in a separate git worktree, which shares git metadata with the
@@ -37,6 +49,20 @@ ordinary pushes, including the project's configured remotes. These are
 safeguards, not a security boundary: an agent's permissions, sandbox and
 other tools determine what it can access or publish. Review the branch
 and worktree before accepting a run's result.
+
+Built in runners signal only an authenticated process group for the current
+attempt; a saved process ID is not authority to signal. If ownership or completion
+evidence is lost, sous reports the run as unavailable and keeps its worktree. The
+guarantee covers signalable processes that remain in the owned group; agent
+permissions still govern whether a tool can start independent work.
+
+`sous serve` runs only while you keep it open and listens on `127.0.0.1`. The
+secret in its printed URL grants browser access and is exchanged for an HTTP-only,
+SameSite=Strict cookie. The Host header is checked on every request; non-GET API
+requests also require the page's Origin. The browser can read private board data and
+invoke the advertised actions, so keep that URL and the local `serve.token` file
+private. This is local browser access, not a hosted account or a boundary against
+other programs running as your user.
 
 `sous update` and `sous update --check` contact GitHub's public release
 endpoint; no private context or credentials are sent. Release downloads use

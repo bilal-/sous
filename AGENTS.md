@@ -49,7 +49,8 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/filing     filing a note, closing it upstream, and checking filed notes
     internal/board      builds the board and the here view, sorts rows into sections, draws text and the menu bar, keeps the cache; item.go is the --json read model
     internal/report     what changed since the last report, as text and as a page
-    internal/integration native host discovery, offline task snapshots and change subscriptions; the host owns its UI and notifications
+    internal/integration native host discovery, offline snapshots, versioned change subscriptions and runner polling; the host owns its UI and notifications
+    internal/serve      the loopback web host of integration protocol 1: browser access, assets and CLI calls
     integrations/herdr  a standalone herdr host plugin CLI: manifest, Tasks pane, observer, notifications, sidebar metadata and install guide; tests use fake sockets and throwaway homes
     internal/session    the last agent session in each project, and the summary handed to an agent sous starts
     internal/memory     private sourced context, verification, supersession and explicit sharing
@@ -81,7 +82,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     brand               the logo, icons and colours, made by brand/tools (Node, not part of the Go build); see brand/README.md
     internal/testutil   helpers shared by every package's tests
 
-Code only depends downward, in this order: `cli`, then `doctor`, then
+Code only depends downward, in this order: `cli`, then `doctor` and `serve`, then
 `report`, `install`, `integration` and `update`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
 `tracker`, `plugin`, `harness`, `thread`, `session`, `project`, `memory` and `effort`, then `store`,
 `config`, `text` and `docs`. `board` never imports `filing` or `backend`; it is handed a
@@ -182,11 +183,12 @@ they list agents (`TestDocsNameEveryAgent`).
   running `sous signal|backend|launcher|runner <name> ...`. No shortcuts
   inside the process.
 * **Notes stay private until the person says otherwise.** Anything that
-  writes where others can see (`sous file`, `--file`, `--close`) must be
+  writes where others can see (`sous file`, `--file`, `--close`, `sous approve`) must be
   asked for explicitly.
 * **Exit codes:** `0` fine, `1` something failed, `2` wrong command or an
   ambiguous name, `3` asked for the cached board before there was one, or
-  the agent or runner `sous go` needs is not set up. Each
+  the agent or runner `sous go` needs is not set up. Protocol 1 integration
+  actions also use `4` for a conflict and `5` when the same op is in progress. Each
   command declares its flags and how many arguments it takes in `verbs.go`,
   and anything else is refused with that command's usage.
 * **One dependency** (`github.com/BurntSushi/toml`). A new one needs a
@@ -207,7 +209,7 @@ that agents use, as they read at this exact version:
   [kunchenguid/axi](https://github.com/kunchenguid/axi)
 * commit: [`e15f82d`](https://github.com/kunchenguid/axi/blob/e15f82dd8e75ff640aaefd5c76c49471c5bcbbea/docs/index.html)
   (2026-09-27), the ten principles
-* checked against sous: 2026-10-30; the live page's ten principle bodies
+* checked against sous: 2026-10-31; the live page's ten principle bodies
   are unchanged from the pinned commit above
 
 We do not follow axi.md automatically. To move to a newer version, read

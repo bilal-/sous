@@ -190,8 +190,8 @@ is the explicit exception to the usual single-value JSON output.
 
 Version 1 adds what a phone or any remote host needs to start work and
 follow it: run phases, progress, questions, results, starting and stopping
-runs, approving a result, and operation ids that make every action safe to
-repeat. A host asks for it with `--protocol 1` on every call:
+runs, approving a result, and operation IDs that make actions advertising `op: true`
+safe to retry. A host asks for it with `--protocol 1` on every call:
 
 ```sh
 sous integration --protocol 1 --json
