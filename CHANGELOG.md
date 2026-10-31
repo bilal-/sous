@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Configuration replacements and removals report the change made under the file lock, including retries and project overrides.
+
 - Configuration list additions and removals retain concurrent edits, report retries accurately, and match home-relative paths.
 
 - Standalone modes and integration subcommands reject arguments and flags they do not use.

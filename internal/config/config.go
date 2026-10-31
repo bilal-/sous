@@ -178,11 +178,7 @@ func Expand(home, p string) string {
 // SetRoots writes the project folders, as people write them: under
 // userHome as ~/..., others as given.
 func SetRoots(home, userHome string, roots []string) error {
-	shown := make([]string, len(roots))
-	for i, r := range roots {
-		shown[i] = Tilde(userHome, r)
-	}
-	return Set(home, nil, "roots", shown)
+	return Set(home, nil, "roots", storedRoots(userHome, roots))
 }
 
 // tomlScanner walks TOML text just far enough to find where a top-level

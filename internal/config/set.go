@@ -42,20 +42,12 @@ func UpdateList(sousHome, userHome, key string, items []string, add bool) ([]str
 			return nil, err
 		}
 		have := k.Value(current).([]string)
-		incoming := slices.Clone(items)
-		if key == "roots" || key == "plugins" {
-			for i, item := range incoming {
-				incoming[i] = Expand(userHome, item)
-			}
-		}
+		incoming := expandedList(userHome, key, items)
 		value = ChangeList(have, incoming, add)
 		changed = !md.IsDefined(key) || !slices.Equal(have, value)
 		stored := value
 		if key == "roots" {
-			stored = slices.Clone(value)
-			for i, item := range stored {
-				stored[i] = Tilde(userHome, item)
-			}
+			stored = storedRoots(userHome, value)
 		}
 		return editSetting(path, raw, nil, key, stored)
 	})
@@ -63,6 +55,77 @@ func UpdateList(sousHome, userHome, key string, items []string, add bool) ([]str
 		return nil, false, err
 	}
 	return value, changed, nil
+}
+
+// SetExplicit replaces or removes one setting and reports the persisted change.
+// An empty project selects a top-level key; project overrides are exact, without
+// inheritance. A nil value removes the key; a typed nil list writes an empty list.
+func SetExplicit(sousHome, userHome, project, key string, value any) (bool, error) {
+	var table []string
+	if project != "" {
+		table = []string{"projects", project}
+	}
+	var changed bool
+	path := Path(sousHome)
+	err := store.EditFile(path, 0o644, func(raw []byte) ([]byte, error) {
+		current, md, err := decode(raw, userHome)
+		if err != nil {
+			return nil, err
+		}
+		var old any
+		wanted := value
+		if project == "" {
+			k, ok := KeyNamed(key)
+			if !ok {
+				return nil, fmt.Errorf("%s is not a setting", key)
+			}
+			old = k.Value(current)
+			if value != nil && reflect.TypeOf(value) != reflect.TypeOf(old) {
+				return nil, fmt.Errorf("%s needs a %T value", key, old)
+			}
+			if list, ok := value.([]string); ok {
+				wanted = expandedList(userHome, key, list)
+			}
+		} else {
+			old = current.Projects[project][key]
+			if _, ok := value.(string); value != nil && !ok {
+				return nil, fmt.Errorf("project setting %s needs a string value", key)
+			}
+		}
+		present := md.IsDefined(append(slices.Clone(table), key)...)
+		changed = present
+		if value != nil {
+			equal := reflect.DeepEqual(old, wanted)
+			if list, ok := wanted.([]string); ok {
+				equal = slices.Equal(old.([]string), list)
+			}
+			changed = !present || !equal
+		}
+		stored := value
+		if project == "" && key == "roots" && value != nil {
+			stored = storedRoots(userHome, value.([]string))
+		}
+		return editSetting(path, raw, table, key, stored)
+	})
+	return err == nil && changed, err
+}
+
+func expandedList(userHome, key string, items []string) []string {
+	out := slices.Clone(items)
+	if key == "roots" || key == "plugins" {
+		for i, item := range out {
+			out[i] = Expand(userHome, item)
+		}
+	}
+	return out
+}
+
+func storedRoots(userHome string, roots []string) []string {
+	out := make([]string, len(roots))
+	for i, root := range roots {
+		out[i] = Tilde(userHome, root)
+	}
+	return out
 }
 
 // editSetting verifies one edit against the bytes read under the file lock.

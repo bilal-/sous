@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -54,11 +53,7 @@ func setConfig(e *Env, a argv) int {
 			if err != nil {
 				return fail(e, exitFailed, "%v", err)
 			}
-			did := didUnchanged
-			if changed {
-				did = didSet
-			}
-			return said(e, "", k.Name, value, did)
+			return said(e, "", k.Name, value, settingDid(changed, value))
 		}
 		if code := checkName(e, k.Name, v); code != 0 {
 			return code
@@ -69,22 +64,11 @@ func setConfig(e *Env, a argv) int {
 	} else if k.Name == "roots" {
 		return fail(e, exitUsage, "sous needs roots; change them with sous setup <folder> or sous config roots <folder...>")
 	}
-	did, code := settingDid(e, func(set map[string]bool, _ map[string]map[string]string) (any, bool) {
-		return k.Value(e.Cfg), set[k.Name]
-	}, value)
-	if code != 0 {
-		return code
-	}
-	var err error
-	if k.Name == "roots" {
-		err = config.SetRoots(e.Home, e.UserHome, value.([]string))
-	} else {
-		err = config.Set(e.Home, nil, k.Name, value)
-	}
+	changed, err := config.SetExplicit(e.Home, e.UserHome, "", k.Name, value)
 	if err != nil {
 		return fail(e, exitFailed, "%v", err)
 	}
-	return said(e, "", k.Name, value, did)
+	return said(e, "", k.Name, value, settingDid(changed, value))
 }
 
 func setProjectConfig(e *Env, a argv) int {
@@ -114,38 +98,25 @@ func setProjectConfig(e *Env, a argv) int {
 	default:
 		return fail(e, exitUsage, "usage: sous config -p <project> <key> <value>, or -p <project> --unset <key>")
 	}
-	did, code := settingDid(e, func(_ map[string]bool, projects map[string]map[string]string) (any, bool) {
-		v, ok := projects[key][a.pos[0]]
-		return v, ok
-	}, value)
-	if code != 0 {
-		return code
-	}
-	if err := config.Set(e.Home, []string{"projects", key}, a.pos[0], value); err != nil {
+	changed, err := config.SetExplicit(e.Home, e.UserHome, key, a.pos[0], value)
+	if err != nil {
 		return fail(e, exitFailed, "%v", err)
 	}
 	if value != nil && !slices.Contains(config.ProjectKeys, a.pos[0]) {
 		fmt.Fprintf(e.Stderr, "sous: note: sous itself does not read %q (it reads %s); a plugin may\n", a.pos[0], strings.Join(config.ProjectKeys, ", "))
 	}
-	return said(e, key, a.pos[0], value, did)
+	return said(e, key, a.pos[0], value, settingDid(changed, value))
 }
 
-// settingDid is what writing value (nil: removing it) over a setting will
-// do: set, unset, or nothing (unchanged). was reads the setting as written
-// now, and whether it is written at all.
-func settingDid(e *Env, was func(set map[string]bool, projects map[string]map[string]string) (any, bool), value any) (string, int) {
-	set, projects, err := config.Written(e.Home)
-	if err != nil {
-		return "", fail(e, exitFailed, "%v", err)
+// settingDid names the result returned by the locked configuration edit.
+func settingDid(changed bool, value any) string {
+	if !changed {
+		return didUnchanged
 	}
-	old, written := was(set, projects)
-	switch {
-	case value == nil && !written, value != nil && written && reflect.DeepEqual(old, value):
-		return didUnchanged, 0
-	case value == nil:
-		return didUnset, 0
+	if value == nil {
+		return didUnset
 	}
-	return didSet, 0
+	return didSet
 }
 
 // settingJSON is what a change to a setting answers under --json.
