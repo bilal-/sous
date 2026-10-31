@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Simultaneous web server starts keep the same saved bookmark secret.
+
 - Effort summaries use tracker answers and upstream closures from the current refresh, while offline views retain unchecked remote answers.
 
 - Configuration replacements and removals report the change made under the file lock, including retries and project overrides.
