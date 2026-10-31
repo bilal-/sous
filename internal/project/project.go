@@ -30,11 +30,6 @@ func isDir(p string) bool {
 	return err == nil && st.IsDir()
 }
 
-func isRepo(dir string) bool {
-	_, err := os.Lstat(filepath.Join(dir, ".git")) // dir or file (worktree)
-	return err == nil
-}
-
 func ignored(rel string, ignore []string) bool {
 	for _, pat := range ignore {
 		if ok, _ := filepath.Match(pat, rel); ok {
