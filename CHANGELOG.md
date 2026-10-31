@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Stopping the web server cancels its active calls and watch subprocesses and waits for shutdown cleanup.
+
 - A selected or bookmarked snoozed item keeps a readable web detail pane, including any active run controls and draft reply.
 
 - The web page recognizes successful Done and Snooze acknowledgements instead of reporting them as failures.

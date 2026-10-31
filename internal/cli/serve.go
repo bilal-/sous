@@ -42,7 +42,12 @@ func cmdServe(e *Env, a argv) int {
 	}
 	addr := ln.Addr().String()
 	url := "http://" + addr + "/?t=" + token
-	srv := &http.Server{Handler: &serve.Server{Sous: serve.Exec{}, Exe: e.Exe, Token: token, Addr: addr}, ReadHeaderTimeout: 10 * time.Second}
+	ctx, stop := ossignal.NotifyContext(e.ctx(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	srv := &http.Server{Handler: &serve.Server{Sous: serve.Exec{}, Exe: e.Exe, Token: token, Addr: addr},
+		ReadHeaderTimeout: 10 * time.Second,
+		BaseContext:       func(net.Listener) context.Context { return ctx },
+	}
 	if e.JSON {
 		e.writeJSON(map[string]string{"url": url})
 	} else {
@@ -51,15 +56,20 @@ func cmdServe(e *Env, a argv) int {
 	if a.has("open") {
 		openBrowser(url)
 	}
-	ctx, stop := ossignal.NotifyContext(e.ctx(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		sctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		srv.Shutdown(sctx)
+		if err := srv.Shutdown(sctx); err != nil {
+			srv.Close()
+		}
 	}()
-	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	err = srv.Serve(ln)
+	stop()
+	<-shutdownDone
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fail(e, exitFailed, "%v", err)
 	}
 	return 0

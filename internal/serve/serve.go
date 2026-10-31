@@ -163,9 +163,14 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
 	lines := make(chan []byte, 16)
+	finished := make(chan struct{})
+	defer func() {
+		cancel()
+		<-finished // The watcher has reaped its child before this request ends.
+	}()
 	go func() {
+		defer close(finished)
 		defer close(lines)
 		s.Sous.Stream(ctx, s.argv("--json", "watch"), func(b []byte) error {
 			select {
