@@ -3,7 +3,6 @@ package board
 import (
 	"fmt"
 	"io"
-	"os"
 	"slices"
 	"strings"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/text"
-	"github.com/bilal-/sous/internal/thread"
 )
 
 // Context joins private history to current work without changing either.
@@ -50,80 +48,6 @@ type EffortDetail struct {
 	AsOf       *time.Time      `json:"as_of"`
 }
 
-// DescribeEffort reads private notes and cached tracker observations only.
-func DescribeEffort(s *store.Store, e effort.Effort, now time.Time) EffortDetail {
-	v := EffortDetail{EffortSummary: EffortSummary{ID: e.ID, Name: e.Name, Projects: e.Projects, Archived: e.ArchivedAt != nil, Attention: []string{}}, Definition: e, Items: []Item{}, Memories: []memory.Record{}, Blockers: []Blocker{}}
-	previous := map[string]thread.View{}
-	c, err := ReadCache(s)
-	if err != nil {
-		v.Attention = append(v.Attention, "cached tracker state unavailable: "+err.Error())
-	} else if c.Data != nil {
-		v.AsOf = c.RenderedAt
-		for _, old := range c.Data.Threads {
-			previous[old.UID] = old
-		}
-	}
-	notes := map[string]thread.Thread{}
-	unknown := map[string]bool{}
-	ids := map[string]int{}
-	for _, ref := range e.Notes {
-		ids[ref.UID] = ref.ID
-		n, err := thread.Get(s, ref.ID)
-		if err != nil || n.UID != ref.UID {
-			v.Unavailable++
-			v.Attention = append(v.Attention, fmt.Sprintf("note %d unavailable", ref.ID))
-			continue
-		}
-		notes[n.UID] = n
-		view := thread.View{Thread: n, Snoozed: n.SnoozedUntil != nil && now.Before(*n.SnoozedUntil)}
-		if old, ok := previous[n.UID]; ok && n.Ref != nil && old.Ref != nil && *n.Ref == *old.Ref {
-			view.Upstream, view.UpstreamErr = old.Upstream, old.UpstreamErr
-		}
-		if n.Ref != nil && view.Upstream == "" && n.Closed == nil {
-			view.Upstream, view.UpstreamErr = "error", "not checked; run sous --refresh"
-		}
-		item := ThreadRow(view, now).Item()
-		if item.Upstream != nil && (item.Upstream.State == "error" || item.Upstream.State == "unknown") {
-			unknown[n.UID] = true
-			v.Unavailable++
-			v.Attention = append(v.Attention, fmt.Sprintf("note %d tracker status unavailable", n.ID))
-		}
-		v.Items = append(v.Items, item)
-		if n.Closed == nil {
-			v.Open++
-		} else {
-			v.Completed++
-		}
-	}
-	blocked := map[string]bool{}
-	for _, dep := range e.Dependencies {
-		n, nok := notes[dep.NoteUID]
-		after, aok := notes[dep.AfterUID]
-		if nok && n.Closed != nil || aok && after.Closed != nil {
-			continue
-		}
-		v.Blockers = append(v.Blockers, Blocker{NoteID: ids[dep.NoteUID], AfterID: ids[dep.AfterUID], Unknown: !nok || !aok || unknown[dep.NoteUID] || unknown[dep.AfterUID]})
-		blocked[dep.NoteUID] = true
-	}
-	v.Blocked = len(blocked)
-	for _, ref := range e.Memories {
-		r, err := memory.Get(s, ref.ID)
-		if err != nil {
-			v.Unavailable++
-			v.Attention = append(v.Attention, "memory "+ref.ID+" unavailable")
-			continue
-		}
-		v.Memories = append(v.Memories, r)
-	}
-	for _, p := range e.Projects {
-		if st, err := os.Stat(p.Project); err != nil || !st.IsDir() {
-			v.Unavailable++
-			v.Attention = append(v.Attention, "project unavailable: "+p.Project)
-		}
-	}
-	return v
-}
-
 func EffortSummaries(s *store.Store, now time.Time) ([]EffortSummary, []string) {
 	es, err := effort.All(s)
 	if err != nil {
@@ -138,14 +62,16 @@ func EffortSummaries(s *store.Store, now time.Time) ([]EffortSummary, []string) 
 	}
 	views := []EffortSummary{}
 	problems := []string{}
+	active := []effort.Effort{}
 	for _, e := range es {
-		if e.ArchivedAt != nil {
-			continue
+		if e.ArchivedAt == nil {
+			active = append(active, e)
 		}
-		v := DescribeEffort(s, e, now)
+	}
+	for _, v := range DescribeEfforts(s, active, now) {
 		views = append(views, v.EffortSummary)
 		if len(v.Attention) > 0 {
-			problems = append(problems, e.Name+": "+strings.Join(v.Attention, "; "))
+			problems = append(problems, v.Name+": "+strings.Join(v.Attention, "; "))
 		}
 	}
 	return views, problems
@@ -198,11 +124,13 @@ func ProjectContext(s *store.Store, sc memory.Scope, now time.Time) Context {
 		}
 		return c
 	}
+	selected := []effort.Effort{}
 	for _, e := range es {
-		if e.ArchivedAt != nil || !e.Includes(sc) {
-			continue
+		if e.ArchivedAt == nil && e.Includes(sc) {
+			selected = append(selected, e)
 		}
-		v := DescribeEffort(s, e, now)
+	}
+	for _, v := range DescribeEfforts(s, selected, now) {
 		c.Efforts = append(c.Efforts, v.EffortSummary)
 		c.Attention = append(c.Attention, v.Attention...)
 		if len(v.Attention) > 0 {

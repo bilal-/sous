@@ -33,6 +33,8 @@ upgraded, never broken.
 
 ### Changed
 
+- Effort views load linked notes and memories once per view, reducing repeated work as efforts grow.
+
 * The bare board identifies the running executable and its purpose.
 
 * The social preview now describes finding the work that needs you and picking

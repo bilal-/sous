@@ -455,6 +455,18 @@ func ForProject(s *store.Store, path, remote string, now time.Time) ([]View, err
 	return filter(s, now, func(t Thread) bool { return t.Closed == nil && t.Belongs(path, remote) })
 }
 
+// All returns every note, including closed notes, in stored order. Never nil.
+func All(s *store.Store) ([]Thread, error) {
+	d, err := store.Load[Doc](s, name, Migrator{})
+	if err != nil {
+		return nil, err
+	}
+	if d.Threads == nil {
+		return []Thread{}, nil
+	}
+	return d.Threads, nil
+}
+
 // Get returns a thread whether open or closed.
 func Get(s *store.Store, id int) (Thread, error) {
 	d, err := store.Load[Doc](s, name, Migrator{})

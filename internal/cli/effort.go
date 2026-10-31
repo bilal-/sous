@@ -44,12 +44,16 @@ func cmdEffort(e *Env, a argv) int {
 			}
 			scopes = append(scopes, memory.ForProject(e.Cfg, p))
 		}
-		views := []board.EffortSummary{}
+		selected := []effort.Effort{}
 		for _, group := range groups {
 			if group.ArchivedAt != nil && !a.has("all") || len(scopes) > 0 && !slices.ContainsFunc(scopes, group.Includes) {
 				continue
 			}
-			views = append(views, board.DescribeEffort(e.store(), group, time.Now()).EffortSummary)
+			selected = append(selected, group)
+		}
+		views := []board.EffortSummary{}
+		for _, view := range board.DescribeEfforts(e.store(), selected, time.Now()) {
+			views = append(views, view.EffortSummary)
 		}
 		if e.JSON {
 			return e.writeJSON(views)
