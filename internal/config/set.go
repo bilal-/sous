@@ -26,6 +26,45 @@ func Set(sousHome string, table []string, key string, value any) error {
 	})
 }
 
+// UpdateList adds or removes items using the latest file under its edit lock.
+// It returns the effective list and whether this invocation changed the setting.
+func UpdateList(sousHome, userHome, key string, items []string, add bool) ([]string, bool, error) {
+	k, ok := KeyNamed(key)
+	if !ok || k.kind != reflect.Slice {
+		return nil, false, fmt.Errorf("%s is not a list setting", key)
+	}
+	var value []string
+	var changed bool
+	path := Path(sousHome)
+	err := store.EditFile(path, 0o644, func(raw []byte) ([]byte, error) {
+		current, md, err := decode(raw, userHome)
+		if err != nil {
+			return nil, err
+		}
+		have := k.Value(current).([]string)
+		incoming := slices.Clone(items)
+		if key == "roots" || key == "plugins" {
+			for i, item := range incoming {
+				incoming[i] = Expand(userHome, item)
+			}
+		}
+		value = ChangeList(have, incoming, add)
+		changed = !md.IsDefined(key) || !slices.Equal(have, value)
+		stored := value
+		if key == "roots" {
+			stored = slices.Clone(value)
+			for i, item := range stored {
+				stored[i] = Tilde(userHome, item)
+			}
+		}
+		return editSetting(path, raw, nil, key, stored)
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	return value, changed, nil
+}
+
 // editSetting verifies one edit against the bytes read under the file lock.
 func editSetting(path string, b []byte, table []string, key string, value any) ([]byte, error) {
 	old := string(b)

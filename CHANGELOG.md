@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Configuration list additions and removals retain concurrent edits, report retries accurately, and match home-relative paths.
+
 - Standalone modes and integration subcommands reject arguments and flags they do not use.
 
 - Integration watches honor the byte limit for metadata, errors and newlines, and report when the limit cannot hold the remaining state.

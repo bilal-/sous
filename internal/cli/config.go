@@ -50,7 +50,15 @@ func setConfig(e *Env, a argv) int {
 			if !ok {
 				return fail(e, exitUsage, "--add and --remove are for lists: %s is not one", k.Name)
 			}
-			v = config.ChangeList(k.Value(e.Cfg).([]string), list, a.has("add"))
+			value, changed, err := config.UpdateList(e.Home, e.UserHome, k.Name, list, a.has("add"))
+			if err != nil {
+				return fail(e, exitFailed, "%v", err)
+			}
+			did := didUnchanged
+			if changed {
+				did = didSet
+			}
+			return said(e, "", k.Name, value, did)
 		}
 		if code := checkName(e, k.Name, v); code != 0 {
 			return code
