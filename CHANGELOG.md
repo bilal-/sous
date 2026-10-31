@@ -15,6 +15,9 @@ upgraded, never broken.
 
 ### Fixed
 
+- Late runner status responses and cached failures no longer undo a newer stop,
+  resume or close, including a stop–resume–stop sequence.
+
 - Built in runners stop only their owned process group, including orphaned agents
   and checks. Lost completion evidence keeps work unavailable and protected; older
   live runs are not signalled through saved process IDs.

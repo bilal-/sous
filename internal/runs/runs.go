@@ -102,7 +102,7 @@ func (d *Dispatcher) Refresh(ctx context.Context, views []thread.View, local boo
 		}
 		r, err := runner.ByRef(d.Runners, v.Run.Ref)
 		if err != nil {
-			v.RunErr = err.Error()
+			d.observe(v, nil, err.Error())
 			continue
 		}
 		if local && !r.Offline {
@@ -113,7 +113,7 @@ func (d *Dispatcher) Refresh(ctx context.Context, views []thread.View, local boo
 			defer wg.Done()
 			st, err := runner.GetStatus(ctx, r, v.Project, v.Run.Ref)
 			if err != nil {
-				v.RunErr = err.Error()
+				d.observe(v, nil, err.Error())
 				return
 			}
 			d.record(v, st)
@@ -144,12 +144,23 @@ func (d *Dispatcher) record(v *thread.View, st runner.Status) {
 		run.Branch, run.Worktree, run.Log = st.Branch, st.Worktree, st.Log
 		run.Phase, run.Reason, run.Progress, run.Question, run.Result = st.Phase, st.Reason, st.Progress, st.Question, st.Result
 	}
-	run := *v.Run
-	set(&run)
-	v.Run = &run
+	d.observe(v, set, "")
+}
+
+func (d *Dispatcher) observe(v *thread.View, change func(*thread.Run), failure string) {
+	current, matched, err := thread.ObserveRun(d.Store, v.Thread, change)
+	if err != nil {
+		v.RunErr = "could not record state: " + err.Error()
+		if failure != "" {
+			v.RunErr = failure + "; " + v.RunErr
+		}
+		return
+	}
+	v.Thread = current
+	v.Snoozed = current.SnoozedUntil != nil && current.SnoozedUntil.After(d.Now())
 	v.RunErr = ""
-	if err := thread.SetRun(d.Store, v.ID, set); err != nil {
-		v.RunErr = "could not record the state: " + err.Error()
+	if matched {
+		v.RunErr = failure
 	}
 }
 

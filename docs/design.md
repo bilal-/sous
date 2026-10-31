@@ -220,6 +220,14 @@ project's own documents. Keyword retrieval remains explicit about its limits.
 
 ## Built in run ownership
 
+Run observations are conditional updates. Private run revisions advance under the
+note lock for every accepted run mutation, including an explicit resume or stop.
+A slow status response, or its error, cannot replace a newer action even when the
+visible run state has returned to the same values. The returned view and cached
+failure markers follow the winning revision. Polling never holds the note lock
+while asking a runner, and these revisions are not part of the public item or
+runner protocol.
+
 A built in runner starts one agent and, when configured, one project check. Each
 attempt has a fresh private generation. A workload owner keeps a direct child as
 the live process-group anchor, signals that group before reaping the child, then

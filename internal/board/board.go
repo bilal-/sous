@@ -240,7 +240,7 @@ func ReadCurrentCache(s *store.Store, now time.Time) (*CacheDoc, error) {
 		if old.Ref != nil && v.Ref != nil && *old.Ref == *v.Ref {
 			v.Upstream, v.UpstreamErr = old.Upstream, old.UpstreamErr
 		}
-		if old.Run != nil && v.Run != nil && old.Run.Ref == v.Run.Ref && old.Run.State == v.Run.State &&
+		if old.Run != nil && v.Run != nil && old.Run.Revision == v.Run.Revision && old.Run.Ref == v.Run.Ref && old.Run.State == v.Run.State &&
 			((old.Run.Checked == nil && v.Run.Checked == nil) || (old.Run.Checked != nil && v.Run.Checked != nil && old.Run.Checked.Equal(*v.Run.Checked))) {
 			v.RunErr = old.RunErr
 		}

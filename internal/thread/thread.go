@@ -82,6 +82,8 @@ func (s RunState) Reported() bool {
 // Run is a note handed to a runner. State is the runner's word for it
 // (running, needs_you, done, failed; starting before the runner answered).
 type Run struct {
+	// Revision belongs to the local state owner, never to a runner or public item.
+	Revision uint64     `json:"revision"`
 	Runner   string     `json:"runner"`
 	Ref      string     `json:"ref,omitempty"`
 	Key      string     `json:"key,omitempty"`   // go --key: a retry finds this run
@@ -172,10 +174,11 @@ const name = "threads"
 // Migrator: v0 was the pre-release shape without version/next_id and without
 // remote/source/ref/snoozed_until/closed. v2 gave every note a uid. v3
 // records which notes predate uids (Legacy). v4 records when a note was reviewed.
+// v5 records the revision of each run for observation/action ordering.
 type Migrator struct{}
 
-func (Migrator) Empty() []byte { return []byte(`{"version":4,"next_id":1,"threads":[]}`) }
-func (Migrator) Current() int  { return 4 }
+func (Migrator) Empty() []byte { return []byte(`{"version":5,"next_id":1,"threads":[]}`) }
+func (Migrator) Current() int  { return 5 }
 func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 	switch from {
 	case 0:
@@ -187,6 +190,12 @@ func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 	case 3:
 		// Notes not reviewed yet use their creation time for the review window.
 		return edit(raw, 4, func(*Thread) {})
+	case 4: // Run revisions prevent stale observations from undoing actions.
+		return edit(raw, 5, func(t *Thread) {
+			if t.Run != nil {
+				t.Run.Revision = 0
+			}
+		})
 	}
 	return nil, fmt.Errorf("unknown version %d", from)
 }
@@ -308,7 +317,9 @@ func NoteRun(s *store.Store, p project.Project, brief, key, runnerName, source s
 				// It never started: this retry starts it, on the same note,
 				// with whichever runner was asked this time, its start
 				// timed from now.
-				t.Run.Runner, t.Run.State, t.Run.Text = runnerName, RunStarting, ""
+				if err := changeRun(t.Run, func(r *Run) { r.Runner, r.State, r.Text = runnerName, RunStarting, "" }); err != nil {
+					return err
+				}
 				t.Since = now.UTC()
 				return nil
 			}
@@ -332,6 +343,50 @@ func briefKey(brief string) string {
 // SetRun changes an open run under the lock.
 func SetRun(s *store.Store, id int, fn func(*Run)) error {
 	return editRun(s, id, false, fn)
+}
+
+// changeRun owns the revision even if the callback leaves visible values equal.
+func changeRun(r *Run, fn func(*Run)) error {
+	if r.Revision == ^uint64(0) {
+		return errors.New("run revision exhausted; preserve the run state")
+	}
+	next := r.Revision + 1
+	fn(r)
+	r.Revision = next
+	return nil
+}
+
+// ObserveRun accepts a poll only for the same open note and run generation.
+// A nil change classifies a failed poll without changing state or its revision.
+// The returned note is the current winner, even when the poll lost to an action.
+func ObserveRun(s *store.Store, expected Thread, change func(*Run)) (Thread, bool, error) {
+	var current Thread
+	matched := false
+	visit := func(d *Doc) error {
+		t, err := d.find(expected.ID, true)
+		if err != nil {
+			return err
+		}
+		matched = t.UID == expected.UID && t.Closed == nil && expected.Closed == nil && t.Run != nil && expected.Run != nil &&
+			t.Run.Revision == expected.Run.Revision && t.Run.Runner == expected.Run.Runner && t.Run.Ref == expected.Run.Ref
+		if matched && change != nil {
+			if err := changeRun(t.Run, change); err != nil {
+				return err
+			}
+		}
+		current = *t
+		return nil
+	}
+	if change == nil {
+		d, err := store.Load[Doc](s, name, Migrator{})
+		if err != nil {
+			return current, false, err
+		}
+		err = visit(d)
+		return current, matched, err
+	}
+	_, err := store.Modify[Doc](s, name, Migrator{}, visit)
+	return current, matched, err
 }
 
 // MarkCleaned records that run id's leftovers were removed, open or
@@ -358,8 +413,7 @@ func editRun(s *store.Store, id int, closed bool, fn func(*Run)) error {
 		if t.Run == nil {
 			return fmt.Errorf("%w %d with a run", ErrNotFound, id)
 		}
-		fn(t.Run)
-		return nil
+		return changeRun(t.Run, fn)
 	})
 	return err
 }
