@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/bilal-/sous/internal/board"
 	"reflect"
 	"time"
 
@@ -143,6 +144,7 @@ func changes(previous, next Snapshot) []Change {
 // Meta is what changed of the board itself between two snapshots, each
 // field replacing the one the host holds. Absent fields did not change.
 type Meta struct {
+	Efforts     *[]board.EffortSummary `json:"efforts,omitempty"`
 	Configured  *bool                  `json:"configured,omitempty"`
 	Available   *bool                  `json:"available,omitempty"`
 	Complete    *bool                  `json:"complete,omitempty"`
@@ -165,6 +167,7 @@ func meta(a, b Snapshot) *Meta {
 		}
 	}
 	set(a.Configured != b.Configured, func() { m.Configured = &b.Configured })
+	set(!reflect.DeepEqual(a.Efforts, b.Efforts), func() { m.Efforts = &b.Efforts })
 	set(a.Available != b.Available, func() { m.Available = &b.Available })
 	set(a.Complete != b.Complete, func() { m.Complete = &b.Complete })
 	set(!reflect.DeepEqual(a.AsOf, b.AsOf), func() { m.AsOf = b.AsOf })

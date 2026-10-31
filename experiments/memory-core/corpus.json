@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "description": "Fictional handoffs and current commitments. Expected sources were chosen before querying either retriever.",
+  "records": [
+    {"id":"api-1","workspace":"work","project":"acme/api","session":"api-session-1","agent":"claude","date":"2026-01-05T10:00:00Z","source":"acme/api/design.md#pagination","text":"Decision: retain offset pagination because mobile clients depend on numbered pages. Cursor pagination was rejected until the mobile client migration finishes."},
+    {"id":"api-2","workspace":"work","project":"acme/api","session":"api-session-2","agent":"codex","date":"2026-01-12T10:00:00Z","source":"acme/api/design.md#pagination-update","supersedes":["api-1"],"text":"Decision update: mobile client migration is complete. Use cursor pagination for new API endpoints. This supersedes the earlier decision to retain offset pagination. Pagination contract tests passed; release smoke checks remain on Sam."},
+    {"id":"api-3","workspace":"work","project":"acme/api","session":"api-session-3","agent":"opencode","date":"2026-01-13T10:00:00Z","source":"acme/api/STATUS.md#retry","text":"Verified retry fix: use an idempotency key and a unique request constraint to prevent duplicate charges after payment retries. The worker must reuse the original key. Regression checks passed locally."},
+    {"id":"api-4","workspace":"work","project":"acme/api","session":"api-session-4","agent":"codex","date":"2026-01-14T10:00:00Z","source":"acme/api/STATUS.md#release","text":"Agent handoff: the release is done. This is an unverified session claim; the current work snapshot still requires Sam to run the release smoke checks."},
+    {"id":"api-5","workspace":"work","project":"acme/api","session":"api-session-5","agent":"claude","date":"2026-01-15T10:00:00Z","source":"acme/api/STATUS.md#rollback","text":"Authentication rollback rehearsal succeeded. Keep the previous signing key valid during the migration window. Next action: rehearse key expiry on the staging fixture."},
+    {"id":"site-1","workspace":"work","project":"acme/site","session":"site-session-1","agent":"codex","date":"2026-01-10T10:00:00Z","source":"acme/site/STATUS.md#checkout","text":"Checkout retries can submit the same order twice. Investigate the idempotency key approach already used by the API project before implementing another fix."},
+    {"id":"site-2","workspace":"work","project":"acme/site","session":"site-session-2","agent":"claude","date":"2026-01-11T10:00:00Z","source":"acme/site/FOLLOWUPS.md#design","text":"Checkout design approval is waiting on Lee. Sam can review the accessibility changes while the design decision is pending."},
+    {"id":"site-3","workspace":"work","project":"acme/site","session":"site-session-3","agent":"opencode","date":"2026-01-16T10:00:00Z","source":"acme/site/STATUS.md#cache","text":"The static asset cache now uses immutable filenames. Cache headers were verified against local fixtures. The deployment still needs a review."},
+    {"id":"library-1","workspace":"personal","project":"home/library","session":"library-session-1","agent":"codex","date":"2026-01-12T10:00:00Z","source":"home/library/STATUS.md#import","text":"Private fixture violet-canary: the book import uses cursor pagination. The reading list remains personal and must never appear in work project context."},
+    {"id":"library-2","workspace":"personal","project":"home/library","session":"library-session-2","agent":"claude","date":"2026-01-17T10:00:00Z","source":"home/library/STATUS.md#retry","text":"Personal book import retries duplicate entries. Use the local import checksum to detect duplicates. This is unrelated to work payment retry decisions."}
+  ],
+  "items": [
+    {"id":"api-smoke","workspace":"work","project":"acme/api","section":"on_you","text":"Run release smoke checks","closed":false},
+    {"id":"api-old-review","workspace":"work","project":"acme/api","section":"on_you","text":"Review old pagination contract","closed":true},
+    {"id":"site-review","workspace":"work","project":"acme/site","section":"on_you","text":"Review accessibility changes","closed":false},
+    {"id":"site-design","workspace":"work","project":"acme/site","section":"on_others","text":"Checkout design approval from Lee","closed":false},
+    {"id":"site-cache","workspace":"work","project":"acme/site","section":"unfinished","text":"Review cache deployment","closed":false},
+    {"id":"library-import","workspace":"personal","project":"home/library","section":"on_you","text":"Check book import duplicates","closed":false}
+  ],
+  "queries": [
+    {"id":"current-decision","query":"cursor pagination","workspace":"work","projects":["acme/api"],"expected":["api-2"],"superseded":["api-1"]},
+    {"id":"decision-reason","query":"numbered pages","workspace":"work","projects":["acme/api"],"expected":["api-1"]},
+    {"id":"resume-release","query":"release smoke checks","workspace":"work","projects":["acme/api"],"expected":["api-2","api-4"]},
+    {"id":"cross-project-lesson","query":"idempotency key","workspace":"work","projects":["acme/api","acme/site"],"expected":["api-3","site-1"]},
+    {"id":"waiting-on-others","query":"design approval","workspace":"work","projects":["acme/site"],"expected":["site-2"]},
+    {"id":"rollback-evidence","query":"signing key","workspace":"work","projects":["acme/api"],"expected":["api-5"]},
+    {"id":"private-boundary","query":"violet-canary","workspace":"work","projects":["acme/api","acme/site"],"expected":[]},
+    {"id":"private-recall","query":"violet-canary","workspace":"personal","projects":["home/library"],"expected":["library-1"]},
+    {"id":"unknown","query":"quantum unicorn","workspace":"work","projects":["acme/api","acme/site"],"expected":[]},
+    {"id":"paraphrase-payment","query":"avoid double billing","workspace":"work","projects":["acme/api"],"expected":["api-3"]},
+    {"id":"paraphrase-waiting","query":"who owes me an answer","workspace":"work","projects":["acme/site"],"expected":["site-2"]}
+  ]
+}

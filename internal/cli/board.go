@@ -53,6 +53,9 @@ func buildBoard(e *Env, roots []string) (*board.Data, int) {
 func (e *Env) unconfigured() bool { return e.cfgErr == nil && len(e.Cfg.Roots) == 0 }
 
 func cmdBoard(e *Env, roots []string) int {
+	if !e.JSON {
+		fmt.Fprintf(e.Stdout, "sous · %s · what is waiting on you across every project\n", config.Tilde(e.UserHome, e.Exe))
+	}
 	if len(roots) == 0 && e.unconfigured() {
 		if e.JSON {
 			return e.writeJSON(board.BoardJSON{})

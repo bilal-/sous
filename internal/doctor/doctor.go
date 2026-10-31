@@ -15,8 +15,10 @@ import (
 
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/effort"
 	"github.com/bilal-/sous/internal/harness"
 	"github.com/bilal-/sous/internal/install"
+	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
@@ -228,6 +230,8 @@ func dataChecks(sousHome string, now time.Time) []Check {
 	}{
 		{"notes (threads.json)", func() error { _, err := thread.Open(s, now); return err }},
 		{"sessions (sessions.json)", func() error { _, err := session.All(s); return err }},
+		{"memory (memory.json)", func() error { _, err := memory.All(s); return err }},
+		{"efforts (efforts.json)", func() error { _, err := effort.All(s); return err }},
 		{"observations (observed.json)", func() error { _, err := signal.Known(s, ""); return err }},
 	}
 	var out []Check

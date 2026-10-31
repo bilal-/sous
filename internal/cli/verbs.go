@@ -37,6 +37,10 @@ var verbs []verb
 
 func init() {
 	verbs = []verb{
+		{"remember", cmdRemember, true, false, exactly(1, []string{"verified"}, []string{"p", "k", "source", "key", "supersedes"}), `sous remember [-p <project>] [-k handoff|decision|constraint|lesson|question] [--source <ref>] [--key <key>] [--supersedes <m:id>] [--verified] "<text|->"   keep private project context with its source`},
+		{"recall", cmdRecall, true, false, &argSpec{bools: []string{"all", "history"}, values: []string{"p", "workspace", "effort", "kind", "limit", "show"}, max: 1}, `sous recall [query] [-p <project>] [--workspace <name>] [--effort <name>] [--all] [--history] [--kind <kind>] [--limit <n>] [--show <m:id>]   find project context or read a complete record`},
+		{"memory", cmdMemory, true, false, exactly(2, nil, []string{"source", "with"}), "sous memory <verify|forget|share|unshare> <m:id> [--source <ref>] [--with <project>]   maintain private memory and explicit sharing"},
+		{"effort", cmdEffort, true, false, &argSpec{bools: []string{"all"}, values: []string{"project", "note", "memory", "ref", "after"}, max: 2}, "sous effort [name|<add|link|unlink|depend|undepend|archive|reopen> <name>] [--all] [--project <project>] [--note <n>] [--memory <m:id>] [--ref <ref>] [--after <n>]   organize linked work across projects"},
 		{"integration", cmdIntegration, true, false, &argSpec{values: []string{"protocol", "op", "question", "commit", "max-bytes", "page"}, max: 2}, "sous integration [describe|snapshot|watch|run|stop|reply|approve|discard|diff] [--protocol <n>] [--max-bytes <n>] [--op <op>] [--question <id>:<token>] [--commit <sha>] [--page <n>] native host discovery, cached tasks and changes; run, stop, reply, approve, discard and diff are version 1 calls"},
 		{"here", cmdHere, true, true, &argSpec{max: 1}, "sous here [path]  where was I, for the current project"},
 		{"report", cmdReport, true, false, exactly(0, []string{"week", "open"}, nil), "sous report [--week] [--open]   what changed since the last report; --open shows the page"},
@@ -58,6 +62,7 @@ func init() {
 		{"setup", cmdSetup, false, false, &argSpec{bools: append([]string{"print-skill", "no-shell"}, harness.Flags()...), max: -1}, "sous setup [folder...] [--no-shell] [--print-skill]" + setupFlags() + "   set everything up; folders say where your projects are"},
 		{"doctor", cmdDoctor, true, false, exactly(0, nil, nil), "sous doctor       check that sous is set up and working, and how to fix what is not"},
 		{"version", cmdVersion, false, false, exactly(0, nil, nil), "sous version"},
+		{"update", cmdUpdate, true, false, exactly(0, []string{"check"}, nil), "sous update [--check]   install the latest stable release; --check only checks"},
 		{"help", cmdHelp, false, false, &argSpec{max: 1}, "sous help [command]"},
 		// Internal doors: how the runner re-execs built-ins, and hooks. Not in help.
 		{plugin.AxisSignal, cmdSignal, false, false, nil, ""},

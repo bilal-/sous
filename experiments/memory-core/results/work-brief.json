@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "workspace": "work",
+  "projects": [
+    {
+      "project": "acme/api",
+      "items": [
+        {
+          "id": "api-smoke",
+          "workspace": "work",
+          "project": "acme/api",
+          "section": "on_you",
+          "text": "Run release smoke checks",
+          "closed": false
+        }
+      ]
+    },
+    {
+      "project": "acme/site",
+      "items": [
+        {
+          "id": "site-review",
+          "workspace": "work",
+          "project": "acme/site",
+          "section": "on_you",
+          "text": "Review accessibility changes",
+          "closed": false
+        },
+        {
+          "id": "site-design",
+          "workspace": "work",
+          "project": "acme/site",
+          "section": "on_others",
+          "text": "Checkout design approval from Lee",
+          "closed": false
+        },
+        {
+          "id": "site-cache",
+          "workspace": "work",
+          "project": "acme/site",
+          "section": "unfinished",
+          "text": "Review cache deployment",
+          "closed": false
+        }
+      ]
+    }
+  ],
+  "context": {
+    "available": true,
+    "stale": false,
+    "items": [
+      {
+        "id": "api-3",
+        "workspace": "work",
+        "project": "acme/api",
+        "session": "api-session-3",
+        "agent": "opencode",
+        "date": "2026-01-13T10:00:00Z",
+        "source": "acme/api/STATUS.md#retry",
+        "text": "Verified retry fix: use an idempotency key and a unique request constraint to prevent duplicate charges after payment retries. The worker must reuse the original key. Regression checks passed locally.",
+        "score": 0.705135059922701
+      },
+      {
+        "id": "site-1",
+        "workspace": "work",
+        "project": "acme/site",
+        "session": "site-session-1",
+        "agent": "codex",
+        "date": "2026-01-10T10:00:00Z",
+        "source": "acme/site/STATUS.md#checkout",
+        "text": "Checkout retries can submit the same order twice. Investigate the idempotency key approach already used by the API project before implementing another fix.",
+        "score": 0.6922479278325068
+      },
+      {
+        "id": "api-5",
+        "workspace": "work",
+        "project": "acme/api",
+        "session": "api-session-5",
+        "agent": "claude",
+        "date": "2026-01-15T10:00:00Z",
+        "source": "acme/api/STATUS.md#rollback",
+        "text": "Authentication rollback rehearsal succeeded. Keep the previous signing key valid during the migration window. Next action: rehearse key expiry on the staging fixture.",
+        "score": 0.5516134066955818
+      }
+    ]
+  },
+  "state_source": "fictional current-work snapshot; memory cannot close or reclassify items"
+}

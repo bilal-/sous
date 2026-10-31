@@ -22,9 +22,10 @@ you have to remember to open has already failed.
 tracker you use, that explains itself and gets you back into the project
 you pick. It never takes over how you work.**
 
-* **An index, not a store.** Work lives in git, on GitHub or GitLab, or in a
-  project's `FOLLOWUPS.md`. sous keeps pointers and short notes, and works
-  everything else out again each time you look.
+* **An index of live work, with private memory.** Work lives in git, on GitHub
+  or GitLab, or in the project's `FOLLOWUPS.md`. Sous keeps pointers, personal
+  notes and sourced context. Efforts link those existing commitments across
+  projects; they do not create a second task status system.
 * **Personal, not shared.** It is one person's inbox and list of things
   they are waiting for. When a note should be seen by others, you *file* it
   into the project's tracker on purpose, and sous keeps a pointer to it.
@@ -66,7 +67,8 @@ you pick. It never takes over how you work.**
 
 ## Commands
 
-Four groups, and each grows in one direction:
+Four plugin axes support live work. Private memory and efforts have their own
+commands and local state, without introducing another plugin axis:
 
 | Commands | Answers | Grows through |
 |---|---|---|
@@ -74,9 +76,29 @@ Four groups, and each grows in one direction:
 | `note`, `edit`, `kind`, `snooze`, `done`, `file` | Remember this, for that project | **backends** |
 | `go` | Take me there | **launchers** |
 | `go --run`, `show`, `reply`, `approve`, `discard` | Do this for me, and tell me how it went | **runners** |
+| `remember`, `recall`, `memory` | What did we learn or decide, and what supports it? | Private memory |
+| `effort` | Which projects and commitments belong together, and what is blocked? | Private effort links |
 
 Plain `sous` always shows the board. `here`, the session hooks and `go` stay
 on your machine and finish quickly: they never wait on the network.
+
+## Command output and updates
+
+The CLI follows the ten AXI principles pinned in AGENTS.md, with the documented
+choices of plain text plus JSON, stderr diagnostics plus JSON errors, and
+short output with explicit full-record commands rather than `--fields` or
+`--full`. The bare board's header names this executable and its purpose.
+Search totals count all matches before limiting; truncation is explicit.
+Contextual commands carry the selected project, with shell-safe quoting.
+Invalid selectors and oversized memory input fail without a partial write.
+
+`sous update` is an explicit maintenance command. It checks the latest stable
+GitHub release, verifies release checksums and atomically replaces a downloaded
+binary under an installation lock. Homebrew owns upgrades to its installations.
+A source build stays under the checkout owner's control. No downgrade or
+background update occurs. `--check` is read-only; failed checks remain failures,
+not an assertion that the installed version is current. The updater never
+runs setup or opens private data files.
 
 ## Native hosts
 
@@ -130,8 +152,8 @@ The files, and what each holds, are listed in
 [the command guide](commands.md#files-sous-keeps); a run's folder under
 `runs/` is not versioned, since it belongs to its runner.
 
-sous never writes rows of its own. Apart from your notes, everything is
-worked out again on every full look.
+Live work is worked out again on every full look. Private notes, memories and
+effort links persist independently of those observations.
 
 ## Keeping a project ready to resume
 
@@ -153,6 +175,38 @@ Agents read these documents when resuming work and keep the handoff current
 as part of authorized changes. Creating a shared document or publishing a
 private note still requires the person's explicit request. Agent guidance
 lives in `sous help`, not the skill.
+
+## Durable context and connected work
+
+Project memory records a handoff, decision, constraint, lesson or open question
+with its author, capture time and optional source reference. Verification is an
+explicit writer assertion with evidence and a timestamp, never automatic task
+completion. A changed decision supersedes its predecessor; recall hides the old
+one by default but keeps the chain. Forgetting removes the body and evidence,
+retaining a tombstone and fingerprint so replay cannot bring the text back.
+
+A memory belongs to a project and workspace. Workspace defaults to the most
+specific discovery root, or the project's path when unconfigured; the per-project
+`workspace` setting can name it explicitly. Automatic context matches both the
+workspace and project (path or remote), plus explicit sharing grants. Workspace
+and global searches require explicit scope options. These are context boundaries,
+not security against programs that can read the user's files. A replacement does
+not inherit sharing grants. Source references are pointers, never instructions
+for sous to fetch or execute.
+
+Efforts collect project, note, memory and document links under a name. Their open,
+completed and blocked counts come from current notes and cached tracker status.
+Dependencies only explain what waits on what. Missing notes, projects or sources
+remain visibly unavailable. Archiving an effort changes no commitment. Linking a
+memory into an effort does not share its body with every project's session.
+
+The board shows active effort summaries. Project briefings include relevant
+memories and efforts, limited to five of each in the brief form. The newest of
+each memory kind gets a place before remaining slots fill by recency, so repeated
+handoffs do not bury a standing constraint. JSON retains full context. All reads
+are local; no model endpoint, embeddings, transcript extraction or daemon is
+required. Agents capture useful context during authorized work and cite the
+project's own documents. Keyword retrieval remains explicit about its limits.
 
 ## Reviewing unfinished work
 

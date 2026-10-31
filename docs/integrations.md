@@ -267,3 +267,19 @@ watch process against a throwaway home. No test contacts herdr, a tracker,
 or an agent for real. Adding an action or changing the wire format requires
 updating the schema, this guide and the command help together. The v1
 examples are validated against `schema.v1.json` by the same tests.
+
+## Effort summaries and project memory
+
+Snapshots can include an optional `efforts` array of active effort summaries:
+`id`, `name`, `projects` (workspace/project/remote scopes), `open`, `completed`,
+`blocked`, `unavailable`, `stale`, `archived` and `attention`. Counts describe
+explicitly linked commitments. They do not change task ownership or status.
+Version 1 watch metadata includes `efforts` when it changes; an empty array clears
+previous summaries. Its contents participate in the snapshot revision.
+
+These fields are additive to both existing snapshot protocols. Hosts that do not
+render efforts can ignore them. Existing task actions and the plugin contract
+are unchanged. Private memory bodies are not included in snapshots. A project
+brief (`sous here --json`) has a `context` object with project-scoped memories,
+relevant efforts and source failures. An effort link alone does not share a
+memory into another project's brief.

@@ -125,8 +125,8 @@ team already runs everything through one tracker that you check every day.
 
 sous is an index, not a tracker. Your work stays where it already lives: in
 git, on GitHub or GitLab, or in a project's own `FOLLOWUPS.md`. sous keeps
-pointers and short notes of your own, and works everything else out again
-each time you look.
+pointers, private notes, sourced memory and effort links, and works live state
+out again each time you look.
 
 It has no priorities, due dates, assignees or sprints. The board groups rows
 by whose move it is, then lists the oldest first.
@@ -151,6 +151,8 @@ sous is young. Here is an honest list.
 | **GitHub**: reviews asked of you, changes asked on your pull requests, failing checks on your pull requests, unread notifications that mention or assign you; filing and closing issues | CI on branches without a pull request |
 | **GitLab**: merge requests to review, yours awaiting review; filing and closing issues | GitLab to do items |
 | `FOLLOWUPS.md` in the project as a simple tracker | Jira, Linear, Gitea, Bitbucket (plugins welcome) |
+| sourced project memory, keyword recall, verification, supersession and explicit sharing | automatic transcript extraction and semantic search |
+| named efforts linking projects, commitments, memories and dependencies | |
 | handing a task to **Claude Code**, **Codex**, **Antigravity** or **opencode** in the background, in its own git worktree, and following it on the board | runs that survive a restart, retries and reviews (a runner plugin's job) |
 | a menu bar view through [SwiftBar](https://swiftbar.app) on macOS | a Linux tray icon |
 | plugins in any language, on a contract that only grows until 1.0 | a contract frozen for good (that is what 1.0 means) |
@@ -176,6 +178,12 @@ your `PATH`, the script tells you. To install a particular version, run
 
     git clone https://github.com/bilal-/sous && cd sous
     make install && sous setup
+
+To update a release or Homebrew installation, run `sous update`; use
+`sous update --check` to check without changing anything. Source builds stay
+under your control: update the checkout, then run `make install`. Older
+releases without this command need one update through the install script or
+Homebrew first. See the [update guide](docs/commands.md#sous-update---check).
 
 You need `git`. For GitHub, install [`gh`](https://cli.github.com) and run
 `gh auth login` (for notifications, a classic token with the notifications
@@ -270,6 +278,29 @@ keep an unresolved note with `sous review --keep <n>`. Keeping it resets the
 review reminder for a week while the task stays on the board. Closed tracker
 items reconcile automatically, and local closures disappear from cached shell
 and menu-bar views without waiting for a network refresh.
+
+### Keep context across projects
+
+Keep decisions, constraints, lessons and handoffs with their sources. Project
+briefs surface that context when you return; the complete history remains local.
+
+```sh
+sous remember -k decision --source docs/design.md "Use cursors for pagination"
+sous recall pagination
+sous recall --show m:1
+sous memory verify m:1 --source docs/design.md
+sous effort add "Account launch"
+sous effort link "Account launch" --project acme/api --project acme/site
+sous effort "Account launch"
+```
+
+An effort connects projects and existing notes around one outcome. Link notes
+with `--note`, then describe blockers with `depend --note 8 --after 7`.
+Counts follow current commitments; an effort never changes task status.
+Memory stays scoped to its project and workspace unless you explicitly share it.
+Use `--supersedes` when a decision changes, and `sous memory forget` to remove
+stored content. [The command guide](docs/commands.md#memory-and-efforts) covers
+scope, verification, sharing, history and retry behavior.
 
 ### Catch a thought before it slips away
 
@@ -426,6 +457,10 @@ Each public command explains itself with `--help`.
 | `sous <folder>` | the board for just the projects in that folder |
 | `sous <project>` | where you left off in that project |
 | `sous here` | where you left off in this project |
+| `sous remember "text"` | keep a sourced handoff, decision, constraint, lesson or question |
+| `sous recall [query]` | find current project memory or inspect its history |
+| `sous memory <action> <m:id>` | verify, forget, share or unshare a memory |
+| `sous effort [name]` | organize linked work and blockers across projects |
 | `sous projects [name]` | every project sous can see |
 | `sous integration [describe\|snapshot\|watch]` | native host discovery, offline tasks and changes |
 | `sous note [-p project] [-k me\|them\|idea] [--file] "text"` | write a note |
@@ -446,6 +481,7 @@ Each public command explains itself with `--help`.
 | `sous setup [folder...]` | set everything up; folders say where your projects are |
 | `sous config [key value...]` | see or change settings |
 | `sous doctor` | check the setup, and how to fix what is not right |
+| `sous update [--check]` | install the latest stable release, or only check |
 
 To write a note that starts with a dash, put `--` before it:
 `sous note -- "-2 tests failing"`.

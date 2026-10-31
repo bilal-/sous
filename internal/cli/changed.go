@@ -7,6 +7,7 @@ import (
 
 	"github.com/bilal-/sous/internal/board"
 	"github.com/bilal-/sous/internal/thread"
+	"github.com/bilal-/sous/internal/update"
 )
 
 // changedJSON is what a command that changed something answers with
@@ -29,27 +30,42 @@ type changedJSON struct {
 	// Publication: for approve, how far publishing got.
 	Publication *thread.RunPublication `json:"publication,omitempty"`
 	// Error: part of it could not be done (noted, but not filed: why).
-	Error string `json:"error,omitempty"`
+	Error  string         `json:"error,omitempty"`
+	Update *update.Status `json:"update,omitempty"`
 }
 
 // What a change did, as its answer's did says. docs/commands.md lists them
 // all (a test holds it to this list).
 const (
-	didNoted          = "noted"
-	didAlreadyNoted   = "already_noted"
-	didReviewed       = "reviewed"
-	didEdited         = "edited"
-	didKind           = "kind"
-	didSnoozed        = "snoozed"
-	didClosed         = "closed"
-	didAlreadyClosed  = "already_closed"
-	didCleaned        = "cleaned"
-	didFiled          = "filed"
-	didReplied        = "replied"
-	didStarted        = "started"
-	didAlreadyStarted = "already_started"
-	didApproved       = "approved"
-	didDiscarded      = "discarded"
+	didUpdated           = "updated"
+	didAlreadyCurrent    = "already_current"
+	didRemembered        = "remembered"
+	didAlreadyRemembered = "already_remembered"
+	didVerified          = "verified"
+	didForgotten         = "forgotten"
+	didShared            = "shared"
+	didUnshared          = "unshared"
+	didEffortCreated     = "effort_created"
+	didAlreadyCreated    = "already_created"
+	didLinked            = "linked"
+	didUnlinked          = "unlinked"
+	didArchived          = "archived"
+	didReopened          = "reopened"
+	didNoted             = "noted"
+	didAlreadyNoted      = "already_noted"
+	didReviewed          = "reviewed"
+	didEdited            = "edited"
+	didKind              = "kind"
+	didSnoozed           = "snoozed"
+	didClosed            = "closed"
+	didAlreadyClosed     = "already_closed"
+	didCleaned           = "cleaned"
+	didFiled             = "filed"
+	didReplied           = "replied"
+	didStarted           = "started"
+	didAlreadyStarted    = "already_started"
+	didApproved          = "approved"
+	didDiscarded         = "discarded"
 	// What sous config did to a setting.
 	didSet       = "set"
 	didUnset     = "unset"
@@ -57,7 +73,7 @@ const (
 )
 
 var dids = []string{didNoted, didAlreadyNoted, didReviewed, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didCleaned, didFiled, didReplied, didStarted, didAlreadyStarted, didApproved, didDiscarded,
-	didSet, didUnset, didUnchanged}
+	didSet, didUnset, didUnchanged, didRemembered, didAlreadyRemembered, didVerified, didForgotten, didShared, didUnshared, didEffortCreated, didAlreadyCreated, didLinked, didUnlinked, didArchived, didReopened, didUpdated, didAlreadyCurrent}
 
 // changed prints c: as JSON, or as what it did and what to do next on
 // one line.

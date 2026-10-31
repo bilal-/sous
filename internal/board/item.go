@@ -135,7 +135,8 @@ func (s Sections) waiting() Waiting {
 
 // BoardJSON is sous --json.
 type BoardJSON struct {
-	Configured bool `json:"configured"` // false: no project folders yet (sous setup)
+	Efforts    []EffortSummary `json:"efforts"`
+	Configured bool            `json:"configured"` // false: no project folders yet (sous setup)
 	Waiting
 	Projects    []project.Project     `json:"projects"`
 	Plugins     []signal.PluginStatus `json:"plugins"`
@@ -147,11 +148,12 @@ type BoardJSON struct {
 // JSON is the board as --json shows it.
 func (d *Data) JSON() BoardJSON {
 	return BoardJSON{Configured: true, Waiting: Classify(d).waiting(), Projects: d.Projects, Plugins: d.Plugins,
-		Checked: d.Checked, Unavailable: d.Unavailable, AsOf: &d.RenderedAt}
+		Checked: d.Checked, Unavailable: d.Unavailable, AsOf: &d.RenderedAt, Efforts: d.Efforts}
 }
 
 // HereJSON is sous here --json.
 type HereJSON struct {
+	Context       Context            `json:"context"`
 	Documents     []project.Document `json:"documents"`
 	DocumentError string             `json:"document_error,omitempty"`
 	Project       string             `json:"project"`
@@ -179,6 +181,7 @@ func (h *HereData) JSON() HereJSON {
 	out := HereJSON{Project: h.Project, Name: h.Name, Remote: h.Remote, Facts: h.Facts, Waiting: s.waiting(),
 		RecentlyClosed: Items(s.RecentlyClosed), Plugins: h.Plugins, AsOf: h.RenderedAt}
 	out.Documents, out.DocumentError = h.Documents, h.DocumentError
+	out.Context = h.Context
 	if h.Session != nil {
 		out.Session = sessionItem(*h.Session)
 	}

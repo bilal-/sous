@@ -7,6 +7,7 @@ everyday flow, start with the [README](../README.md). Run
 * [How commands are written](#how-commands-are-written)
 * [Seeing what is waiting](#seeing-what-is-waiting): `sous`, `sous <folder>`, `sous <project>`, `here`, `projects`, `report`, `review`
 * [Notes](#notes): `note`, `show`, `edit`, `kind`, `snooze`, `done`
+* [Memory and efforts](#memory-and-efforts): `remember`, `recall`, `memory`, `effort`
 * [Sharing a note](#sharing-a-note): `file`, `note --file`, `done --close`
 * [Going to a project](#going-to-a-project): `go`
 * [Handing work to an agent](#handing-work-to-an-agent): `go --run`, `show`, `reply`, `done --clean`
@@ -98,6 +99,9 @@ A filed note looks like this:
 The board: everything waiting on you, across every project under your
 roots.
 
+The text header names the executable (using `~` for your home) and says what
+sous does. The board follows immediately; `--json` remains machine-readable.
+
 ```
 sous · 2 on you · 1 on others · 3 unfinished
 ```
@@ -147,6 +151,11 @@ Options: `--json`: every section, ideas and snoozed included (see
 
 On a first run with no roots set, `sous` prints a short welcome that says
 how to set them.
+
+The board also shows active effort summaries: linked open and completed notes,
+blocked work and unavailable sources. JSON includes `efforts`. These summaries
+are local overlays; they do not add commitments to the headline. A failed effort
+store keeps the previous summary marked stale and reports the failure.
 
 ### `sous <folder>`
 
@@ -211,6 +220,13 @@ person explicitly asks to file them. A review reminder points to
 `sous review -p <project>`; session hooks only show the hint, staying offline.
 With `--json`, `documents` lists each relative `path`, `purpose` and any
 `error`; `document_error` reports a failure to list the project's documents.
+
+Project context also includes current sourced memories and active efforts linked
+to this project. The brief shows at most five of each, preserving the newest of
+each memory kind before filling by recency. `context` in JSON carries full
+`memories`, `efforts`, the resolved `scope`, an `available` flag and `attention`
+messages. Unreadable state is reported, never treated as empty context. Session
+hooks and `sous go` use this same offline briefing.
 
 ### `sous projects [name]`
 
@@ -387,6 +403,132 @@ advertised working directory when present; never construct a shell command.
 Opening a project requires a terminal. Refreshing is a separate host action
 and may use the network. See [the native integration contract](integrations.md)
 and [the herdr discovery record](../integrations/herdr/provider.json).
+
+## Memory and efforts
+
+The change responses add these `did` values: `remembered`, `already_remembered`,
+`verified`, `forgotten`, `shared`, `unshared`, `effort_created`, `already_created`,
+`linked`, `unlinked`, `archived` and `reopened`.
+
+Memory is private context, separate from commitments. A memory never closes a
+note or proves that a task is done. Capture short, useful handoffs and the reasons
+behind decisions; leave source documents in their project and reference them.
+These commands are local and make no model or network calls.
+
+### `sous remember "text"`
+
+Keep a sourced memory in the current project. Use `-` to read up to 32 KiB from
+stdin. The same capture is safe to retry; it returns the same `m:<number>`.
+
+* `-p <project>`: choose a project instead of the current directory.
+* `-k handoff|decision|constraint|lesson|question`: the kind, default `handoff`.
+* `--source <reference>`: a document path, commit, session reference or URL that
+  supports the text. Sous stores this reference without fetching it. Without
+  one, this is a direct capture attributed to the person or agent.
+* `--verified`: record that the writer checked the source; requires `--source`.
+  Sous does not validate the source or treat this as task completion.
+* `--key <key>`: a stable retry key scoped to this project and workspace.
+  Reusing it with different content fails, instead of silently changing history.
+* `--supersedes <m:id>`: replace a current memory in the same project and
+  workspace. The earlier record remains available in history. The replacement
+  starts with no sharing grants; share it explicitly if needed.
+* `--json`: the change response, `did: "remembered"` or `"already_remembered"`.
+
+Set `SOUS_SOURCE=agent` for captures written by an agent. A forgotten capture
+stays forgotten on retry; write a new capture with a new key if intended.
+
+### `sous recall [query]`
+
+Find current memories in this project, including memories explicitly shared
+with it. A query matches words and ranks by overlap, then recency. This is
+keyword search; paraphrases may not match. An empty result succeeds.
+
+* `-p <project>`: read another project's context.
+* `--workspace <name>`: explicitly search all projects in one workspace.
+* `--all`: explicitly search across every workspace.
+* `--effort <name-or-id>`: search the memories explicitly linked to an effort.
+  These four scope selectors are mutually exclusive.
+* `--history`: include superseded records. Forgotten content is never returned.
+* `--kind <kind>`: restrict to a kind accepted by `remember`.
+* `--limit <n>`: return at most 1–1000 results; without it, return all matches.
+* `--show <m:id>`: show one full record, its scope, source, author, timestamps,
+  verification, replacement links and sharing grants. Takes no query or other
+  filter. An explicit ID can read any scope, including a forgotten tombstone.
+* `--json`: `{records, total_count, truncated}`, with full text and provenance
+  in `records`. An empty search has `records: []`, `total_count: 0` and
+  `truncated: false`. `--show` returns one record instead.
+
+The count includes every matching record before `--limit`. Limited text output
+says how many are shown; repeat the same command without `--limit` to retrieve
+all matches. Hints from a project brief or a single record carry its project
+path, so they work from another working directory too.
+
+Text lists name each memory's project of origin and shorten long records and
+sources; use `--show` for its full scope and complete record. Verification
+records a writer's check, not automatic truth assessment.
+
+### `sous memory <action> <m:id>`
+
+Manage an existing memory. Every action is safe to retry and accepts `--json`.
+
+* `verify`: requires `--source <reference>` for the evidence checked now.
+  Records the verification timestamp and evidence; retrying the same evidence
+  keeps its timestamp. Use a new source revision for a new check. Answers
+  `did: "verified"`.
+* `forget`: removes the text, source, verification evidence and sharing grants.
+  Keeps a tombstone, retry fingerprint and replacement links so replay cannot
+  resurrect it. Answers `did: "forgotten"`. Does not erase external sources,
+  exported output or backups.
+* `share`: requires `--with <project>`, explicitly allowing that project's brief
+  and recall to include this memory, even across workspace boundaries. Answers
+  `did: "shared"`. This is local context sharing, not public filing.
+* `unshare`: requires `--with <project>`, removing that grant. Answers
+  `did: "unshared"`. It cannot revoke copies already exported to an agent.
+
+Only the options listed for an action are accepted. Automatic session context
+stays project-scoped; linking an effort does not grant access to memory bodies.
+Explicit broad searches are for the person's cross-project review. These scopes
+prevent accidental context mixing; they are not an OS access-control boundary.
+
+### `sous effort [name-or-id]`
+
+List active efforts, or inspect one effort's linked work, sources and blockers.
+An effort is a named grouping of existing projects and commitments. Its counts
+come from current notes and cached tracker observations; it owns no task status
+and never runs, schedules or closes work. Missing sources are shown as unknown.
+Read commands are offline. Refresh the board to update upstream observations.
+
+* `--project <project>`: filter the list to a linked project; repeat for several.
+* `--all`: include archived efforts in the list.
+* `--json`: summaries for the list (`[]` when empty), or the complete definition,
+  current items, linked memories, blockers, source problems and cache timestamp.
+
+Changes use `sous effort <action> <name-or-id>` and also accept `--json`:
+
+* `add <name>`: create an effort, or return the existing name's `e:<number>`.
+  Answers `did: "effort_created"` or `"already_created"`.
+* `link` / `unlink`: use repeatable `--project <project>`, `--note <number>`,
+  `--memory <m:id>` and `--ref <document-or-URL>` to add or remove links.
+  At least one is required. Linked notes and memories also link their projects;
+  those projects stay members while such links remain. References are not fetched.
+  Answers `did: "linked"` or `"unlinked"`.
+* `depend` / `undepend`: requires exactly one `--note <number>` and
+  `--after <number>`. Both notes must already be linked. The first waits for the
+  second; cycles are rejected. A completed prerequisite clears the blocker.
+  An unavailable prerequisite stays unknown, not complete. Answers `did: "linked"`
+  or `"unlinked"`. Removing a note link also removes its dependency edges.
+* `archive` / `reopen`: hide or restore an effort in normal lists and project
+  briefings, without changing any linked work. Answers `did: "archived"` or
+  `"reopened"`.
+
+Example, after recording notes 7 and 8 in their respective projects:
+
+```sh
+sous effort add "Account launch"
+sous effort link "Account launch" --project acme/api --project acme/site --note 7 --note 8
+sous effort depend "Account launch" --note 8 --after 7
+sous effort "Account launch"
+```
 
 ## Notes
 
@@ -791,12 +933,12 @@ settings or repairing files. It checks:
   exists (and, for a plugin, describes itself), that it has a `check`, and
   any publishing credentials in sous's environment (`GH_TOKEN`,
   `SSH_AUTH_SOCK` and the like) that a run would inherit
-* your notes, sessions and observations files
+* your notes, sessions, memory, efforts and observations files
 * how old the saved board is, and each source its last refresh could not
   read, with the reason (this is what a `?` on the board means)
 
 ```
-sous doctor · 16 checks · 0 problems · 1 to look at
+sous doctor · 18 checks · 0 problems · 1 to look at
 
   ✓ config: ~/.sous/config.toml reads
   ✓ project folders: 26 projects in ~/code
@@ -817,6 +959,50 @@ take a few seconds. A `gh` or `glab` that has not answered in 30 seconds is
 reported as broken.
 
 Options: `--json`.
+
+### `sous update [--check]`
+
+Install the latest stable GitHub release for this installation. This is an
+explicit network operation; board views, session hooks and `go` never check
+for updates automatically.
+
+The change response uses `updated` when a new release was installed, or
+`already_current` when no replacement was needed.
+
+* `--check`: report the installed version, latest release, installation method
+  and whether a newer release is available. Changes no files and runs no
+  Homebrew commands. Exit `0` means the check succeeded, even when an update
+  is available; failures exit `1`.
+* `--json`: a check returns `{current, latest, installed, method, path,
+  update_available, changed, next}`. An update returns the usual change
+  response with `did: "updated"` or `"already_current"`, plus an `update`
+  object containing those version and installation fields.
+
+For release binaries installed by `install.sh` or copied from a download,
+sous verifies the archive's SHA-256 against the release's `checksums.txt`,
+then atomically replaces the executable. Existing executable permissions and
+symlinks are preserved. A failed download or checksum check leaves the old
+binary intact. A concurrent update is refused; retry when it finishes.
+Repeating an update is safe, and a newer installed release is never downgraded.
+
+Homebrew installs run `brew update`, then `brew upgrade bilal-/tap/sous`, using
+the Homebrew installation that owns the executable. If the tap has not caught
+up with GitHub, sous reports the version Homebrew actually installed and exits
+`1` with a retry hint. It never writes directly into the Cellar.
+
+Source builds, including a checkout's `bin/sous` built at an exact tag, are
+protected: `sous update` exits `1` with instructions to update the checkout and
+run `make install`. `--check` still reports the latest release, but cannot
+compare an unversioned or dirty build to it. Update operations have a five
+minute deadline and never prompt for input or invoke `sudo`.
+
+For an unversioned or dirty build, JSON `update_available` is `null`: the
+comparison is unknown, not a claim that the build is current.
+
+After updating, run `sous version` and `sous doctor`. The updater does not run
+setup, edit hooks or settings, or migrate private data. Run `sous setup` if
+doctor reports an installation step that needs refreshing. Updating requires
+write access to the installation directory, not just to the binary.
 
 ### `sous version`
 
@@ -887,7 +1073,7 @@ code `2`. It never guesses.
 | Variable | What it does |
 |---|---|
 | `SOUS_HOME` | Where sous keeps its files. Default `~/.sous`. |
-| `SOUS_SOURCE` | Who is writing a note. Agents set `agent`; the default is `human`. |
+| `SOUS_SOURCE` | Who is writing the note or memory. Agents set `agent`; the default is `human`. |
 | `SOUS_HERE_FILE` | Set by `sous go` for the agent it starts: a file with where you left off. |
 | `SOUS_BIN` | For the install script: destination directory for the `sous` binary. Default `~/.local/bin`. The menu bar script uses the executable path recorded by setup. |
 | `SOUS_VERSION` | For the install script: which release to install, like `v0.1.4`. |
@@ -930,6 +1116,7 @@ remote_runs = "true"           # a host (a phone through Shellbell) may start ru
 | `[projects."<org>/<name>"]` or `[projects."<org>/*"]` | | Settings for one project, or every project in an org folder. |
 | `backend` | picked for you | Where `sous file` sends this project's notes: `markdown`, `github`, `gitlab`, or a plugin's name. |
 | `github_account` | `gh`'s active account | Which `gh` account to use for these projects, when you have more than one. |
+| `workspace` | most specific discovery root, or the project's own path | Private memory boundary. Give projects the same name to group them for explicit workspace searches. A project brief still requires a matching project or a sharing grant. Changing this setting leaves previous memories in their original scope. |
 | `check` | none | A command that checks a run's work, run in its worktree when the agent finishes (`make test`). A failed check fails the run; a run with no check is ready without one. |
 | `runner` | the top-level `runner` | The runner for runs in these projects, in place of the top-level one: `sous go --run` without `-a`, and runs a host starts. |
 | `remote_runs` | off | `"true"` lets a host start runs in these projects through `sous integration --protocol 1 run`. Starting runs yourself with `sous go --run` needs nothing. |
@@ -944,6 +1131,8 @@ Everything lives in `~/.sous` (or `SOUS_HOME`).
 | `threads.json` | your notes |
 | `observed.json` | what sous has seen before: when each row first appeared, and what you snoozed |
 | `sessions.json` | the last agent session in each project |
+| `memory.json` | versioned private memories, provenance, verification, sharing and forgotten tombstones |
+| `efforts.json` | versioned links between projects, notes, memories, references and dependencies |
 | `cache.json` | the saved board, for new shells and the menu bar |
 | `ops.json` | each action a host asked for by op, and how it came out, so asking again never does it twice |
 | `serve.token` | the secret in the address `sous serve` prints |

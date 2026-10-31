@@ -18,10 +18,10 @@ const module = "github.com/bilal-/sous/"
 var tiers = [][]string{
 	{"cli"},
 	{"doctor", "serve"},
-	{"report", "install", "integration"},
+	{"report", "install", "integration", "update"},
 	{"board", "filing", "runs", "hook", "launcher"},
 	{"signal", "backend", "runner"},
-	{"tracker", "plugin", "harness", "thread", "session", "project"},
+	{"tracker", "plugin", "harness", "thread", "session", "project", "memory", "effort"},
 	{"store", "config", "text", "docs"},
 }
 

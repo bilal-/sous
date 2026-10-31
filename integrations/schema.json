@@ -10,6 +10,9 @@
     {"$ref": "#/$defs/error"}
   ],
   "$defs": {
+    "memoryScope": {"type": "object", "required": ["workspace", "project"], "properties": {"workspace": {"type": "string"}, "project": {"type": "string"}, "remote": {"type": "string"}}},
+    "effortSummary": {"type": "object", "required": ["id", "name", "projects", "open", "completed", "blocked", "unavailable", "stale", "archived", "attention"], "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "projects": {"type": "array", "items": {"$ref": "#/$defs/memoryScope"}}, "open": {"type": "integer", "minimum": 0}, "completed": {"type": "integer", "minimum": 0}, "blocked": {"type": "integer", "minimum": 0}, "unavailable": {"type": "integer", "minimum": 0}, "stale": {"type": "boolean"}, "archived": {"type": "boolean"}, "attention": {"$ref": "#/$defs/strings"}}},
+
     "strings": {"type": "array", "items": {"type": "string"}},
     "nullableString": {"type": ["string", "null"]},
     "time": {"type": "string", "format": "date-time"},
@@ -69,7 +72,8 @@
         "problems": {"$ref": "#/$defs/strings"},
         "checked": {"type": "integer", "minimum": 0}, "unavailable": {"type": "integer", "minimum": 0},
         "omitted": {"type": "object", "description": "version 1 only"},
-        "run_projects": {"$ref": "#/$defs/strings", "description": "version 1 only"}
+        "run_projects": {"$ref": "#/$defs/strings", "description": "version 1 only"},
+        "efforts": {"type": "array", "items": {"$ref": "#/$defs/effortSummary"}}
       }
     },
     "item": {

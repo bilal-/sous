@@ -7,6 +7,37 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+
+* Recall totals include hidden matches when `--limit` is used; JSON reports
+  `records`, `total_count` and `truncated`. Project hints retain their scope.
+* Empty recall selectors and oversized memory input are rejected without
+  silently changing the request or saving a partial record.
+
+### Changed
+
+* The bare board identifies the running executable and its purpose.
+
+* The social preview now describes finding the work that needs you and picking
+  up where you left off, matching the refreshed website.
+
+### Added
+
+* `sous update` installs verified stable releases, delegates Homebrew upgrades
+  and protects source builds. `--check` checks without changing the installation.
+
+* Private sourced memory: `sous remember`, `sous recall`, verification,
+  supersession, forgetting and explicit sharing between projects. Project briefs
+  include bounded context; workspace boundaries keep unrelated history out.
+* `sous effort` groups projects, notes, memories and references around named work.
+  Dependencies show blockers from current commitments, without owning task status.
+  Effort summaries appear on the board, in project briefs and host snapshots.
+
+* An isolated [memory experiment](experiments/memory-core/README.md) compares
+  MemoryCore's local retrieval with searching project handoffs, and checks
+  workspace boundaries, repeated ingestion, offline fallback, and keeping
+  historical context separate from current commitments.
+
 ## [0.23.0]
 
 ### Added

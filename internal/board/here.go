@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
@@ -22,6 +23,7 @@ import (
 // session, every signal the plugins report for it (same door as the board),
 // and its threads including ideas.
 type HereData struct {
+	Context        Context               `json:"context"`
 	Documents      []project.Document    `json:"documents"`
 	DocumentError  string                `json:"document_error,omitempty"`
 	Project        string                `json:"project"`
@@ -80,6 +82,7 @@ func BuildHere(ctx context.Context, in Inputs, root string) (*HereData, error) {
 	if d.RecentlyClosed, err = thread.RecentlyClosedUpstream(in.Store, root, remote, in.Now, 7*24*time.Hour); err != nil {
 		return nil, err
 	}
+	d.Context = ProjectContext(in.Store, memory.ForProject(in.Cfg, project.Project{Path: root, Remote: d.Remote}), in.Now)
 	return d, nil
 }
 
@@ -153,6 +156,7 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 		fmt.Fprintf(w, "  ✓ %s  %s  (closed upstream %s)\n", r.ID, r.Shown, r.Age)
 	}
 	reviewHint(w, d.Threads, now, "sous review -p "+project.OrgName(d.Project))
+	renderContext(w, d.Context, brief)
 	fmt.Fprintln(w, "\n  sous note \"…\" to add · sous done <n> to close · sous kind <n> me to escalate")
 }
 

@@ -1,0 +1,535 @@
+{
+  "version": 1,
+  "upstream_commit": "ecc01a545da0b2ac6cae2f0f0af0d39d41469793",
+  "environment": {
+    "node": "v22.23.1",
+    "system": "Darwin",
+    "architecture": "arm64"
+  },
+  "dependency_lock_sha256": "1ef5f4a1990c6fa4116753146ca5c973a24ea1dcc7a49e38f62fd65b06d067b4",
+  "mode": "local retrieval; automatic extraction disabled",
+  "not_measured": [
+    "LLM extraction accuracy",
+    "automatic conflict resolution",
+    "embedding recall",
+    "production workload performance"
+  ],
+  "baseline": "unique keyword overlap over original handoffs, scoped before ranking; newest breaks ties",
+  "corpus_sha256": "011292b4a418262598ae63a75d1c83d3bbce908b1575de159fdf5032da1bfad0",
+  "health": {
+    "status": "ok",
+    "version": "0.1.0",
+    "uptime": 0,
+    "stores": {
+      "vectorStore": true,
+      "embeddingService": false,
+      "ftsAvailable": true
+    },
+    "services": {
+      "timerScanner": {
+        "scansCompleted": 0,
+        "tasksEnqueued": 0,
+        "scanErrors": 0,
+        "lastScanMs": 0,
+        "lastScanAt": 0,
+        "isLeader": true,
+        "nodeId": "scanner-mvucils1-vf4b"
+      },
+      "pipelineWorker": {
+        "tasksConsumed": 0,
+        "tasksCompleted": 0,
+        "tasksFailed": 0,
+        "tasksRetried": 0,
+        "tasksDeadLettered": 0,
+        "lockConflicts": 0,
+        "lockRenewFailed": 0,
+        "lockLostDuringExecution": 0,
+        "executionAborted": 0,
+        "tasksParked": 0,
+        "parkedRetryAttempts": 0,
+        "taskOwnershipLost": 0,
+        "claimRefreshFailed": 0,
+        "workerId": "worker-mvucilsp-p5do",
+        "deadLetterCount": 0,
+        "parkedTasks": 0,
+        "parkedCapacity": 240,
+        "parkedBackpressured": false,
+        "parkedScopes": 0,
+        "retryingScopes": 0
+      },
+      "stateBackend": "connected"
+    }
+  },
+  "ingestion": [
+    {
+      "accepted_ids": [
+        "msg-fdb24f73f5ab40d6b8364cd147e94885"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    },
+    {
+      "accepted_ids": [
+        "msg-8ab58994151644b0b2ee8b99d7380c52"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    },
+    {
+      "accepted_ids": [
+        "msg-77cf758d8cdf468eaa3854bf07a0b7ec"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    },
+    {
+      "accepted_ids": [
+        "msg-68719e51471146fb8ec4d116031c996a"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    },
+    {
+      "accepted_ids": [
+        "msg-47e82e39aa604a79bbcddb1add3ef663"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    },
+    {
+      "accepted_ids": [
+        "msg-91cca1f972bf461ba9d62bf97c07a51b"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    },
+    {
+      "accepted_ids": [
+        "msg-d874d9c4d0c540e38254fc39ef466f90"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    },
+    {
+      "accepted_ids": [
+        "msg-db2a5050428046efa508b83d0624f374"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    },
+    {
+      "accepted_ids": [
+        "msg-8895627c0eef4302bd2f2415cc68659e"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    },
+    {
+      "accepted_ids": [
+        "msg-5c8a44f131b0404482521d399a4d7328"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    }
+  ],
+  "queries": [
+    {
+      "id": "current-decision",
+      "query": "cursor pagination",
+      "expected": [
+        "api-2"
+      ],
+      "baseline": {
+        "ids": [
+          "api-2",
+          "api-1"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [
+          "api-1"
+        ],
+        "current_decision_first": true
+      },
+      "memory_core": {
+        "ids": [
+          "api-1",
+          "api-2"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [
+          "api-1"
+        ],
+        "current_decision_first": false,
+        "available": true,
+        "elapsed_ms": 2.37
+      }
+    },
+    {
+      "id": "decision-reason",
+      "query": "numbered pages",
+      "expected": [
+        "api-1"
+      ],
+      "baseline": {
+        "ids": [
+          "api-1"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null
+      },
+      "memory_core": {
+        "ids": [
+          "api-1"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null,
+        "available": true,
+        "elapsed_ms": 0.94
+      }
+    },
+    {
+      "id": "resume-release",
+      "query": "release smoke checks",
+      "expected": [
+        "api-2",
+        "api-4"
+      ],
+      "baseline": {
+        "ids": [
+          "api-4",
+          "api-2",
+          "api-3"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null
+      },
+      "memory_core": {
+        "ids": [
+          "api-4",
+          "api-2",
+          "api-3"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null,
+        "available": true,
+        "elapsed_ms": 0.99
+      }
+    },
+    {
+      "id": "cross-project-lesson",
+      "query": "idempotency key",
+      "expected": [
+        "api-3",
+        "site-1"
+      ],
+      "baseline": {
+        "ids": [
+          "api-3",
+          "site-1",
+          "api-5"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null
+      },
+      "memory_core": {
+        "ids": [
+          "api-3",
+          "site-1",
+          "api-5"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null,
+        "available": true,
+        "elapsed_ms": 1.68
+      }
+    },
+    {
+      "id": "waiting-on-others",
+      "query": "design approval",
+      "expected": [
+        "site-2"
+      ],
+      "baseline": {
+        "ids": [
+          "site-2"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null
+      },
+      "memory_core": {
+        "ids": [
+          "site-2"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null,
+        "available": true,
+        "elapsed_ms": 0.75
+      }
+    },
+    {
+      "id": "rollback-evidence",
+      "query": "signing key",
+      "expected": [
+        "api-5"
+      ],
+      "baseline": {
+        "ids": [
+          "api-5",
+          "api-3"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null
+      },
+      "memory_core": {
+        "ids": [
+          "api-5",
+          "api-3"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null,
+        "available": true,
+        "elapsed_ms": 0.69
+      }
+    },
+    {
+      "id": "private-boundary",
+      "query": "violet-canary",
+      "expected": [],
+      "baseline": {
+        "ids": [],
+        "recall_at_3": null,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null
+      },
+      "memory_core": {
+        "ids": [],
+        "recall_at_3": null,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null,
+        "available": true,
+        "elapsed_ms": 1.67
+      }
+    },
+    {
+      "id": "private-recall",
+      "query": "violet-canary",
+      "expected": [
+        "library-1"
+      ],
+      "baseline": {
+        "ids": [
+          "library-1"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null
+      },
+      "memory_core": {
+        "ids": [
+          "library-1"
+        ],
+        "recall_at_3": 1.0,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null,
+        "available": true,
+        "elapsed_ms": 0.85
+      }
+    },
+    {
+      "id": "unknown",
+      "query": "quantum unicorn",
+      "expected": [],
+      "baseline": {
+        "ids": [],
+        "recall_at_3": null,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null
+      },
+      "memory_core": {
+        "ids": [],
+        "recall_at_3": null,
+        "pass": true,
+        "superseded_also_returned": [],
+        "current_decision_first": null,
+        "available": true,
+        "elapsed_ms": 1.26
+      }
+    },
+    {
+      "id": "paraphrase-payment",
+      "query": "avoid double billing",
+      "expected": [
+        "api-3"
+      ],
+      "baseline": {
+        "ids": [],
+        "recall_at_3": 0.0,
+        "pass": false,
+        "superseded_also_returned": [],
+        "current_decision_first": null
+      },
+      "memory_core": {
+        "ids": [],
+        "recall_at_3": 0.0,
+        "pass": false,
+        "superseded_also_returned": [],
+        "current_decision_first": null,
+        "available": true,
+        "elapsed_ms": 0.62
+      }
+    },
+    {
+      "id": "paraphrase-waiting",
+      "query": "who owes me an answer",
+      "expected": [
+        "site-2"
+      ],
+      "baseline": {
+        "ids": [],
+        "recall_at_3": 0.0,
+        "pass": false,
+        "superseded_also_returned": [],
+        "current_decision_first": null
+      },
+      "memory_core": {
+        "ids": [],
+        "recall_at_3": 0.0,
+        "pass": false,
+        "superseded_also_returned": [],
+        "current_decision_first": null,
+        "available": true,
+        "elapsed_ms": 0.64
+      }
+    }
+  ],
+  "summary_isolation": {
+    "method": "execution of upstream buildProfileIsolationScope; no generated summaries tested",
+    "task_only_mapping_collides": true,
+    "project_agent_mapping_collides": false,
+    "workspace_team_mapping_collides": false
+  },
+  "ingestion_retry": {
+    "before": {
+      "total": 1
+    },
+    "after": {
+      "total": 2
+    },
+    "replay": {
+      "accepted_ids": [
+        "msg-27344969f206468b9126497154ea77a3"
+      ],
+      "accepted_versions": [
+        "v1"
+      ],
+      "total_count": 1
+    }
+  },
+  "health_after": {
+    "status": "ok",
+    "version": "0.1.0",
+    "uptime": 0,
+    "stores": {
+      "vectorStore": true,
+      "embeddingService": false,
+      "ftsAvailable": true
+    },
+    "services": {
+      "timerScanner": {
+        "scansCompleted": 0,
+        "tasksEnqueued": 0,
+        "scanErrors": 0,
+        "lastScanMs": 0,
+        "lastScanAt": 0,
+        "isLeader": true,
+        "nodeId": "scanner-mvucils1-vf4b"
+      },
+      "pipelineWorker": {
+        "tasksConsumed": 0,
+        "tasksCompleted": 0,
+        "tasksFailed": 0,
+        "tasksRetried": 0,
+        "tasksDeadLettered": 0,
+        "lockConflicts": 0,
+        "lockRenewFailed": 0,
+        "lockLostDuringExecution": 0,
+        "executionAborted": 0,
+        "tasksParked": 0,
+        "parkedRetryAttempts": 0,
+        "taskOwnershipLost": 0,
+        "claimRefreshFailed": 0,
+        "workerId": "worker-mvucilsp-p5do",
+        "deadLetterCount": 0,
+        "parkedTasks": 0,
+        "parkedCapacity": 240,
+        "parkedBackpressured": false,
+        "parkedScopes": 0,
+        "retryingScopes": 0
+      },
+      "stateBackend": "connected"
+    }
+  },
+  "offline_fallback": {
+    "available": false,
+    "stale": true,
+    "preserved_ids": [
+      "api-3",
+      "site-1",
+      "api-5"
+    ]
+  },
+  "summary": {
+    "queries": 11,
+    "baseline_passes": 9,
+    "memory_core_passes": 9,
+    "extraction_tasks": 0
+  },
+  "completed": true
+}

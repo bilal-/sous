@@ -163,7 +163,7 @@ func why(plugins []signal.PluginStatus, stale map[string]bool, extra []string) [
 
 // Classify turns board data into sections. Ideas stay off the board.
 func Classify(d *Data) Sections {
-	var extra []string
+	extra := slices.Clone(d.ContextAttention)
 	if d.Unavailable > 0 {
 		extra = append(extra, fmt.Sprintf("%d root unavailable", d.Unavailable))
 	}
@@ -215,7 +215,7 @@ func signalRow(o signal.Observed, now time.Time) Row {
 // observed signals the board uses, and recently upstream-closed threads
 // appear so the person sees it happened.
 func classifyHere(h *HereData) Sections {
-	extra := []string{}
+	extra := slices.Clone(h.Context.Attention)
 	if h.DocumentError != "" {
 		extra = append(extra, "project docs unavailable: "+h.DocumentError)
 	}

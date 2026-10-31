@@ -89,8 +89,8 @@ const social = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
   <defs><radialGradient id="glow" cx="0.85" cy="0.05" r="0.85"><stop offset="0" stop-color="#8B5CF6" stop-opacity=".42"/><stop offset="1" stop-color="#08090D" stop-opacity="0"/></radialGradient></defs>
   <rect width="1200" height="630" fill="#08090D"/><rect width="1200" height="630" fill="url(#glow)"/>
   ${tile}${name}
-  <text x="80" y="335" font-family="Manrope, Helvetica Neue, Arial, sans-serif" font-size="60" font-weight="700" fill="${PAPER}" letter-spacing="-1.5">Everything waiting on you,</text>
-  <text x="80" y="410" font-family="Manrope, Helvetica Neue, Arial, sans-serif" font-size="60" font-weight="700" fill="${VIOLET}" letter-spacing="-1.5">in one list.</text>
+  <text x="80" y="335" font-family="Manrope, Helvetica Neue, Arial, sans-serif" font-size="60" font-weight="700" fill="${PAPER}" letter-spacing="-1.5">Know what needs you.</text>
+  <text x="80" y="410" font-family="Manrope, Helvetica Neue, Arial, sans-serif" font-size="60" font-weight="700" fill="${VIOLET}" letter-spacing="-1.5">Pick up where you left off.</text>
   <text x="80" y="545" font-family="JetBrains Mono, Menlo, monospace" font-size="27" fill="#A4A6B2">brew install bilal-/tap/sous</text>
   <text x="1120" y="545" text-anchor="end" font-family="JetBrains Mono, Menlo, monospace" font-size="27" fill="#6F7180">sous.bilal.sh</text>
 </svg>

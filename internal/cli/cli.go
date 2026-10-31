@@ -17,6 +17,7 @@ import (
 	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/tracker"
+	"github.com/bilal-/sous/internal/update"
 )
 
 // The exit codes, the same ones plugins speak (sous help lists them).
@@ -65,6 +66,16 @@ For agents:
   AGENTS.md or CLAUDE.md holds working instructions. Use existing conventions.
   Keep the handoff current as part of authorized work; propose new shared
   documents when needed. Keep important decisions in the project's design docs.
+
+  Keep useful private context with sous remember: a short handoff, decision,
+  constraint, lesson or open question, with --source pointing to its evidence.
+  Set SOUS_SOURCE=agent. Capture meaningful context as part of authorized work,
+  not whole transcripts or credentials. Use --supersedes when a decision changes.
+  Read sous recall for more history; --show gives a record's full provenance.
+  Only mark --verified after checking the source. Memory is context, never proof
+  that a commitment is complete. Share memory into another project's brief only
+  when the person explicitly asks. Efforts link existing notes and projects;
+  dependencies explain blockers without changing any task's status.
   On a review reminder, run sous review -p <project> --json. Check the
   matching work before closing a note; age or a session summary is not proof.
   Close verified completed notes with sous done <n>. Keep unresolved ones
@@ -96,11 +107,12 @@ type Env struct {
 	Exe      string // path to this binary, for re-exec of built-in plugins
 	Cfg      *config.Config
 	Store    *store.Store
-	Cwd      string // the working directory, read once; tests set it instead of chdir
-	UserHome string // the person's home folder, read once
-	Shell    string // the shell's name, from $SHELL: "zsh", "bash", "fish"
-	Zdotdir  string // $ZDOTDIR, where zsh keeps its startup files when set
-	Source   string // SOUS_SOURCE: who is writing notes ("agent"), read once
+	Cwd      string          // the working directory, read once; tests set it instead of chdir
+	UserHome string          // the person's home folder, read once
+	Shell    string          // the shell's name, from $SHELL: "zsh", "bash", "fish"
+	Zdotdir  string          // $ZDOTDIR, where zsh keeps its startup files when set
+	Source   string          // SOUS_SOURCE: who is writing notes ("agent"), read once
+	Updater  *update.Updater // tests supply an isolated release server and executable
 	// Timeout for one signal plugin. The session hook shortens it so a slow
 	// plugin cannot eat the hook's 5 s guard.
 	PluginTimeout time.Duration

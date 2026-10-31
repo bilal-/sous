@@ -38,6 +38,10 @@ func TestAXI8ContentFirst(t *testing.T) {
 	if code != 0 || !strings.HasPrefix(out, "sous · ") || strings.Contains(out, "usage") {
 		t.Fatalf("%d\n%s", code, out)
 	}
+	exe, _ := os.Executable()
+	if !strings.Contains(out, stableExe(exe)) || !strings.Contains(out, "what is waiting on you across every project") {
+		t.Fatalf("missing executable and purpose: %s", out)
+	}
 }
 
 // AXI 4 and 5: every read verb answers in an empty world, with a count or
@@ -51,6 +55,9 @@ func TestAXI4And5ReadVerbsAnswerWhenEmpty(t *testing.T) {
 		}
 		if v.name == "serve" {
 			continue // runs until stopped, like integration watch: TestServePrintsAWorkingAddress
+		}
+		if v.name == "update" {
+			continue // network/install mutation: TestUpdateCommandCheckRetryAndErrors uses a local server
 		}
 		out, errs, code := f.runIn(p, v.name)
 		if code != 0 && !(v.name == "doctor" && code == 1) || strings.TrimSpace(out) == "" { // doctor: 1 means problems found

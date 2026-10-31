@@ -434,6 +434,12 @@
         "run_projects": {
           "$ref": "#/$defs/strings",
           "description": "projects a host may start runs in (remote_runs)"
+        },
+        "efforts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effortSummary"
+          }
         }
       }
     },
@@ -823,6 +829,12 @@
         "unavailable": {
           "type": "integer",
           "minimum": 0
+        },
+        "efforts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effortSummary"
+          }
         }
       }
     },
@@ -1048,6 +1060,78 @@
         "patch": {
           "type": "string",
           "description": "git diff base commit, at most 32 KB a page, cut at line ends"
+        }
+      }
+    },
+    "memoryScope": {
+      "type": "object",
+      "required": [
+        "workspace",
+        "project"
+      ],
+      "properties": {
+        "workspace": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string"
+        },
+        "remote": {
+          "type": "string"
+        }
+      }
+    },
+    "effortSummary": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "projects",
+        "open",
+        "completed",
+        "blocked",
+        "unavailable",
+        "stale",
+        "archived",
+        "attention"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/memoryScope"
+          }
+        },
+        "open": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unavailable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "attention": {
+          "$ref": "#/$defs/strings"
         }
       }
     }

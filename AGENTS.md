@@ -11,10 +11,10 @@ missing from it.
 ## What sous is
 
 A Go command that shows a person what is waiting on them across every
-project they work on. It is an index, not a store: it works out git, GitHub
-and GitLab state again on every look, and keeps only the person's own notes
-and a little history about what it has seen. It can hand a task to a
-runner and follow it, but it never does the work or owns a workflow.
+project they work on. It indexes live git, GitHub and GitLab state again on
+every look. It keeps private notes, sourced memory and effort links, plus a
+little history about what it has seen; it never duplicates upstream task status.
+It can hand a task to a runner and follow it, but it never does the work or owns a workflow.
 Running `sous` with nothing else always shows the board.
 
 ## Build and test
@@ -51,6 +51,8 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/integration native host discovery, offline task snapshots and change subscriptions; the host owns its UI and notifications
     integrations/herdr  a standalone herdr host plugin CLI: manifest, Tasks pane, observer, notifications, sidebar metadata and install guide; tests use fake sockets and throwaway homes
     internal/session    the last agent session in each project, and the summary handed to an agent sous starts
+    internal/memory     private sourced context, verification, supersession and explicit sharing
+    internal/effort     named links between projects, notes, memories and dependencies
     internal/thread     the person's notes
     internal/signal     the signal contract, running signal plugins, what has been seen before, and the git, GitHub and GitLab signals
     internal/backend    the backend contract, FOLLOWUPS.md, and GitHub and GitLab issues
@@ -71,6 +73,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/config     config.toml: reading it, the list of settings (from Config's fields), and safe editing (Set), checked to change only what was asked
     internal/hook       what the session hooks do: the project a session is in, and recording how it ended
     internal/install    setup's steps: agent hooks and skills, and the shell line, and Check for each
+    internal/update     checked release downloads, atomic binary replacement and Homebrew delegation
     internal/doctor     sous doctor: every check, in one list, with how to fix it
     internal/text       how sous writes things for people: ages, times, lines cut to fit
     docs                the guides; docs.go carries commands.md inside the program for each command's --help
@@ -78,8 +81,8 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/testutil   helpers shared by every package's tests
 
 Code only depends downward, in this order: `cli`, then `doctor`, then
-`report`, `install` and `integration`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
-`tracker`, `plugin`, `harness`, `thread`, `session` and `project`, then `store`,
+`report`, `install`, `integration` and `update`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
+`tracker`, `plugin`, `harness`, `thread`, `session`, `project`, `memory` and `effort`, then `store`,
 `config`, `text` and `docs`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.
 `thread` uses `project` for a project's path and remote; they share a tier.
@@ -203,14 +206,17 @@ that agents use, as they read at this exact version:
   [kunchenguid/axi](https://github.com/kunchenguid/axi)
 * commit: [`e15f82d`](https://github.com/kunchenguid/axi/blob/e15f82dd8e75ff640aaefd5c76c49471c5bcbbea/docs/index.html)
   (2026-09-27), the ten principles
-* checked against sous: 2026-10-03 (axi.md at `e7dd8fa` has the same ten
-  principles)
+* checked against sous: 2026-10-30; the live page's ten principle bodies
+  are unchanged from the pinned commit above
 
 We do not follow axi.md automatically. To move to a newer version, read
 what changed since that commit, update sous and its tests, then update the
-commit above. `internal/cli/axi_test.go` has
-one test per principle, and most of them loop over every command, so a new
-command is checked without anyone adding a test. When one fails, fix the
+commit above. `internal/cli/axi_test.go`
+checks the shared command behavior; `internal/cli/axi_memory_test.go` also
+executes scoped hints and checks nonempty totals, invalid selectors and input
+bounds. Most shared checks loop over every command. Update behavior uses a
+local HTTP server and fake Homebrew, never real releases or installations.
+When one fails, fix the
 command, not the test.
 
 What the tests hold: bare `sous` shows the board; every command that shows

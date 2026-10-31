@@ -20,13 +20,15 @@ import (
 )
 
 type Data struct {
-	Projects    []project.Project     `json:"projects"`
-	Signals     []signal.Observed     `json:"signals"`
-	Threads     []thread.View         `json:"threads"`
-	Plugins     []signal.PluginStatus `json:"plugins"`
-	Checked     int                   `json:"checked"`
-	Unavailable int                   `json:"unavailable"`
-	RenderedAt  time.Time             `json:"rendered_at"`
+	Efforts          []EffortSummary       `json:"efforts,omitempty"`
+	ContextAttention []string              `json:"context_attention,omitempty"`
+	Projects         []project.Project     `json:"projects"`
+	Signals          []signal.Observed     `json:"signals"`
+	Threads          []thread.View         `json:"threads"`
+	Plugins          []signal.PluginStatus `json:"plugins"`
+	Checked          int                   `json:"checked"`
+	Unavailable      int                   `json:"unavailable"`
+	RenderedAt       time.Time             `json:"rendered_at"`
 }
 
 type Inputs struct {
@@ -104,7 +106,11 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 		}
 		ths = kept
 	}
-	return &Data{Projects: ps, Signals: sigs, Threads: ths, Plugins: col.Plugins, Checked: len(ps), Unavailable: unavailable, RenderedAt: in.Now.UTC()}, nil
+	es, problems := EffortSummaries(in.Store, in.Now)
+	if len(in.Roots) > 0 {
+		es, problems = scopeEfforts(es, problems, known)
+	}
+	return &Data{Projects: ps, Signals: sigs, Threads: ths, Plugins: col.Plugins, Checked: len(ps), Unavailable: unavailable, RenderedAt: in.Now.UTC(), Efforts: es, ContextAttention: problems}, nil
 }
 
 // The width of a row's text on the board, and what the board says when it
@@ -180,6 +186,12 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 		fmt.Fprintln(w, cutNote)
 	}
 	reviewHint(w, d.Threads, now, "sous review")
+	if len(d.Efforts) > 0 {
+		fmt.Fprintln(w, "\n  efforts · sous effort <name> for details")
+		for _, e := range d.Efforts {
+			renderEffortSummary(w, e)
+		}
+	}
 
 	fmt.Fprintf(w, "\n  %d checked · %d unavailable%s · as of %s · sous snooze <id> to hide a row\n",
 		d.Checked, d.Unavailable, pluginFailures(d), text.AsOf(d.RenderedAt, now))
@@ -210,6 +222,7 @@ func ReadCurrentCache(s *store.Store, now time.Time) (*CacheDoc, error) {
 	if err != nil || c.Data == nil {
 		return c, err
 	}
+	c.Data.Efforts, c.Data.ContextAttention = EffortSummaries(s, now)
 	views, err := thread.Open(s, now)
 	if err != nil {
 		return nil, err

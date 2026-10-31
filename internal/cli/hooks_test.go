@@ -205,7 +205,18 @@ func TestHereRunsNoTrackerCLI(t *testing.T) {
 	// reconciliation is the board's job; here is local).
 	f.runIn(p, "note", "-k", "me", "filed elsewhere")
 	f.fileAs(1, "github:acme/api#4")
-	f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "startup"}), "hook", "session-start", "claude")
+	for _, args := range [][]string{
+		{"remember", "-k", "constraint", "--source", "docs/design.md", "Keep startup offline"},
+		{"effort", "add", "Client launch"},
+		{"effort", "link", "Client launch", "--note", "1", "--memory", "m:1"},
+	} {
+		if out, errs, code := f.runIn(p, args...); code != 0 {
+			t.Fatalf("%v: %d %s %s", args, code, out, errs)
+		}
+	}
+	if out, errs, code := f.runStdin(hookJSON(map[string]any{"cwd": p, "source": "startup"}), "hook", "session-start", "claude"); code != 0 || errs != "" || !strings.Contains(out, "Keep startup offline") || !strings.Contains(out, "Client launch") {
+		t.Fatalf("hook must carry local memory and efforts: %d %q %q", code, out, errs)
+	}
 	if out, errs, code := f.run("here", p); code != 0 || !strings.Contains(out, "filed elsewhere") {
 		t.Fatalf("here must still show the filed note: %d %q %q", code, out, errs)
 	}

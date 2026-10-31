@@ -44,6 +44,8 @@ const (
 )
 
 type ProjectConfig struct {
+	// Workspace is the private memory boundary; by default, the discovery root.
+	Workspace     string `toml:"workspace"`
 	Backend       string `toml:"backend"`
 	GitHubAccount string `toml:"github_account"`
 	// RemoteRuns "true": a host (a phone through Shellbell) may start runs here.

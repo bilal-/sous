@@ -48,7 +48,8 @@ type Snapshot struct {
 	Omitted map[string]int `json:"omitted,omitempty"`
 	// RunProjects: version 1, the projects a host may start runs in
 	// (remote_runs), so it offers only those.
-	RunProjects []string `json:"run_projects,omitempty"`
+	RunProjects []string              `json:"run_projects,omitempty"`
+	Efforts     []board.EffortSummary `json:"efforts,omitempty"`
 }
 
 // Reader overlays current notes and local runner/backend answers onto the
@@ -85,6 +86,7 @@ func (r Reader) Read(ctx context.Context) (Snapshot, error) {
 			return Snapshot{}, err
 		}
 		d = &board.Data{Threads: views, RenderedAt: now}
+		d.Efforts, d.ContextAttention = board.EffortSummaries(r.Store, now)
 	}
 	if r.Reconcile != nil {
 		d.Threads = r.Reconcile(ctx, d.Threads)
@@ -97,6 +99,7 @@ func (r Reader) Read(ctx context.Context) (Snapshot, error) {
 		s.AsOf = &asOf
 	}
 	sections := board.Classify(d)
+	s.Efforts = append([]board.EffortSummary{}, d.Efforts...)
 	s.Problems = append([]string{}, sections.Why...)
 	if !r.Configured {
 		s.Problems = append(s.Problems, config.NoRootsHint)
