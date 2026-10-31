@@ -90,8 +90,8 @@ func DescribeV1(version string) DescriptionV1 {
 		Actions: []ActionV1{
 			{ID: "show", Title: "Show details", Argv: []string{"sous", "show", "--json", "--", "{id}"}, Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "read"},
 			{ID: "open", Title: "Open project", Argv: []string{"sous", "go", "--in", "{project}", "--", "{project}"}, Parameters: []Parameter{proj}, Scope: "project", Format: "terminal", Effect: "launch", Offline: true, Terminal: true},
-			{ID: "snooze", Title: "Snooze", Argv: []string{"sous", "snooze", "--json", "--", "{id}"}, Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "write_private", Offline: true},
-			{ID: "done", Title: "Close note", Argv: []string{"sous", "done", "--json", "--", "{id}"}, Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "write_private"},
+			{ID: "snooze", Title: "Snooze", Argv: act("snooze", "{id}"), Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "write_private", Op: true, Offline: true},
+			{ID: "done", Title: "Close note", Argv: act("done", "{id}"), Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "write_private", Op: true},
 			{ID: "run", Title: "Start a run", Argv: act("run", "{project}"), Parameters: []Parameter{proj, {Name: "brief", Type: "text", Required: true, MaxBytes: 16 << 10}}, Scope: "project", Input: "stdin", Format: "json", Effect: "launch", Op: true},
 			{ID: "stop", Title: "Stop run", Argv: act("stop", "{id}"), Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "write_private", Op: true},
 			{ID: "approve", Title: "Approve result", Argv: act("approve", "{id}", "--commit", "{commit}"), Parameters: []Parameter{id, {Name: "commit", Type: "commit", Required: true}}, Scope: "item", Format: "json", Effect: "write_public", Confirm: true, Op: true},

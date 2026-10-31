@@ -31,7 +31,7 @@ func TestStandaloneModesRejectUnusedInput(t *testing.T) {
 
 func TestIntegrationSubcallsRejectUnusedFlags(t *testing.T) {
 	f := fixture(t)
-	for _, action := range []string{"run", "stop", "reply", "approve", "discard", "diff"} {
+	for _, action := range []string{"run", "stop", "reply", "approve", "discard", "done", "snooze", "diff"} {
 		unused := []string{"page", "max-bytes"}
 		if action == "diff" {
 			unused = []string{"op", "question", "commit", "max-bytes"}

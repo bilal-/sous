@@ -90,3 +90,6 @@ func TestOpInProgress(t *testing.T) {
 		t.Fatalf("stale reservation: %+v", o)
 	}
 }
+
+// reserve simulates a request that died after reserving its operation.
+func (o Ops) reserve(op, action, hash string) { o.begin(op, action, hash) }

@@ -15,6 +15,11 @@ upgraded, never broken.
 
 ### Fixed
 
+- Browser done and snooze actions now retain their operation identity through
+  interrupted requests. Retries preserve the first snooze deadline and signal
+  content, keep notes private, and cannot duplicate a still-running request.
+  Unresolved operations from older versions are reported for inspection.
+
 - Late runner status responses and cached failures no longer undo a newer stop,
   resume or close, including a stop–resume–stop sequence.
 

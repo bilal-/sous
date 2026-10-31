@@ -218,7 +218,7 @@ type actRequest struct {
 // actable are the actions the page may run: those taking an op, and the
 // private writes that need no terminal.
 func actable(a integration.ActionV1) bool {
-	return !a.Terminal && a.Effect != "read" && (a.Op || a.ID == "snooze" || a.ID == "done")
+	return !a.Terminal && a.Effect != "read" && a.Op
 }
 
 // act fills the advertised argv of the action asked for, each value a

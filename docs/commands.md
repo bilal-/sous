@@ -380,6 +380,12 @@ target after `--`):
 * `approve --commit <sha> -- <n>`: publish the result if it is still that
   commit, as `sous approve` does.
 * `discard -- <n>`: turn the result down.
+* `done -- <n>`: stop any run, then close the private note. No upstream
+  checkbox or tracker item is closed, and its worktree is kept.
+* `snooze -- <n|s:id>`: hide a note for seven days, or a signal until its
+  content changes. A retry keeps the original deadline and resolved signal;
+  it never snoozes changed work or undoes a later action.
+
 
 And one read, with no op: `diff --page <n> -- <n>` prints a run's result
 as a patch, 32 KB a page, with `pages` saying how many there are.
@@ -389,6 +395,14 @@ Each prints one outcome (one JSON object with `--json`): `done`,
 right now), `refused` (exit `2`), `conflict` (exit `4`: what it names has
 moved on), `failed` (exit `1`; the same op may be tried again) or
 `not_ready` (exit `3`). `in_progress` exits `5`.
+It means another request still owns that op, regardless of its age. An
+interrupted request can recover after releasing ownership. An unresolved op
+from an older sous instead returns `not_ready` with `legacy_operation`;
+inspect its result before initiating a new action. Waiting alone does not
+make that legacy request safe to repeat. Successful private mutations and
+receipts are saved together, so recovery works even when the final outcome
+was not recorded. Reusing an op for different input is always refused.
+
 * `--json`: `describe` and `snapshot` return one JSON object. `watch` emits
   one JSON object per line (NDJSON): `snapshot`, `changes` or `unavailable`
   events. Empty arrays are `[]`. A new baseline includes no item changes;
@@ -1174,8 +1188,8 @@ Everything lives in `~/.sous` (or `SOUS_HOME`).
 sous also keeps one lock file, `sous/gh-token.lock`, in your cache folder
 (`~/Library/Caches` on macOS, `~/.cache` on Linux).
 
-The sous-owned JSON state files (`threads`, `observed`, `sessions`, `cache`
-and `report`) carry versions and are upgraded when a newer sous reads them.
+The sous-owned JSON state files (`threads`, `observed`, `sessions`, `memory`, `efforts`, `cache`,
+`ops` and `report`) carry versions and are upgraded when a newer sous reads them.
 An older sous refuses a newer version rather than damaging it. Runner-owned
 files under `runs/`, settings, generated pages and summaries use their own
 formats.

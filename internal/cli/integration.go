@@ -102,7 +102,7 @@ func cmdIntegration(e *Env, a argv) int {
 		}
 		return 0
 	default:
-		return fail(e, exitUsage, "integration calls are describe, snapshot and watch, and with --protocol 1 run, stop and reply\nusage: sous integration [describe|snapshot|watch] [--protocol <n>] [--json]")
+		return fail(e, exitUsage, "integration calls are describe, snapshot and watch, and with --protocol 1 run, stop, reply, approve, discard, done, snooze and diff\nusage: sous integration [describe|snapshot|watch] [--protocol <n>] [--json]")
 	}
 }
 

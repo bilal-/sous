@@ -14,6 +14,7 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
 	"github.com/bilal-/sous/internal/runs"
+	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/thread"
 )
 
@@ -21,6 +22,8 @@ import (
 // op (runs.Ops), however often the host asks, and answers with one outcome.
 var integrationActs = map[string]func(e *Env, target string, in []byte, a argv) (string, runs.Outcome){
 	"run":     actRun,
+	"done":    actDone,
+	"snooze":  actSnooze,
 	"stop":    actStop,
 	"reply":   actReply,
 	"approve": actApprove,
@@ -245,4 +248,61 @@ func actDiscard(e *Env, target string, _ []byte, _ argv) (string, runs.Outcome) 
 		return target, runErr(id, "discard", err)
 	}
 	return target, runs.Outcome{Outcome: runs.Done, ID: target}
+}
+
+func privateOutcome(id string, already bool, err error) runs.Outcome {
+	if err == nil {
+		outcome := runs.Done
+		if already {
+			outcome = runs.AlreadyDone
+		}
+		return runs.Outcome{Outcome: outcome, ID: id}
+	}
+	switch {
+	case errors.Is(err, thread.ErrOpReused), errors.Is(err, signal.ErrOpReused):
+		return runs.Outcome{Outcome: runs.Refused, ID: id, Reason: "op_reused"}
+	case errors.Is(err, thread.ErrNotFound), errors.Is(err, signal.ErrUnknownSignal):
+		return runs.Outcome{Outcome: runs.Refused, ID: id, Reason: "unknown_item"}
+	case errors.As(err, new(thread.ValidationError)), errors.Is(err, signal.ErrSelector):
+		return runs.Outcome{Outcome: runs.Refused, Reason: "bad_input"}
+	}
+	return failed("private_action", err)
+}
+
+func actSnooze(e *Env, target string, _ []byte, a argv) (string, runs.Outcome) {
+	if signal.IsID(target) {
+		id, already, err := signal.SnoozeOnce(e.store(), target, a.value("op"))
+		return id, privateOutcome(id, already, err)
+	}
+	id, err := strconv.Atoi(target)
+	if err != nil || id <= 0 {
+		return "", runs.Outcome{Outcome: runs.Refused, Reason: "bad_input"}
+	}
+	already, err := thread.SnoozeOnce(e.store(), id, 7, time.Now(), a.value("op"))
+	return target, privateOutcome(target, already, err)
+}
+
+func actDone(e *Env, target string, _ []byte, a argv) (string, runs.Outcome) {
+	id, err := strconv.Atoi(target)
+	if err != nil || id <= 0 {
+		return "", runs.Outcome{Outcome: runs.Refused, Reason: "bad_input"}
+	}
+	op := a.value("op")
+	already, err := thread.DoneRecorded(e.store(), id, op)
+	if err != nil || already {
+		return target, privateOutcome(target, already, err)
+	}
+	th, err := thread.Get(e.store(), id)
+	if err != nil {
+		return target, privateOutcome(target, false, err)
+	}
+	if th.Run == nil {
+		already, err = thread.DoneOnce(e.store(), id, time.Now(), op)
+	} else {
+		if _, code := e.config(); code != 0 {
+			return target, runs.Outcome{Outcome: runs.NotReady, Reason: "config"}
+		}
+		already, err = e.dispatcher().DoneOnce(e.ctx(), id, op)
+	}
+	return target, privateOutcome(target, already, err)
 }

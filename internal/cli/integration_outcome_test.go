@@ -7,7 +7,7 @@ import (
 )
 
 func TestIntegrationActionsWriteOneOutcomeOnLookupFailure(t *testing.T) {
-	for _, action := range []string{"run", "stop", "reply", "approve", "discard"} {
+	for _, action := range []string{"run", "stop", "reply", "approve", "discard", "done", "snooze"} {
 		t.Run(action+"/config", func(t *testing.T) {
 			f := fixture(t)
 			f.writeConfig("roots = [")
@@ -20,6 +20,14 @@ func TestIntegrationActionsWriteOneOutcomeOnLookupFailure(t *testing.T) {
 			var o outcome
 			if err := json.Unmarshal([]byte(out), &o); err != nil {
 				t.Fatalf("one outcome required: %v: %q", err, out)
+			}
+			if action == "done" || action == "snooze" {
+				// Private notes do not require configuration. The missing
+				// target is still reported in exactly one outcome.
+				if code != exitUsage || o.Kind != "outcome" || o.Outcome != "refused" || o.Reason != "unknown_item" || strings.Contains(errs, "config:") {
+					t.Fatalf("private outcome: %+v, code %d, stderr %q", o, code, errs)
+				}
+				return
 			}
 			if code != exitNotReady || o.Kind != "outcome" || o.Outcome != "not_ready" || o.Reason != "config" || !strings.Contains(errs, "config:") {
 				t.Fatalf("outcome: %+v, code %d, stderr %q", o, code, errs)

@@ -115,9 +115,10 @@ func (t Thread) Belongs(path, remote string) bool {
 }
 
 type Doc struct {
-	Version int      `json:"version"`
-	NextID  int      `json:"next_id"`
-	Threads []Thread `json:"threads"`
+	Version     int                        `json:"version"`
+	NextID      int                        `json:"next_id"`
+	Threads     []Thread                   `json:"threads"`
+	MutationOps map[string]mutationReceipt `json:"mutation_ops,omitempty"`
 }
 
 // View is a Thread as the board sees it.
@@ -177,8 +178,8 @@ const name = "threads"
 // v5 records the revision of each run for observation/action ordering.
 type Migrator struct{}
 
-func (Migrator) Empty() []byte { return []byte(`{"version":5,"next_id":1,"threads":[]}`) }
-func (Migrator) Current() int  { return 5 }
+func (Migrator) Empty() []byte { return []byte(`{"version":6,"next_id":1,"threads":[]}`) }
+func (Migrator) Current() int  { return 6 }
 func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 	switch from {
 	case 0:
@@ -196,6 +197,8 @@ func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 				t.Run.Revision = 0
 			}
 		})
+	case 5:
+		return edit(raw, 6, func(*Thread) {})
 	}
 	return nil, fmt.Errorf("unknown version %d", from)
 }

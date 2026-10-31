@@ -135,7 +135,7 @@ func TestRunRevisionUpgradePreservesExistingData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if upgraded.Version != 5 {
+	if upgraded.Version != (Migrator{}).Current() {
 		t.Fatalf("version %d", upgraded.Version)
 	}
 	want, _ := json.Marshal(th)

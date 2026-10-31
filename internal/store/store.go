@@ -35,6 +35,10 @@ type Migrator interface {
 func (s *Store) path(name string) string { return filepath.Join(s.Home, name+".json") }
 
 func (s *Store) lock(name string) (func(), error) {
+	return s.lockMode(name, syscall.LOCK_EX)
+}
+
+func (s *Store) lockMode(name string, mode int) (func(), error) {
 	if err := os.MkdirAll(s.Home, 0o755); err != nil {
 		return nil, err
 	}
@@ -42,7 +46,7 @@ func (s *Store) lock(name string) (func(), error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+	if err := syscall.Flock(int(f.Fd()), mode); err != nil {
 		f.Close()
 		return nil, err
 	}
@@ -334,4 +338,18 @@ func (e V1) Empty() []byte { return []byte(e) }
 func (V1) Current() int    { return 1 }
 func (V1) Migrate(from int, _ []byte) ([]byte, error) {
 	return nil, fmt.Errorf("no migration from v%d", from)
+}
+
+// TryLocked holds a named lock through fn, returning immediately if another
+// process owns it. Lock files stay in place; file descriptors close on exec.
+func (s *Store) TryLocked(name string, fn func() error) (bool, error) {
+	unlock, err := s.lockMode(name, syscall.LOCK_EX|syscall.LOCK_NB)
+	if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer unlock()
+	return true, fn()
 }

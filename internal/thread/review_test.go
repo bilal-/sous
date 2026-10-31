@@ -59,7 +59,7 @@ func TestMigrateV3KeepsNotesAndStartsReviewFromTheirAge(t *testing.T) {
 		t.Fatal(err)
 	}
 	d, err := store.Load[Doc](s, "threads", Migrator{})
-	if err != nil || d.Version != 5 || d.NextID != 8 || len(d.Threads) != 1 || d.Threads[0].UID != "000000000007" || d.Threads[0].ReviewedAt != nil || d.Threads[0].Ref == nil {
+	if err != nil || d.Version != (Migrator{}).Current() || d.NextID != 8 || len(d.Threads) != 1 || d.Threads[0].UID != "000000000007" || d.Threads[0].ReviewedAt != nil || d.Threads[0].Ref == nil {
 		t.Fatalf("%+v %v", d, err)
 	}
 	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)

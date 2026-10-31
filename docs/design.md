@@ -218,6 +218,25 @@ are local; no model endpoint, embeddings, transcript extraction or daemon is
 required. Agents capture useful context during authorized work and cite the
 project's own documents. Keyword retrieval remains explicit about its limits.
 
+## Private action retries
+
+Protocol 1 operations bind a host-generated op to one action and its exact
+input. A per-op process lock covers the request callback; timestamps are
+history, never a lease. A generation guards its final receipt against an
+obsolete finisher. Retryable failures keep the input binding. Old finalized
+operations replay normally; unresolved legacy reservations remain unavailable
+until the person inspects what happened and initiates a new action.
+
+Notes and observations own their private mutation receipts. Closure or snooze
+and its receipt are one locked document replacement. Recovery checks the
+receipt before requiring a still-open note, a runner, or a current signal
+prefix match. A repeated snooze preserves its original deadline and content
+identity without overwriting later user actions. Signal receipts survive
+observation pruning. Closing a run stops it before the private closure; a
+failed stop leaves the note open. Ordinary CLI commands and protocol 0 keep
+their existing behavior; upstream closure and cleanup still need explicit
+options. These private receipts are not part of public items or snapshots.
+
 ## Built in run ownership
 
 Run observations are conditional updates. Private run revisions advance under the

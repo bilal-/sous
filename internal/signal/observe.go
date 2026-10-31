@@ -2,9 +2,7 @@ package signal
 
 import (
 	"errors"
-	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/bilal-/sous/internal/store"
@@ -27,12 +25,13 @@ type ObsEntry struct {
 }
 
 type ObsDoc struct {
-	Version int                 `json:"version"`
-	Signals map[string]ObsEntry `json:"signals"`
+	Version   int                      `json:"version"`
+	Signals   map[string]ObsEntry      `json:"signals"`
+	SnoozeOps map[string]snoozeReceipt `json:"snooze_ops,omitempty"`
 }
 
 // ObsFile is how the file is read and upgraded.
-var ObsFile = store.V1(`{"version":1,"signals":{}}`)
+var ObsFile = observationMigrator{}
 
 type Observed struct {
 	Tagged
@@ -169,35 +168,4 @@ func Snoozes(s *store.Store) (map[string]bool, error) {
 		out[id] = entry.SnoozedHash != nil && *entry.SnoozedHash == entry.Hash
 	}
 	return out, nil
-}
-
-// Snooze hides a signal until its text changes.
-// A unique prefix of an id is enough ("s:0a70").
-func Snooze(s *store.Store, id string) error {
-	_, err := store.Modify[ObsDoc](s, "observed", ObsFile, func(d *ObsDoc) error {
-		if _, ok := d.Signals[id]; !ok {
-			var hits []string
-			for full := range d.Signals {
-				if strings.HasPrefix(full, id) {
-					hits = append(hits, full)
-				}
-			}
-			sort.Strings(hits)
-			switch {
-			case len(id) < len(IDPrefix)+3:
-				return fmt.Errorf("%s is too short; give at least 3 characters of the id after s", id)
-			case len(hits) == 0:
-				return fmt.Errorf("%w: %s", ErrUnknownSignal, id)
-			case len(hits) > 1:
-				return fmt.Errorf("%s matches %d rows: %s", id, len(hits), strings.Join(hits, ", "))
-			}
-			id = hits[0]
-		}
-		e := d.Signals[id]
-		h := e.Hash
-		e.SnoozedHash = &h
-		d.Signals[id] = e
-		return nil
-	})
-	return err
 }

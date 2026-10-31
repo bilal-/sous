@@ -226,17 +226,27 @@ What version 1 changes, beside version 0:
   input is `refused` with `op_reused`. Done, conflict and a refusal of the
   input itself (`bad_input`) are final. A failure, a refusal that depends
   on settings (`not_allowed_project`) and `not_ready` are not: the same op
-  may be tried again and may come out differently. sous keeps every op it
-  was asked for, so an op is never done twice, however late the repeat.
+  may be tried again and may come out differently. sous retains each input binding and final
+  outcome. A per-op process lock returns `in_progress` while its request is
+  alive; elapsed time alone never authorizes another execution. After an
+  interrupted request releases the lock, the same input can recover using the
+  action's durable receipt. An unresolved operation from an older sous returns
+  `not_ready` with `legacy_operation`: inspect its result before starting a new
+  action. Waiting does not resolve it.
 * **Ops** are 16 to 64 letters, digits, `-` and `_`, made by the host, one
   per thing the person asked for. Fill `{op}` in an action's `argv` with it.
-
-The actions so far: `run` (start a run in a project whose settings allow
-`remote_runs`, the brief on standard input), `stop` and `reply` (naming
-the question as `<id>:<token>` from the item's `run.question`; every run
-that waits on the person has one, made from its words when its runner
-does not report questions). A snapshot lists `stop` and `reply` on the
-items they apply to; `run` is offered per project.
+  Actions include `run` (a project allowing `remote_runs`, brief on standard
+  input), `stop`, `reply` (question `<id>:<token>` from `run.question`),
+  `approve` (the reviewed commit, with confirmation before a public write),
+  `discard`, `done` and `snooze`. Use each item's advertised actions. `diff`
+  is a paginated read with no op. A run's question always has a token, derived
+  from its words when the runner does not report structured questions.
+  `done` stops any run before closing the private note; it never closes a
+  tracker item or filed checkbox. `snooze` hides a note for seven days, or a
+  signal until its content changes. Private mutation receipts are committed
+  with their target state: a retry preserves the original deadline and signal
+  identity, even if the outer outcome was lost. It never hides changed work,
+  resolves an old prefix to a new signal, or undoes a later snooze or closure.
 * **Watch** asks runner plugins how their runs are going every 5 seconds
   (version 0 only reads what they said last), so its `offline` is false.
   It sends changed items only after its first snapshot, with a

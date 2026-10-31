@@ -1,6 +1,9 @@
 package runs
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"time"
@@ -8,39 +11,30 @@ import (
 	"github.com/bilal-/sous/internal/store"
 )
 
-// An op is one action a host asked for, named by an id the host made. The
-// same op with the same input is answered the same way forever, so a host
-// that lost an answer can ask again without the action happening twice.
-
-// The outcomes an op can have.
+// An op names one request, with its input binding retained for good.
 const (
 	Done        = "done"
-	AlreadyDone = "already_done" // done before; this is that answer again
-	InProgress  = "in_progress"  // the same op is being done right now
+	AlreadyDone = "already_done"
+	InProgress  = "in_progress"
 	Refused     = "refused"
-	Conflict    = "conflict" // what it names moved on
-	Failed      = "failed"   // tried and failed; the same op may be tried again
+	Conflict    = "conflict"
+	Failed      = "failed"
 	NotReady    = "not_ready"
 )
 
-// Outcome is what an op came to: the note it made or acted on, and for a
-// refusal, conflict or failure, why in one word.
 type Outcome struct {
 	Outcome string `json:"outcome"`
 	ID      string `json:"id,omitempty"`
 	Reason  string `json:"reason,omitempty"`
 }
 
-// opRecord is one op as kept: what was asked (Hash, over the action and
-// its input) and, once final, how it came out. A reservation without an
-// outcome means it is being done, or sous stopped half way.
 type opRecord struct {
-	Action string    `json:"action"`
-	Hash   string    `json:"hash"`
-	At     time.Time `json:"at"`
-	Final  *Outcome  `json:"final,omitempty"`
+	Action     string    `json:"action"`
+	Hash       string    `json:"hash"`
+	At         time.Time `json:"at"`
+	Generation string    `json:"generation,omitempty"`
+	Final      *Outcome  `json:"final,omitempty"`
 }
-
 type opsDoc struct {
 	Version int                 `json:"version"`
 	Ops     map[string]opRecord `json:"ops"`
@@ -48,100 +42,131 @@ type opsDoc struct {
 
 const opsFile = "ops"
 
-var opsMigrator = store.V1(`{"version":1,"ops":{}}`)
+type opMigrator struct{}
 
-// Ops keeps the ops hosts asked for. Records are a few dozen bytes and kept
-// for good: an op forgotten could be done twice.
+func (opMigrator) Current() int  { return 2 }
+func (opMigrator) Empty() []byte { return []byte(`{"version":2,"ops":{}}`) }
+func (opMigrator) Migrate(from int, raw []byte) ([]byte, error) {
+	if from != 1 {
+		return nil, fmt.Errorf("unknown version %d", from)
+	}
+	var d opsDoc
+	if err := json.Unmarshal(raw, &d); err != nil {
+		return nil, err
+	}
+	d.Version = 2
+	return json.Marshal(d)
+}
+
+var opsMigrator = opMigrator{}
+var opFormat = regexp.MustCompile(`^[A-Za-z0-9_-]{16,64}$`)
+
 type Ops struct {
 	Store *store.Store
 	Now   func() time.Time
 }
 
-// opFormat is what a host may use as an op id.
-var opFormat = regexp.MustCompile(`^[A-Za-z0-9_-]{16,64}$`)
-
-// inProgressFor is how long a reservation counts as being done. A start
-// has twice the runner's time limit (startGrace); after that the sous
-// doing it has stopped, and the op is done again: every action under an op
-// is safe to repeat on its own.
-const inProgressFor = startGrace
-
-// Do does an op once. A repeat with the same action and hash gets the
-// recorded outcome (done becomes already_done) without calling do; with
-// another action or hash it is refused (op_reused). Done, conflict and a
-// refusal of the input itself are final: they come out the same every
-// time. Anything else (a failure, a refusal that depends on settings, not
-// set up) forgets the op, so the same op may be tried again.
+// Do holds ownership through the request, independently of wall-clock age.
+// A retryable failure retains its input binding and permits the same request
+// to retry once its owner releases the lock. Actions own recovery of their
+// effects if a process dies between applying them and recording the outcome.
 func (o Ops) Do(op, action, hash string, do func() Outcome) Outcome {
 	if !opFormat.MatchString(op) {
 		return Outcome{Outcome: Refused, Reason: "bad_input"}
 	}
-	early, err := o.begin(op, action, hash)
+	var out Outcome
+	acquired, err := o.Store.TryLocked("op-owner-"+op, func() error {
+		generation, early, err := o.begin(op, action, hash)
+		if err != nil {
+			return err
+		}
+		if early != nil {
+			out = *early
+			return nil
+		}
+		out = do()
+		if err := o.finish(op, generation, out); err != nil {
+			if out.Outcome == Done || out.Outcome == AlreadyDone {
+				out.Reason = "op_not_recorded: " + err.Error()
+				return nil
+			}
+			return err
+		}
+		return nil
+	})
 	if err != nil {
 		return Outcome{Outcome: Failed, Reason: "op_record: " + err.Error()}
 	}
-	if early != nil {
-		return *early
+	if acquired {
+		return out
 	}
-	out := do()
-	if err := o.finish(op, out); err != nil && out.Outcome == Done {
-		// Done, but not recorded: say so, as a repeat would do it again.
-		out.Reason = fmt.Sprintf("op_not_recorded: %v", err)
+	d, err := store.Load[opsDoc](o.Store, opsFile, opsMigrator)
+	if err != nil {
+		return Outcome{Outcome: Failed, Reason: "op_record: " + err.Error()}
 	}
-	return out
+	if r, ok := d.Ops[op]; ok {
+		if early := recorded(r, action, hash); early != nil {
+			return *early
+		}
+	}
+	return Outcome{Outcome: InProgress}
 }
 
-// begin reserves op, or says how an earlier one with it came out.
-func (o Ops) begin(op, action, hash string) (*Outcome, error) {
+func recorded(r opRecord, action, hash string) *Outcome {
+	if r.Action != action || r.Hash != hash {
+		return &Outcome{Outcome: Refused, Reason: "op_reused"}
+	}
+	if r.Final != nil {
+		out := *r.Final
+		if out.Outcome == Done {
+			out.Outcome = AlreadyDone
+		}
+		return &out
+	}
+	return nil
+}
+
+// begin is called while holding this op's owner lock. A pending current
+// reservation has lost its earlier owner; an unresolved legacy one cannot
+// establish that and must be inspected before initiating another action.
+func (o Ops) begin(op, action, hash string) (string, *Outcome, error) {
+	var token [16]byte
+	if _, err := rand.Read(token[:]); err != nil {
+		return "", nil, err
+	}
+	generation := hex.EncodeToString(token[:])
 	var early *Outcome
 	_, err := store.Modify[opsDoc](o.Store, opsFile, opsMigrator, func(d *opsDoc) error {
 		if d.Ops == nil {
 			d.Ops = map[string]opRecord{}
 		}
-		now := o.Now()
 		if r, ok := d.Ops[op]; ok {
-			switch {
-			case r.Action != action || r.Hash != hash:
-				early = &Outcome{Outcome: Refused, Reason: "op_reused"}
+			early = recorded(r, action, hash)
+			if early != nil {
 				return nil
-			case r.Final != nil:
-				out := *r.Final
-				if out.Outcome == Done {
-					out.Outcome = AlreadyDone
-				}
-				early = &out
-				return nil
-			case now.Sub(r.At) < inProgressFor:
-				early = &Outcome{Outcome: InProgress}
+			}
+			if r.Generation == "" {
+				early = &Outcome{Outcome: NotReady, Reason: "legacy_operation"}
 				return nil
 			}
 		}
-		d.Ops[op] = opRecord{Action: action, Hash: hash, At: now.UTC()}
+		d.Ops[op] = opRecord{Action: action, Hash: hash, At: o.Now().UTC(), Generation: generation}
 		return nil
 	})
-	return early, err
+	return generation, early, err
 }
 
-// reserve records op as being done, for tests of a sous that stopped.
-func (o Ops) reserve(op, action, hash string) {
-	o.begin(op, action, hash)
-}
-
-// finish records a final outcome, or forgets the op so it can be tried again.
-func (o Ops) finish(op string, out Outcome) error {
+func (o Ops) finish(op, generation string, out Outcome) error {
 	_, err := store.Modify[opsDoc](o.Store, opsFile, opsMigrator, func(d *opsDoc) error {
 		r, ok := d.Ops[op]
-		if !ok {
-			return nil
+		if !ok || generation == "" || r.Generation != generation {
+			return fmt.Errorf("operation ownership changed")
 		}
 		switch {
-		case out.Outcome == Done, out.Outcome == Conflict, out.Outcome == Refused && out.Reason == "bad_input":
-			final := out
-			r.Final = &final
-			d.Ops[op] = r
-		default:
-			delete(d.Ops, op)
+		case out.Outcome == Done, out.Outcome == AlreadyDone, out.Outcome == Conflict, out.Outcome == Refused && out.Reason == "bad_input":
+			r.Final = &out
 		}
+		d.Ops[op] = r
 		return nil
 	})
 	return err

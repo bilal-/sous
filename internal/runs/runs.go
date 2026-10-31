@@ -407,3 +407,19 @@ func (d *Dispatcher) Tidy(ctx context.Context) error {
 	}
 	return errors.Join(errs...)
 }
+
+// DoneOnce stops a run before committing a private closure and its receipt.
+// A recovered closure needs neither the old runner nor another Stop call.
+func (d *Dispatcher) DoneOnce(ctx context.Context, id int, op string) (bool, error) {
+	already, err := thread.DoneRecorded(d.Store, id, op)
+	if err != nil || already {
+		return already, err
+	}
+	// A new request still stops the runner even if a prior action closed the
+	// note: an earlier in-flight reply may have resumed after that closure.
+	if _, err := d.Finish(ctx, id, false); err != nil {
+		return false, err
+	}
+
+	return thread.DoneOnce(d.Store, id, d.Now(), op)
+}
