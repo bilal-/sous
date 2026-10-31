@@ -152,3 +152,11 @@ func TestReplyConflict(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestStartConflictDoesNotAcceptRef(t *testing.T) {
+	r := fakeRunner(t, `start) cat > /dev/null; echo fake:1; echo changed >&2; exit 4;;`)
+	ref, err := Start(context.Background(), r, Request{ID: 1, UID: "000000000001", Project: "/project", Brief: "check"})
+	if !errors.Is(err, ErrConflict) || ref != "" {
+		t.Fatalf("ref=%q err=%v", ref, err)
+	}
+}

@@ -476,3 +476,23 @@ func TestDoneThenCloseStillClosesUpstream(t *testing.T) {
 		t.Fatalf("the filed item was not closed:\n%s", md)
 	}
 }
+
+func TestCloseConflictLeavesNoteOpen(t *testing.T) {
+	f := fixture(t)
+	p := f.mkrepo("acme/api", true)
+	f.plugin("sous-backend-fake", `case "$1" in
+ detect) exit 0;;
+ file) cat > /dev/null; echo fake:42;;
+ close) echo changed >&2; exit 4;;
+ *) exit 2;;
+ esac`)
+	if _, errs, code := f.runIn(p, "note", "--file", "keep until upstream closes"); code != 0 {
+		t.Fatal(code, errs)
+	}
+	if _, errs, code := f.run("done", "1", "--close"); code != 1 || !strings.Contains(errs, "changed") {
+		t.Fatalf("code=%d err=%q", code, errs)
+	}
+	if th := threadJSON(t, f, 1); th["closed"] != nil {
+		t.Fatalf("conflict closed local note: %+v", th)
+	}
+}

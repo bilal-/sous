@@ -209,6 +209,9 @@ func Close(ctx context.Context, b Backend, project, ref string) error {
 	if r.err != nil {
 		return r.err
 	}
+	if r.Code == plugin.ExitConflict {
+		return plugin.Conflicted(b.Name, "close "+ref, r.Answer)
+	}
 	if r.Code == plugin.ExitRefused {
 		return plugin.Refused(b.Name, "close "+ref, r.Answer)
 	}
@@ -220,6 +223,9 @@ func URL(ctx context.Context, b Backend, project, ref string) (string, bool, err
 	r := run(ctx, b, nil, "url", project, ref)
 	if r.err != nil {
 		return "", false, r.err
+	}
+	if r.Code == plugin.ExitConflict {
+		return "", false, plugin.Conflicted(b.Name, "url", r.Answer)
 	}
 	if r.Code == plugin.ExitRefused {
 		return "", false, nil

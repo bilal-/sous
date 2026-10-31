@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+* Plugin conflicts no longer count as successful filing, closing or run starts;
+  a refused upstream close leaves the private note open.
 * Recall totals include hidden matches when `--limit` is used; JSON reports
   `records`, `total_count` and `truncated`. Project hints retain their scope.
 * Empty recall selectors and oversized memory input are rejected without

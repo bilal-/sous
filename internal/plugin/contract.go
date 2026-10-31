@@ -138,6 +138,8 @@ func RefAnswer(name, call string, a Answer, err error) (string, error) {
 	switch {
 	case err != nil:
 		return "", err
+	case a.Code == ExitConflict:
+		return "", Conflicted(name, call, a)
 	case a.Code == ExitRefused:
 		return "", Refused(name, call, a)
 	case a.Out == "":

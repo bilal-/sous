@@ -202,3 +202,30 @@ func TestBuiltinDetectNotSetUpThroughTheDoor(t *testing.T) {
 type notReady struct{ recordingImpl }
 
 func (*notReady) Detect(string) error { return fmt.Errorf("%w: gh: not logged in", plugin.ErrNotSetUp) }
+
+// A conflict is not a successful write, even when a plugin printed a ref.
+func TestBackendConflictIsNotSuccess(t *testing.T) {
+	p := testutil.Script(t, t.TempDir(), "sous-backend-fake", `echo fake:42; echo changed >&2; exit 4`)
+	b := Registry.Discover("", nil, []string{p})[0]
+	check := func(t *testing.T, err error) {
+		t.Helper()
+		if !errors.Is(err, plugin.ErrConflict) {
+			t.Fatalf("want conflict, got %v", err)
+		}
+	}
+	t.Run("close", func(t *testing.T) { check(t, Close(context.Background(), b, "/project", "fake:42")) })
+	t.Run("file", func(t *testing.T) {
+		ref, err := File(context.Background(), b, Request{ID: 1, UID: "000000000001", Project: "/project", Text: "note"})
+		check(t, err)
+		if ref != "" {
+			t.Fatalf("accepted ref %q", ref)
+		}
+	})
+	t.Run("url", func(t *testing.T) {
+		url, ok, err := URL(context.Background(), b, "/project", "fake:42")
+		check(t, err)
+		if ok || url != "" {
+			t.Fatalf("accepted URL %q", url)
+		}
+	})
+}
