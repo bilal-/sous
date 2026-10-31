@@ -185,6 +185,8 @@ func Approve(ctx context.Context, r Runner, project, ref, commit, op string) (Ap
 	switch {
 	case json.Unmarshal([]byte(a.Out), &ap) != nil:
 		return Approval{}, fmt.Errorf("%s approve: not a JSON line: %.60q", r.Name, a.Out)
+	case ap.V != plugin.Version:
+		return Approval{}, plugin.Newer(r.Name+" approve", ap.V)
 	case ap.Commit != commit || ap.Branch == "":
 		return Approval{}, fmt.Errorf("%s approve: answered branch %q at %q for commit %q", r.Name, ap.Branch, ap.Commit, commit)
 	}

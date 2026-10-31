@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Runner approvals reject unsupported request and response versions before accepting an approval; malformed approval requests explain their usage.
+
 - Runner checks stop the run they started when polling fails or the check is canceled.
 
 - Project check commands stop with their run, respect its deadline, and remain stoppable if the watcher dies.

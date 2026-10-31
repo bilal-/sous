@@ -65,22 +65,26 @@ func ops(impl Implementation) map[string]plugin.Op {
 			fmt.Fprintln(stdout, string(b))
 			return plugin.ExitOK
 		},
-		"approve": plugin.RefCall("approve", func(project, ref string, stdin io.Reader, stdout io.Writer) error {
+		"approve": func(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+			if len(args) != 2 {
+				return plugin.Usage(stderr, "approve <project> <ref>")
+			}
 			var req struct {
+				V      int    `json:"v"`
 				Commit string `json:"commit"`
 			}
-			if err := json.NewDecoder(stdin).Decode(&req); err != nil || req.Commit == "" {
-				return fmt.Errorf("%w: approve takes JSON naming the commit", plugin.ErrUnsupported)
+			if code, ok := plugin.DecodeRequest(stdin, &req, func() int { return req.V }, func() bool { return req.Commit != "" }, "approve", "approve <project> <ref>, with JSON on stdin: v, commit", stderr); !ok {
+				return code
 			}
-			ap, err := impl.Approve(project, ref, req.Commit)
+			ap, err := impl.Approve(args[0], args[1], req.Commit)
 			if err != nil {
-				return err
+				return plugin.Exit(err, stderr)
 			}
 			ap.V = plugin.Version
 			b, _ := json.Marshal(ap)
 			fmt.Fprintln(stdout, string(b))
-			return nil
-		}),
+			return plugin.ExitOK
+		},
 		"discard": plugin.RefCall("discard", func(project, ref string, _ io.Reader, _ io.Writer) error { return impl.Discard(project, ref) }),
 		"stop":    plugin.RefCall("stop", func(project, ref string, _ io.Reader, _ io.Writer) error { return impl.Stop(project, ref) }),
 		"clean":   plugin.RefCall("clean", func(project, ref string, _ io.Reader, _ io.Writer) error { return impl.Clean(project, ref) }),
