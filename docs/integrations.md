@@ -274,7 +274,9 @@ Snapshots can include an optional `efforts` array of active effort summaries:
 `id`, `name`, `projects` (workspace/project/remote scopes), `open`, `completed`,
 `blocked`, `unavailable`, `stale`, `archived` and `attention`. Counts describe
 explicitly linked commitments. They do not change task ownership or status.
-Version 1 watch metadata includes `efforts` when it changes; an empty array clears
+Version 1 watch metadata includes `run_projects` when the projects permitted to
+start runs change; an empty array revokes all of them. It also includes `efforts`
+when it changes; an empty array clears
 previous summaries. Its contents participate in the snapshot revision.
 
 These fields are additive to both existing snapshot protocols. Hosts that do not

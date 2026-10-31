@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Integration watches update the host when the projects permitted to start runs change.
+
 - Integration actions return one JSON outcome when configuration or project lookup fails.
 
 * Protocol 1 integration watches can print changed events as text without crashing.

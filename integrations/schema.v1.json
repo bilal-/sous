@@ -795,6 +795,9 @@
       "type": "object",
       "description": "board-level fields that changed; each replaces the one held",
       "properties": {
+        "run_projects": {
+          "$ref": "#/$defs/strings"
+        },
         "configured": {
           "type": "boolean"
         },

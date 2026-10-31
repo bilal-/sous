@@ -144,6 +144,7 @@ func changes(previous, next Snapshot) []Change {
 // Meta is what changed of the board itself between two snapshots, each
 // field replacing the one the host holds. Absent fields did not change.
 type Meta struct {
+	RunProjects *[]string              `json:"run_projects,omitempty"`
 	Efforts     *[]board.EffortSummary `json:"efforts,omitempty"`
 	Configured  *bool                  `json:"configured,omitempty"`
 	Available   *bool                  `json:"available,omitempty"`
@@ -167,6 +168,10 @@ func meta(a, b Snapshot) *Meta {
 		}
 	}
 	set(a.Configured != b.Configured, func() { m.Configured = &b.Configured })
+	set(!reflect.DeepEqual(a.RunProjects, b.RunProjects), func() {
+		projects := append([]string{}, b.RunProjects...)
+		m.RunProjects = &projects
+	})
 	set(!reflect.DeepEqual(a.Efforts, b.Efforts), func() { m.Efforts = &b.Efforts })
 	set(a.Available != b.Available, func() { m.Available = &b.Available })
 	set(a.Complete != b.Complete, func() { m.Complete = &b.Complete })
