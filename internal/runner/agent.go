@@ -319,7 +319,7 @@ func readString(dir, name string) string {
 // Holding the run's lock from the check to the launch means two quick
 // replies start one watcher.
 func (a *Agent) Reply(_, ref, answer string) error {
-	return a.reply(ref, answer)
+	return a.withLifecycleLock(ref, func() error { return a.reply(ref, answer) })
 }
 
 func (a *Agent) reply(ref, answer string) error {
@@ -411,7 +411,7 @@ func (a *Agent) gone(ref string) (bool, error) {
 // (git refuses to delete a branch it has not merged), and its folder.
 // Cleaning twice is fine.
 func (a *Agent) Clean(_, ref string) error {
-	return a.clean(ref)
+	return a.withLifecycleLock(ref, func() error { return a.clean(ref) })
 }
 
 func (a *Agent) clean(ref string) error {

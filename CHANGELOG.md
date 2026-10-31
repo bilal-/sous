@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- Run cleanup is serialized with starts and replies, so it cannot delete a run that is being resumed.
+
 - Concurrent starts wait for run initialization; incomplete run folders are refused and preserved instead of reported as successful starts.
 
 - Stopping the web server cancels its active calls and watch subprocesses and waits for shutdown cleanup.
