@@ -84,6 +84,10 @@ func prompt(branch, here, brief string) string {
 }
 
 func (a *Agent) Start(req Request) (string, error) {
+	return a.start(req)
+}
+
+func (a *Agent) start(req Request) (string, error) {
 	ref := a.Name + ":" + req.UID
 	if _, err := a.uidOf(ref); err != nil {
 		return "", err
@@ -288,6 +292,10 @@ func readString(dir, name string) string {
 // Holding the run's lock from the check to the launch means two quick
 // replies start one watcher.
 func (a *Agent) Reply(_, ref, answer string) error {
+	return a.reply(ref, answer)
+}
+
+func (a *Agent) reply(ref, answer string) error {
 	dir, m, err := a.meta(ref)
 	if err != nil {
 		return err
@@ -376,6 +384,10 @@ func (a *Agent) gone(ref string) (bool, error) {
 // (git refuses to delete a branch it has not merged), and its folder.
 // Cleaning twice is fine.
 func (a *Agent) Clean(_, ref string) error {
+	return a.clean(ref)
+}
+
+func (a *Agent) clean(ref string) error {
 	if gone, err := a.gone(ref); gone || err != nil {
 		return err
 	}
