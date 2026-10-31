@@ -575,7 +575,8 @@ function renderDetail() {
 }
 
 function detailParts(item) {
-  const s = STATUS_OF[statusOf(item)];
+  const s = STATUS_OF[statusOf(item)] || (item.section === "snoozed"
+    ? { id: "snoozed", word: "snoozed", role: "--muted" } : null);
   const run = item.run;
   const has = new Set(item.actions || []);
   const out = [];

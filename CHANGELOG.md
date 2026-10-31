@@ -9,6 +9,8 @@ upgraded, never broken.
 
 ### Fixed
 
+- A selected or bookmarked snoozed item keeps a readable web detail pane, including any active run controls and draft reply.
+
 - The web page recognizes successful Done and Snooze acknowledgements instead of reporting them as failures.
 
 - Simultaneous web server starts keep the same saved bookmark secret.
