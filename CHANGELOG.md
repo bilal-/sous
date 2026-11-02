@@ -95,6 +95,8 @@ upgraded, never broken.
 
 ### Added
 
+- Historical phone-build plans, with an index explaining the shipped contracts
+  and which proposals were changed or dropped.
 * `sous update` installs verified stable releases, delegates Homebrew upgrades
   and protects source builds. `--check` checks without changing the installation.
 
