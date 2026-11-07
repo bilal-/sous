@@ -919,7 +919,7 @@ Current Codex requires new or changed hooks to be reviewed and trusted in
 they are present, without checking runtime trust. See
 [Codex's hook documentation](https://developers.openai.com/codex/hooks).
 Antigravity's CLI has a separate global skill directory which setup does
-not populate yet; see [the manual skill step](../README.md#use-it-with-your-ai-agent).
+not populate yet; see [the manual skill step](agents.md#antigravity).
 
 ### `sous config`
 

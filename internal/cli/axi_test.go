@@ -331,22 +331,28 @@ func TestHelpForACommandAndTypos(t *testing.T) {
 	}
 }
 
-// The README's tables are the front page: they cannot fall behind the
-// commands and settings there are.
+// The README's command table is the front page, and the setup guide's
+// configuration sample is where people copy settings from: neither can
+// fall behind the commands and settings there are.
 func TestReadmeListsEveryCommandAndSetting(t *testing.T) {
 	b, err := os.ReadFile("../../README.md")
 	if err != nil {
 		t.Fatal(err)
 	}
 	readme := string(b)
+	b, err = os.ReadFile("../../docs/setup.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	setup := string(b)
 	for _, v := range verbs {
 		if v.usage != "" && v.name != "help" && v.name != "version" && !strings.Contains(readme, "`sous "+v.name) {
 			t.Errorf("README.md does not list sous %s", v.name)
 		}
 	}
 	for _, k := range config.Keys() {
-		if !strings.Contains(readme, "\n"+k.Name+" = ") {
-			t.Errorf("README.md's configuration sample has no %s", k.Name)
+		if !strings.Contains(setup, "\n"+k.Name+" = ") {
+			t.Errorf("docs/setup.md's configuration sample has no %s", k.Name)
 		}
 	}
 }

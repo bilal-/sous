@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.24.0]
+
 ### Changed
 
 - The board builds about five times faster with several accounts and many
@@ -28,6 +30,17 @@ upgraded, never broken.
 - Integration examples now exercise the complete message union and reject malformed fields, revisions, timestamps and ambiguous shapes.
 
 - `make test` and CI now run the offline MemoryCore experiment tests; local checks require Python 3.9 or newer.
+
+- The README is shorter and plainer. Setup, everyday use and agent setup moved
+  into their own guides: [docs/setup.md](docs/setup.md),
+  [docs/guide.md](docs/guide.md) and [docs/agents.md](docs/agents.md).
+
+- Effort views load linked notes and memories once per view, reducing repeated work as efforts grow.
+
+* The bare board identifies the running executable and its purpose.
+
+* The social preview now describes finding the work that needs you and picking
+  up where you left off, matching the refreshed website.
 
 ### Fixed
 
@@ -95,15 +108,6 @@ upgraded, never broken.
   `records`, `total_count` and `truncated`. Project hints retain their scope.
 * Empty recall selectors and oversized memory input are rejected without
   silently changing the request or saving a partial record.
-
-### Changed
-
-- Effort views load linked notes and memories once per view, reducing repeated work as efforts grow.
-
-* The bare board identifies the running executable and its purpose.
-
-* The social preview now describes finding the work that needs you and picking
-  up where you left off, matching the refreshed website.
 
 ### Added
 

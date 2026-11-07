@@ -20,7 +20,7 @@ import (
 // them parseable, including examples in the help embedded in the binary.
 func TestDocsJSONExamples(t *testing.T) {
 	blocks := regexp.MustCompile("(?s)```json\\n(.*?)\\n```")
-	for _, file := range []string{"../../README.md", "../../docs/commands.md", "../../docs/plugins.md"} {
+	for _, file := range []string{"../../README.md", "../../docs/commands.md", "../../docs/plugins.md", "../../docs/setup.md", "../../docs/guide.md", "../../docs/agents.md"} {
 		b, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
@@ -61,7 +61,7 @@ func TestTablesAgree(t *testing.T) {
 // (`claude`, `codex`, ...) has every one. A new harness the docs do not
 // mention fails here.
 func TestDocsNameEveryAgent(t *testing.T) {
-	for _, file := range []string{"../../README.md", "../../AGENTS.md", "../../docs/commands.md", "../../docs/plugins.md", "../../CONTRIBUTING.md", "../../SECURITY.md"} {
+	for _, file := range []string{"../../README.md", "../../AGENTS.md", "../../docs/commands.md", "../../docs/plugins.md", "../../docs/setup.md", "../../docs/guide.md", "../../docs/agents.md", "../../CONTRIBUTING.md", "../../SECURITY.md"} {
 		b, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
