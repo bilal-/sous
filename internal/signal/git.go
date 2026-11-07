@@ -144,6 +144,10 @@ type gitRepo struct {
 
 // emit writes one signal. A worktree's rows are keyed by its folder, so
 // each worktree's work is its own row, and say which worktree it is.
+//
+// The wording of each finding is read by the board's surfaces to lay it
+// out in plain words (display rule 10 in integrations/design/README.md,
+// and present in internal/serve/web/app.js). Change one with the other.
 func (r gitRepo) emit(key string, kind Kind, text string, observed time.Time, state string) {
 	id := "git:" + key
 	if r.at != "" {

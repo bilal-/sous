@@ -798,6 +798,13 @@ snooze it, or hand it to an agent in a project that allows `remote_runs`.
 Select several to close or snooze them at once. A project whose `origin`
 is on the web (GitHub, GitLab or another host) links to it in a new tab
 from the sidebar, the project's heading, its group and each item's detail.
+Items read in plain words: a git finding says what it means and the commands
+that deal with it, a tracker item leads with its title, and a long note shows
+its first sentence as a title with the rest below; the text as written is one
+tap away. Each command offered for a terminal says what it does.
+The page fits any window and works by touch as well as mouse: on a phone an
+item opens as a full screen sheet with Back, on a tablet panels slide over the
+list, and pressing and holding an item selects it.
 Keys: `/` search, `j` and `k` move, Enter opens, `e` done, `s` snooze, `x`
 select, `n` new task, `g` opens the project's repo.
 

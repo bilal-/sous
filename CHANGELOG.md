@@ -9,6 +9,18 @@ upgraded, never broken.
 
 ### Changed
 
+- The board builds about five times faster with several accounts and many
+  repos: tracker searches for every account run at once, projects are read in
+  parallel while the signals scan, and each repo's branch, upstream and
+  uncommitted files come from one git status.
+
+- `sous serve` reads in plain words. Git findings say what they mean and how to
+  deal with them, tracker items lead with their title, long notes show their
+  first sentence as a title, and every copied command says what it does. It
+  works on any screen, portrait or landscape: a full screen sheet with Back on
+  phones, panels that slide over the list on tablets, touch-sized targets, and
+  press and hold to select several.
+
 - Updated the README and guides for private scopes, browser actions, runner
   ownership, integration exit codes and checks. The pinned AXI principles and
   documented output choices remain unchanged.

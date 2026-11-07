@@ -269,8 +269,8 @@ Every surface draws the same JSON with its own components. What makes them
 one product is [`integrations/design`](../integrations/design/README.md):
 `tokens.json` (colours, the colour and word for each group, type, radii,
 spacing) and the display rules (group order, which phase goes in which
-group, plain words, what Approve must show, ops). `sous serve`'s page
-follows them; so should any other host.
+group, plain words, what Approve must show, ops, how an item's text is
+laid out). `sous serve`'s page follows them; so should any other host.
 
 ## Contract checks
 

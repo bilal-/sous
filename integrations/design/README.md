@@ -64,3 +64,17 @@ code but these two things:
    `already_done` as done; show `conflict` by reloading the item and saying what
    changed. Reads, project opening and ordinary note capture keep their advertised
    command contract; do not add an unsupported `--op` flag.
+10. **Lead with what a person reads first.** An item's `text` is written for a
+    terminal row. A surface may lay it out, never reword its meaning:
+    * a tracker item, `<label> · <PR #|MR !|issue #><n> <title>`, shows the
+      title, with the label and number above it;
+    * a note that opens with a short label (`brand: …`, up to four words)
+      shows the label above the rest;
+    * a long note shows its first sentence as the title and the rest below;
+    * a git finding (`n files uncommitted · <branch>`, `n commits unpushed ·
+      <branch>`, `<branch> has no upstream`, `n stashes`, each with an
+      optional ` · worktree <name>`) says what it is in words, shows the
+      branch and worktree apart, and may say how to deal with it.
+    Anything else is shown as written, and the text as written stays one step
+    away. The web page's `present` in `internal/serve/web/app.js` is the
+    reference; its tests pin these forms.
