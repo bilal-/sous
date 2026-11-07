@@ -228,8 +228,8 @@ function gitWords(text) {
   if (m) return { title: count(m[1], "commit", "commits") + " not pushed", branch: m[2], worktree: wt, git: "ahead",
     means: "Committed on this computer but not on the remote yet. Until you push, they exist only here." };
   m = text.match(/^(.+) has no upstream$/);
-  if (m) return { title: "Branch never pushed", branch: m[1], worktree: wt, git: "no-upstream",
-    means: "This branch exists only on this computer. Push it to keep it, or delete it if it's finished with." };
+  if (m) return { title: "Branch not tracking a remote", branch: m[1], worktree: wt, git: "no-upstream",
+    means: "This branch has no upstream, so git can't tell whether its work is on the remote. It may never have been pushed. Push it and track it to keep it, or delete it if it's finished with." };
   m = text.match(/^(\d+) stash(?:es)?$/);
   if (m) return { title: count(m[1], "stashed change", "stashed changes"), worktree: wt, git: "stash",
     means: "Work set aside with git stash. Look through it and drop what you no longer need." };
@@ -1170,7 +1170,7 @@ function onKey(e) {
     if (typing) { e.target.blur(); return; }
     if (state.selected.size) { state.selected.clear(); renderList(); return; }
     if (state.open) closeItem();
-    else $("side").classList.remove("shown");
+    else showSide(false);
     return;
   }
   if (typing) return;

@@ -205,9 +205,12 @@ select { background: var(--surface2); border: 1px solid var(--border); border-ra
    (a long press, or x, starts it). */
 @media (pointer: coarse), (max-width: 760px) {
   .row { grid-template-columns: minmax(0, 1fr) auto; padding: 13px 14px; }
-  .row input[type=checkbox] { display: none; }
+  /* Out of sight, not out of reach: Tab still finds it, and it shows when
+     focused, so a keyboard can select in a narrow window too. */
+  .row input[type=checkbox] { position: absolute; left: 6px; top: 12px; width: 1px; height: 1px; opacity: 0; margin: 0; }
+  .row input[type=checkbox]:focus-visible { width: 18px; height: 18px; opacity: 1; }
   .list.selecting .row { grid-template-columns: 24px minmax(0, 1fr) auto; }
-  .list.selecting .row input[type=checkbox] { display: block; width: 20px; height: 20px; margin-top: 1px; }
+  .list.selecting .row input[type=checkbox] { position: static; width: 20px; height: 20px; margin-top: 1px; opacity: 1; }
   .row .acts { display: none !important; }
 }
 @media (pointer: coarse) {
@@ -361,7 +364,7 @@ dialog select, dialog textarea { width: 100%; background: var(--surface2); borde
   .toast { max-width: none; }
   dialog, dialog.wide { width: 100vw; max-width: 100vw; margin: auto 0 0; border-radius: var(--r-lg) var(--r-lg) 0 0;
     padding: 20px calc(16px + var(--safe-r)) calc(20px + var(--safe-b)) calc(16px + var(--safe-l)); max-height: 92dvh; }
-  dialog.wide { height: 92dvh; display: flex; flex-direction: column; }
+  dialog.wide[open] { height: 92dvh; display: flex; flex-direction: column; }
   dialog.wide .diff { flex: 1; max-height: none; }
   .row-end button { flex: 1 1 auto; min-height: 44px; }
 }

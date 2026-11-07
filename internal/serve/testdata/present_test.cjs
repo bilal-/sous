@@ -16,7 +16,7 @@ test("git: one commit, one stash, a branch never pushed", () => {
   assert.equal(present({ source: "git", text: "1 commits unpushed · main" }).title, "1 commit not pushed");
   assert.equal(present({ source: "git", text: "1 stashes" }).title, "1 stashed change");
   const n = present({ source: "git", text: "feat/y has no upstream" });
-  assert.equal(n.title, "Branch never pushed"); assert.equal(n.branch, "feat/y");
+  assert.equal(n.title, "Branch not tracking a remote"); assert.doesNotMatch(n.means, /only on this computer/); assert.equal(n.branch, "feat/y");
 });
 test("git: anything else is shown as written", () => {
   assert.equal(present({ source: "git", text: "something new" }).title, "something new");
