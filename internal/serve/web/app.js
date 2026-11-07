@@ -169,6 +169,16 @@ function refOf(ref) {
 // explains; the item's own text stays one tap away.
 
 const cap = (s) => s ? s[0].toUpperCase() + s.slice(1) : s;
+// capWord capitalises only a plain first word, never code: "tracker.Client",
+// "pi (…)" and "~/.qwen" keep their case.
+const capWord = (s) => /^[a-z][a-z']*(?=[\s,;:]|$)/.test(s) && s.split(/\s/)[0].length > 2 ? cap(s) : s;
+
+// shellArg keeps a copied command whole when a name has spaces or shell
+// characters. The same rule as text.ShellArg, which the terminal uses.
+function shellArg(s) {
+  if (s && /^[A-Za-z0-9_.\/:-]+$/.test(s)) return s;
+  return "'" + String(s).replace(/'/g, "'\"'\"'") + "'";
+}
 const count = (n, one, many) => n + " " + (+n === 1 ? one : many);
 
 function present(item) {
@@ -177,7 +187,7 @@ function present(item) {
   const m = text.match(/^([^·]{3,40}) · ((?:PR #|MR !|issue #)\d+) (.+)$/s);
   if (m) {
     const review = /review requested/.test(m[1]);
-    return { kicker: cap(m[1].trim()) + " · " + m[2], title: m[3], body: "",
+    return { kicker: cap(m[1].trim()) + " · " + m[2], title: m[3], body: "", tracker: true,
       means: review ? "Someone asked you to review this. Open it, review, and it leaves your list once you've responded."
         : /awaiting review/.test(m[1]) ? "You opened this and it's waiting for a reviewer. Nothing to do unless it has stalled."
         : /checks failing/.test(m[1]) ? "The latest checks on your pull request failed. Open it to see which."
@@ -186,7 +196,7 @@ function present(item) {
   }
   let rest = text, kicker = "";
   const k = rest.match(/^([A-Za-z][\w ./+-]{1,32}):\s+(\S[\s\S]*)$/);
-  if (k && k[1].trim().split(/\s+/).length <= 4 && !/^https?$/i.test(k[1])) { kicker = cap(k[1].trim()); rest = cap(k[2]); }
+  if (k && k[1].trim().split(/\s+/).length <= 4 && !/^https?$/i.test(k[1])) { kicker = cap(k[1].trim()); rest = capWord(k[2]); }
   const [title, body] = rest.length > 110 ? firstSentence(rest) : [rest, ""];
   return { kicker, title, body };
 }
@@ -231,7 +241,7 @@ function gitSteps(words, branch) {
   switch (words.git) {
     case "dirty": return [["git status", "See which files changed"], ["git diff", "Read the changes"]];
     case "ahead": return [["git log @{u}..", "See the commits not pushed"], ["git push", "Push them"]];
-    case "no-upstream": return [["git push -u origin " + branch, "Push the branch and track it"], ["git branch -d " + branch, "Or delete it, once merged"]];
+    case "no-upstream": return [["git push -u origin " + shellArg(branch), "Push the branch and track it"], ["git branch -d " + shellArg(branch), "Or delete it, once merged"]];
     case "stash": return [["git stash list", "See what's stashed"], ["git stash drop", "Drop the newest one"]];
   }
   return [];
@@ -642,7 +652,7 @@ function row(item, g) {
   if (run && s.id === "in_progress") meta.append(...progressBits(run));
   if (run && s.id === "ready" && run.result && run.result.files) meta.append(el("span", null, plural(run.result.files.changed, "file") + " changed"));
   const ref = refOf(item.ref);
-  if (ref && !words.kicker) meta.append(el("span", "tag", ref.word));
+  if (ref && !words.tracker) meta.append(el("span", "tag", ref.word));
   if (item.source === "agent") meta.append(el("span", "tag", "from an agent"));
   if (item.stale) meta.append(el("span", "tag warn", "stale"));
   if (meta.childElementCount) body.append(meta);
@@ -829,7 +839,7 @@ function detailParts(item) {
     const sec = el("div", "d-section");
     sec.append(el("h3", null, "Hand it to an agent"),
       el("p", "hint", "Agents can't start work in " + p.name + " from this page yet. Allow it once, in a terminal, and a Hand to an agent button appears here:"),
-      copyLine(`sous config -p ${p.name} remote_runs true`, "Let agents start runs in " + p.name));
+      copyLine(`sous config -p ${shellArg(p.name)} remote_runs true`, "Let agents start runs in " + p.name));
     out.push(sec);
   }
 
@@ -840,7 +850,7 @@ function detailParts(item) {
     term.append(copyLine(`sous show ${item.id}`, "Print this note in full"));
     if (has.has("done")) term.append(copyLine(`sous done ${item.id}`, "Mark it done"));
   }
-  term.append(copyLine(`sous go ${p.name}`, "Open " + p.name + " in your shell and see what's waiting there"));
+  term.append(copyLine(`sous go ${shellArg(p.name)}`, "Open " + p.name + " in your shell and see what's waiting there"));
   out.push(term);
 
   if (words.title !== (item.text || "").trim() && !words.git) {

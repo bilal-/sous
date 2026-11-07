@@ -43,6 +43,26 @@ test("note: a short note stays whole; a URL is no kicker", () => {
   assert.equal(present({ source: "human", text: "https://git.example.org/acme/api is down" }).kicker, "");
 });
 
+test("note: a kicker keeps the rest's own case when it starts with code", () => {
+  const w = present({ source: "human", text: "architecture: tracker.Client{Home, Cache, Env} made in cli and passed down" });
+  assert.equal(w.kicker, "Architecture"); assert.equal(w.title, "tracker.Client{Home, Cache, Env} made in cli and passed down");
+  assert.equal(present({ source: "human", text: "harness: pi (TypeScript extension)" }).title, "pi (TypeScript extension)");
+  assert.equal(present({ source: "human", text: "brand: decide, keep or drop" }).title, "Decide, keep or drop");
+});
+test("tracker items say where the kicker came from; notes do not", () => {
+  assert.equal(present({ source: "github", text: "review requested · PR #10 Bump" }).tracker, true);
+  assert.ok(!present({ source: "human", text: "harness: Cursor hooks", ref: "md:FOLLOWUPS.md:0743b7f5d680" }).tracker);
+});
+test("shellArg quotes what a shell would split or run, like text.ShellArg", () => {
+  const q = (s) => x.run(`shellArg(${JSON.stringify(s)})`);
+  assert.equal(q("feat/x-1.2"), "feat/x-1.2");
+  assert.equal(q("acme/api"), "acme/api");
+  assert.equal(q("My Project"), "'My Project'");
+  assert.equal(q("feat;rm"), "'feat;rm'");
+  assert.equal(q("it's"), "'it'\"'\"'s'");
+  assert.equal(q(""), "''");
+});
+
 (async () => {
   let failed = 0;
   for (const [name, f] of cases) {
