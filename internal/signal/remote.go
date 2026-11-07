@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bilal-/sous/internal/plugin"
@@ -84,24 +85,44 @@ func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) e
 	if len(byRepo) == 0 {
 		return nil
 	}
+	// Every query for every identity is a network round trip of its own, so
+	// they all go at once; what they found is written in identity and query
+	// order, as if they had run one after another.
 	// A failed query is reported but must not discard the other queries'
 	// findings; the runner marks the plugin failed while stdout is kept.
 	// The same item seen from two identities gets the same id; Observe dedupes.
+	type answer struct {
+		hits []Hit
+		err  error
+	}
+	answers := make([]answer, len(rs.Identities)*len(rs.Queries))
+	var wg sync.WaitGroup
+	for i, identity := range rs.Identities {
+		for j, q := range rs.Queries {
+			wg.Add(1)
+			go func(k int, identity string, q Query) {
+				defer wg.Done()
+				hits, err := q.Fetch(identity)
+				answers[k] = answer{hits, err}
+			}(i*len(rs.Queries)+j, identity, q)
+		}
+	}
+	wg.Wait()
 	var firstErr error
 	emitted := map[string]bool{}
-	for _, identity := range rs.Identities {
-		for _, q := range rs.Queries {
-			hits, err := q.Fetch(identity)
-			for _, h := range hits {
+	for i, identity := range rs.Identities {
+		for j, q := range rs.Queries {
+			a := answers[i*len(rs.Queries)+j]
+			for _, h := range a.hits {
 				if sig, ok := rs.signal(q, h, byRepo); ok && !emitted[sig.ID] {
 					emitted[sig.ID] = true
 					WriteLine(w, sig)
 				}
 			}
-			if err != nil {
-				fmt.Fprintf(warn, "%s %s%s: %v\n", rs.Name, q.Key, as(identity), err)
+			if a.err != nil {
+				fmt.Fprintf(warn, "%s %s%s: %v\n", rs.Name, q.Key, as(identity), a.err)
 				if firstErr == nil {
-					firstErr = err
+					firstErr = a.err
 				}
 			}
 		}
@@ -113,8 +134,9 @@ func (rs RemoteScanner) Scan(paths []string, w, warn io.Writer, now time.Time) e
 // projects on this tracker.
 func (rs RemoteScanner) localRepos(paths []string) map[string]string {
 	byRepo := map[string]string{}
-	for _, p := range paths {
-		host, path := tracker.ParseRemote(project.Remote(p))
+	for i, remote := range project.Remotes(paths) {
+		p := paths[i]
+		host, path := tracker.ParseRemote(remote)
 		if host != "" && (rs.Host == "" || host == rs.Host) {
 			byRepo[strings.ToLower(host+"/"+path)] = p
 		}

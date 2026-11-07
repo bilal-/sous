@@ -42,7 +42,7 @@ func ScanGit(paths []string, w, warn io.Writer, now time.Time) error {
 	// buffer so lines never interleave. Order is irrelevant downstream.
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 8)
+	sem := make(chan struct{}, project.Workers)
 	var unreadable int
 	for _, p := range paths {
 		if _, err := os.Lstat(filepath.Join(p, ".git")); err != nil {
@@ -84,9 +84,7 @@ func scanOne(p string, w, warn io.Writer, now time.Time) bool {
 		return freshRepo(p, warn)
 	}
 	r := gitRepo{p: p, project: p, w: w, warn: warn, now: now}
-	r.branch = r.branchName()
-	r.dirty()
-	r.unpushed()
+	r.check()
 	// The stash is the repo's, shared by its worktrees: counted once, here.
 	if st := r.must("stash", "list"); st != "" {
 		r.emit("stash", Unfinished, strconv.Itoa(countLines(st))+" stashes", now, "")
@@ -94,13 +92,6 @@ func scanOne(p string, w, warn io.Writer, now time.Time) bool {
 	r.lastCommit()
 	r.worktrees()
 	return !r.failed
-}
-
-func (r *gitRepo) branchName() string {
-	if b := r.must("branch", "--show-current"); b != "" {
-		return b
-	}
-	return "(detached)"
 }
 
 // runBranch is the branch sous's own runner gives each run. Its worktree
@@ -122,9 +113,7 @@ func (r *gitRepo) worktrees() {
 			continue
 		}
 		t := gitRepo{p: wt.Path, project: r.project, at: wt.Path, w: r.w, warn: r.warn, now: r.now}
-		t.branch = t.branchName()
-		t.dirty()
-		t.unpushed()
+		t.check()
 		r.failed = r.failed || t.failed
 	}
 }
@@ -175,12 +164,68 @@ func (r *gitRepo) must(args ...string) string {
 	return out
 }
 
+// check reads the branch, its upstream, how far ahead it is and what is
+// uncommitted from one git status, and emits what it found.
+func (r *gitRepo) check() {
+	out, err := project.Git(r.p, "status", "--porcelain", "--branch")
+	if err != nil {
+		fmt.Fprintf(r.warn, "sous-signal-git: git status failed in %s: %v\n", r.p, err)
+		r.failed = true
+		return
+	}
+	header, files, _ := strings.Cut(out, "\n")
+	st := parseStatusHeader(header)
+	r.branch = st.branch
+	r.dirty(strings.TrimSpace(files))
+	r.unpushed(st)
+}
+
+// branchStatus is the first line of git status --branch.
+type branchStatus struct {
+	branch   string // "(detached)" when HEAD is not on a branch
+	upstream bool   // the branch tracks one that still exists
+	ahead    string // commits ahead of it; "" when git did not count them
+}
+
+// parseStatusHeader reads "## main...origin/main [ahead 2, behind 1]" and
+// its other forms: no upstream ("## main"), a gone upstream ("[gone]"),
+// a detached HEAD ("## HEAD (no branch)") and a branch with no commits
+// yet ("## No commits yet on main").
+func parseStatusHeader(h string) branchStatus {
+	h = strings.TrimPrefix(h, "## ")
+	if strings.HasPrefix(h, "HEAD (no branch)") {
+		return branchStatus{branch: "(detached)"}
+	}
+	for _, fresh := range []string{"No commits yet on ", "Initial commit on "} {
+		if b, ok := strings.CutPrefix(h, fresh); ok {
+			return branchStatus{branch: b}
+		}
+	}
+	track := ""
+	if i := strings.Index(h, " ["); i >= 0 && strings.HasSuffix(h, "]") {
+		h, track = h[:i], h[i+2:len(h)-1]
+	}
+	branch, _, upstream := strings.Cut(h, "...")
+	st := branchStatus{branch: branch, upstream: upstream && track != "gone"}
+	if !st.upstream {
+		return st
+	}
+	st.ahead = "0"
+	for part := range strings.SplitSeq(track, ", ") {
+		if n, ok := strings.CutPrefix(part, "ahead "); ok {
+			st.ahead = n
+		} else if part != "" && !strings.HasPrefix(part, "behind ") {
+			st.ahead = "" // a form this does not know: count them instead
+		}
+	}
+	return st
+}
+
 // dirty: uncommitted files. The summary counts files; the state follows
 // what changed in them (the diff itself, and which files are new), so any
 // further edit ends a snooze. The content of new untracked files is not
 // read.
-func (r *gitRepo) dirty() {
-	st := r.must("status", "--porcelain")
+func (r *gitRepo) dirty(st string) {
 	if st == "" {
 		return
 	}
@@ -194,9 +239,13 @@ func (r *gitRepo) dirty() {
 
 // unpushed: commits ahead of the upstream, or a branch other than the
 // default that was never pushed.
-func (r *gitRepo) unpushed() {
-	if up, err := gitOut(r.p, "rev-parse", "--abbrev-ref", "-q", "@{u}"); err == nil && up != "" {
-		if n := r.must("rev-list", "--count", "@{u}..HEAD"); n != "" && n != "0" {
+func (r *gitRepo) unpushed(st branchStatus) {
+	if st.upstream {
+		n := st.ahead
+		if n == "" {
+			n = r.must("rev-list", "--count", "@{u}..HEAD")
+		}
+		if n != "" && n != "0" {
 			r.emit("ahead", Unfinished, fmt.Sprintf("%s commits unpushed · %s", n, r.branch), r.now, "")
 		}
 		return

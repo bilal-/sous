@@ -11,9 +11,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -43,12 +45,59 @@ func ignored(rel string, ignore []string) bool {
 // into a repo. A linked worktree it finds is its main repo's project, listed
 // once. Returns projects sorted by path and the count of missing roots.
 func Discover(roots, ignore []string, warn io.Writer) ([]Project, int) {
-	paths, unavailable := discoverPaths(context.Background(), roots, ignore, warn, false)
-	var out []Project
-	for _, path := range paths {
-		out = append(out, Describe(path))
+	paths, unavailable := DiscoverPaths(roots, ignore, warn)
+	return DescribeAll(paths), unavailable
+}
+
+// DiscoverPaths is Discover without describing each project: only the
+// filesystem is read, so it is quick, and the git reads can overlap other
+// work.
+func DiscoverPaths(roots, ignore []string, warn io.Writer) ([]string, int) {
+	return discoverPaths(context.Background(), roots, ignore, warn, false)
+}
+
+// DescribeAll describes each path, several at once, in the paths' order.
+// A nil answer for no paths, as Discover always gave.
+func DescribeAll(paths []string) []Project {
+	if len(paths) == 0 {
+		return nil
 	}
-	return out, unavailable
+	out := make([]Project, len(paths))
+	Each(len(paths), func(i int) { out[i] = Describe(paths[i]) })
+	return out
+}
+
+// Remotes is Remote for each path, several at once, in the paths' order.
+func Remotes(paths []string) []string {
+	out := make([]string, len(paths))
+	Each(len(paths), func(i int) { out[i] = Remote(paths[i]) })
+	return out
+}
+
+// Workers is how many git processes sous runs at once for a set of
+// projects: enough to hide each process's start up, few enough not to
+// swamp a laptop.
+var Workers = max(8, runtime.NumCPU())
+
+// Each calls fn(0) … fn(n-1) on up to Workers goroutines and waits for all
+// of them.
+func Each(n int, fn func(i int)) {
+	next := make(chan int)
+	var wg sync.WaitGroup
+	for range min(n, Workers) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range next {
+				fn(i)
+			}
+		}()
+	}
+	for i := range n {
+		next <- i
+	}
+	close(next)
+	wg.Wait()
 }
 
 // AliasesForPath finds discovery identities for a physical checkout using only

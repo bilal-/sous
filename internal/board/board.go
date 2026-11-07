@@ -58,18 +58,21 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 	if len(roots) == 0 {
 		return nil, errors.New(config.NoRootsHint)
 	}
-	ps, unavailable := project.Discover(roots, in.Cfg.Ignore, in.Warn)
-	paths := make([]string, len(ps))
+	// Finding the projects reads only the filesystem; describing them runs
+	// git in each, which overlaps the signal plugins' scan.
+	paths, unavailable := project.DiscoverPaths(roots, in.Cfg.Ignore, in.Warn)
+	described := make(chan []project.Project, 1)
+	go func() { described <- project.DescribeAll(paths) }()
+	col := signal.Collect(ctx, in.Signals, paths, in.Timeout)
+	ps := <-described
 	known := map[string]bool{}
 	knownRemote := map[string]bool{}
-	for i, p := range ps {
-		paths[i] = p.Path
+	for _, p := range ps {
 		known[p.Path] = true
 		if p.Remote != nil {
 			knownRemote[*p.Remote] = true
 		}
 	}
-	col := signal.Collect(ctx, in.Signals, paths, in.Timeout)
 	obs, err := signal.Observe(in.Store, col, paths, in.Now)
 	if err != nil {
 		return nil, err
