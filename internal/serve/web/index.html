@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F8F7F4" media="(prefers-color-scheme: light)">
 <meta name="color-scheme" content="dark light">
 <title>sous</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -11,7 +13,7 @@
 </head>
 <body>
 <header class="top">
-  <button class="quiet menu" id="menu" type="button" aria-label="Views and projects" aria-controls="side">☰</button>
+  <button class="quiet menu icon" id="menu" type="button" aria-label="Views and projects" aria-controls="side" aria-expanded="false">☰</button>
   <a class="brand" href="#" aria-label="sous, the inbox">
     <span class="mark" aria-hidden="true">&gt;_</span>
     <span class="word">sous</span>
@@ -23,7 +25,7 @@
   <p class="counts" id="counts" aria-live="polite">Reading the board…</p>
   <div class="top-actions">
     <span class="live" id="live" title="Connection to sous">connecting</span>
-    <button class="primary" id="new-task" type="button" title="Hand a task to an agent (n)">New task</button>
+    <button class="primary" id="new-task" type="button" title="Hand a task to an agent (n)" aria-label="New task"><span class="plus" aria-hidden="true">+</span><span class="label">New task</span></button>
   </div>
 </header>
 
@@ -35,7 +37,7 @@
       <input id="project-filter" type="search" placeholder="Filter" aria-label="Filter projects" autocomplete="off">
     </div>
     <div id="projects"></div>
-    <p class="keys"><kbd>j</kbd><kbd>k</kbd> move · <kbd>↵</kbd> open · <kbd>e</kbd> done · <kbd>s</kbd> snooze · <kbd>x</kbd> select · <kbd>n</kbd> new task · <kbd>g</kbd> open repo</p>
+    <p class="keys"><span class="touch-only">Press and hold an item to select several.</span><span class="mouse-only"><kbd>j</kbd><kbd>k</kbd> move · <kbd>↵</kbd> open · <kbd>e</kbd> done · <kbd>s</kbd> snooze · <kbd>x</kbd> select · <kbd>n</kbd> new task · <kbd>g</kbd> open repo</span></p>
   </nav>
 
   <main class="list" id="board" aria-busy="true">
@@ -76,6 +78,7 @@
 
   <aside class="detail" id="detail" aria-label="Item" hidden></aside>
 </div>
+<div class="scrim" id="scrim" hidden></div>
 
 <dialog id="task-dialog" aria-labelledby="task-title">
   <form method="dialog" id="task-form">

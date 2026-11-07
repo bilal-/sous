@@ -23,7 +23,7 @@ const state = {
   // How they like the list: kept in this browser.
   group: {}, sort: "new", sources: new Set(), shut: new Set(),
   cur: null, selected: new Set(), leaving: new Set(), drafts: {},
-  order: [], shownDetail: "",
+  order: [], shownDetail: "", pressed: 0, held: false, pushedOpen: false,
 };
 
 // ---- Tokens: one file for every surface ---------------------------------
@@ -156,8 +156,110 @@ function refOf(ref) {
   m = ref.match(/^gitlab:([^!#]+)([!#])(\d+)$/);
   if (m) return { word: m[1] + m[2] + m[3], href: `https://${m[1]}/-/${m[2] === "!" ? "merge_requests" : "issues"}/${m[3]}` };
   m = ref.match(/^md:([^:]+):/);
-  if (m) return { word: m[1] };
+  if (m) return { word: "filed in " + m[1] };
   return { word: ref };
+}
+
+// ---- Plain words --------------------------------------------------------
+//
+// Items carry the words sous and agents wrote: dense, written for a
+// terminal row. present() turns one into what a person reads first: a short
+// title, an optional kicker above it, the rest as a body, and for git rows
+// what the finding means and what to do about it. It only rearranges and
+// explains; the item's own text stays one tap away.
+
+const cap = (s) => s ? s[0].toUpperCase() + s.slice(1) : s;
+const count = (n, one, many) => n + " " + (+n === 1 ? one : many);
+
+function present(item) {
+  const text = (item.text || "").trim();
+  if (item.source === "git") return gitWords(text);
+  const m = text.match(/^([^·]{3,40}) · ((?:PR #|MR !|issue #)\d+) (.+)$/s);
+  if (m) {
+    const review = /review requested/.test(m[1]);
+    return { kicker: cap(m[1].trim()) + " · " + m[2], title: m[3], body: "",
+      means: review ? "Someone asked you to review this. Open it, review, and it leaves your list once you've responded."
+        : /awaiting review/.test(m[1]) ? "You opened this and it's waiting for a reviewer. Nothing to do unless it has stalled."
+        : /checks failing/.test(m[1]) ? "The latest checks on your pull request failed. Open it to see which."
+        : /changes requested/.test(m[1]) ? "A reviewer asked for changes on your pull request."
+        : "" };
+  }
+  let rest = text, kicker = "";
+  const k = rest.match(/^([A-Za-z][\w ./+-]{1,32}):\s+(\S[\s\S]*)$/);
+  if (k && k[1].trim().split(/\s+/).length <= 4 && !/^https?$/i.test(k[1])) { kicker = cap(k[1].trim()); rest = cap(k[2]); }
+  const [title, body] = rest.length > 110 ? firstSentence(rest) : [rest, ""];
+  return { kicker, title, body };
+}
+
+// firstSentence splits at the end of the first sentence that is long
+// enough to stand alone, never inside "e.g." or a version number.
+function firstSentence(s) {
+  const re = /[.!?](?=\s+[A-Z0-9(`'"~\[])/g;
+  let m;
+  while ((m = re.exec(s))) {
+    const head = s.slice(0, m.index + 1);
+    if (head.length < 24) continue;
+    if (/\b(e\.g|i\.e|etc|vs|cf|approx|No)\.$/i.test(head) || /\b[A-Za-z]\.$/.test(head)) continue;
+    if (head.length > 180) break;
+    return [head, s.slice(m.index + 1).trim()];
+  }
+  return [s, ""];
+}
+
+// gitWords explains what the git signal found, as the person would say it.
+function gitWords(text) {
+  let wt = "";
+  const w = text.match(/^(.*) · worktree (.+)$/);
+  if (w) { text = w[1]; wt = w[2]; }
+  let m = text.match(/^(\d+) files? uncommitted · (.+)$/);
+  if (m) return { title: count(m[1], "uncommitted file", "uncommitted files"), branch: m[2], worktree: wt, git: "dirty",
+    means: "Changes in the working folder that aren't committed yet. Commit them, stash them, or throw them away." };
+  m = text.match(/^(\d+) commits? unpushed · (.+)$/);
+  if (m) return { title: count(m[1], "commit", "commits") + " not pushed", branch: m[2], worktree: wt, git: "ahead",
+    means: "Committed on this computer but not on the remote yet. Until you push, they exist only here." };
+  m = text.match(/^(.+) has no upstream$/);
+  if (m) return { title: "Branch never pushed", branch: m[1], worktree: wt, git: "no-upstream",
+    means: "This branch exists only on this computer. Push it to keep it, or delete it if it's finished with." };
+  m = text.match(/^(\d+) stash(?:es)?$/);
+  if (m) return { title: count(m[1], "stashed change", "stashed changes"), worktree: wt, git: "stash",
+    means: "Work set aside with git stash. Look through it and drop what you no longer need." };
+  return { title: text, worktree: wt, git: "other" };
+}
+
+// The commands that deal with a git finding, run in the project's folder.
+function gitSteps(words, branch) {
+  switch (words.git) {
+    case "dirty": return [["git status", "See which files changed"], ["git diff", "Read the changes"]];
+    case "ahead": return [["git log @{u}..", "See the commits not pushed"], ["git push", "Push them"]];
+    case "no-upstream": return [["git push -u origin " + branch, "Push the branch and track it"], ["git branch -d " + branch, "Or delete it, once merged"]];
+    case "stash": return [["git stash list", "See what's stashed"], ["git stash drop", "Drop the newest one"]];
+  }
+  return [];
+}
+
+const FROM = { human: "Your note", agent: "A note an agent left", git: "Git, in your working copy", github: "GitHub", gitlab: "GitLab" };
+
+// ago says how long since, in whole words: "4 days ago", "just now".
+function ago(iso) {
+  const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000);
+  const units = [[86400 * 365, "year"], [86400 * 30, "month"], [86400 * 7, "week"], [86400, "day"], [3600, "hour"], [60, "minute"]];
+  for (const [n, w] of units) if (s >= n) return plural(Math.floor(s / n), w) + " ago";
+  return "just now";
+}
+
+// linked appends text to node with web addresses as links.
+function linked(node, text) {
+  const re = /https?:\/\/[^\s)<>"']+[^\s)<>"'.,;:!?]/g;
+  let at = 0, m;
+  while ((m = re.exec(text))) {
+    if (m.index > at) node.append(text.slice(at, m.index));
+    const a = el("a", null, m[0]);
+    a.href = m[0]; a.target = "_blank"; a.rel = "noopener noreferrer";
+    node.append(a);
+    at = m.index + m[0].length;
+  }
+  if (at < text.length) node.append(text.slice(at));
+  return node;
 }
 
 // ---- Applying the stream -----------------------------------------------
@@ -291,6 +393,22 @@ function grouped(items) {
 
 // ---- Rendering ----------------------------------------------------------
 
+// showSide slides the views and projects in over the list on a narrow
+// screen; elsewhere the side is always there and this does nothing visible.
+function showSide(on) {
+  $("side").classList.toggle("shown", on);
+  $("menu").setAttribute("aria-expanded", String(on));
+  syncScrim();
+}
+
+// The scrim dims what is under a drawer: the side, or the detail where it
+// slides over the list. Tapping it closes the drawer.
+function syncScrim() {
+  const side = $("side").classList.contains("shown");
+  const overlay = !!state.open && typeof matchMedia === "function" && matchMedia("(min-width: 761px) and (max-width: 1180px)").matches;
+  $("scrim").hidden = !(side || overlay);
+}
+
 function render() {
   if (!state.snap) return;
   renderCounts();
@@ -298,6 +416,7 @@ function render() {
   renderSide();
   renderList();
   renderDetail();
+  syncScrim();
   $("board").setAttribute("aria-busy", "false");
 }
 
@@ -338,7 +457,7 @@ function navButton(word, count, on, onClick, role, hot) {
   b.append(el("span", "dot"), el("span", "label", word));
   if (count) b.append(el("span", "n", String(count)));
   if (on) b.setAttribute("aria-current", "page");
-  b.addEventListener("click", () => { onClick(); $("side").classList.remove("shown"); });
+  b.addEventListener("click", () => { onClick(); showSide(false); });
   return b;
 }
 
@@ -499,12 +618,16 @@ function row(item, g) {
   const body = el("div", "body");
   const run = item.run;
   const failed = run && (run.phase === "failed" || run.state === "failed");
-  body.append(el("div", "t", (failed ? "Run failed · " : "") + item.text));
+  const words = present(item);
+  if (words.kicker) body.append(el("div", "kicker", words.kicker));
+  body.append(el("div", "t", (failed ? "Run failed · " : "") + words.title));
   if (s.id === "needs_you") {
     const q = (run.question && run.question.text) || run.text;
     if (q) body.append(el("div", "ask", "Asks: " + q));
   }
   const meta = el("div", "meta");
+  if (words.branch) meta.append(el("span", "branch", words.branch));
+  if (words.worktree) meta.append(el("span", null, "worktree " + words.worktree));
   if (!g.status) {
     const b = el("span", "badge", s.word);
     b.style.setProperty("--role", `var(${s.role})`);
@@ -519,7 +642,7 @@ function row(item, g) {
   if (run && s.id === "in_progress") meta.append(...progressBits(run));
   if (run && s.id === "ready" && run.result && run.result.files) meta.append(el("span", null, plural(run.result.files.changed, "file") + " changed"));
   const ref = refOf(item.ref);
-  if (ref) meta.append(el("span", "tag", ref.word));
+  if (ref && !words.kicker) meta.append(el("span", "tag", ref.word));
   if (item.source === "agent") meta.append(el("span", "tag", "from an agent"));
   if (item.stale) meta.append(el("span", "tag warn", "stale"));
   if (meta.childElementCount) body.append(meta);
@@ -533,9 +656,33 @@ function row(item, g) {
   right.title = when(item.since);
 
   r.append(pick, body, right);
-  r.addEventListener("click", () => openItem(item.key));
+  // Touch: a long press selects; while selecting, a tap adds or removes.
+  // A mouse selects with the checkbox, or x.
+  // The list redraws when a press selects, so the click that follows may
+  // land on the new row: state.pressed, not this row, remembers the press.
+  let press = null;
+  const cancel = () => { if (press) clearTimeout(press.t); press = null; };
+  r.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch") return;
+    press = { x: e.clientX, y: e.clientY, t: setTimeout(() => {
+      press = null; state.held = true;
+      if (navigator.vibrate) navigator.vibrate(10);
+      toggleSelect(item.key);
+    }, 450) };
+  });
+  r.addEventListener("pointermove", (e) => { if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) cancel(); });
+  r.addEventListener("pointerup", cancel);
+  r.addEventListener("pointercancel", cancel);
+  r.addEventListener("contextmenu", (e) => { if (press || state.held) e.preventDefault(); });
+  r.addEventListener("click", () => {
+    if (state.held || Date.now() - state.pressed < 350) return;
+    if (state.selected.size && coarse()) { toggleSelect(item.key); return; }
+    openItem(item.key);
+  });
   return r;
 }
+
+const coarse = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 
 function progressBits(run) {
   const out = [];
@@ -558,7 +705,16 @@ function progressBits(run) {
 
 function openItem(key) {
   state.cur = key;
-  go({ open: key });
+  const was = state.open;
+  go({ open: key }, !!was); // moving between items replaces, so Back returns to the list
+  if (!was) state.pushedOpen = true;
+}
+
+// closeItem goes back to the list: back in history when opening the item
+// was the last step, so the phone's back gesture and this button agree.
+function closeItem() {
+  if (state.pushedOpen && history.length > 1) { state.pushedOpen = false; history.back(); return; }
+  go({ open: null });
 }
 
 function renderDetail() {
@@ -579,68 +735,135 @@ function detailParts(item) {
     ? { id: "snoozed", word: "snoozed", role: "--muted" } : null);
   const run = item.run;
   const has = new Set(item.actions || []);
+  const p = projectOf(item.project);
+  const words = present(item);
+  const isNote = /^\d+$/.test(item.id);
   const out = [];
 
+  // A bar to leave by, and to step through the list without leaving.
   const head = el("div", "d-head");
+  const back = button("Back", "quiet back", closeItem);
+  back.setAttribute("aria-label", "Back to the list");
   const b = el("span", "badge", s.word);
   b.style.setProperty("--role", `var(${s.role})`);
-  head.append(b, el("span", "id", /^\d+$/.test(item.id) ? "#" + item.id : ""));
-  head.append(button("Close", "quiet small close", () => go({ open: null })));
-  out.push(head, el("p", "d-text", item.text));
+  head.append(back, b, el("span", "id", isNote ? "#" + item.id : ""));
+  const step = el("div", "step-nav");
+  const prev = button("↑", "quiet icon", () => moveCur(-1));
+  prev.setAttribute("aria-label", "Previous item");
+  prev.title = "Previous (k)";
+  const next = button("↓", "quiet icon", () => moveCur(1));
+  next.setAttribute("aria-label", "Next item");
+  next.title = "Next (j)";
+  const close = button("✕", "quiet icon close", closeItem);
+  close.setAttribute("aria-label", "Close");
+  close.title = "Close (Esc)";
+  step.append(prev, next, close);
+  head.append(step);
+  out.push(head);
 
-  const acts = el("div", "d-actions");
-  if (has.has("done")) acts.append(button("Done", "", () => quick("done", [item])));
-  if (has.has("snooze")) acts.append(button("Snooze", "quiet", () => quick("snooze", [item])));
-  if (!run && item.section !== "unfinished" && canRun(item.project)) {
-    acts.append(button("Hand to an agent", "primary", () => openTask(item.project, item.text)));
+  const top = el("div", "d-top");
+  if (words.kicker) top.append(el("p", "d-kicker", words.kicker));
+  top.append(linked(el("h2", "d-text"), words.title));
+  if (words.branch || words.worktree) {
+    const where = el("p", "d-where");
+    if (words.branch) where.append("on ", el("span", "branch", words.branch));
+    if (words.worktree) where.append((words.branch ? " in worktree " : "in worktree "), el("b", null, words.worktree));
+    top.append(where);
   }
+  for (const para of (words.body || "").split(/\n{2,}/).filter(Boolean)) top.append(linked(el("p", "d-body"), para));
+  out.push(top);
+
+  // What to do, biggest first: the forge page for a tracker item, then
+  // done and snooze, then handing it to an agent.
+  const acts = el("div", "d-actions");
+  const ref = refOf(item.ref);
+  if (ref && ref.href && !isNote) {
+    const a = el("a", "btn primary", "Open on " + (item.source === "gitlab" ? "GitLab" : "GitHub") + " ↗");
+    a.href = ref.href; a.target = "_blank"; a.rel = "noopener noreferrer";
+    acts.append(a);
+  }
+  if (has.has("done")) acts.append(button("Done", "ok", () => quick("done", [item])));
+  if (has.has("snooze")) acts.append(button("Snooze", "", () => quick("snooze", [item])));
+  const agentable = !run && isNote && item.section !== "unfinished";
+  if (agentable && canRun(item.project)) acts.append(button("Hand to an agent", "primary", () => openTask(item.project, item.text)));
   if (acts.childElementCount) out.push(acts);
 
   if (run) out.push(runSection(item, run, s, has));
 
-  const p = projectOf(item.project);
+  if (words.means) {
+    const sec = el("div", "d-section");
+    sec.append(el("h3", null, "What this means"), el("p", "d-means", words.means));
+    const steps = gitSteps(words, words.branch);
+    if (steps.length) {
+      sec.append(el("p", "hint", "In " + p.name + (words.worktree ? "'s worktree " + words.worktree : "") + ", run:"));
+      for (const [cmd, what] of steps) sec.append(copyLine(cmd, what));
+    }
+    out.push(sec);
+  }
+
+  // About: the facts, as a person would put them.
   const facts = el("dl", "facts-list");
   const fact = (k, v) => { if (v) facts.append(el("dt", null, k), typeof v === "string" ? el("dd", null, v) : wrap("dd", v)); };
   const pl = el("a", "proj", p.org ? p.org + "/" + p.name : p.name);
   pl.href = "#project=" + encodeURIComponent(item.project);
+  pl.addEventListener("click", () => { state.pushedOpen = false; });
   fact("Project", pl);
-  fact("Kind", { me: "on you", them: "on others", idea: "idea", unfinished: "unfinished work" }[item.kind] || item.kind);
-  fact("From", { human: "your note", agent: "an agent's note", git: "git", github: "GitHub", gitlab: "GitLab" }[item.source] || item.source);
-  fact("Noted", when(item.since) + " · " + age(item.since) + " ago");
-  if (item.reviewed_at) fact("Reviewed", when(item.reviewed_at));
-  const ref = refOf(item.ref);
+  fact("Source", FROM[item.source] || item.source);
+  fact("Noted", item.since && ago(item.since) + " · " + when(item.since));
+  if (item.reviewed_at) fact("Last checked", when(item.reviewed_at));
   if (ref) {
     if (ref.href) {
-      const a = el("a", null, ref.word);
+      const a = el("a", null, ref.word + " ↗");
       a.href = ref.href; a.target = "_blank"; a.rel = "noopener noreferrer";
       fact("Tracker", a);
     } else fact("Tracker", ref.word + (item.upstream && item.upstream.state ? " · " + item.upstream.state : ""));
   }
-  if (item.stale) fact("Stale", "not reviewed in a while; sous review asks about it");
-  if (p.remote) fact("Remote", siteLink(p, null, p.remote + " ↗") || p.remote);
-  out.push(facts);
+  if (item.stale) fact("Stale", "Not looked at in a while; sous review will ask if it still matters");
+  if (p.remote) fact("Repository", siteLink(p, null, p.remote + " ↗") || p.remote);
+  const about = el("div", "d-section");
+  about.append(el("h3", null, "About"), facts);
+  out.push(about);
 
-  const sec = el("div", "d-section");
-  sec.append(el("h3", null, "On the terminal"));
-  if (/^\d+$/.test(item.id)) sec.append(copyLine(`sous show ${item.id}`));
-  sec.append(copyLine(`sous go ${p.name}`));
-  if (!run && item.section !== "unfinished" && !canRun(item.project)) {
-    sec.append(el("p", "hint", "To hand work here to an agent from this page, let runs start in this project:"));
-    sec.append(copyLine(`sous config -p ${p.name} remote_runs true`));
+  // A note no agent may take yet says how to allow it, where it matters.
+  if (agentable && !canRun(item.project)) {
+    const sec = el("div", "d-section");
+    sec.append(el("h3", null, "Hand it to an agent"),
+      el("p", "hint", "Agents can't start work in " + p.name + " from this page yet. Allow it once, in a terminal, and a Hand to an agent button appears here:"),
+      copyLine(`sous config -p ${p.name} remote_runs true`, "Let agents start runs in " + p.name));
+    out.push(sec);
   }
-  out.push(sec);
+
+  // The same moves from a terminal, each saying what it does.
+  const term = el("details", "d-section terminal");
+  term.append(el("summary", null, "Do it from a terminal"));
+  if (isNote) {
+    term.append(copyLine(`sous show ${item.id}`, "Print this note in full"));
+    if (has.has("done")) term.append(copyLine(`sous done ${item.id}`, "Mark it done"));
+  }
+  term.append(copyLine(`sous go ${p.name}`, "Open " + p.name + " in your shell and see what's waiting there"));
+  out.push(term);
+
+  if (words.title !== (item.text || "").trim() && !words.git) {
+    const raw = el("details", "d-section raw");
+    raw.append(el("summary", null, "As written"), el("p", "mono", item.text));
+    out.push(raw);
+  }
   return out;
 }
 
 function wrap(tag, child) { const e = el(tag); e.append(child); return e; }
 
-function copyLine(text) {
+// copyLine is a command and, when given, what it does: one tap copies it.
+function copyLine(text, what) {
   const d = el("div", "copy");
-  d.append(el("code", null, text), button("Copy", "quiet small", async (e) => {
+  const line = el("div", "copy-line");
+  line.append(el("code", null, text), button("Copy", "quiet small", async (e) => {
     try { await navigator.clipboard.writeText(text); e.target.textContent = "Copied"; }
     catch { e.target.textContent = "Select it"; }
     setTimeout(() => { e.target.textContent = "Copy"; }, 1500);
   }));
+  if (what) d.append(el("span", "what", what));
+  d.append(line);
   return d;
 }
 
@@ -936,7 +1159,8 @@ function onKey(e) {
   if (e.key === "Escape") {
     if (typing) { e.target.blur(); return; }
     if (state.selected.size) { state.selected.clear(); renderList(); return; }
-    if (state.open) go({ open: null });
+    if (state.open) closeItem();
+    else $("side").classList.remove("shown");
     return;
   }
   if (typing) return;
@@ -966,7 +1190,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("confirm-yes").value = "yes";
   $("new-task").addEventListener("click", () => openTask());
   $("view-run").addEventListener("click", () => openTask(state.project));
-  $("menu").addEventListener("click", () => $("side").classList.toggle("shown"));
+  $("menu").addEventListener("click", () => showSide(!$("side").classList.contains("shown")));
+  $("scrim").addEventListener("click", () => { if ($("side").classList.contains("shown")) showSide(false); else if (state.open) closeItem(); });
   $("task-form").addEventListener("submit", (e) => {
     const brief = $("task-brief").value.trim();
     const project = $("task-project").value;
@@ -982,8 +1207,13 @@ document.addEventListener("DOMContentLoaded", () => {
   $("bulk-snooze").addEventListener("click", () => quick("snooze", [...state.selected].map((k) => state.items.get(k))));
   $("bulk-clear").addEventListener("click", () => { state.selected.clear(); renderList(); });
   document.addEventListener("keydown", onKey);
-  window.addEventListener("popstate", () => { readAddress(); render(); });
+  window.addEventListener("popstate", () => { state.pushedOpen = false; readAddress(); render(); });
   window.addEventListener("hashchange", () => { readAddress(); render(); });
+  window.addEventListener("resize", syncScrim);
+  // A long press ends when the finger lifts, wherever the redrawn list put
+  // it; the click that follows that lift is the press's, not a tap.
+  document.addEventListener("pointerup", () => { if (state.held) { state.held = false; state.pressed = Date.now(); } }, true);
+  document.addEventListener("pointercancel", () => { state.held = false; }, true);
   setInterval(() => { if (state.snap) renderList(); if (!state.live) setLive(false); }, 30000);
   loadPrefs();
   readAddress();
