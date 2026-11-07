@@ -179,6 +179,14 @@ func (r *gitRepo) check() {
 	}
 	header, files, _ := strings.Cut(out, "\n")
 	st := parseStatusHeader(header)
+	// "[gone]" is also what git prints for an upstream whose ref names an
+	// object it cannot read. Resolve it as the scan always did: a ref that
+	// resolves is an upstream, and counting against it then fails loudly.
+	if st.gone {
+		if up, err := gitOut(r.p, "rev-parse", "--abbrev-ref", "-q", "@{u}"); err == nil && up != "" {
+			st.upstream, st.ahead = true, ""
+		}
+	}
 	r.branch = st.branch
 	r.dirty(strings.TrimSpace(files))
 	r.unpushed(st)
@@ -189,6 +197,7 @@ type branchStatus struct {
 	branch   string // "(detached)" when HEAD is not on a branch
 	upstream bool   // the branch tracks one that still exists
 	ahead    string // commits ahead of it; "" when git did not count them
+	gone     bool   // git said "[gone]": deleted, or unreadable
 }
 
 // parseStatusHeader reads "## main...origin/main [ahead 2, behind 1]" and
@@ -210,7 +219,7 @@ func parseStatusHeader(h string) branchStatus {
 		h, track = h[:i], h[i+2:len(h)-1]
 	}
 	branch, _, upstream := strings.Cut(h, "...")
-	st := branchStatus{branch: branch, upstream: upstream && track != "gone"}
+	st := branchStatus{branch: branch, upstream: upstream && track != "gone", gone: upstream && track == "gone"}
 	if !st.upstream {
 		return st
 	}

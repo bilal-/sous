@@ -94,3 +94,38 @@ func TestGitScanFailureKeepsKnownWork(t *testing.T) {
 		})
 	}
 }
+
+// git status says "[gone]" both for an upstream that was deleted and for
+// one whose ref names an object git cannot read. Only the first is "no
+// upstream"; the second must fail the scan, so known work stays (stale)
+// rather than reading as pushed.
+func TestGitUnreadableUpstreamFailsTheScan(t *testing.T) {
+	ws := t.TempDir()
+	bare := filepath.Join(ws, "up.git")
+	git(t, ws, "init", "-q", "--bare", bare)
+	r := repo(t, filepath.Join(ws, "api"), true)
+	git(t, r, "remote", "add", "origin", bare)
+	git(t, r, "push", "-q", "-u", "origin", "HEAD:main")
+	git(t, r, "commit", "-q", "--allow-empty", "-m", "unpushed")
+	tracking := filepath.Join(r, ".git", "refs", "remotes", "origin", "main")
+
+	if sigs, _ := scan(t, r); find(sigs, "1 commits unpushed") == nil {
+		t.Fatalf("setup: no unpushed row: %+v", sigs)
+	}
+	if err := os.WriteFile(tracking, []byte(strings.Repeat("1", 40)+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var out, warn bytes.Buffer
+	if err := ScanGit([]string{r}, &out, &warn, time.Now()); err == nil {
+		t.Fatalf("an unreadable upstream must fail the scan; warn=%q out=%q", warn.String(), out.String())
+	}
+
+	if err := os.Remove(tracking); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	warn.Reset()
+	if err := ScanGit([]string{r}, &out, &warn, time.Now()); err != nil {
+		t.Fatalf("a deleted upstream is no upstream, not a failure: %v %s", err, warn.String())
+	}
+}

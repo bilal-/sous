@@ -12,7 +12,7 @@ func TestParseStatusHeader(t *testing.T) {
 		{"## main...origin/main [ahead 3]", branchStatus{branch: "main", upstream: true, ahead: "3"}},
 		{"## main...origin/main [behind 2]", branchStatus{branch: "main", upstream: true, ahead: "0"}},
 		{"## feat/x...origin/feat/x [ahead 1, behind 4]", branchStatus{branch: "feat/x", upstream: true, ahead: "1"}},
-		{"## main...origin/main [gone]", branchStatus{branch: "main"}},
+		{"## main...origin/main [gone]", branchStatus{branch: "main", gone: true}},
 		{"## main...origin/main [different]", branchStatus{branch: "main", upstream: true}},
 		{"## HEAD (no branch)", branchStatus{branch: "(detached)"}},
 		{"## No commits yet on main", branchStatus{branch: "main"}},
