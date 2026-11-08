@@ -43,6 +43,19 @@ type Server struct {
 	Exe   string
 	Token string
 	Addr  string
+	// Terminal is where Open opens a project's tab, as the page names it
+	// ("Ghostty"), or "" with Why saying why there is none.
+	Terminal, Why string
+	// Open opens a project, by its path, in a new tab of Terminal: in its
+	// shell, or with its agent started there. It refuses a path that is
+	// not a project sous found.
+	Open func(ctx context.Context, project string, agent bool) error
+}
+
+// openRequest is what the page asks Open for.
+type openRequest struct {
+	Project string `json:"project"`
+	Agent   bool   `json:"agent"`
 }
 
 const cookieName = "sous"
@@ -97,6 +110,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.answer(w, r, []string{s.Exe, "show", "--json", "--", id}, "")
 	case r.Method == http.MethodPost && r.URL.Path == "/api/act":
 		s.act(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/setup":
+		s.answer(w, r, []string{s.Exe, "doctor", "--json"}, "")
+	case r.Method == http.MethodGet && r.URL.Path == "/api/terminal":
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"name": s.Terminal, "why": s.Why, "open": s.Open != nil && s.Terminal != ""})
+	case r.Method == http.MethodPost && r.URL.Path == "/api/open":
+		s.open(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -257,6 +277,26 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 		stdin = req.Input
 	}
 	s.answer(w, r, argv, stdin)
+}
+
+// open opens a project in a new tab, when the person asks on the page.
+func (s *Server) open(w http.ResponseWriter, r *http.Request) {
+	var req openRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 8<<10)).Decode(&req); err != nil || !strings.HasPrefix(req.Project, "/") {
+		http.Error(w, "open names a project by its path", http.StatusBadRequest)
+		return
+	}
+	if s.Open == nil || s.Terminal == "" {
+		http.Error(w, "no terminal to open it in: "+s.Why, http.StatusConflict)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := s.Open(r.Context(), req.Project, req.Agent); err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"opened": s.Terminal})
 }
 
 func number(s string) bool {

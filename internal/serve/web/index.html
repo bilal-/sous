@@ -32,6 +32,7 @@
 <div class="app">
   <nav class="side" id="side" aria-label="Views and projects">
     <ul class="views" id="views"></ul>
+    <ul class="views setup-nav"><li><button class="nav" id="open-setup" type="button"><span class="dot"></span><span class="label">Setup</span></button></li></ul>
     <div class="side-head">
       <h2>Projects</h2>
       <input id="project-filter" type="search" placeholder="Filter" aria-label="Filter projects" autocomplete="off">
@@ -48,6 +49,7 @@
         <span class="n" id="view-count"></span>
         <span id="view-site"></span>
         <button class="quiet small" id="view-run" type="button" hidden>New task here</button>
+        <button class="quiet small" id="view-open" type="button" hidden></button>
       </div>
       <div class="controls">
         <div class="chips" id="sources" role="group" aria-label="Show from"></div>
@@ -121,6 +123,15 @@
       <button type="submit" class="primary" id="confirm-yes">Yes</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="setup-dialog" class="wide" aria-labelledby="setup-title">
+  <div class="diff-head">
+    <h2 id="setup-title">Setup</h2>
+    <span class="faint" id="setup-sum"></span>
+    <button type="button" class="quiet" data-close>Close</button>
+  </div>
+  <div id="setup-body" class="setup"></div>
 </dialog>
 
 <dialog id="diff-dialog" class="wide" aria-labelledby="diff-title">

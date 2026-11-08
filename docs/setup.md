@@ -85,6 +85,7 @@ refresh_hours = 4              # how old the shell's cached board may get
 run_minutes = 60               # how long a run by a built in runner may take
 gitlab_hosts = ["git.example.org"]   # GitLab servers, beyond the ones glab knows
 plugins = ["~/.sous/plugins/sous-backend-jira"]   # extra plugins; only listed ones run
+terminal = "auto"              # where sous serve opens a project's tab: auto, none, herdr, tmux, ghostty, iterm, terminal
 
 [projects."acme/*"]            # every project in the acme folder
 github_account = "work-account"

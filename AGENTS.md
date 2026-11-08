@@ -70,6 +70,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/runner     the runner contract, a built in runner for each harness that runs headless, and their watcher
     internal/runner/runnertest     the rules every runner must pass
     internal/plugin     the one way sous runs another program: find it by name, run it with a time limit; the exit codes every plugin speaks; the registry of each axis's built ins and the door to them
+    internal/terminal   opening a project in a new tab of herdr, tmux, Ghostty, iTerm2 or Terminal, for sous serve
     internal/project    finding projects, reading git facts, matching rough names
     internal/store      saving data files safely: locked, written whole, upgraded in place
     internal/config     config.toml: reading it, the list of settings (from Config's fields), and safe editing (Set), checked to change only what was asked
@@ -84,7 +85,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
 
 Code only depends downward, in this order: `cli`, then `doctor` and `serve`, then
 `report`, `install`, `integration` and `update`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
-`tracker`, `plugin`, `harness`, `thread`, `session`, `project`, `memory` and `effort`, then `store`,
+`tracker`, `plugin`, `harness`, `terminal`, `thread`, `session`, `project`, `memory` and `effort`, then `store`,
 `config`, `text` and `docs`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.
 `thread` uses `project` for a project's path and remote; they share a tier.

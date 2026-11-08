@@ -21,7 +21,7 @@ var tiers = [][]string{
 	{"report", "install", "integration", "update"},
 	{"board", "filing", "runs", "hook", "launcher"},
 	{"signal", "backend", "runner"},
-	{"tracker", "plugin", "harness", "thread", "session", "project", "memory", "effort"},
+	{"tracker", "plugin", "harness", "terminal", "thread", "session", "project", "memory", "effort"},
 	{"store", "config", "text", "docs"},
 }
 

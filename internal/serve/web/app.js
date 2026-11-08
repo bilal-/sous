@@ -20,6 +20,8 @@ const state = {
   snap: null, items: new Map(), tokens: null, live: false, seen: 0,
   // Where the person is: kept in the address.
   view: "inbox", project: null, q: "", open: null,
+  // term: the terminal sous serve opens tabs in ({name, why, open}).
+  term: null,
   // How they like the list: kept in this browser.
   group: {}, sort: "new", sources: new Set(), shut: new Set(),
   cur: null, selected: new Set(), leaving: new Set(), drafts: {},
@@ -526,6 +528,9 @@ function renderList() {
   $("view-count").textContent = shown.length === base.length ? String(shown.length) : `${shown.length} of ${base.length}`;
   const runHere = $("view-run");
   runHere.hidden = !(proj && canRun(proj.path));
+  const openHere = $("view-open");
+  openHere.hidden = !(proj && state.term && state.term.open);
+  if (!openHere.hidden) openHere.textContent = "Open in " + state.term.name;
   const site = $("view-site");
   site.replaceChildren();
   const link = proj && siteLink(proj, "site");
@@ -801,6 +806,10 @@ function detailParts(item) {
   if (has.has("link")) acts.append(button("Link a ticket", "quiet", () => openLink(item)));
   const agentable = !run && isNote && item.section !== "unfinished";
   if (agentable && canRun(item.project)) acts.append(button("Hand to an agent", "primary", () => openTask(item.project, item.text)));
+  if (canOpen(item)) {
+    acts.append(button("Agent in " + state.term.name, "", () => openTab(item.project, true)));
+    acts.append(button("Shell in " + state.term.name, "quiet", () => openTab(item.project, false)));
+  }
   if (acts.childElementCount) out.push(acts);
 
   if (run) out.push(runSection(item, run, s, has));
@@ -858,6 +867,7 @@ function detailParts(item) {
     if (has.has("link")) term.append(copyLine(`sous link ${item.id} --ref <issue>`, "Link a ticket that already exists"));
   }
   term.append(copyLine(`sous go ${shellArg(p.name)}`, "Open " + p.name + " in your shell and see what's waiting there"));
+  if (!canOpen(item) && state.term && state.term.why) term.append(el("p", "hint", "No Open in terminal button here: " + state.term.why + "."));
   out.push(term);
 
   if (words.title !== (item.text || "").trim() && !words.git) {
@@ -1110,6 +1120,93 @@ function confirmThen(title, body, yes) {
   d.addEventListener("close", () => { if (d.returnValue === "yes") yes(); }, { once: true });
 }
 
+// canOpen: sous can open item's project in a terminal tab from here.
+function canOpen(item) {
+  return !!(state.term && state.term.open && item.project && !item.stale && (state.snap.projects || []).some((p) => p.path === item.project));
+}
+
+// openTab asks sous to open project in a new terminal tab, with its agent
+// started there or just its shell.
+async function openTab(project, agent) {
+  let res, out;
+  try {
+    res = await fetch("/api/open", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project, agent }) });
+    out = await res.json().catch(() => ({}));
+  } catch {
+    toast("sous is not answering; is sous serve still running?", "--failed");
+    return false;
+  }
+  if (res.ok) {
+    toast("Opened " + projectOf(project).name + " in " + out.opened, "--ready");
+    return true;
+  }
+  toast("Could not open it: " + (out.error || res.statusText), "--failed");
+  return false;
+}
+
+async function loadTerminal() {
+  try {
+    const res = await fetch("/api/terminal");
+    state.term = await res.json();
+  } catch { state.term = null; }
+  render();
+}
+
+// The setup page: what sous doctor found, grouped, each problem with the
+// command that fixes it.
+const AREAS = [
+  ["setup", "sous itself"], ["agents", "Agents"], ["trackers", "GitHub and GitLab"],
+  ["terminal", "Terminal"], ["plugins", "Plugins"], ["data", "Your data"],
+];
+async function openSetup() {
+  const d = $("setup-dialog"), body = $("setup-body");
+  $("setup-sum").textContent = "Checking… GitHub and GitLab can take a few seconds.";
+  body.replaceChildren();
+  d.showModal();
+  let out;
+  try {
+    out = await (await fetch("/api/setup")).json();
+  } catch {
+    $("setup-sum").textContent = "sous did not answer.";
+    return;
+  }
+  renderSetup(out);
+}
+
+function renderSetup(out) {
+  const body = $("setup-body");
+  body.replaceChildren();
+  const checks = out.checks || [];
+  const bad = checks.filter((c) => c.status === "bad").length, warn = checks.filter((c) => c.status === "warn").length;
+  $("setup-sum").textContent = !bad && !warn ? "Everything works" : [bad && plural(bad, "problem"), warn && warn + " to look at"].filter(Boolean).join(" · ");
+  const ROLE = { ok: "--ready", warn: "--needs", bad: "--failed" }, MARK = { ok: "✓", warn: "!", bad: "✗" };
+  for (const [area, title] of AREAS) {
+    const cs = checks.filter((c) => (c.area || "setup") === area);
+    if (!cs.length) continue;
+    // Problems first, so a long list of fine things never hides one.
+    cs.sort((a, b) => ["bad", "warn", "ok"].indexOf(a.status) - ["bad", "warn", "ok"].indexOf(b.status));
+    body.append(el("h3", null, title));
+    const shown = new Set(); // one fix often mends several checks: say it once
+    for (const c of cs) {
+      const row = el("div", "check");
+      const mark = el("span", "mark", MARK[c.status] || "?");
+      mark.style.setProperty("--role", `var(${ROLE[c.status] || "--faint"})`);
+      const what = el("div", "what");
+      what.append(el("b", null, c.name));
+      row.append(mark, what);
+      if (c.detail) row.append(el("div", "why", c.detail));
+      if (c.fix && shown.has(c.fix)) row.append(el("div", "why", "Fixed by " + c.fix + ", above."));
+      else if (c.fix) {
+        shown.add(c.fix);
+        const fix = copyLine(c.fix);
+        fix.classList.add("copy");
+        row.append(fix);
+      }
+      body.append(row);
+    }
+  }
+}
+
 // openLink asks for the ticket to link item to.
 function openLink(item) {
   const d = $("link-dialog");
@@ -1220,6 +1317,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("confirm-yes").value = "yes";
   $("new-task").addEventListener("click", () => openTask());
   $("view-run").addEventListener("click", () => openTask(state.project));
+  $("view-open").addEventListener("click", () => openTab(state.project, true));
+  $("open-setup").addEventListener("click", () => { showSide(false); openSetup(); });
   $("menu").addEventListener("click", () => showSide(!$("side").classList.contains("shown")));
   $("scrim").addEventListener("click", () => { if ($("side").classList.contains("shown")) showSide(false); else if (state.open) closeItem(); });
   $("task-form").addEventListener("submit", (e) => {
@@ -1253,5 +1352,6 @@ document.addEventListener("DOMContentLoaded", () => {
   loadPrefs();
   readAddress();
   loadTokens();
+  loadTerminal();
   connect();
 });

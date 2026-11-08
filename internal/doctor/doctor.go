@@ -24,6 +24,7 @@ import (
 	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/store"
+	"github.com/bilal-/sous/internal/terminal"
 	"github.com/bilal-/sous/internal/text"
 	"github.com/bilal-/sous/internal/thread"
 	"github.com/bilal-/sous/internal/tracker"
@@ -44,6 +45,27 @@ type Check struct {
 	Status Status `json:"status"`
 	Detail string `json:"detail"`
 	Fix    string `json:"fix,omitempty"`
+	// Area groups checks for a page: setup, agents, trackers, plugins,
+	// terminal or data.
+	Area string `json:"area"`
+}
+
+// The areas checks fall in.
+const (
+	AreaSetup    = "setup"
+	AreaAgents   = "agents"
+	AreaTrackers = "trackers"
+	AreaPlugins  = "plugins"
+	AreaTerminal = "terminal"
+	AreaData     = "data"
+)
+
+// in puts cs in area.
+func in(area string, cs []Check) []Check {
+	for i := range cs {
+		cs[i].Area = area
+	}
+	return cs
 }
 
 // Inputs are what the checks need, all read by the caller.
@@ -59,19 +81,53 @@ type Inputs struct {
 // Run makes every check, in the order a person would fix them: config and
 // projects, what setup installs, the trackers, plugins, data files, and the
 // saved board.
-func Run(in Inputs) []Check {
-	out := configChecks(in)
-	for _, r := range install.Check(in.UserHome, in.SousHome, in.Exe, in.Shell, in.GOOS, in.Zdotdir) {
-		out = append(out, fromResult(r.Name, r.OK, r.Detail, r.Fix, severity(r.Optional)))
+func Run(ins Inputs) []Check {
+	out := in(AreaSetup, configChecks(ins))
+	for _, r := range install.Check(ins.UserHome, ins.SousHome, ins.Exe, ins.Shell, ins.GOOS, ins.Zdotdir) {
+		c := fromResult(r.Name, r.OK, r.Detail, r.Fix, severity(r.Optional))
+		c.Area = AreaAgents
+		if strings.HasPrefix(r.Name, "shell") {
+			c.Area = AreaSetup
+		}
+		out = append(out, c)
 	}
-	if in.Cfg != nil {
-		out = append(out, trackerChecks(in.Cfg)...)
-		out = append(out, pluginChecks(in.Cfg.Plugins)...)
-		out = append(out, runnerChecks(in.UserHome)...)
-		out = append(out, remoteRunChecks(in)...)
+	if ins.Cfg != nil {
+		out = append(out, in(AreaTrackers, trackerChecks(ins.Cfg))...)
+		out = append(out, in(AreaPlugins, pluginChecks(ins.Cfg.Plugins))...)
+		out = append(out, in(AreaAgents, runnerChecks(ins.UserHome))...)
+		out = append(out, in(AreaAgents, remoteRunChecks(ins))...)
+		out = append(out, terminalCheck(ins))
 	}
-	out = append(out, dataChecks(in.SousHome, in.Now)...)
-	return append(out, boardChecks(in)...)
+	out = append(out, in(AreaData, dataChecks(ins.SousHome, ins.Now))...)
+	return append(out, in(AreaData, boardChecks(ins))...)
+}
+
+// terminalCheck says where sous serve opens a project's tab, from the
+// terminal setting and the terminal doctor runs in.
+func terminalCheck(ins Inputs) Check {
+	env := map[string]string{}
+	for _, kv := range ins.Env {
+		if k, v, ok := strings.Cut(kv, "="); ok {
+			env[k] = v
+		}
+	}
+	c := Check{Name: "terminal tabs", Area: AreaTerminal, Status: OK}
+	k, ok, why := terminal.Detect(ins.Cfg.Terminal, ins.GOOS, func(key string) string { return env[key] })
+	switch {
+	case ok && k.Mac:
+		where := "tabs"
+		if !k.Tab {
+			where = "windows"
+		}
+		c.Detail = fmt.Sprintf("sous serve opens projects in %s %s; macOS asks once to let sous control it", k.Title, where)
+	case ok:
+		c.Detail = "sous serve opens projects in " + k.Title + " tabs"
+	case ins.Cfg.Terminal != "" && ins.Cfg.Terminal != "auto" && ins.Cfg.Terminal != "none":
+		c.Status, c.Detail, c.Fix = Warn, why, "sous config terminal auto"
+	default:
+		c.Detail = why
+	}
+	return c
 }
 
 // trackerTimeout bounds each tracker's checks: a gh or glab that hangs is

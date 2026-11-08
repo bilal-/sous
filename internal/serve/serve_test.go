@@ -204,3 +204,62 @@ func TestTokensAreTheSharedOnes(t *testing.T) {
 		t.Fatal("internal/serve/web/tokens.json differs from integrations/design/tokens.json; copy it over")
 	}
 }
+
+// The page asks for a tab in a project; the server hands Open the path and
+// whether to start the agent, and refuses without a terminal or a path.
+func TestServeOpensAProjectInATab(t *testing.T) {
+	ts, s, f := newServer(t)
+	c := authed(t, ts, s)
+	type opened struct {
+		project string
+		agent   bool
+	}
+	var got []opened
+	post := func(body string) (int, string) {
+		req, _ := http.NewRequest("POST", ts.URL+"/api/open", strings.NewReader(body))
+		req.Header.Set("Origin", ts.URL)
+		res, err := c.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(b)
+	}
+	if code, _ := post(`{"project":"/code/acme/api"}`); code != http.StatusConflict {
+		t.Fatalf("no terminal: %d", code)
+	}
+	s.Terminal = "Ghostty"
+	s.Open = func(_ context.Context, project string, agent bool) error {
+		if project == "/code/elsewhere" {
+			return fmt.Errorf("not a project sous found")
+		}
+		got = append(got, opened{project, agent})
+		return nil
+	}
+	if code, body := post(`{"project":"/code/acme/api","agent":true}`); code != 200 || !strings.Contains(body, "Ghostty") {
+		t.Fatalf("open: %d %s", code, body)
+	}
+	if code, _ := post(`{"project":"relative/api"}`); code != http.StatusBadRequest {
+		t.Fatalf("relative: %d", code)
+	}
+	if code, body := post(`{"project":"/code/elsewhere"}`); code != http.StatusUnprocessableEntity || !strings.Contains(body, "not a project") {
+		t.Fatalf("refused: %d %s", code, body)
+	}
+	if len(got) != 1 || got[0] != (opened{"/code/acme/api", true}) {
+		t.Fatalf("opened %v", got)
+	}
+	res, err := c.Get(ts.URL + "/api/terminal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(res.Body)
+	if !strings.Contains(string(b), `"name":"Ghostty"`) || !strings.Contains(string(b), `"open":true`) {
+		t.Fatal(string(b))
+	}
+	if _, err := c.Get(ts.URL + "/api/setup"); err != nil {
+		t.Fatal(err)
+	}
+	if last := f.calls[len(f.calls)-1]; strings.Join(last, " ") != "/bin/sous doctor --json" {
+		t.Fatalf("setup ran %v", last)
+	}
+}

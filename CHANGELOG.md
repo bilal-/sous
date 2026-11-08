@@ -24,6 +24,13 @@ upgraded, never broken.
   and **Link a ticket** for any note that has no ticket yet, and shows what
   a note waits on. Integration protocol 1 gains the `file` and `link`
   actions behind them.
+- `sous serve` opens a project in a new terminal tab, with your agent
+  started there or just a shell: in herdr or tmux when it runs inside one,
+  or Ghostty, iTerm2 or Terminal on macOS. The new `terminal` setting picks
+  one, or turns this off with `none`.
+- `sous serve` has a Setup page: what `sous doctor` finds, grouped, with
+  the command that fixes each problem. `sous doctor` also says which
+  terminal tabs open in, and `--json` gives each check an `area`.
 - `threads.json` is now version 7. An older sous refuses it rather than
   dropping the waits.
 

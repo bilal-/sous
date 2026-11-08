@@ -12,6 +12,7 @@ import (
 	"github.com/bilal-/sous/internal/plugin"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
+	"github.com/bilal-/sous/internal/terminal"
 )
 
 // cmdConfig: sous config shows every setting; sous config <key> <value...>
@@ -160,6 +161,12 @@ var named = map[string]func(e *Env) []plugin.Plugin{
 
 // checkName refuses a value for key that names no plugin there is.
 func checkName(e *Env, key string, value any) int {
+	if key == config.KeyTerminal {
+		if names := terminal.Names(); !slices.Contains(names, value.(string)) {
+			return fail(e, exitUsage, "no terminal %q; choose one of: %s", value, strings.Join(names, ", "))
+		}
+		return 0
+	}
 	list, ok := named[key]
 	if !ok {
 		return 0

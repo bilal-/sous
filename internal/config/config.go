@@ -18,15 +18,18 @@ import (
 )
 
 type Config struct {
-	Roots        []string                     `toml:"roots"`
-	Ignore       []string                     `toml:"ignore"`
-	Agent        string                       `toml:"agent"`
-	Runner       string                       `toml:"runner"` // "" = Agent
-	RefreshHours int                          `toml:"refresh_hours"`
-	RunMinutes   int                          `toml:"run_minutes"`
-	Plugins      []string                     `toml:"plugins"`
-	GitLabHosts  []string                     `toml:"gitlab_hosts"`
-	Projects     map[string]map[string]string `toml:"projects"`
+	Roots        []string `toml:"roots"`
+	Ignore       []string `toml:"ignore"`
+	Agent        string   `toml:"agent"`
+	Runner       string   `toml:"runner"` // "" = Agent
+	RefreshHours int      `toml:"refresh_hours"`
+	RunMinutes   int      `toml:"run_minutes"`
+	Plugins      []string `toml:"plugins"`
+	GitLabHosts  []string `toml:"gitlab_hosts"`
+	// Terminal is where sous serve opens a project's tab: "" or auto finds
+	// it, none turns tabs off, or a terminal's name.
+	Terminal string                       `toml:"terminal"`
+	Projects map[string]map[string]string `toml:"projects"`
 }
 
 // ProjectConfig is what config says about one project, typed. Raw keeps
@@ -41,6 +44,8 @@ const (
 const (
 	KeyAgent  = "agent"
 	KeyRunner = "runner"
+	// KeyTerminal names a terminal, not a plugin; cli checks it.
+	KeyTerminal = "terminal"
 )
 
 type ProjectConfig struct {

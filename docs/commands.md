@@ -862,6 +862,23 @@ list, and pressing and holding an item selects it.
 Keys: `/` search, `j` and `k` move, Enter opens, `e` done, `s` snooze, `x`
 select, `n` new task, `g` opens the project's repo.
 
+**Open in a terminal.** An item's page has **Agent in herdr** and **Shell
+in herdr** (or tmux, Ghostty, iTerm2 or Terminal), and a project's heading
+has **Open in …**. Each opens a new tab in the project's folder: in its
+shell, or with `sous go .` typed there, which starts your agent with where
+you left off. sous opens tabs in the terminal `sous serve` was started in:
+herdr or tmux when it runs inside one, else Ghostty, iTerm2 or Terminal on
+macOS (Terminal opens a window; it has no tabs to script). The `terminal`
+setting picks one, or `none` turns this off. macOS asks once whether sous
+may control Ghostty, iTerm2 or Terminal; if you said no, allow it in System
+Settings, Privacy & Security, Automation. Only a project sous found in your
+project folders opens, and only when you click.
+
+**Setup.** The Setup link in the sidebar shows what
+[`sous doctor`](#sous-doctor) finds, grouped (sous itself, agents, GitHub
+and GitLab, terminal, plugins, your data), problems first, each with the
+command that fixes it.
+
 ```
 sous serve
 sous serve --open --port 0
@@ -1034,6 +1051,8 @@ settings or repairing files. It checks:
   exists (and, for a plugin, describes itself), that it has a `check`, and
   any publishing credentials in sous's environment (`GH_TOKEN`,
   `SSH_AUTH_SOCK` and the like) that a run would inherit
+* which terminal [`sous serve`](#sous-serve) opens a project's tab in,
+  from the `terminal` setting and the terminal doctor runs in
 * your notes, sessions, memory, efforts and observations files
 * how old the saved board is, and each source its last refresh could not
   read, with the reason (this is what a `?` on the board means)
@@ -1053,7 +1072,8 @@ look but may be your choice, such as no shell line after
 `sous setup --no-shell`, or a tracker you never set up. It exits `1` when
 something is broken, else `0`. With `--json` it prints `problems`,
 `warnings` and every check with its `name`, `status` (`ok`, `warn` or
-`bad`), `detail` and `fix`.
+`bad`), `detail`, `fix` and `area` (`setup`, `agents`, `trackers`,
+`plugins`, `terminal` or `data`), which groups them.
 
 This is the one command that asks GitHub and GitLab directly, so it can
 take a few seconds. A `gh` or `glab` that has not answered in 30 seconds is
@@ -1200,6 +1220,7 @@ refresh_hours = 4              # how old the saved board may get, and how often 
 run_minutes = 60               # how long a run by a built in runner may take
 gitlab_hosts = ["git.example.org"]   # GitLab servers, beyond the ones glab knows
 plugins = ["~/.sous/plugins/sous-backend-jira"]   # plugins to run; only listed ones run
+terminal = "auto"              # where sous serve opens a project's tab
 
 [projects."acme/*"]            # every project in the acme folder
 github_account = "work-account"   # which gh account to use for these projects
@@ -1219,6 +1240,7 @@ remote_runs = "true"           # a host (a phone through Shellbell) may start ru
 | `run_minutes` | `60` | How long a run by a built in runner may take before it is stopped. |
 | `gitlab_hosts` | none | GitLab servers to use, beyond the ones `glab` is logged in to. |
 | `plugins` | none | Paths to plugin programs. Only listed plugins run. |
+| `terminal` | `auto` | Where `sous serve` opens a project's tab: `auto` (the terminal it was started in), `none`, or `herdr`, `tmux`, `ghostty`, `iterm`, `terminal`. |
 | `[projects."<org>/<name>"]` or `[projects."<org>/*"]` | | Settings for one project, or every project in an org folder. |
 | `backend` | picked for you | Where `sous file` sends this project's notes: `markdown`, `github`, `gitlab`, or a plugin's name. |
 | `github_account` | `gh`'s active account | Which `gh` account to use for these projects, when you have more than one. |
