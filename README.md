@@ -27,23 +27,25 @@ opencode), so it still works on the days you forget it exists.
 sous · 2 on you · 1 on others · 2 unfinished
 
   on you
-  s:0b4ac59dfd33  app-next           review requested · PR #14 json api            2d
-  1               billing            send the pricing copy to Sam                  6d
+  1               billing                   send the pricing copy to Sam                                  6d
+  s:0b4ac59dfd33  app-next                  review requested · PR #14 json api                            2d
 
   on others
-  2               mobile-app         waiting on app store review                   4d
+  2               mobile-app                waiting on app store review                                   4d
 
   unfinished
-  s:fe9c4922caf6  chime              6 commits unpushed · main                     6d
-  s:4515743b9362  audio-app          11 files uncommitted · feat/history          3mo
+  s:4515743b9362  audio-app                 11 files uncommitted · feat/history                           3mo
+  s:fe9c4922caf6  chime                     6 commits unpushed · main                                     6d
 
   26 checked · 0 unavailable · as of 09:02 · sous snooze <id> to hide a row
 ```
 
 **On you** is what needs you: reviews people asked you for, and notes you
 marked as yours. **On others** is what you're waiting for. **Unfinished** is
-work you left behind in git: uncommitted files, unpushed commits, stashes.
-Every row says how long it has been waiting.
+work you left behind in git: uncommitted files, unpushed commits, stashes,
+oldest first. Every row says how long it has been waiting. When you hand
+tasks to agents, they get their own groups at the top: **needs you**, **in
+progress** and **ready to review**.
 
 ## Why it helps
 

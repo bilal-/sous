@@ -7,6 +7,17 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+
+- The README's sample board, the guide's background task examples and the
+  command guide's run rows now show what sous prints: notes before tracker
+  rows, unfinished work oldest first, runs under in progress and ready to
+  review, and no branch on a ready row. Tests draw these examples with the
+  real renderer, so they fail when the docs drift.
+- The README names the run groups at the top of the board, and the command
+  guide says "branches with no upstream" rather than "never pushed", which
+  sous cannot know.
+
 ## [0.24.0]
 
 ### Changed

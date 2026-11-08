@@ -111,7 +111,7 @@ sous · 2 on you · 1 on others · 3 unfinished
 * **on others**: your notes marked `them`, and your merge requests waiting
   for review.
 * **unfinished**: work left in git: uncommitted files, unpushed commits,
-  stashes, branches that were never pushed. Oldest first.
+  stashes, branches with no upstream. Oldest first.
 
 Runs come first, in their own groups, in the order you act on them:
 
@@ -125,13 +125,14 @@ sous · 1 needs you · 2 running · 1 ready · 21 on you · 2 on others · 20 un
   92              app                       add dark mode · reviewing T4 · 3 of 7                         12m
 
   ready to review · sous show <n>
-  88              billing                   retry note writes · 4 files · checks passed · sous/run-88     1h
+  88              billing                   retry note writes · 4 files · checks passed                   1h
 ```
 
 * **needs you**: runs waiting on your answer, with their question.
 * **in progress**: runs at work, with their step and how far they have got
   when their runner says.
-* **ready to review**: finished runs, with what their result holds.
+* **ready to review**: finished runs, with what their result holds;
+  `sous show <n>` gives the branch.
 
 A run that failed stays on you. Groups with nothing in them are left out,
 and so are their counts.

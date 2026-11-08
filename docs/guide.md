@@ -177,18 +177,24 @@ Tell your agent what you want done, and let it hand the task off:
 
 Your agent runs `sous go billing --run -` with a full brief. Another agent
 starts on it in the background, in its own git worktree, so its edits stay
-apart from your checkout. The board shows it:
+apart from your checkout. The board shows it at the top, under in progress:
 
-    on others
-      7    billing    running · fix the flaky test          4m
+    sous · 1 running
 
-Later, when you open a new session, your agent hears about it first:
+      in progress
+      7               billing                   fix the flaky test · running                                  4m
+
+      26 checked · 0 unavailable · as of 09:02 · sous snooze <id> to hide a row
+
+If the agent has a question, the task moves to needs you. When you open a
+new session, your agent hears about it first:
 
     [sous] Runs waiting on the user:
-      7 billing: needs you · which fixture should win? · answer with: sous reply 7 "<answer>"
+      7 billing: run needs you · fix the flaky test · "which fixture should win?" · sous reply 7 "<answer>"
 
 You answer in plain words, your agent runs `sous reply 7 "…"`, and the run
-carries on. When it's done, the board says `run done, review it` with the
+carries on. When it's done, the task moves to ready to review, with how
+many files changed and whether its checks passed. `sous show 7` gives the
 branch to look at, or says the changes are waiting, not yet committed, in
 its worktree. Built in runners tell the agent not to push and block ordinary
 git pushes; the agent's own permissions still apply (see
