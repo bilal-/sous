@@ -107,7 +107,8 @@ sous · 2 on you · 1 on others · 3 unfinished
 ```
 
 * **on you**: reviews asked of you, changes asked on your pull requests,
-  merge requests to review, and notes you marked `me`.
+  merge requests to review, notes you marked `me`, and the open boxes in
+  each project's `FOLLOWUPS.md` (see below).
 * **on others**: your notes marked `them`, and your merge requests waiting
   for review.
 * **unfinished**: work left in git: uncommitted files, unpushed commits,
@@ -145,6 +146,30 @@ a source failed, a folder is missing, or some rows are out of date and
 marked `(stale)`. It never shows a calm zero when data is missing.
 
 Ideas and snoozed rows are not on the board. They show in `sous here`.
+
+**The project's own follow-ups and next step.** sous reads two files in each
+project every time it looks, so a project you haven't opened for weeks still
+says what is waiting in it:
+
+* Each open box (`- [ ] …`) in `FOLLOWUPS.md` is a row on you. The file
+  stays the source: tick the box and the row goes. Up to five show per
+  project, then one row says how many more there are. Lines sous filed
+  itself (with a `<!-- sous:… -->` marker) are notes already and are not
+  read twice.
+* The next step in `STATUS.md` is listed under **next up**, the project
+  touched longest ago first. sous takes the first line under a heading
+  such as `## Next step`, `## Next steps`, `## Next up` or `## Next`, or a
+  line that starts `Next step:` or `Next:`.
+
+```
+  next up · from each project's STATUS.md
+                  chime                     wire the upload retry to the new queue                        21d
+                  billing                   ask Sam for the final pricing copy                            3d
+```
+
+The follow-ups come from the built in `followups` signal, which never leaves
+this machine, so session starts and `sous here` show them too. JSON gives the
+next steps as `next`: each `project`, `step` and when the file was `updated`.
 
 Options: `--json`: every section, ideas and snoozed included (see
 [What `--json` gives](#what---json-gives)), with `configured`, `projects`,
@@ -228,6 +253,8 @@ person explicitly asks to file them. A review reminder points to
 `sous review -p <project>`; session hooks only show the hint, staying offline.
 With `--json`, `documents` lists each relative `path`, `purpose` and any
 `error`; `document_error` reports a failure to list the project's documents.
+When `STATUS.md` gives a next step, the brief has a `next step ·` line and
+JSON has `next`.
 
 Project context also includes current sourced memories and active efforts linked
 to this project. The brief shows at most five of each, preserving the newest of
@@ -1160,7 +1187,7 @@ plugin. See [plugins.md](plugins.md).
 
 | Command | What it does |
 |---|---|
-| `sous signal <name> scan` | Run a built in signal (`git`, `github`, `gitlab`). Project folders on standard input, one JSON line per finding out. |
+| `sous signal <name> scan` | Run a built in signal (`git`, `followups`, `github`, `gitlab`). Project folders on standard input, one JSON line per finding out. |
 | `sous backend <name> <call> ...` | Run a built in backend (`markdown`, `github`, `gitlab`): `detect`, `file`, `status`, `close` or `url`. |
 | `sous launcher <name> run <folder>` | Start a built in launcher (`claude`, `codex`, `agy`, `opencode`) in a folder. |
 | `sous runner <name> <call> ...` | Run a built in runner (`claude`, `codex`, `agy`, `opencode`): `describe`, `start`, `status`, `reply`, `stop`, `approve`, `discard` and `clean`. |

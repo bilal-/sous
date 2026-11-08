@@ -2,6 +2,7 @@ ios-app · feature/home-widget · last commit 1mo ago
   "Wire the home widget to the data service"
   2 files uncommitted · feature/home-widget
 last session · claude · 2026-09-26 · ended: "tests pass, next is the widget layout for the home screen"
+next step · lay out the home screen widget (STATUS.md, updated 4d ago)
 on you: 3 · on others: 0 · ideas: 2
   3  ask Sam about App Store cert  1d  → md:FOLLOWUPS.md:3:a1f3b2c4
   4  marker was deleted  2d  → md:FOLLOWUPS.md:4:deadbeef (ref missing)

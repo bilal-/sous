@@ -71,6 +71,11 @@ keys.
 current state, checks, blockers and next step; `FOLLOWUPS.md` for unfinished
 actions; and `AGENTS.md` or `CLAUDE.md` for working instructions. Agents
 follow the project's conventions and keep the handoff current as they work.
+
+The board reads the first two back to you. Every open box in a project's
+`FOLLOWUPS.md` is a row on you, and the next step in its `STATUS.md` shows
+under **next up**, the project you've left alone longest first. So what an
+agent wrote down in one repo reaches you even when you don't go back into it.
 Creating shared documents and filing private notes still need you to ask.
 
 The board reminds you when notes need checking. Run `sous review`, look at

@@ -44,6 +44,15 @@ func TestBuiltinsConform(t *testing.T) {
 			},
 		},
 		{
+			name: "followups",
+			setup: func(t *testing.T) string {
+				r := filepath.Join(t.TempDir(), "acme", "chime")
+				os.MkdirAll(r, 0o755)
+				os.WriteFile(filepath.Join(r, "FOLLOWUPS.md"), []byte("# Follow-ups\n- [ ] ask Sam about the cert\n"), 0o644)
+				return r
+			},
+		},
+		{
 			name: tracker.GitHub,
 			setup: func(t *testing.T) string {
 				trackertest.Fake(t, "gh", `case "$*" in

@@ -23,9 +23,11 @@ import (
 // session, every signal the plugins report for it (same door as the board),
 // and its threads including ideas.
 type HereData struct {
-	Context        Context               `json:"context"`
-	Documents      []project.Document    `json:"documents"`
-	DocumentError  string                `json:"document_error,omitempty"`
+	Context       Context            `json:"context"`
+	Documents     []project.Document `json:"documents"`
+	DocumentError string             `json:"document_error,omitempty"`
+	// Next is the next step the project's STATUS.md gives; nil when none.
+	Next           *NextStep             `json:"next,omitempty"`
 	Project        string                `json:"project"`
 	Name           string                `json:"name"`
 	Remote         *string               `json:"remote"`
@@ -68,6 +70,9 @@ func BuildHereTarget(ctx context.Context, in Inputs, target HereTarget) (*HereDa
 	d.Facts = facts
 	if d.Documents, err = project.Documents(root); err != nil {
 		d.DocumentError = err.Error()
+	}
+	if n := nextSteps([]project.Project{{Path: root}}, in.Warn); len(n) == 1 {
+		d.Next = &n[0]
 	}
 	col := signal.Collect(ctx, in.Signals, []string{root}, in.Timeout)
 	if d.Signals, err = hereSignals(in, col, root); err != nil {
@@ -143,6 +148,9 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 			paths = append(paths, doc.Path)
 		}
 		fmt.Fprintln(w, "project docs · "+strings.Join(paths, " · "))
+	}
+	if d.Next != nil {
+		fmt.Fprintf(w, "next step · %s (%s, updated %s ago)\n", d.Next.Step, project.StatusFile, text.Age(now, d.Next.Updated))
 	}
 	fmt.Fprintf(w, "on you: %d · on others: %d · ideas: %d\n", len(s.Me), len(s.Them), len(s.Ideas))
 	// What an agent hears at session start stays short: a few rows of each

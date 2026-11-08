@@ -440,6 +440,13 @@
           "items": {
             "$ref": "#/$defs/effortSummary"
           }
+        },
+        "next": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nextStep"
+          },
+          "description": "each project's next step from its STATUS.md, least recently updated first"
         }
       }
     },
@@ -842,6 +849,13 @@
           "items": {
             "$ref": "#/$defs/effortSummary"
           }
+        },
+        "next": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nextStep"
+          },
+          "description": "each project's next step from its STATUS.md, least recently updated first"
         }
       }
     },
@@ -1085,6 +1099,26 @@
         },
         "remote": {
           "type": "string"
+        }
+      }
+    },
+    "nextStep": {
+      "type": "object",
+      "required": [
+        "project",
+        "step",
+        "updated"
+      ],
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "step": {
+          "type": "string"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },

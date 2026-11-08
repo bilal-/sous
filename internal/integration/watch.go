@@ -150,6 +150,7 @@ func changes(previous, next Snapshot) []Change {
 type Meta struct {
 	RunProjects *[]string              `json:"run_projects,omitempty"`
 	Efforts     *[]board.EffortSummary `json:"efforts,omitempty"`
+	Next        *[]board.NextStep      `json:"next,omitempty"`
 	Configured  *bool                  `json:"configured,omitempty"`
 	Available   *bool                  `json:"available,omitempty"`
 	Complete    *bool                  `json:"complete,omitempty"`
@@ -177,6 +178,10 @@ func meta(a, b Snapshot) *Meta {
 		m.RunProjects = &projects
 	})
 	set(!reflect.DeepEqual(a.Efforts, b.Efforts), func() { m.Efforts = &b.Efforts })
+	set(!reflect.DeepEqual(a.Next, b.Next), func() {
+		next := append([]board.NextStep{}, b.Next...)
+		m.Next = &next
+	})
 	set(a.Available != b.Available, func() { m.Available = &b.Available })
 	set(a.Complete != b.Complete, func() { m.Complete = &b.Complete })
 	set(!reflect.DeepEqual(a.AsOf, b.AsOf), func() { m.AsOf = b.AsOf })

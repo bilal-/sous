@@ -10,13 +10,14 @@ import (
 	"strings"
 
 	"github.com/bilal-/sous/internal/plugin"
+	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
 )
 
 // The markdown backend: a FOLLOWUPS.md checklist in the repo. Refs point at a
 // marker comment carrying the thread id, so hand edits and reordering keep
 // the ref valid and filing the same thread twice finds the first marker.
-const MarkdownFile = "FOLLOWUPS.md"
+const MarkdownFile = project.FollowupsFile
 
 // Markdown is the built-in Implementation over the package functions.
 type Markdown struct{}
@@ -101,18 +102,7 @@ func MarkdownFileNote(project string, req Request) (string, error) {
 	return ref, err
 }
 
-func boxState(line string) string {
-	l := strings.TrimSpace(line)
-	for _, b := range []string{"- ", "* "} {
-		switch {
-		case strings.HasPrefix(l, b+"[ ]"):
-			return "open"
-		case strings.HasPrefix(l, b+"[x]"), strings.HasPrefix(l, b+"[X]"):
-			return "closed"
-		}
-	}
-	return "unknown"
-}
+func boxState(line string) string { return project.Box(line) }
 
 // MarkdownStatus reads the box on the ref's marker line: open or closed;
 // unknown when the file or the marker is gone. It only reads, and a file

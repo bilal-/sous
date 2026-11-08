@@ -9,6 +9,14 @@ upgraded, never broken.
 
 ### Added
 
+- The board reads each project's own `FOLLOWUPS.md` and `STATUS.md` every
+  time it looks, so a project you haven't opened in weeks still says what
+  is waiting in it. Each open box in `FOLLOWUPS.md` is a row on you (tick
+  it there and the row goes), and the next step in `STATUS.md` shows under
+  **next up**, the longest untouched first. `sous here` and session starts
+  show both, `sous serve` has a **Next up** panel, and `--json` and
+  integration snapshots carry `next`.
+
 - A note can point at a ticket that already exists:
   `sous note --ref <ticket>`, or `sous link <n> --ref <ticket>` for a note
   you already have. The ticket can be a GitHub or GitLab issue's address or

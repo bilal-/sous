@@ -50,6 +50,9 @@ type Snapshot struct {
 	// (remote_runs), so it offers only those.
 	RunProjects []string              `json:"run_projects,omitempty"`
 	Efforts     []board.EffortSummary `json:"efforts,omitempty"`
+	// Next: each project's next step from its STATUS.md, least recently
+	// updated first, as the last full board read them.
+	Next []board.NextStep `json:"next,omitempty"`
 }
 
 // Reader overlays current notes and local runner/backend answers onto the
@@ -102,6 +105,7 @@ func (r Reader) Read(ctx context.Context) (Snapshot, error) {
 	}
 	sections := board.Classify(d)
 	s.Efforts = append([]board.EffortSummary{}, d.Efforts...)
+	s.Next = append([]board.NextStep(nil), d.Next...)
 	s.Problems = append([]string{}, sections.Why...)
 	if !r.Configured {
 		s.Problems = append(s.Problems, config.NoRootsHint)

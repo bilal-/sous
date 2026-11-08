@@ -103,15 +103,18 @@ var remoteScanners = map[string]func(*config.Config) Scanner{
 	tracker.GitLab: ScanGitLab,
 }
 
-// Registry is the built-in scanners, in order: git first, then each tracker
+// Registry is the built-in scanners, in order: git and followups first,
+// then each tracker
 // in tracker.Kinds. A scanner is only built when it runs: building the
 // gitlab scanner asks glab which hosts it knows, and a local-only caller
-// must never pay for that. git is offline: it never touches the network, so
-// the resume view (and so the session hook and sous go) may run it; the
+// must never pay for that. git and followups are offline: they never touch
+// the network, so
+// the resume view (and so the session hook and sous go) may run them; the
 // board runs them all, and here reads what the rest last found from
 // observed.json.
 var Registry = plugin.Registry[*config.Config]{Axis: plugin.AxisSignal, Builtins: []plugin.Builtin[*config.Config]{
 	{Name: "git", Offline: true, Ops: scanOps(func(*config.Config) Scanner { return ScanGit })},
+	{Name: "followups", Offline: true, Ops: scanOps(func(*config.Config) Scanner { return ScanFollowups })},
 }}
 
 func init() {

@@ -31,6 +31,37 @@ type Data struct {
 	Checked          int                   `json:"checked"`
 	Unavailable      int                   `json:"unavailable"`
 	RenderedAt       time.Time             `json:"rendered_at"`
+	// Next is each project's next step from its STATUS.md, the project
+	// least recently updated first: the one most easily forgotten.
+	Next []NextStep `json:"next,omitempty"`
+}
+
+// NextStep is where a project's own handoff says to pick up, and when that
+// handoff last changed.
+type NextStep struct {
+	Project string    `json:"project"`
+	Step    string    `json:"step"`
+	Updated time.Time `json:"updated"`
+}
+
+// nextSteps reads each project's STATUS.md. One that cannot be read is
+// said on warn and left out; it is a guide, not an obligation source.
+func nextSteps(ps []project.Project, warn io.Writer) []NextStep {
+	var out []NextStep
+	for _, p := range ps {
+		step, at, err := project.NextStep(p.Path)
+		if err != nil {
+			if warn != nil {
+				fmt.Fprintf(warn, "sous: cannot read %s in %s: %v\n", project.StatusFile, p.Path, err)
+			}
+			continue
+		}
+		if step != "" {
+			out = append(out, NextStep{Project: p.Path, Step: step, Updated: at.UTC()})
+		}
+	}
+	slices.SortStableFunc(out, func(a, b NextStep) int { return a.Updated.Compare(b.Updated) })
+	return out
 }
 
 type Inputs struct {
@@ -115,7 +146,7 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 	if len(in.Roots) > 0 {
 		es, problems = scopeEfforts(es, problems, known)
 	}
-	return &Data{Projects: ps, Signals: sigs, Threads: ths, Plugins: col.Plugins, Checked: len(ps), Unavailable: unavailable, RenderedAt: in.Now.UTC(), Efforts: es, ContextAttention: problems}, nil
+	return &Data{Projects: ps, Signals: sigs, Threads: ths, Plugins: col.Plugins, Checked: len(ps), Unavailable: unavailable, RenderedAt: in.Now.UTC(), Efforts: es, ContextAttention: problems, Next: nextSteps(ps, in.Warn)}, nil
 }
 
 // The width of a row's text on the board, and what the board says when it
@@ -212,6 +243,7 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 	if cut {
 		fmt.Fprintln(w, cutNote)
 	}
+	renderNext(w, d.Next, now)
 	reviewHint(w, d.Threads, now, "sous review")
 	if len(d.Efforts) > 0 {
 		fmt.Fprintln(w, "\n  efforts · sous effort <name> for details")
@@ -222,6 +254,26 @@ func RenderSaved(w io.Writer, d *Data, now time.Time) {
 
 	fmt.Fprintf(w, "\n  %d checked · %d unavailable%s · as of %s · sous snooze <id> to hide a row\n",
 		d.Checked, d.Unavailable, pluginFailures(d), text.AsOf(d.RenderedAt, now))
+}
+
+// NextShown is how many projects' next steps the board lists.
+const NextShown = 6
+
+// renderNext lists where each project's handoff says to pick up, the
+// longest untouched first, so a project not opened for weeks still says
+// what comes next.
+func renderNext(w io.Writer, next []NextStep, now time.Time) {
+	if len(next) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "\n  next up · from each project's STATUS.md")
+	for i, n := range next {
+		if i == NextShown {
+			fmt.Fprintf(w, "  … %d more · sous --json lists them all\n", len(next)-NextShown)
+			break
+		}
+		fmt.Fprintf(w, "  %-14s  %-24s  %-60s  %s\n", "", text.Ellipsize(filepath.Base(n.Project), 24), text.Ellipsize(n.Step, lineText), text.Age(now, n.Updated))
+	}
 }
 
 // Cache: the last rendered board, so the zsh surface can print in ~5 ms and

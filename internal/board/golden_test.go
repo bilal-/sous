@@ -52,8 +52,13 @@ func TestGoldenBoard(t *testing.T) {
 			{Tagged: signal.Tagged{Signal: signal.Signal{ID: "s:cccccccccccc", Project: "/ws/oss/app-next", Kind: signal.Me, Text: "review requested · PR #14 json api for browse and search endpoints", Ref: &ref}}, FirstSeen: now.Add(-2 * 24 * time.Hour), Stale: true},
 			{Tagged: signal.Tagged{Signal: signal.Signal{ID: "s:aaaaaaaaaaaa", Project: "/ws/acme/chime", Kind: signal.Unfinished, Text: "6 commits unpushed · main"}}, FirstSeen: now.Add(-6 * 24 * time.Hour)},
 			{Tagged: signal.Tagged{Signal: signal.Signal{ID: "s:bbbbbbbbbbbb", Project: "/ws/studio/billing", Kind: signal.Unfinished, Text: "5 stashes"}}, FirstSeen: now.Add(-90 * 24 * time.Hour)},
+			{Tagged: signal.Tagged{Signal: signal.Signal{ID: "s:dddddddddddd", Project: "/ws/acme/chime", Kind: signal.Me, Text: "retry the upload when the server says 503"}, Plugin: "followups"}, FirstSeen: now.Add(-12 * 24 * time.Hour)},
 		},
-		Plugins: []signal.PluginStatus{{Name: "git", Status: "ok"}, {Name: "github", Status: "failed", Error: &e}},
+		Plugins: []signal.PluginStatus{{Name: "git", Status: "ok"}, {Name: "followups", Status: "ok"}, {Name: "github", Status: "failed", Error: &e}},
+		Next: []NextStep{
+			{Project: "/ws/acme/chime", Step: "wire the upload retry to the new queue", Updated: now.Add(-21 * 24 * time.Hour)},
+			{Project: "/ws/studio/billing", Step: "ask Sam for the final pricing copy", Updated: now.Add(-3 * 24 * time.Hour)},
+		},
 		Checked: 3, RenderedAt: now,
 	}
 	var b bytes.Buffer
@@ -102,6 +107,7 @@ func TestGoldenHere(t *testing.T) {
 	lc := now.Add(-6 * 7 * 24 * time.Hour)
 	d := &HereData{
 		Project: "/ws/oss/ios-app", Name: "ios-app", RenderedAt: now,
+		Next:    &NextStep{Project: "/ws/oss/ios-app", Step: "lay out the home screen widget", Updated: now.Add(-4 * 24 * time.Hour)},
 		Facts:   project.Facts{Branch: "feature/home-widget", HasUpstream: false, LastCommit: &lc, LastSubject: "Wire the home widget to the data service"},
 		Session: &session.Session{Agent: "claude", Ended: now.Add(-24 * time.Hour), LastMessage: &msg},
 		Signals: []signal.Observed{

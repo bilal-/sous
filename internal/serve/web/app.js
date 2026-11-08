@@ -96,9 +96,10 @@ const SOURCES = [
   { id: "note", word: "Your notes", has: (i) => i.source === "human" },
   { id: "agent", word: "Agent notes", has: (i) => i.source === "agent" },
   { id: "git", word: "Git", has: (i) => i.source === "git" },
-  { id: "tracker", word: "Trackers", has: (i) => !["human", "agent", "git"].includes(i.source) },
+  { id: "followups", word: "Follow-ups", has: (i) => i.source === "followups" },
+  { id: "tracker", word: "Trackers", has: (i) => !["human", "agent", "git", "followups"].includes(i.source) },
 ];
-const sourceOf = (i) => (SOURCES.find((s) => s.has(i)) || SOURCES[3]).id;
+const sourceOf = (i) => (SOURCES.find((s) => s.has(i)) || SOURCES[SOURCES.length - 1]).id;
 
 // statusOf is rule 2: runs by phase, everything else by section.
 function statusOf(item) {
@@ -249,7 +250,8 @@ function gitSteps(words, branch) {
   return [];
 }
 
-const FROM = { human: "Your note", agent: "A note an agent left", git: "Git, in your working copy", github: "GitHub", gitlab: "GitLab" };
+const FROM = { human: "Your note", agent: "A note an agent left", git: "Git, in your working copy", github: "GitHub", gitlab: "GitLab",
+  followups: "The project's FOLLOWUPS.md. Tick its box there and it leaves sous too." };
 
 // ago says how long since, in whole words: "4 days ago", "just now".
 function ago(iso) {
@@ -558,6 +560,8 @@ function renderList() {
   $("group-by").value = groupBy();
   $("sort-by").value = state.sort;
 
+  renderNext(proj, v);
+
   const root = $("groups");
   root.replaceChildren();
   const groups = grouped(shown);
@@ -576,6 +580,33 @@ function renderList() {
     if (state.q && state.view !== "all") empty.append(button("Search everything", "", () => go({ view: "all", project: null })));
   }
   renderBulk();
+}
+
+// Next up: where each project's own STATUS.md says to pick up. A project's
+// page shows its own; Inbox and Everything list them all, so a project
+// not opened for weeks still says what comes next. Search hides it.
+function renderNext(proj, v) {
+  const box = $("next");
+  const all = (state.snap && state.snap.next) || [];
+  const steps = proj ? all.filter((n) => n.project === proj.path)
+    : v && (v.id === "inbox" || v.id === "all") && !state.q ? all : [];
+  box.hidden = steps.length === 0;
+  box.classList.toggle("one", !!proj);
+  $("next-title").textContent = proj ? "Next step" : "Next up";
+  const list = $("next-list");
+  list.replaceChildren();
+  for (const n of steps) {
+    const li = el("li");
+    if (!proj) {
+      const p = projectOf(n.project);
+      const b = el("button", "next-proj", p ? p.name : n.project.split("/").pop());
+      b.type = "button";
+      b.addEventListener("click", () => go({ project: n.project }));
+      li.append(b);
+    }
+    li.append(el("span", "next-step", n.step), el("span", "next-age", age(n.updated) === "now" ? "updated just now" : "updated " + age(n.updated) + " ago"));
+    list.append(li);
+  }
 }
 
 function groupBlock(g) {
