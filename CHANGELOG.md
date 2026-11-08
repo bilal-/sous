@@ -14,6 +14,9 @@ upgraded, never broken.
   rows, unfinished work oldest first, runs under in progress and ready to
   review, and no branch on a ready row. Tests draw these examples with the
   real renderer, so they fail when the docs drift.
+- The website moved to [getsous.dev](https://getsous.dev). sous.bilal.sh
+  redirects there, so old links keep working. The README and the social
+  card name the new address.
 - The README's sample board starts with the line a terminal shows above
   it, which names the sous on your PATH.
 - The social card in the brand kit uses sous's one line description, as

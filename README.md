@@ -13,7 +13,7 @@
 
 One list of what's waiting on you, across every project you work on.
 
-**[sous.bilal.sh](https://sous.bilal.sh)**
+**[getsous.dev](https://getsous.dev)**
 
 AI tools make it easy to keep ten or twenty projects moving at once. Keeping
 track of them is the hard part. Which project has a review waiting for me?

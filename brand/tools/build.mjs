@@ -92,7 +92,7 @@ const social = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
   <text x="80" y="335" font-family="Manrope, Helvetica Neue, Arial, sans-serif" font-size="56" font-weight="700" fill="${PAPER}" letter-spacing="-1.5">One list of what’s waiting on you,</text>
   <text x="80" y="410" font-family="Manrope, Helvetica Neue, Arial, sans-serif" font-size="56" font-weight="700" fill="${VIOLET}" letter-spacing="-1.5">across every project.</text>
   <text x="80" y="545" font-family="JetBrains Mono, Menlo, monospace" font-size="27" fill="#A4A6B2">brew install bilal-/tap/sous</text>
-  <text x="1120" y="545" text-anchor="end" font-family="JetBrains Mono, Menlo, monospace" font-size="27" fill="#6F7180">sous.bilal.sh</text>
+  <text x="1120" y="545" text-anchor="end" font-family="JetBrains Mono, Menlo, monospace" font-size="27" fill="#6F7180">getsous.dev</text>
 </svg>
 `;
 write('social-card.svg', social);

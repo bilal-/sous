@@ -72,4 +72,4 @@ and gloss are shellbell's own, and the tickets are sous's. `tools/build.mjs`
 writes every file here from it. JetBrains Mono Bold (SIL Open Font License
 1.1) comes from npm and is used only to outline the wordmark; no font ships
 with the logos or with sous. This is the source of truth: the website at
-sous.bilal.sh copies its icons from here.
+getsous.dev copies its icons from here.
