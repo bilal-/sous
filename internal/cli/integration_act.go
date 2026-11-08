@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bilal-/sous/internal/filing"
 	"github.com/bilal-/sous/internal/integration"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/runner"
@@ -28,6 +29,8 @@ var integrationActs = map[string]func(e *Env, target string, in []byte, a argv) 
 	"reply":   actReply,
 	"approve": actApprove,
 	"discard": actDiscard,
+	"file":    actFile,
+	"link":    actLink,
 }
 
 // The most a host may send on standard input, by action.
@@ -49,7 +52,7 @@ const (
 // note's number otherwise; run's brief and reply's answer come on standard
 // input.
 func cmdIntegrationAct(e *Env, a argv, v int, action string) int {
-	if code := flagsOnly(e, a, "protocol", "op", "question", "commit"); code != 0 {
+	if code := flagsOnly(e, a, "protocol", "op", "question", "commit", "ref"); code != 0 {
 		return code
 	}
 	act := integrationActs[action]
@@ -63,6 +66,8 @@ func cmdIntegrationAct(e *Env, a argv, v int, action string) int {
 		return fail(e, exitUsage, "--question goes with reply\n%s", usage)
 	case a.has("commit") != (action == "approve"):
 		return fail(e, exitUsage, "--commit goes with approve, and approve needs it\n%s", usage)
+	case a.has("ref") != (action == "link"):
+		return fail(e, exitUsage, "--ref goes with link, and link needs it\n%s", usage)
 	}
 	op, target := a.value("op"), a.pos[1]
 	var in []byte
@@ -74,7 +79,7 @@ func cmdIntegrationAct(e *Env, a argv, v int, action string) int {
 		in = b
 	}
 	var id string
-	o := runs.Ops{Store: e.store(), Now: time.Now}.Do(op, action, opHash(action, target, a.value("question"), a.value("commit"), in), func() runs.Outcome {
+	o := runs.Ops{Store: e.store(), Now: time.Now}.Do(op, action, opHash(action, target, a.value("question"), a.value("commit"), a.value("ref"), in), func() runs.Outcome {
 		if max, ok := actInputMax[action]; ok && (len(in) > max || strings.TrimSpace(string(in)) == "") {
 			return runs.Outcome{Outcome: runs.Refused, Reason: "bad_input"}
 		}
@@ -305,4 +310,47 @@ func actDone(e *Env, target string, _ []byte, a argv) (string, runs.Outcome) {
 		already, err = e.dispatcher().DoneOnce(e.ctx(), id, op)
 	}
 	return target, privateOutcome(target, already, err)
+}
+
+// actFile files a note in its project's tracker, as sous file does. The
+// host asks the person first: it writes where others can see.
+func actFile(e *Env, target string, _ []byte, _ argv) (string, runs.Outcome) {
+	id, refused := noteOf(e, target)
+	if refused != nil {
+		return "", *refused
+	}
+	_, err := e.filer().File(e.ctx(), id, false)
+	switch {
+	case err == nil:
+		return target, runs.Outcome{Outcome: runs.Done, ID: target}
+	case errors.Is(err, filing.ErrNoTracker):
+		return target, runs.Outcome{Outcome: runs.Refused, ID: target, Reason: "no_tracker"}
+	case errors.Is(err, filing.ErrWorktree):
+		return target, runs.Outcome{Outcome: runs.Refused, ID: target, Reason: "worktree"}
+	case errors.Is(err, thread.ErrNotFound):
+		return target, runs.Outcome{Outcome: runs.Refused, ID: target, Reason: "unknown_item"}
+	case errors.As(err, new(thread.ValidationError)):
+		return target, runs.Outcome{Outcome: runs.Refused, ID: target, Reason: "bad_input"}
+	}
+	o := failed("file", err)
+	o.ID = target
+	return target, o
+}
+
+// actLink points a note at a ticket that already exists, as sous link
+// --ref does. It writes nothing upstream.
+func actLink(e *Env, target string, _ []byte, a argv) (string, runs.Outcome) {
+	id, refused := noteOf(e, target)
+	if refused != nil {
+		return "", *refused
+	}
+	ref, err := e.filer().TicketRef(a.value("ref"))
+	if err != nil {
+		return target, runs.Outcome{Outcome: runs.Refused, ID: target, Reason: "bad_input"}
+	}
+	changed, err := thread.Link(e.store(), id, thread.Links{Ref: ref})
+	if errors.Is(err, thread.ErrLinked) {
+		return target, runs.Outcome{Outcome: runs.Refused, ID: target, Reason: "linked_elsewhere"}
+	}
+	return target, privateOutcome(target, err == nil && !changed, err)
 }

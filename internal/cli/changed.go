@@ -23,6 +23,8 @@ type changedJSON struct {
 	// shows again (null for a signal, snoozed until it changes).
 	Kind  string     `json:"kind,omitempty"`
 	Until *time.Time `json:"until,omitempty"`
+	// After: for note, link and unlink, the notes it waits on.
+	After []string `json:"after,omitempty"`
 	// Joined: note joined a text of several lines onto one.
 	Joined bool `json:"joined,omitempty"`
 	// Run: for go --run, the run it started or found.
@@ -49,6 +51,8 @@ const (
 	didAlreadyCreated    = "already_created"
 	didLinked            = "linked"
 	didUnlinked          = "unlinked"
+	didAlreadyLinked     = "already_linked"
+	didAlreadyUnlinked   = "already_unlinked"
 	didArchived          = "archived"
 	didReopened          = "reopened"
 	didNoted             = "noted"
@@ -73,7 +77,7 @@ const (
 )
 
 var dids = []string{didNoted, didAlreadyNoted, didReviewed, didEdited, didKind, didSnoozed, didClosed, didAlreadyClosed, didCleaned, didFiled, didReplied, didStarted, didAlreadyStarted, didApproved, didDiscarded,
-	didSet, didUnset, didUnchanged, didRemembered, didAlreadyRemembered, didVerified, didForgotten, didShared, didUnshared, didEffortCreated, didAlreadyCreated, didLinked, didUnlinked, didArchived, didReopened, didUpdated, didAlreadyCurrent}
+	didSet, didUnset, didUnchanged, didRemembered, didAlreadyRemembered, didVerified, didForgotten, didShared, didUnshared, didEffortCreated, didAlreadyCreated, didLinked, didUnlinked, didAlreadyLinked, didAlreadyUnlinked, didArchived, didReopened, didUpdated, didAlreadyCurrent}
 
 // changed prints c: as JSON, or as what it did and what to do next on
 // one line.

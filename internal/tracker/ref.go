@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -73,4 +74,28 @@ func (r Ref) WebURL() string {
 		return k.URL(r)
 	}
 	return ""
+}
+
+// RefFromURL reads an item's web page address as a ref: a GitHub issue or
+// pull request, or a GitLab issue or merge request on any host. A pull or
+// merge request comes back with MR set.
+func RefFromURL(s string) (Ref, bool) {
+	u, err := url.Parse(strings.TrimSpace(s))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return Ref{}, false
+	}
+	path := strings.Trim(u.Path, "/")
+	number := func(n string) bool { _, err := strconv.Atoi(n); return err == nil && !strings.HasPrefix(n, "-") }
+	if repo, kind, ok := strings.Cut(path, "/-/"); ok {
+		k, n, _ := strings.Cut(kind, "/")
+		if (k == "issues" || k == "merge_requests") && number(n) && strings.Contains(repo, "/") {
+			return Ref{Tracker: GitLab, Host: u.Host, Repo: repo, Number: n, MR: k == "merge_requests"}, true
+		}
+		return Ref{}, false
+	}
+	parts := strings.Split(path, "/")
+	if u.Host == GitHubHost && len(parts) == 4 && (parts[2] == "issues" || parts[2] == "pull") && number(parts[3]) {
+		return Ref{Tracker: GitHub, Host: GitHubHost, Repo: parts[0] + "/" + parts[1], Number: parts[3], MR: parts[2] == "pull"}, true
+	}
+	return Ref{}, false
 }

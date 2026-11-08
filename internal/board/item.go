@@ -2,6 +2,7 @@ package board
 
 import (
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/bilal-/sous/internal/project"
@@ -35,6 +36,9 @@ type Item struct {
 	Stale    bool       `json:"stale"`
 	ClosedAt *time.Time `json:"closed_at"`
 	ClosedBy *string    `json:"closed_by"` // you | upstream
+	// WaitsOn: open notes this one waits on (sous link --after); a closed
+	// one no longer blocks and is left out.
+	WaitsOn []string `json:"waits_on,omitempty"`
 }
 
 // UpstreamItem is what a filed note's tracker said about it.
@@ -74,6 +78,9 @@ func (r Row) Item() Item {
 	it := Item{ID: r.ID, Project: r.Project, Name: filepath.Base(r.Project), Kind: r.Kind, Text: r.Text, Since: r.Since,
 		Source: r.Source, Ref: r.Ref, Snoozed: r.Snoozed, Stale: r.Stale, ClosedAt: r.ClosedAt}
 	it.ReviewedAt = r.ReviewedAt
+	for _, n := range r.WaitsOn {
+		it.WaitsOn = append(it.WaitsOn, strconv.Itoa(n))
+	}
 	if r.Upstream != "" {
 		it.Upstream = &UpstreamItem{State: r.Upstream, Error: r.UpstreamErr}
 	}

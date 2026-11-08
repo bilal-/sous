@@ -653,6 +653,7 @@ function row(item, g) {
   if (run && s.id === "ready" && run.result && run.result.files) meta.append(el("span", null, plural(run.result.files.changed, "file") + " changed"));
   const ref = refOf(item.ref);
   if (ref && !words.tracker) meta.append(el("span", "tag", ref.word));
+  if (item.waits_on && item.waits_on.length) meta.append(el("span", "tag", "waits on " + item.waits_on.join(", ")));
   if (item.source === "agent") meta.append(el("span", "tag", "from an agent"));
   if (item.stale) meta.append(el("span", "tag warn", "stale"));
   if (meta.childElementCount) body.append(meta);
@@ -794,6 +795,10 @@ function detailParts(item) {
   }
   if (has.has("done")) acts.append(button("Done", "ok", () => quick("done", [item])));
   if (has.has("snooze")) acts.append(button("Snooze", "", () => quick("snooze", [item])));
+  if (has.has("file")) acts.append(button("File it", "", () => confirmThen("File this in " + p.name + "'s tracker?",
+    "It goes where " + p.name + " keeps its work (FOLLOWUPS.md, GitHub issues or GitLab issues), where others can see it. Closing it there closes it here.",
+    () => act("file", item.id))));
+  if (has.has("link")) acts.append(button("Link a ticket", "quiet", () => openLink(item)));
   const agentable = !run && isNote && item.section !== "unfinished";
   if (agentable && canRun(item.project)) acts.append(button("Hand to an agent", "primary", () => openTask(item.project, item.text)));
   if (acts.childElementCount) out.push(acts);
@@ -828,6 +833,7 @@ function detailParts(item) {
       fact("Tracker", a);
     } else fact("Tracker", ref.word + (item.upstream && item.upstream.state ? " · " + item.upstream.state : ""));
   }
+  if (item.waits_on && item.waits_on.length) fact("Waits on", item.waits_on.map((n) => "note " + n).join(", ") + " · until " + (item.waits_on.length > 1 ? "they close" : "it closes"));
   if (item.stale) fact("Stale", "Not looked at in a while; sous review will ask if it still matters");
   if (p.remote) fact("Repository", siteLink(p, null, p.remote + " ↗") || p.remote);
   const about = el("div", "d-section");
@@ -849,6 +855,7 @@ function detailParts(item) {
   if (isNote) {
     term.append(copyLine(`sous show ${item.id}`, "Print this note in full"));
     if (has.has("done")) term.append(copyLine(`sous done ${item.id}`, "Mark it done"));
+    if (has.has("link")) term.append(copyLine(`sous link ${item.id} --ref <issue>`, "Link a ticket that already exists"));
   }
   term.append(copyLine(`sous go ${shellArg(p.name)}`, "Open " + p.name + " in your shell and see what's waiting there"));
   out.push(term);
@@ -1068,14 +1075,18 @@ async function send(body, quiet) {
   savePending(p);
   const ok = outcome === "done" || outcome === "already_done";
   if (ok && quiet) return "done";
+  const said = { file: "Filed", link: "Linked" }[body.action];
   const words = {
-    done: "Done", already_done: "Done", refused: "Refused", conflict: "That changed in the meantime",
+    done: said || "Done", already_done: said || "Done", refused: "Refused", conflict: "That changed in the meantime",
     failed: "Failed", not_ready: "sous is not set up for that",
   };
   const role = ok ? "--ready" : outcome === "conflict" ? "--needs" : "--failed";
-  let msg = (words[outcome] || out.error || "Something went wrong") + " · " + body.action;
+  let msg = (words[outcome] || out.error || "Something went wrong") + (ok && said ? "" : " · " + body.action);
   if (out.reason) msg += ": " + out.reason.replace(/_/g, " ");
   if (out.reason === "not_allowed_project") msg += " (sous config -p <project> remote_runs true)";
+  if (body.action === "file" && out.reason === "no_tracker") msg += " (add a FOLLOWUPS.md, or a GitHub or GitLab remote; sous doctor)";
+  if (body.action === "link" && out.reason === "bad_input") msg = "Not a ticket sous can follow: give an issue's address, such as https://github.com/acme/api/issues/12";
+  if (body.action === "link" && out.reason === "linked_elsewhere") msg = "This note already has a ticket";
   toast(msg, role);
   return ok ? "done" : outcome || "failed";
 }
@@ -1097,6 +1108,15 @@ function confirmThen(title, body, yes) {
   d.returnValue = "";
   d.showModal();
   d.addEventListener("close", () => { if (d.returnValue === "yes") yes(); }, { once: true });
+}
+
+// openLink asks for the ticket to link item to.
+function openLink(item) {
+  const d = $("link-dialog");
+  d.dataset.target = item.id;
+  $("link-ref").value = "";
+  d.showModal();
+  $("link-ref").focus();
 }
 
 function openTask(project, brief) {
@@ -1208,6 +1228,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!brief || !project) { e.preventDefault(); return; }
     act("run", project, { input: brief });
     $("task-brief").value = "";
+  });
+  $("link-form").addEventListener("submit", (e) => {
+    const ref = $("link-ref").value.trim();
+    if (!ref) { e.preventDefault(); return; }
+    act("link", $("link-dialog").dataset.target, { ref });
   });
   $("search").addEventListener("input", (e) => go({ q: e.target.value.trim() }, true));
   $("project-filter").addEventListener("input", renderSide);

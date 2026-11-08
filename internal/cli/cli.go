@@ -53,6 +53,9 @@ For agents:
   sous file, note --file and done --close write where other people can see.
     Before running one, ask the user, end your turn, and run it only after
     they say yes in their next message.
+  When the user names a ticket that already exists, link it instead of
+    filing a new one: note --ref <ticket> or link <n> --ref <ticket>, which
+    write nothing upstream. Use --after <n> when one note waits on another.
   When a project name matches more than one project, sous lists them. Show
     the list and ask; never pick one yourself.
   Set SOUS_SOURCE=agent when you write a note on your own initiative.

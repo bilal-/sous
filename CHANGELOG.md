@@ -7,6 +7,26 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+- A note can point at a ticket that already exists:
+  `sous note --ref <ticket>`, or `sous link <n> --ref <ticket>` for a note
+  you already have. The ticket can be a GitHub or GitLab issue's address or
+  a ref such as `github:acme/api#12`. A linked note acts like a filed one:
+  the board checks the ticket, and the note closes when the ticket does.
+  Linking writes nothing to the tracker. `sous unlink <n> --ref` stops
+  following it.
+- A note can wait on another, in any project, without an effort:
+  `sous note --after 7`, or `sous link 8 --after 7`. The row reads
+  `(waits on 7)` until note 7 closes, `sous show` lists the waits, and
+  `--json` gives the open ones in `waits_on`. Loops are refused.
+- `sous serve` has **File it** (it asks first, since others will see it)
+  and **Link a ticket** for any note that has no ticket yet, and shows what
+  a note waits on. Integration protocol 1 gains the `file` and `link`
+  actions behind them.
+- `threads.json` is now version 7. An older sous refuses it rather than
+  dropping the waits.
+
 ### Fixed
 
 - The README's sample board, the guide's background task examples and the

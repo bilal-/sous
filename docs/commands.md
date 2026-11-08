@@ -6,7 +6,7 @@ everyday flow, start with the [README](../README.md). Run
 
 * [How commands are written](#how-commands-are-written)
 * [Seeing what is waiting](#seeing-what-is-waiting): `sous`, `sous <folder>`, `sous <project>`, `here`, `projects`, `report`, `review`
-* [Notes](#notes): `note`, `show`, `edit`, `kind`, `snooze`, `done`
+* [Notes](#notes): `note`, `show`, `edit`, `kind`, `link`, `unlink`, `snooze`, `done`
 * [Memory and efforts](#memory-and-efforts): `remember`, `recall`, `memory`, `effort`
 * [Sharing a note](#sharing-a-note): `file`, `note --file`, `done --close`
 * [Going to a project](#going-to-a-project): `go`
@@ -369,6 +369,7 @@ Options:
   twice.
 * `--question <id>:<token>`: with `reply`, the question being answered.
 * `--commit <sha>`: with `approve`, the commit the person reviewed.
+* `--ref <ticket>`: with `link`, the ticket, as `sous link --ref` takes it.
 * `--page <n>`: with `diff`, which page of the result, from 1.
 
 Version 1 actions, for a host (each with `--protocol 1 --op <op>`, the
@@ -389,6 +390,13 @@ target after `--`):
 * `snooze -- <n|s:id>`: hide a note for seven days, or a signal until its
   content changes. A retry keeps the original deadline and resolved signal;
   it never snoozes changed work or undoes a later action.
+* `file -- <n>`: file the note in its project's tracker, as `sous file`
+  does. It writes where others can see, so the host asks first. Refused
+  with `no_tracker` when the project has none, and `worktree` from a git
+  worktree. Offered for an open note that has no ticket and isn't a run.
+* `link --ref <ticket> -- <n>`: link the note to a ticket that exists, as
+  `sous link --ref` does. Refused with `bad_input` for what sous can't
+  follow, and `linked_elsewhere` when the note has another ticket.
 
 
 And one read, with no op: `diff --page <n> -- <n>` prints a run's result
@@ -582,10 +590,12 @@ under another kind, `next` starts with the `sous kind` that changes it. With `--
 that changes something answers this way, and `did` says what happened
 (`noted`, `already_noted`, `edited`, `kind`, `snoozed`, `closed`,
 `already_closed`, `reviewed` (kept open after a review), `cleaned` (a closed run's worktree removed by
-`done --clean`), `filed`, `replied`, `approved`, `discarded`, and for
+`done --clean`), `filed`, `linked`, `already_linked`, `unlinked`,
+`already_unlinked`, `replied`, `approved`, `discarded`, and for
 `go --run` `started` and `already_started`). An answer may also carry
 `kind` (after `kind`, or when `note` found the note under another kind),
-`until` (after `snooze`), `joined` (`note` joined lines into one), `run`
+`until` (after `snooze`), `after` (the notes it waits on, after `note`,
+`link` and `unlink`), `joined` (`note` joined lines into one), `run`
 (after `go --run`), `publication` (after `approve`), and `error`, for a part that could not be done: a note
 saved but not filed, a run whose runner cannot clean up.
 
@@ -600,6 +610,10 @@ Options:
   on the board.
 * `--file`: also send it to the project's tracker. See
   [sharing a note](#sharing-a-note).
+* `--ref <ticket>`: link a ticket that already exists, so you don't file a
+  second one. See [`sous link`](#sous-link-n). It can't go with `--file`.
+* `--after <n>`: this note waits on note `n`. Repeat it for several. See
+  [`sous link`](#sous-link-n).
 
 When an agent writes a note on its own, it sets `SOUS_SOURCE=agent` so you
 can tell its notes from yours.
@@ -623,6 +637,45 @@ Change the text of note `n`. The text is taken as is, dashes and all.
 ### `sous kind <n> me|them|idea`
 
 Change whose move note `n` is.
+
+### `sous link <n>`
+
+Link note `n` to a ticket that already exists, or to other notes it waits
+on. It writes nothing to any tracker, so it needs no asking first.
+
+* `--ref <ticket>`: the ticket, as its web address
+  (`https://github.com/acme/api/issues/12`,
+  `https://gitlab.com/acme/api/-/issues/40`) or as a ref
+  (`github:acme/api#12`, `gitlab:git.example.org/acme/api#4`, or one a
+  backend plugin owns). From then on it's like a filed note: `sous show`
+  names the ticket, the board checks it, and when it closes there your note
+  closes too, marked closed upstream. `sous done <n> --close` closes it.
+  sous follows issues, so pull and merge requests are refused; link the
+  issue they close. A `FOLLOWUPS.md` item is linked by filing the note.
+  A note keeps one ticket: linking another is refused until you
+  `sous unlink <n> --ref`. A run takes none; its work is on its branch.
+* `--after <m>`: note `n` waits on note `m`, in any project. Repeat it for
+  several. The board adds `(waits on 7)` to the row, and `--json` lists the
+  open ones in `waits_on`. When `m` closes, `n` no longer waits, and
+  `sous show` says `waits on: 7 (closed)`. A note can't wait on itself, on a
+  closed note, or on one that already waits on it.
+
+Linking what is already linked changes nothing and answers `already_linked`,
+so a retry is safe. The answer carries the note's `ref` and its `after`.
+Waiting needs no [effort](#sous-effort-name-or-id); an effort's
+`depend` is for notes that share an outcome.
+
+    sous link 3 --ref https://github.com/acme/api/issues/12
+    sous link 8 --after 7
+
+### `sous unlink <n>`
+
+Forget what `sous link` linked. The ticket itself stays as it is: sous only
+stops following it. What the note wasn't linked to is ignored, and the
+answer is `already_unlinked`.
+
+* `--ref`: forget the note's ticket, whether it was linked or filed.
+* `--after <m>`: note `n` no longer waits on `m`. Repeat it for several.
 
 ### `sous snooze <n> [days]`
 

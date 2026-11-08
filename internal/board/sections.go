@@ -38,6 +38,8 @@ type Row struct {
 	// this time (the state is the last one known).
 	Run    *thread.Run
 	RunErr string
+	// WaitsOn: open notes this one waits on.
+	WaitsOn []int
 }
 
 // Sections is the board classified: what is on you, on others, and merely
@@ -180,7 +182,7 @@ func Classify(d *Data) Sections {
 // that is the section it goes in.
 func ThreadRow(t thread.View, now time.Time) Row {
 	r := Row{ID: fmt.Sprint(t.ID), Project: t.Project, Text: t.Text, Shown: t.Text, Age: text.Age(now, t.Since), Since: t.Since, Kind: string(t.Kind), Source: t.Source,
-		Ref: t.Ref, Upstream: t.Upstream, UpstreamErr: t.UpstreamErr, Snoozed: t.Snoozed, ClosedAt: t.Closed, ClosedBy: t.ClosedBy}
+		Ref: t.Ref, Upstream: t.Upstream, UpstreamErr: t.UpstreamErr, Snoozed: t.Snoozed, ClosedAt: t.Closed, ClosedBy: t.ClosedBy, WaitsOn: t.WaitsOn}
 	r.ReviewedAt = t.ReviewedAt
 	if t.Run != nil {
 		r.Shown, r.Run, r.RunErr = runLine(t.Run, t.Text), t.Run, t.RunErr

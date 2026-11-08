@@ -545,6 +545,10 @@
         },
         "closed_by": {
           "$ref": "#/$defs/nullableString"
+        },
+        "waits_on": {
+          "$ref": "#/$defs/strings",
+          "description": "open notes this one waits on; absent when it waits on none"
         }
       }
     },
@@ -1017,7 +1021,7 @@
         },
         "reason": {
           "type": "string",
-          "description": "refused: not_allowed_project | op_reused | op_expired | bad_input | unknown_action; conflict: stale_question | commit_changed | wrong_phase; failed: names the step, e.g. push_failed"
+          "description": "refused: not_allowed_project | op_reused | op_expired | bad_input | unknown_action | unknown_item | no_tracker | worktree | linked_elsewhere; conflict: stale_question | commit_changed | wrong_phase; failed: names the step, e.g. push_failed"
         },
         "item": {
           "$ref": "#/$defs/item"

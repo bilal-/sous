@@ -20,6 +20,7 @@ import (
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/thread"
+	"github.com/bilal-/sous/internal/tracker"
 )
 
 // Filer holds what every filing operation needs. Build one per invocation.
@@ -237,4 +238,33 @@ func (f *Filer) Settle(views []thread.View, answers []Upstream, now time.Time) [
 		out = append(out, v)
 	}
 	return out
+}
+
+// TicketRef is s, a tracker item that already exists, as the ref sous
+// keeps: a ref (github:acme/api#12, gitlab:git.example.org/acme/api#4, or
+// a backend plugin's), or a GitHub or GitLab issue's web address. sous
+// follows issues, so pull and merge requests are refused, and so are
+// FOLLOWUPS.md items, which only filing creates. Nothing is fetched.
+func (f *Filer) TicketRef(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	r, ok := tracker.RefFromURL(s)
+	if !ok {
+		r, ok = tracker.ParseRef(s)
+	}
+	switch {
+	case ok && r.MR:
+		return "", thread.ValidationError(fmt.Sprintf("%s is a pull or merge request; sous follows issues, so link the issue it closes", s))
+	case ok && (r.Tracker == tracker.GitHub || r.Tracker == tracker.GitLab):
+		return r.String(), nil
+	case strings.HasPrefix(s, "http://"), strings.HasPrefix(s, "https://"):
+		return "", thread.ValidationError(fmt.Sprintf("%s is not a GitHub or GitLab issue's address; give its ref, such as github:acme/api#12", s))
+	case strings.HasPrefix(s, "md:"):
+		return "", thread.ValidationError("a FOLLOWUPS.md item is linked by filing the note: sous file <n>")
+	}
+	if name, _, found := strings.Cut(s, ":"); found && name != "" && name != backend.Local.Name {
+		if _, err := backend.ByRef(f.Backends, s); err == nil {
+			return s, nil
+		}
+	}
+	return "", thread.ValidationError(fmt.Sprintf("%q is not a ticket sous can follow; give an issue's address or a ref such as github:acme/api#12 or gitlab:git.example.org/acme/api#4", s))
 }

@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -141,8 +143,24 @@ func (r Row) upstreamNote() string {
 		return " (status unavailable: " + r.UpstreamErr + ")"
 	case r.RunErr != "":
 		return " (status unavailable: " + r.RunErr + ")"
+	case len(r.WaitsOn) > 0:
+		return " (waits on " + waitsOn(r.WaitsOn, r.WaitsOn) + ")"
 	}
 	return ""
+}
+
+// waitsOn lists the notes in after, saying which of them are closed (not
+// in open) and so no longer block.
+func waitsOn(after, open []int) string {
+	var out []string
+	for _, n := range after {
+		s := strconv.Itoa(n)
+		if !slices.Contains(open, n) {
+			s += " (closed)"
+		}
+		out = append(out, s)
+	}
+	return strings.Join(out, ", ")
 }
 
 // Render lays out the classified board. The headline is what the eye reads:

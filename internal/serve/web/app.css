@@ -290,7 +290,7 @@ dialog.wide { width: min(1000px, 94vw); }
 dialog::backdrop { background: rgba(0,0,0,.55); backdrop-filter: blur(3px); }
 dialog h2 { margin: 0 0 8px; font-size: 17px; }
 dialog label { display: block; margin: 14px 0 6px; color: var(--muted); font-size: 13px; }
-dialog select, dialog textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border);
+dialog select, dialog textarea, dialog input[type="text"] { width: 100%; background: var(--surface2); border: 1px solid var(--border);
   border-radius: var(--r-sm); padding: 9px 11px; }
 .row-end { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 18px; }
 .row-end .faint { margin-right: auto; }

@@ -212,6 +212,7 @@ type actRequest struct {
 	Target   string `json:"target"`
 	Question string `json:"question,omitempty"`
 	Commit   string `json:"commit,omitempty"`
+	Ref      string `json:"ref,omitempty"`
 	Input    string `json:"input,omitempty"`
 }
 
@@ -236,7 +237,7 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a := d.Actions[i]
-	values := map[string]string{"{op}": req.Op, "{id}": req.Target, "{project}": req.Target, "{question}": req.Question, "{commit}": req.Commit}
+	values := map[string]string{"{op}": req.Op, "{id}": req.Target, "{project}": req.Target, "{question}": req.Question, "{commit}": req.Commit, "{ref}": req.Ref}
 	argv := make([]string, 0, len(a.Argv))
 	for j, arg := range a.Argv {
 		switch v, ok := values[arg]; {

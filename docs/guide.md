@@ -124,6 +124,27 @@ To close both at once from your side:
 Plain `sous done 3` only closes your note. Nothing reaches a shared tracker
 unless you ask.
 
+When the ticket already exists, link it instead of filing a second one:
+
+    sous note -p api -k me "fix the login timeout" --ref https://github.com/acme/api/issues/12
+    sous link 3 --ref github:acme/api#12
+
+A linked note acts like a filed one: the board checks the ticket, and the
+note closes when the ticket does. Linking writes nothing to the tracker.
+In `sous serve`, a note without a ticket has **File it** and **Link a
+ticket**; filing asks you first.
+
+## When one thing waits on another
+
+Some notes can't start until another is done, sometimes in another
+project:
+
+    sous note -p site -k me "ship the signup form" --after 7
+
+The row reads `(waits on 7)` until note 7 closes. `sous link 8 --after 7`
+does the same for a note you already have, and `sous unlink 8 --after 7`
+undoes it.
+
 ## Quiet the noise
 
 For a row you know about but can't act on yet:

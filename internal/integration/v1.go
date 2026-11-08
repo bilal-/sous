@@ -98,6 +98,8 @@ func DescribeV1(version string) DescriptionV1 {
 			{ID: "diff", Title: "Show result's changes", Argv: []string{"sous", "integration", "--protocol", "1", "--json", "diff", "--page", "{page}", "--", "{id}"}, Parameters: []Parameter{id, {Name: "page", Type: "string", Required: true}}, Scope: "item", Format: "json", Effect: "read"},
 			{ID: "discard", Title: "Discard result", Argv: act("discard", "{id}"), Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "write_private", Op: true},
 			{ID: "reply", Title: "Answer run", Argv: act("reply", "{id}", "--question", "{question}"), Parameters: []Parameter{id, {Name: "question", Type: "question", Required: true}, {Name: "answer", Type: "text", Required: true, MaxBytes: 4 << 10}}, Scope: "item", Input: "stdin", Format: "json", Effect: "write_private", Op: true},
+			{ID: "file", Title: "File in tracker", Argv: act("file", "{id}"), Parameters: []Parameter{id}, Scope: "item", Format: "json", Effect: "write_public", Confirm: true, Op: true},
+			{ID: "link", Title: "Link a ticket", Argv: act("link", "{id}", "--ref", "{ref}"), Parameters: []Parameter{id, {Name: "ref", Type: "string", Required: true, MaxBytes: 2048}}, Scope: "item", Format: "json", Effect: "write_private", Op: true, Offline: true},
 			{ID: "note", Title: "Remember a note", Argv: []string{"sous", "note", "--json", "--", "{text}"}, Cwd: "{project}", Parameters: []Parameter{proj, {Name: "text", Type: "string", Required: true, MaxBytes: 4096}}, Scope: "project", Format: "json", Effect: "write_private", Offline: true},
 		},
 	}

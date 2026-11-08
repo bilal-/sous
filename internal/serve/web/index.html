@@ -98,6 +98,20 @@
   </form>
 </dialog>
 
+<dialog id="link-dialog" aria-labelledby="link-title">
+  <form method="dialog" id="link-form">
+    <h2 id="link-title">Link a ticket</h2>
+    <p class="hint">An issue that already exists. sous follows it, and closes this note when it closes. Nothing is written to the tracker.</p>
+    <label for="link-ref">Issue address or ref</label>
+    <input id="link-ref" type="text" maxlength="2048" required autocomplete="off" spellcheck="false"
+      placeholder="https://github.com/acme/api/issues/12">
+    <div class="row-end">
+      <button type="button" class="quiet" data-close>Cancel</button>
+      <button type="submit" class="primary">Link</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="confirm-dialog" aria-labelledby="confirm-title">
   <form method="dialog">
     <h2 id="confirm-title"></h2>

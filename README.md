@@ -150,9 +150,11 @@ and diagnostics take `--json`.
 | `sous <folder>` | the board for just the projects in that folder |
 | `sous <project>` | where you left off in that project |
 | `sous here` | where you left off in this project |
-| `sous note [-p project] [-k me\|them\|idea] [--file] "text"` | write a note |
+| `sous note [-p project] [-k me\|them\|idea] [--file \| --ref ticket] [--after n] "text"` | write a note |
 | `sous edit <n> "text"` | change a note |
 | `sous kind <n> me\|them\|idea` | change whose move it is |
+| `sous link <n> [--ref ticket] [--after n]` | link a ticket that already exists, or a note this one waits on |
+| `sous unlink <n> [--ref] [--after n]` | forget a linked ticket or wait |
 | `sous snooze <n\|s:id> [days]` | hide a row for a while |
 | `sous show <n>` | one note in full; for a run, how it's going |
 | `sous done <n> [--close] [--clean]` | close a note; `--close` closes its tracker item too, `--clean` removes a run's worktree |

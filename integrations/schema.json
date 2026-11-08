@@ -89,7 +89,8 @@
         "upstream": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/upstream"}]},
         "run": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/run"}]},
         "snoozed": {"type": "boolean"}, "stale": {"type": "boolean"},
-        "closed_at": {"$ref": "#/$defs/nullableTime"}, "closed_by": {"$ref": "#/$defs/nullableString"}
+        "closed_at": {"$ref": "#/$defs/nullableTime"}, "closed_by": {"$ref": "#/$defs/nullableString"},
+        "waits_on": {"$ref": "#/$defs/strings", "description": "open notes this one waits on; absent when it waits on none"}
       }
     },
     "upstream": {

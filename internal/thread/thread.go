@@ -51,6 +51,8 @@ type Thread struct {
 	ClosedBy string `json:"closed_by,omitempty"`
 	// Run: the note was handed to a runner (sous go --run).
 	Run *Run `json:"run,omitempty"`
+	// After: the notes this one waits on. A closed one no longer blocks.
+	After []int `json:"after,omitempty"`
 }
 
 // Who wrote a note, and who closed it, besides the person.
@@ -135,6 +137,8 @@ type View struct {
 	// LogTail: for a run that failed, the last lines of its log, when show
 	// read them.
 	LogTail []string `json:"-"`
+	// WaitsOn: the notes in After that are still open, so this one waits.
+	WaitsOn []int `json:"-"`
 }
 
 // ErrNotFound: there is no such note, or (ClosedError) it is closed.
@@ -176,10 +180,11 @@ const name = "threads"
 // remote/source/ref/snoozed_until/closed. v2 gave every note a uid. v3
 // records which notes predate uids (Legacy). v4 records when a note was reviewed.
 // v5 records the revision of each run for observation/action ordering.
+// v7 lets a note wait on others (After), which an older sous would drop.
 type Migrator struct{}
 
-func (Migrator) Empty() []byte { return []byte(`{"version":6,"next_id":1,"threads":[]}`) }
-func (Migrator) Current() int  { return 6 }
+func (Migrator) Empty() []byte { return []byte(`{"version":7,"next_id":1,"threads":[]}`) }
+func (Migrator) Current() int  { return 7 }
 func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 	switch from {
 	case 0:
@@ -199,6 +204,8 @@ func (Migrator) Migrate(from int, raw []byte) ([]byte, error) {
 		})
 	case 5:
 		return edit(raw, 6, func(*Thread) {})
+	case 6:
+		return edit(raw, 7, func(*Thread) {})
 	}
 	return nil, fmt.Errorf("unknown version %d", from)
 }
@@ -252,6 +259,12 @@ func migrateV0(raw []byte) ([]byte, error) {
 // note in the same project with the same text is that note (existed),
 // whoever wrote it and whatever kind it was given.
 func Note(s *store.Store, p project.Project, kind Kind, note, source string, now time.Time) (id int, existed bool, err error) {
+	return NoteLinked(s, p, kind, note, source, now, Links{})
+}
+
+// NoteLinked is Note, with the note linked as l says in the same write: a
+// link that cannot be made saves nothing. A retry links the note it finds.
+func NoteLinked(s *store.Store, p project.Project, kind Kind, note, source string, now time.Time, l Links) (id int, existed bool, err error) {
 	if !kind.Valid() {
 		return 0, false, ValidationError("kind must be me, them, or idea")
 	}
@@ -260,14 +273,16 @@ func Note(s *store.Store, p project.Project, kind Kind, note, source string, now
 		return 0, false, ValidationError("note text is empty")
 	}
 	_, err = store.Modify[Doc](s, name, Migrator{}, func(d *Doc) error {
-		for _, t := range d.Threads {
+		for i, t := range d.Threads {
 			if t.Closed == nil && t.Run == nil && t.Text == note && t.Belongs(p.Path, remoteOf(p)) {
 				id, existed = t.ID, true
-				return nil
+				_, err := d.link(&d.Threads[i], l)
+				return err
 			}
 		}
 		id = d.add(Thread{Project: p.Path, Remote: p.Remote, Text: note, Kind: kind, Since: now.UTC(), Source: source})
-		return nil
+		_, err := d.link(&d.Threads[len(d.Threads)-1], l)
+		return err
 	})
 	return id, existed, err
 }
@@ -492,10 +507,22 @@ func filter(s *store.Store, now time.Time, keep func(Thread) bool) ([]View, erro
 	if err != nil {
 		return nil, err
 	}
+	open := map[int]bool{}
+	for _, t := range d.Threads {
+		if t.Closed == nil {
+			open[t.ID] = true
+		}
+	}
 	out := []View{}
 	for _, t := range d.Threads {
 		if keep(t) {
-			out = append(out, view(t, now))
+			v := view(t, now)
+			for _, id := range t.After {
+				if open[id] {
+					v.WaitsOn = append(v.WaitsOn, id)
+				}
+			}
+			out = append(out, v)
 		}
 	}
 	return out, nil

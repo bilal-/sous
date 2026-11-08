@@ -83,7 +83,7 @@ func TestMutationReceiptUpgradeAndFutureRefusal(t *testing.T) {
 		t.Fatal(already, err)
 	}
 	d, err := store.Load[Doc](s, name, Migrator{})
-	if err != nil || d.Version != 6 || d.NextID != 8 || len(d.MutationOps) != 1 || d.Threads[0].Run.Revision != 9 || *d.Threads[0].Ref != ref {
+	if err != nil || d.Version != (Migrator{}).Current() || d.NextID != 8 || len(d.MutationOps) != 1 || d.Threads[0].Run.Revision != 9 || *d.Threads[0].Ref != ref {
 		t.Fatal(d, err)
 	}
 	future := []byte(`{"version":99,"next_id":8,"threads":[]}`)

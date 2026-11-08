@@ -160,6 +160,9 @@ func (r Reader) Read(ctx context.Context) (Snapshot, error) {
 		item.Actions = append(item.Actions, "snooze")
 		if !signal.IsID(item.ID) {
 			item.Actions = append(item.Actions, "show", "done")
+			if r.V >= Version1 && item.Run == nil && item.Ref == nil && item.ClosedAt == nil {
+				item.Actions = append(item.Actions, "file", "link")
+			}
 			if item.Run != nil && item.Run.State == thread.RunNeedsYou && item.Run.Error == "" {
 				item.Actions = append(item.Actions, "reply")
 			}

@@ -33,6 +33,22 @@ for (const outcome of ["failed", "conflict", "refused", "not_ready"]) {
     assert.equal(x.result, outcome); assert.deepEqual(x.pending, {});
   });
 }
+for (const [action, word] of [["file", "Filed"], ["link", "Linked"]]) {
+  test(`${action} says ${word} when sous did it`, async () => {
+    const x = make({ kind: "outcome", v: 1, outcome: "done" });
+    const b = { ...body, action };
+    x.data.set("sous.pending", JSON.stringify({ [b.op]: b }));
+    assert.equal(await x.run(`send(${JSON.stringify(b)}, false)`), "done");
+    assert.deepEqual(x.messages, [word]);
+  });
+}
+test("a refused link says what sous can follow", async () => {
+  const x = make({ kind: "outcome", v: 1, outcome: "refused", reason: "bad_input" });
+  const b = { ...body, action: "link" };
+  x.data.set("sous.pending", JSON.stringify({ [b.op]: b }));
+  assert.equal(await x.run(`send(${JSON.stringify(b)}, false)`), "refused");
+  assert.ok(x.messages.some((m) => String(m).includes("issue's address")), JSON.stringify(x.messages));
+});
 test("in_progress retains the same pending op", async () => {
   const x = await send({ outcome: "in_progress" }, "stop");
   assert.equal(x.result, "in_progress"); assert.deepEqual(Object.keys(x.pending), [body.op]);

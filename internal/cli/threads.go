@@ -21,15 +21,25 @@ func cmdNote(e *Env, a argv) int {
 	if a.has("k") {
 		kind = thread.Kind(a.value("k")) // an explicit "" fails validation
 	}
+	if a.has("file") && a.has("ref") {
+		return fail(e, exitUsage, "--file makes a new ticket and --ref links one that exists; give one")
+	}
 	p, code := resolveProject(e, proj)
 	if code != 0 {
 		return code
 	}
-	id, existed, err := thread.Note(e.store(), p, kind, a.pos[0], e.Source, time.Now())
+	links, code := noteLinks(e, a)
+	if code != 0 {
+		return code
+	}
+	id, existed, err := thread.NoteLinked(e.store(), p, kind, a.pos[0], e.Source, time.Now(), links)
 	if err != nil {
-		return threadErr(e, err)
+		return linkErr(e, err)
 	}
 	c := changedJSON{ID: fmt.Sprint(id), Did: didNoted, Next: noteNext(e, id)}
+	if th, err := thread.Get(e.store(), id); err == nil && (th.Ref != nil || len(th.After) > 0) {
+		c.Ref, c.After = th.Ref, afterIDs(th.After)
+	}
 	said := fmt.Sprintf("noted %d in %s", id, p.Name)
 	if strings.ContainsAny(strings.TrimSpace(a.pos[0]), "\n\t") {
 		said += " (joined onto one line)" // a note is one line; say so
@@ -42,6 +52,12 @@ func cmdNote(e *Env, a argv) int {
 			said += fmt.Sprintf(" (%s; %s to change it)", th.Kind, fix)
 			c.Kind, c.Next = string(th.Kind), append([]string{fix}, c.Next...)
 		}
+	}
+	if links.Ref != "" {
+		said += " · " + links.Ref
+	}
+	for _, n := range links.After {
+		said += fmt.Sprintf(" · waits on %d", n)
 	}
 	if !a.has("file") {
 		return e.changed(c, said)

@@ -95,7 +95,10 @@ func RenderNote(w io.Writer, v thread.View, now time.Time, home string) {
 	}
 	fmt.Fprintf(w, "%d  %s  %s  (%s)\n", v.ID, filepath.Base(v.Project), v.Text, state)
 	if v.Ref != nil {
-		fmt.Fprintf(w, "   filed: %s\n", *v.Ref)
+		fmt.Fprintf(w, "   ticket: %s\n", *v.Ref)
+	}
+	if len(v.After) > 0 {
+		fmt.Fprintf(w, "   waits on: %s\n", waitsOn(v.After, v.WaitsOn))
 	}
 	if r := v.Run; r != nil {
 		line := "   " + groupLabel(r)
