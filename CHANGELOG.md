@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.25.0]
+
 ### Changed
 
 - sous now describes itself as one memory across all your projects, for you
