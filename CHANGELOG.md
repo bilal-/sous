@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.26.0]
+
 ### Added
 
 - `sous recall` and each project's brief now include what Claude Code
