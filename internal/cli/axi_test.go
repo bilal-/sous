@@ -39,7 +39,7 @@ func TestAXI8ContentFirst(t *testing.T) {
 		t.Fatalf("%d\n%s", code, out)
 	}
 	exe, _ := os.Executable()
-	if !strings.Contains(out, stableExe(exe)) || !strings.Contains(out, "what is waiting on you across every project") {
+	if !strings.Contains(out, stableExe(exe)) || !strings.Contains(out, "one memory across all your projects") {
 		t.Fatalf("missing executable and purpose: %s", out)
 	}
 }

@@ -18,9 +18,10 @@ you have to remember to open has already failed.
 
 ## What sous is
 
-**A personal list of what is waiting on you, across every project and
-tracker you use, that explains itself and gets you back into the project
-you pick. It never takes over how you work.**
+**One memory across all your projects, for you and your agents: what is
+waiting on you in every project and tracker you use, where you left off and
+what was decided, explained in plain words and brought back when you sit
+down to work. It never takes over how you work.**
 
 * **An index of live work, with private memory.** Work lives in git, on GitHub
   or GitLab, or in the project's `FOLLOWUPS.md`. Sous keeps pointers, personal

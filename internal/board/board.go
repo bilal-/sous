@@ -200,7 +200,7 @@ func waitsOn(after, open []int) string {
 // Header is the line sous prints above the board in a terminal: which sous
 // this is (exe, with ~ for home) and what it does.
 func Header(exe string) string {
-	return "sous · " + exe + " · what is waiting on you across every project"
+	return "sous · " + exe + " · one memory across all your projects"
 }
 
 func Render(w io.Writer, d *Data) { RenderSaved(w, d, d.RenderedAt) }

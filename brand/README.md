@@ -1,7 +1,7 @@
 # sous brand kit
 
 The ticket-rail prompt: shellbell's `>_` with two tickets lined up onto the
-cursor. One list of what's waiting on you, across every project.
+cursor. One memory across all your projects, for you and your agents.
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="svg/horizontal-on-dark.svg"><img src="svg/horizontal-on-light.svg" alt="sous" width="220"></picture>
 

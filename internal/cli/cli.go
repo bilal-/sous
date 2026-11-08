@@ -36,7 +36,7 @@ const (
 // A plain go build says dev, never a release it is not.
 var Version = "dev"
 
-const usageHeader = `sous %s: one list of what is waiting on you, across every project.
+const usageHeader = `sous %s: one memory across all your projects, for you and your agents.
 
   sous              the board: what's waiting on you across all projects
   sous <folder>     board scoped to a folder of repos

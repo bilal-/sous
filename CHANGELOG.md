@@ -7,6 +7,12 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Changed
+
+- sous now describes itself as one memory across all your projects, for you
+  and your agents, in the README, `sous help`, the line above the board, the
+  design doc and the social card.
+
 ### Added
 
 - The board reads each project's own `FOLLOWUPS.md` and `STATUS.md` every

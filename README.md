@@ -11,20 +11,27 @@
 [![Go](https://img.shields.io/github/go-mod/go-version/bilal-/sous)](go.mod)
 [![AXI](https://img.shields.io/badge/agent%20friendly-AXI-8a2be2)](https://axi.md)
 
-One list of what's waiting on you, across every project you work on.
+One memory across all your projects, for you and your agents.
 
 **[getsous.dev](https://getsous.dev)**
 
-AI tools make it easy to keep ten or twenty projects moving at once. Keeping
-track of them is the hard part. Which project has a review waiting for me?
-Where did I leave off in this one? What did I promise to come back to?
+Each agent's memory stays inside the repo it worked in, and so does yours.
+Step away from a project for a week and you lose track of what you were doing
+and what comes next. sous brings it into one place: what's waiting, where you
+left off, and what was decided, across every project.
 
-sous answers those in one place. It shows up on its own when you open a
-terminal or start an agent session (Claude Code, Codex, Antigravity or
-opencode), so it still works on the days you forget it exists.
+It keeps track on its own. Every time you look, it reads each project's git
+state, your reviews, and the follow-ups and next step the project keeps in
+`FOLLOWUPS.md` and `STATUS.md`. It records how each agent session ended, and
+agents save the decisions and lessons worth keeping, each with its source.
+
+When you open a terminal you see what's waiting across every project. When an
+agent session starts (Claude Code, Codex, Antigravity or opencode), the agent
+is told where you left off in that project and what was decided there. It
+still works on the days you forget sous exists.
 
 ```
-sous · ~/.local/bin/sous · what is waiting on you across every project
+sous · ~/.local/bin/sous · one memory across all your projects
 sous · 2 on you · 1 on others · 2 unfinished
 
   on you
