@@ -7,6 +7,8 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.25.1]
+
 ### Fixed
 
 - Opening a project in iTerm2 or Terminal from `sous serve` failed with an
