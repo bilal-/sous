@@ -55,7 +55,7 @@ func (e *Env) unconfigured() bool { return e.cfgErr == nil && len(e.Cfg.Roots) =
 
 func cmdBoard(e *Env, roots []string) int {
 	if !e.JSON {
-		fmt.Fprintf(e.Stdout, "sous · %s · what is waiting on you across every project\n", config.Tilde(e.UserHome, e.Exe))
+		fmt.Fprintln(e.Stdout, board.Header(config.Tilde(e.UserHome, e.Exe)))
 	}
 	if len(roots) == 0 && e.unconfigured() {
 		if e.JSON {

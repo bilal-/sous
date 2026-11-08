@@ -14,6 +14,10 @@ upgraded, never broken.
   rows, unfinished work oldest first, runs under in progress and ready to
   review, and no branch on a ready row. Tests draw these examples with the
   real renderer, so they fail when the docs drift.
+- The README's sample board starts with the line a terminal shows above
+  it, which names the sous on your PATH.
+- The social card in the brand kit uses sous's one line description, as
+  the README does.
 - The README names the run groups at the top of the board, and the command
   guide says "branches with no upstream" rather than "never pushed", which
   sous cannot know.

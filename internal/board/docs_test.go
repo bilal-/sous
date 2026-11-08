@@ -59,6 +59,7 @@ func TestReadmeBoardIsWhatSousPrints(t *testing.T) {
 		Checked: 26, RenderedAt: docNow,
 	}
 	var b bytes.Buffer
+	b.WriteString(Header("~/.local/bin/sous") + "\n")
 	Render(&b, d)
 	if !strings.Contains(readDoc(t, "README.md"), "```\n"+b.String()+"```\n") {
 		t.Errorf("README.md's board is not what sous prints. Put this in its code block:\n%s", b.String())
@@ -73,6 +74,7 @@ func TestGuideRunExamplesAreWhatSousPrints(t *testing.T) {
 	}
 
 	var b bytes.Buffer
+	b.WriteString(Header("~/.local/bin/sous") + "\n")
 	Render(&b, &Data{
 		Projects: []project.Project{{Path: "/ws/acme/billing"}},
 		Threads:  []thread.View{run(thread.RunRunning, "")},

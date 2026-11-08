@@ -179,6 +179,7 @@ Your agent runs `sous go billing --run -` with a full brief. Another agent
 starts on it in the background, in its own git worktree, so its edits stay
 apart from your checkout. The board shows it at the top, under in progress:
 
+    sous · ~/.local/bin/sous · what is waiting on you across every project
     sous · 1 running
 
       in progress

@@ -24,6 +24,7 @@ terminal or start an agent session (Claude Code, Codex, Antigravity or
 opencode), so it still works on the days you forget it exists.
 
 ```
+sous · ~/.local/bin/sous · what is waiting on you across every project
 sous · 2 on you · 1 on others · 2 unfinished
 
   on you
