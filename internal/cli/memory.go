@@ -5,6 +5,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/bilal-/sous/internal/agentmem"
+	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/effort"
 	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/project"
@@ -31,6 +33,13 @@ func flagsOnly(e *Env, a argv, allowed ...string) int {
 }
 func cmdMemory(e *Env, a argv) int {
 	action, id := a.pos[0], a.pos[1]
+	if agentmem.Owned(id) {
+		r, err := agentmem.Get(e.UserHome, e.Cfg, id)
+		if err != nil {
+			return memoryErr(e, err)
+		}
+		return fail(e, exitUsage, "%s is %s's own memory; sous only reads it. Change or delete %s instead", id, r.Author, config.Tilde(e.UserHome, r.Path))
+	}
 	var err error
 	did := ""
 	switch action {

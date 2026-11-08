@@ -86,6 +86,7 @@ run_minutes = 60               # how long a run by a built in runner may take
 gitlab_hosts = ["git.example.org"]   # GitLab servers, beyond the ones glab knows
 plugins = ["~/.sous/plugins/sous-backend-jira"]   # extra plugins; only listed ones run
 terminal = "auto"              # where sous serve opens a project's tab: auto, none, herdr, tmux, ghostty, iterm, terminal
+agent_memory = "on"            # read the memory agents keep for themselves (Claude Code's) into recall; off stops it
 
 [projects."acme/*"]            # every project in the acme folder
 github_account = "work-account"

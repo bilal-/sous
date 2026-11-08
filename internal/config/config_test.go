@@ -182,7 +182,7 @@ func TestSetRootsStoresTildeForm(t *testing.T) {
 }
 
 func TestKeysComeFromConfigFields(t *testing.T) {
-	if got := KeyNames(); got != "roots, ignore, agent, runner, refresh_hours, run_minutes, plugins, gitlab_hosts, terminal" {
+	if got := KeyNames(); got != "roots, ignore, agent, runner, refresh_hours, run_minutes, plugins, gitlab_hosts, terminal, agent_memory" {
 		t.Fatal(got)
 	}
 	if got := strings.Join(ProjectKeys, ", "); got != "workspace, backend, github_account, remote_runs, check, runner" {

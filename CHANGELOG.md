@@ -7,6 +7,20 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Added
+
+- `sous recall` and each project's brief now include what Claude Code
+  remembers about the project on its own, so every agent, in any project, can
+  find it. sous only reads those files and never changes them; their ids start
+  with `a:`. The `agent_memory` setting turns this off.
+
+### Changed
+
+- Every agent session now opens by saying sous is the user's personal memory,
+  private and never committed, and how to keep (`sous remember`), find
+  (`sous recall`) and note (`sous note`) things in it. The repo's STATUS.md
+  and FOLLOWUPS.md are the team's. The sous skill and `sous help` say the same.
+
 ## [0.25.1]
 
 ### Fixed

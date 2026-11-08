@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bilal-/sous/internal/agentmem"
 	"github.com/bilal-/sous/internal/backend"
 	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/launcher"
@@ -161,6 +162,12 @@ var named = map[string]func(e *Env) []plugin.Plugin{
 
 // checkName refuses a value for key that names no plugin there is.
 func checkName(e *Env, key string, value any) int {
+	if key == config.KeyAgentMemory {
+		if v := value.(string); v != "on" && v != agentmem.Off {
+			return fail(e, exitUsage, "agent_memory is on or off, not %q", v)
+		}
+		return 0
+	}
 	if key == config.KeyTerminal {
 		if names := terminal.Names(); !slices.Contains(names, value.(string)) {
 			return fail(e, exitUsage, "no terminal %q; choose one of: %s", value, strings.Join(names, ", "))

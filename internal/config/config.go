@@ -28,8 +28,11 @@ type Config struct {
 	GitLabHosts  []string `toml:"gitlab_hosts"`
 	// Terminal is where sous serve opens a project's tab: "" or auto finds
 	// it, none turns tabs off, or a terminal's name.
-	Terminal string                       `toml:"terminal"`
-	Projects map[string]map[string]string `toml:"projects"`
+	Terminal string `toml:"terminal"`
+	// AgentMemory "off" stops sous reading the memory agents keep for
+	// themselves (Claude Code's); "" or on reads it.
+	AgentMemory string                       `toml:"agent_memory"`
+	Projects    map[string]map[string]string `toml:"projects"`
 }
 
 // ProjectConfig is what config says about one project, typed. Raw keeps
@@ -46,6 +49,8 @@ const (
 	KeyRunner = "runner"
 	// KeyTerminal names a terminal, not a plugin; cli checks it.
 	KeyTerminal = "terminal"
+	// KeyAgentMemory is on or off; cli checks it.
+	KeyAgentMemory = "agent_memory"
 )
 
 type ProjectConfig struct {

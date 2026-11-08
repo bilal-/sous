@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bilal-/sous/internal/agentmem"
 	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
@@ -108,7 +109,11 @@ func BuildHereTarget(ctx context.Context, in Inputs, target HereTarget) (*HereDa
 	if scopeErr != nil {
 		d.Context = Context{Memories: []memory.Record{}, Efforts: []EffortSummary{}, Attention: []string{scopeErr.Error()}}
 	} else {
-		d.Context = ProjectContext(in.Store, sc, in.Now, d.Threads)
+		var also []memory.Record
+		if in.UserHome != "" {
+			also = agentmem.ForProject(in.UserHome, in.Cfg, sc.Project)
+		}
+		d.Context = ProjectContext(in.Store, sc, in.Now, d.Threads, also...)
 		d.Context.historyFlag, d.Context.historyValue, d.Context.historyLabel = memory.HistoryTarget(in.Cfg, sc)
 	}
 	return d, nil

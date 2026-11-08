@@ -475,6 +475,20 @@ note or proves that a task is done. Capture short, useful handoffs and the reaso
 behind decisions; leave source documents in their project and reference them.
 These commands are local and make no model or network calls.
 
+Memory is personal: yours and your agents', private and never committed. A
+repo's own STATUS.md, FOLLOWUPS.md and design docs are the team's memory; sous
+reads the first two onto the board but keeps nothing of yours in them.
+
+**What agents keep for themselves.** Claude Code keeps its own memory for each
+project, one Markdown file per memory in `~/.claude/projects/<folder>/memory`.
+sous reads those files into `recall` and into a project's brief at session
+start, so any agent in any project can find them. sous never changes or
+deletes them. Each has an id starting `a:`, its file name as the source, and
+`claude's memory` where sous's own say verified or unverified. Its kind comes
+from the file's `type`: `user` and `feedback` are constraints, `reference` a
+lesson, anything else a handoff. A folder whose project is no longer on disk
+is left out. Set `agent_memory` to `off` to stop reading them.
+
 ### `sous remember "text"`
 
 Keep a sourced memory in the current project. Use `-` to read up to 32 KiB from
@@ -521,8 +535,9 @@ keyword search; paraphrases may not match. An empty result succeeds.
 * `--show <m:id>`: show one full record, its scope, source, author, timestamps,
   verification, replacement links and sharing grants. Takes no query or other
   filter. An explicit ID can read any scope, including a forgotten tombstone.
+  For an `a:` id, it shows the agent's file instead of verification.
 * `--json`: `{records, total_count, truncated}`, with full text and provenance
-  in `records`. An empty search has `records: []`, `total_count: 0` and
+  in `records`; a record read from an agent's memory also has `path`. An empty search has `records: []`, `total_count: 0` and
   `truncated: false`. `--show` returns one record instead.
 
 The count includes every matching record before `--limit`. Limited text output
@@ -539,6 +554,8 @@ records a writer's check, not automatic truth assessment.
 ### `sous memory <action> <m:id>`
 
 Manage an existing memory. Every action is safe to retry and accepts `--json`.
+An `a:` id is an agent's own memory, which sous only reads: each action fails
+with exit `2` and names the file to change instead.
 
 * `verify`: requires `--source <reference>` for the evidence checked now.
   Records the verification timestamp and evidence; retrying the same evidence
@@ -1248,6 +1265,7 @@ run_minutes = 60               # how long a run by a built in runner may take
 gitlab_hosts = ["git.example.org"]   # GitLab servers, beyond the ones glab knows
 plugins = ["~/.sous/plugins/sous-backend-jira"]   # plugins to run; only listed ones run
 terminal = "auto"              # where sous serve opens a project's tab
+agent_memory = "on"            # read the memory agents keep for themselves; off stops it
 
 [projects."acme/*"]            # every project in the acme folder
 github_account = "work-account"   # which gh account to use for these projects
@@ -1268,6 +1286,7 @@ remote_runs = "true"           # a host (a phone through Shellbell) may start ru
 | `gitlab_hosts` | none | GitLab servers to use, beyond the ones `glab` is logged in to. |
 | `plugins` | none | Paths to plugin programs. Only listed plugins run. |
 | `terminal` | `auto` | Where `sous serve` opens a project's tab: `auto` (the terminal it was started in), `none`, or `herdr`, `tmux`, `ghostty`, `iterm`, `terminal`. |
+| `agent_memory` | `on` | Read the memory agents keep for themselves (Claude Code's) into `recall` and project briefs: `on` or `off`. sous never changes those files. |
 | `[projects."<org>/<name>"]` or `[projects."<org>/*"]` | | Settings for one project, or every project in an org folder. |
 | `backend` | picked for you | Where `sous file` sends this project's notes: `markdown`, `github`, `gitlab`, or a plugin's name. |
 | `github_account` | `gh`'s active account | Which `gh` account to use for these projects, when you have more than one. |

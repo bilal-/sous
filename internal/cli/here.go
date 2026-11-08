@@ -44,7 +44,7 @@ func showHere(e *Env, root string, selected project.Project, mode memory.Selecti
 	}
 	d, err := board.BuildHereTarget(ctx, board.Inputs{
 		Store: e.store(), Cfg: e.Cfg, Signals: signal.Registry.Offline(e.Exe),
-		Timeout: e.pluginTimeout(), Warn: e.Stderr, Now: now,
+		Timeout: e.pluginTimeout(), Warn: e.Stderr, Now: now, UserHome: e.UserHome,
 		Reconcile: func(ctx context.Context, v []thread.View) []thread.View { return reconcile(e, ctx, v, now, true) },
 	}, board.HereTarget{Root: root, Project: selected, Mode: mode, ScopeError: scopeErr})
 	if err != nil {

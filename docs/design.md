@@ -189,6 +189,15 @@ completion. A changed decision supersedes its predecessor; recall hides the old
 one by default but keeps the chain. Forgetting removes the body and evidence,
 retaining a tombstone and fingerprint so replay cannot bring the text back.
 
+Memory is personal: the person's and their agents', private and never
+committed. A repo's STATUS.md, FOLLOWUPS.md and design docs are the team's
+memory. sous reads the team's files onto the board and never writes personal
+context into them. Agents that keep their own memory per project (Claude
+Code's Markdown files) are read as records with `a:` ids, scoped like any
+other memory and shown in briefs and recall for every agent, but sous never
+changes those files; editing or forgetting one means changing the agent's
+file. The `agent_memory` setting turns this off.
+
 A memory belongs to a project and workspace. Workspace defaults to the most
 specific discovery root, or the project's path when unconfigured; the per-project
 `workspace` setting can name it explicitly. Automatic context matches both the
@@ -220,7 +229,9 @@ each memory kind gets a place before remaining slots fill by recency, so repeate
 handoffs do not bury a standing constraint. JSON retains full context. All reads
 are local; no model endpoint, embeddings, transcript extraction or daemon is
 required. Agents capture useful context during authorized work and cite the
-project's own documents. Keyword retrieval remains explicit about its limits.
+project's own documents. The session-start hook opens by telling each agent
+that sous is personal memory, and how to keep (`remember`), find (`recall`) and
+note (`note`) things in it. Keyword retrieval remains explicit about its limits.
 
 ## Private action retries
 

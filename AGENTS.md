@@ -54,6 +54,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     integrations/herdr  a standalone herdr host plugin CLI: manifest, Tasks pane, observer, notifications, sidebar metadata and install guide; tests use fake sockets and throwaway homes
     internal/session    the last agent session in each project, and the summary handed to an agent sous starts
     internal/memory     private sourced context, verification, supersession and explicit sharing
+    internal/agentmem   the memory agents keep for themselves (Claude Code's), read as records, never written
     internal/effort     named links between projects, notes, memories and dependencies
     internal/thread     the person's notes
     internal/signal     the signal contract, running signal plugins, what has been seen before, and the git, GitHub and GitLab signals
@@ -84,7 +85,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/testutil   helpers shared by every package's tests
 
 Code only depends downward, in this order: `cli`, then `doctor` and `serve`, then
-`report`, `install`, `integration` and `update`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend` and `runner`, then
+`report`, `install`, `integration` and `update`, then `board`, `filing`, `runs`, `hook` and `launcher`, then `signal`, `backend`, `runner` and `agentmem`, then
 `tracker`, `plugin`, `harness`, `terminal`, `thread`, `session`, `project`, `memory` and `effort`, then `store`,
 `config`, `text` and `docs`. `board` never imports `filing` or `backend`; it is handed a
 function instead. `signal` never imports `backend`; both use `tracker`.

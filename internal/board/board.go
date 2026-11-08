@@ -77,6 +77,9 @@ type Inputs struct {
 	// Reconcile, when set, checks filed threads against their trackers
 	// (closing what the tracker closed) before the board is built.
 	Reconcile Reconciler
+	// UserHome, when set, is where agents keep their own memory, read
+	// into a project's context (agentmem). Empty reads none.
+	UserHome string
 }
 
 // Reconciler is satisfied by *filing.Filer without board importing filing.

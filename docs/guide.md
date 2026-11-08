@@ -171,6 +171,13 @@ Keep decisions, constraints, lessons and handoffs with their sources. When
 you come back to a project, its brief brings that context up; the full
 history stays on your computer.
 
+This is your memory, not the team's. The repo's STATUS.md and FOLLOWUPS.md
+are shared with everyone who works on it; what you keep in sous stays private
+and works across every project. Your agents are told so each time a session
+starts, along with how to keep and find things. What Claude Code remembers
+about a project on its own shows up here too, for every agent, in any project
+(`sous recall --all`). sous only reads those files.
+
 ```sh
 sous remember -k decision --source docs/design.md "Use cursors for pagination"
 sous recall pagination

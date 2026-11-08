@@ -41,6 +41,19 @@ type Harness struct {
 	Last func(transcript string) string
 	// Headless runs it on a task with nobody watching; nil when it cannot.
 	Headless *Headless
+	// Memory is where it keeps its own notes about each project. sous
+	// reads them and never writes them. nil when it keeps none sous reads.
+	Memory *Memory
+}
+
+// Memory is the layout of an agent's own memory: one folder of Markdown
+// files per project.
+type Memory struct {
+	// Dir is the folder for one project, whether or not it exists.
+	Dir func(home, project string) string
+	// Projects maps each project folder that has memory to its memory
+	// folder. A folder sous cannot match to a project on disk is left out.
+	Projects func(home string) map[string]string
 }
 
 // Hook is one hook sous puts in a harness's settings.

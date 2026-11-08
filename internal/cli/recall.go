@@ -6,7 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bilal-/sous/internal/agentmem"
 	"github.com/bilal-/sous/internal/board"
+	"github.com/bilal-/sous/internal/config"
 	"github.com/bilal-/sous/internal/effort"
 	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/text"
@@ -22,7 +24,11 @@ func cmdRecall(e *Env, a argv) int {
 		if len(a.pos) > 0 || len(a.set) != 1 {
 			return fail(e, exitUsage, "--show takes only a memory id")
 		}
-		r, err := memory.Get(e.store(), id)
+		get := func() (memory.Record, error) { return memory.Get(e.store(), id) }
+		if agentmem.Owned(id) {
+			get = func() (memory.Record, error) { return agentmem.Get(e.UserHome, e.Cfg, id) }
+		}
+		r, err := get()
 		if err != nil {
 			return memoryErr(e, err)
 		}
@@ -41,7 +47,9 @@ func cmdRecall(e *Env, a argv) int {
 		if r.Supersedes != "" {
 			fmt.Fprintln(e.Stdout, "supersedes · "+r.Supersedes)
 		}
-		if r.VerifiedAt != nil {
+		if r.Path != "" {
+			fmt.Fprintf(e.Stdout, "file · %s · %s keeps it; sous only reads it\n", config.Tilde(e.UserHome, r.Path), r.Author)
+		} else if r.VerifiedAt != nil {
 			fmt.Fprintf(e.Stdout, "verified · %s · %s\n", r.VerifiedAt.Format(time.RFC3339), r.VerificationSource)
 		} else {
 			fmt.Fprintln(e.Stdout, "unverified · recorded context, not proof of completed work")
@@ -89,6 +97,10 @@ func cmdRecall(e *Env, a argv) int {
 			return code
 		}
 		q.Scope = scope
+		q.Also = agentmem.ForProject(e.UserHome, e.Cfg, scope.Project)
+	}
+	if q.All && !a.has("effort") || q.Workspace != "" {
+		q.Also = agentmem.All(e.UserHome, e.Cfg)
 	}
 	result, err := memory.Find(e.store(), q)
 	if err != nil {

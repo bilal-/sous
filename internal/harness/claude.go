@@ -2,7 +2,10 @@ package harness
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
+	"strings"
+	"unicode"
 )
 
 // Claude Code: hooks in ~/.claude/settings.json, a JSONL transcript, and
@@ -30,6 +33,71 @@ var claude = Harness{
 		Session: func(log []byte) string { return claudeResult(log).SessionID },
 		Last:    func(_ Run, log []byte) string { return claudeResult(log).Result },
 	},
+	Memory: &Memory{Dir: claudeMemoryDir, Projects: claudeMemories},
+}
+
+// Claude Code keeps memory in ~/.claude/projects/<folder>/memory, where
+// <folder> is the project's path with every character that is not a letter
+// or digit turned into a dash.
+func claudeProjects(home string) string { return filepath.Join(home, ".claude", "projects") }
+
+func claudeFolder(path string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 128 && (unicode.IsLetter(r) || unicode.IsDigit(r)) {
+			return r
+		}
+		return '-'
+	}, path)
+}
+
+func claudeMemoryDir(home, project string) string {
+	return filepath.Join(claudeProjects(home), claudeFolder(project), "memory")
+}
+
+func claudeMemories(home string) map[string]string {
+	out := map[string]string{}
+	entries, err := os.ReadDir(claudeProjects(home))
+	if err != nil {
+		return out
+	}
+	listed := map[string][]string{}
+	for _, e := range entries {
+		dir := filepath.Join(claudeProjects(home), e.Name(), "memory")
+		if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+			continue
+		}
+		if path, ok := unfold("/", e.Name()[min(1, len(e.Name())):], listed); ok && claudeFolder(path) == e.Name() {
+			out[path] = dir
+		}
+	}
+	return out
+}
+
+// unfold finds the folder under dir whose dashed name is rest. A dash may
+// stand for any character, so it walks the real folders, not the name.
+func unfold(dir, rest string, listed map[string][]string) (string, bool) {
+	names, ok := listed[dir]
+	if !ok {
+		entries, _ := os.ReadDir(dir)
+		for _, e := range entries {
+			if e.IsDir() {
+				names = append(names, e.Name())
+			}
+		}
+		listed[dir] = names
+	}
+	for _, name := range names {
+		f := claudeFolder(name)
+		switch {
+		case f == rest:
+			return filepath.Join(dir, name), true
+		case strings.HasPrefix(rest, f+"-"):
+			if path, ok := unfold(filepath.Join(dir, name), rest[len(f)+1:], listed); ok {
+				return path, true
+			}
+		}
+	}
+	return "", false
 }
 
 // claudeText is the text of one assistant transcript line, or "".

@@ -17,14 +17,18 @@ import (
 )
 
 // sessionIntro opens what an agent sees at session start, so it knows what
-// sous is and when to reach for it, not only what sous printed. It names
+// sous is, how to keep and find things in it, and that it is personal, not
+// the team's docs, before what sous printed. It names
 // the sous the agent can run: the one on PATH, else this one by its path.
 func sessionIntro(e *Env) string {
 	sous := "sous"
 	if onPath, err := exec.LookPath("sous"); err != nil || stableExe(e.Exe) != onPath {
 		sous = e.Exe
 	}
-	return "[sous] The user's list of what is waiting on them across projects. Run " + sous + " help for how to use it."
+	return "[sous] The user's personal memory and to-dos across every project, private and never committed. Keep: " +
+		sous + ` remember "<what and why>" (-k decision|constraint|lesson|question; a handoff by default). Find: ` +
+		sous + ` recall <words> (--all for every project). To-do: ` + sous + ` note "<task>". The repo's STATUS.md and FOLLOWUPS.md are the team's. ` +
+		"Run " + sous + " help for the rest."
 }
 
 // cmdHook: `sous hook session-start|session-end <agent>`. Always exit 0, stderr silent.

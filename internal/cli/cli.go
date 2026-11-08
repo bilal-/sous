@@ -63,22 +63,26 @@ For agents:
     <!-- sous:... --> markers to make filing work unless the user asks. If
     sous says there is no tracker, say so.
   sous done means the user's task is finished, not that you wrote code.
-  Read the project docs listed by sous here. STATUS.md is the current
-  handoff: what works, what was verified, blockers and the next step.
-  FOLLOWUPS.md holds concrete unfinished actions with why and a reference;
-  AGENTS.md or CLAUDE.md holds working instructions. Use existing conventions.
-  Keep the handoff current as part of authorized work; propose new shared
-  documents when needed. Keep important decisions in the project's design docs.
-
-  Keep useful private context with sous remember: a short handoff, decision,
-  constraint, lesson or open question, with --source pointing to its evidence.
-  Set SOUS_SOURCE=agent. Capture meaningful context as part of authorized work,
-  not whole transcripts or credentials. Use --supersedes when a decision changes.
-  Read sous recall for more history; --show gives a record's full provenance.
-  Only mark --verified after checking the source. Memory is context, never proof
-  that a commitment is complete. Share memory into another project's brief only
-  when the person explicitly asks. Efforts link existing notes and projects;
-  dependencies explain blockers without changing any task's status.
+  sous is the user's personal memory: private, across every project, never
+  committed. The repo's own docs are the team's memory: STATUS.md is the
+  current handoff (what works, what was verified, blockers, the next step),
+  FOLLOWUPS.md holds concrete unfinished actions, AGENTS.md or CLAUDE.md
+  working instructions, design docs the decisions. Read the ones sous here
+  lists and keep them current as part of authorized work.
+  Save what the user would want a later session to know with sous remember
+    "<what and why>": a decision, constraint, lesson or open question (-k),
+    or a short handoff (the default) when you stop. The project is the
+    current folder (-p for another). Add --source for the evidence and set
+    SOUS_SOURCE=agent. Never whole transcripts or credentials. Use
+    --supersedes <m:id> when a decision changes.
+  Before asking the user what was decided or where they left off, run
+    sous recall <words> (--all for every project). It includes the memory
+    agents keep for themselves, read only; --show gives a whole record and
+    where it came from.
+  Only mark --verified after checking the source. Memory is context, never
+  proof that a commitment is complete. Share memory into another project's
+  brief only when the person explicitly asks. Efforts link existing notes and
+  projects; dependencies explain blockers without changing any task's status.
   On a review reminder, run sous review -p <project> --json. Check the
   matching work before closing a note; age or a session summary is not proof.
   Close verified completed notes with sous done <n>. Keep unresolved ones

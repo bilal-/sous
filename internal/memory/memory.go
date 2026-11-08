@@ -92,6 +92,9 @@ type Record struct {
 	SharedWith         []Scope    `json:"shared_with"`
 	Key                string     `json:"key"`
 	Fingerprint        string     `json:"fingerprint"`
+	// Path is the file an agent's own memory was read from. sous reads
+	// those and never changes them; empty for memory sous keeps.
+	Path string `json:"path,omitempty"`
 }
 
 func (r Record) VisibleTo(s Scope) bool {
@@ -290,6 +293,9 @@ type Query struct {
 	Text         string
 	Limit        int
 	IDs          []string
+	// Also are records kept elsewhere (an agent's own memory), matched
+	// and ranked with the rest.
+	Also []Record
 }
 
 func words(s string) []string {
@@ -319,6 +325,7 @@ func Find(s *store.Store, q Query) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	records = append(records, q.Also...)
 	out := []Record{}
 	scores := map[string]int{}
 	terms := words(q.Text)

@@ -103,9 +103,11 @@ func scopeEfforts(views []EffortSummary, problems []string, known map[string]boo
 	return kept, issues
 }
 
-func ProjectContext(s *store.Store, sc memory.Scope, now time.Time, observed []thread.View) Context {
+// ProjectContext is the memory and efforts for one project. also are
+// records an agent keeps for itself there, shown with sous's own.
+func ProjectContext(s *store.Store, sc memory.Scope, now time.Time, observed []thread.View, also ...memory.Record) Context {
 	c := Context{Available: true, Scope: sc, Memories: []memory.Record{}, Efforts: []EffortSummary{}, Attention: []string{}}
-	records, err := memory.Search(s, memory.Query{Scope: sc})
+	records, err := memory.Search(s, memory.Query{Scope: sc, Also: also})
 	if err != nil {
 		c.Available = false
 		c.Attention = append(c.Attention, "memory unavailable: "+err.Error())
@@ -217,6 +219,9 @@ func renderMemory(w io.Writer, r memory.Record) {
 	}
 	if r.ForgottenAt != nil {
 		state = "forgotten"
+	}
+	if r.Path != "" {
+		state = r.Author + "'s memory"
 	}
 	head := fmt.Sprintf("  %s %s · ", r.ID, r.Kind)
 	if r.Scope.Project != "" {
