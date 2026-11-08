@@ -7,6 +7,13 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+### Fixed
+
+- Opening a project in iTerm2 or Terminal from `sous serve` failed with an
+  AppleScript syntax error, and iTerm2 also failed whenever it was not
+  already running. Both now open, checked by hand in each app (and in
+  Ghostty and tmux).
+
 ## [0.25.0]
 
 ### Changed

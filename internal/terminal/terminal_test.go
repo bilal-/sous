@@ -3,6 +3,10 @@ package terminal
 import (
 	"context"
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -142,4 +146,33 @@ func joined(cs []call) []string {
 		out = append(out, strings.Join(c, " "))
 	}
 	return out
+}
+
+// Each AppleScript compiles against the real app's scripting terms when
+// that app is installed: a name that finds the app only while it runs (as
+// "iTerm2" did, for iTerm.app), or a variable named after one of its words
+// ("line"), fails here instead of on someone's click. Run it with the app
+// closed to catch the first.
+func TestAppleScriptsCompile(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("AppleScript is macOS only")
+	}
+	if _, err := exec.LookPath("osacompile"); err != nil {
+		t.Skip("no osacompile")
+	}
+	for name, c := range map[string]struct{ app, script string }{
+		"ghostty":  {"/Applications/Ghostty.app", ghosttyScript},
+		"iterm":    {"/Applications/iTerm.app", itermScript},
+		"terminal": {"/System/Applications/Utilities/Terminal.app", terminalScript},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := os.Stat(c.app); err != nil {
+				t.Skip(c.app + " is not installed")
+			}
+			out, err := exec.Command("osacompile", "-o", filepath.Join(t.TempDir(), "s.scpt"), "-e", c.script).CombinedOutput()
+			if err != nil {
+				t.Fatalf("%v: %s", err, out)
+			}
+		})
+	}
 }

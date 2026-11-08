@@ -212,27 +212,30 @@ const ghosttyScript = `on run argv
 end run`
 
 // iTerm2: a new tab in the current window, or a new window, then cd and
-// the command, typed into the shell.
+// the command, typed into the shell. Named by its bundle id: the app is
+// iTerm.app on disk, so the name "iTerm2" only finds it while it runs, and
+// when it is closed the script does not compile. (And no variable called
+// "line": iTerm2 and Terminal both define that word.)
 const itermScript = `on run argv
-	set line to "cd " & quoted form of (item 1 of argv) & " && clear"
-	if item 2 of argv is not "" then set line to line & " && " & (item 2 of argv)
-	tell application "iTerm2"
+	set typed to "cd " & quoted form of (item 1 of argv) & " && clear"
+	if item 2 of argv is not "" then set typed to typed & " && " & (item 2 of argv)
+	tell application id "com.googlecode.iterm2"
 		if (count of windows) is 0 then
 			create window with default profile
 		else
 			tell current window to create tab with default profile
 		end if
-		tell current session of current window to write text line
+		tell current session of current window to write text typed
 		activate
 	end tell
 end run`
 
 // Terminal opens a window: it has no scripting for tabs.
 const terminalScript = `on run argv
-	set line to "cd " & quoted form of (item 1 of argv) & " && clear"
-	if item 2 of argv is not "" then set line to line & " && " & (item 2 of argv)
+	set typed to "cd " & quoted form of (item 1 of argv) & " && clear"
+	if item 2 of argv is not "" then set typed to typed & " && " & (item 2 of argv)
 	tell application "Terminal"
-		do script line
+		do script typed
 		activate
 	end tell
 end run`
