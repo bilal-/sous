@@ -43,6 +43,12 @@
 
   <main class="list" id="board" aria-busy="true">
     <div class="problems" id="problems" hidden></div>
+    <section class="empty" id="board-load" aria-labelledby="board-load-title">
+      <h2 id="board-load-title">Load your board</h2>
+      <p>Load your configured projects to see what needs you. Loading may query GitHub, GitLab and your other configured providers.</p>
+      <button id="load-board" class="primary" type="button" disabled>Load board</button>
+      <p id="board-load-status" aria-live="polite">Waiting for a connection to sous.</p>
+    </section>
     <div class="toolbar">
       <div class="title">
         <h1 id="view-title">Inbox</h1>

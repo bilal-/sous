@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "sous",
+  "version": "1.0.0",
+  "name": "Sous",
+  "description": "What's waiting on you, across your projects",
+  "homepage": "https://getsous.dev",
+  "platforms": [
+    "darwin",
+    "linux"
+  ],
+  "requires": {
+    "command": "sous",
+    "help": "Update Sous to a build supporting serve --page-api 1, then reinstall this integration."
+  },
+  "page": {
+    "name": "sous",
+    "args": [
+      "serve",
+      "--json",
+      "--port",
+      "0",
+      "--page-api",
+      "1"
+    ]
+  },
+  "icon": {
+    "file": "icon.png",
+    "sha256": "32ccbbb5a9a5ef320763df731a35b26ab016057218929bb59dff74d4d911881a"
+  }
+}

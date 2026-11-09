@@ -121,6 +121,14 @@ sous is young. Here is what it supports, and what it doesn't yet.
 | plugins in any language, on a contract that only grows until 1.0 | a contract frozen for good (that is what 1.0 means) |
 | install by script, Homebrew or from source | Windows, other package managers |
 
+## Shellbell plugin
+
+Sous includes its Shellbell plugin in
+[`integrations/shellbell`](../integrations/shellbell/README.md). Shellbell owns the
+registry and plugin installation. After installing Sous, use `shellbell plugins`
+to browse and install the integration. Sous setup does not register it
+implicitly. A Shellbell version with Pages/plugin support is required.
+
 ## Uninstall
 
 First stop active runs with `sous done <n>`. Review and commit or copy any

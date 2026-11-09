@@ -13,20 +13,26 @@ function element(tag = "div") {
     get childElementCount() { return this.children.length; },
   };
 }
-function make(out, rejected = false) {
+function make(out, rejected = false, options = {}) {
   const nodes = new Map(), data = new Map(), messages = [];
   const document = { addEventListener() {}, createElement: element,
     getElementById(id) { if (!nodes.has(id)) nodes.set(id, element()); return nodes.get(id); },
     querySelector() { return document.getElementById("app"); },
   };
+  const calls = [], timers = new Map(); let timer = 0;
   const context = vm.createContext({ document, console, URLSearchParams,
+    crypto: require("node:crypto").webcrypto,
+    EventSource: options.EventSource,
     localStorage: { getItem: k => data.get(k) || null, setItem: (k, v) => data.set(k, v) },
-    setTimeout() {}, fetch: async () => { if (rejected) throw Error("offline"); return { json: async () => out }; },
+    setTimeout(fn, delay) { const id=++timer;timers.set(id,{fn,delay});return id; },
+    clearTimeout(id) { timers.delete(id); },
+    fetch: async (...args) => { calls.push(args);if(options.fetch)return options.fetch(...args);if (rejected) throw Error("offline"); return { ok:true,status:200,json: async () => out }; },
     record: x => messages.push(x),
   });
   vm.runInContext(source, context);
   vm.runInContext("toast = text => record(text)", context);
-  return { run: s => vm.runInContext(s, context), data, nodes, messages };
+  return { run: s => vm.runInContext(s, context), data, nodes, messages, calls, timers,
+    nextTimer() {const [id,t]=timers.entries().next().value;timers.delete(id);t.fn();return t.delay;} };
 }
 
 module.exports = { make };

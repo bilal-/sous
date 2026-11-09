@@ -28,6 +28,9 @@ const defaultServePort = 7428
 // cmdServe: sous serve [--port <n>] [--open]. The board as a web page on
 // this computer, until interrupted.
 func cmdServe(e *Env, a argv) int {
+	if api := a.value("page-api"); api != "" && api != "1" {
+		return fail(e, exitUsage, "this sous supports --page-api 1; update sous for another page API")
+	}
 	port := defaultServePort
 	if p := a.value("port"); p != "" {
 		n, err := strconv.Atoi(p)
@@ -48,7 +51,15 @@ func cmdServe(e *Env, a argv) int {
 	url := "http://" + addr + "/?t=" + token
 	ctx, stop := ossignal.NotifyContext(e.ctx(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	page := &serve.Server{Sous: serve.Exec{}, Exe: e.Exe, Token: token, Addr: addr}
+	page := &serve.Server{Sous: serve.Exec{}, Exe: e.Exe, Token: token, Addr: addr, Context: ctx}
+	page.LoadBoard = func(ctx context.Context) error {
+		current := *e
+		current.vctx, current.cancel = ctx, func() {}
+		if _, code := buildBoard(&current, nil); code != 0 {
+			return errors.New("board loading failed")
+		}
+		return nil
+	}
 	page.Terminal, page.Why, page.Open = serveTerminal(e)
 	srv := &http.Server{Handler: page,
 		ReadHeaderTimeout: 10 * time.Second,
@@ -68,6 +79,9 @@ func cmdServe(e *Env, a argv) int {
 		<-ctx.Done()
 		sctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
+		if err := page.Close(sctx); err != nil {
+			fmt.Fprintln(e.Stderr, "sous: board loading could not finish stopping:", err)
+		}
 		if err := srv.Shutdown(sctx); err != nil {
 			srv.Close()
 		}

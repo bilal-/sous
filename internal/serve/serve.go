@@ -20,6 +20,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bilal-/sous/internal/integration"
@@ -39,10 +40,17 @@ type Sous interface {
 // for the Host and Origin checks; Token is the secret in the address it
 // printed.
 type Server struct {
-	Sous  Sous
-	Exe   string
-	Token string
-	Addr  string
+	Context context.Context
+	// LoadBoard is explicit work owned by this server, never a detached
+	// refresh or an action saved for automatic retry.
+	LoadBoard func(context.Context) error
+	loadMu    sync.Mutex
+	load      *boardLoad
+	closed    bool
+	Sous      Sous
+	Exe       string
+	Token     string
+	Addr      string
 	// Terminal is where Open opens a project's tab, as the page names it
 	// ("Ghostty"), or "" with Why saying why there is none.
 	Terminal, Why string
@@ -110,6 +118,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.answer(w, r, []string{s.Exe, "show", "--json", "--", id}, "")
 	case r.Method == http.MethodPost && r.URL.Path == "/api/act":
 		s.act(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/board-load":
+		s.startBoardLoad(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/board-load":
+		s.boardLoadStatus(w)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/setup":
 		s.answer(w, r, []string{s.Exe, "doctor", "--json"}, "")
 	case r.Method == http.MethodGet && r.URL.Path == "/api/terminal":

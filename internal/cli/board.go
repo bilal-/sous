@@ -32,6 +32,9 @@ func buildBoard(e *Env, roots []string) (*board.Data, int) {
 		Timeout: e.pluginTimeout(), Warn: e.Stderr, Now: now,
 		Reconcile: func(ctx context.Context, v []thread.View) []thread.View { return reconcile(e, ctx, v, now, false) },
 	})
+	if err == nil {
+		err = e.ctx().Err()
+	}
 	if err != nil {
 		return nil, fail(e, exitFailed, "%v", err)
 	}

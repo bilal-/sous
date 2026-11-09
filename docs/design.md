@@ -135,6 +135,14 @@ share is data, not code: [`integrations/design`](../integrations/design/README.m
 holds the tokens and display rules each surface follows with its own
 components.
 
+A first cache is built only after an authenticated **Load board** click. One bounded
+in-process build belongs to the server's cancellation context; plugin children use
+that context and cache replacement stays atomic. Page open, event reconnect and
+status polling do not start provider queries. Page API 1 uses a non-persisted load
+endpoint, separately from idempotent integration actions. Unknown delivery retains
+an action's ID; audited pre-execution refusal removes it.
+
+
 The native host contract has its own protocol version. Its guide, schema
 and host discovery records live in [integrations.md](integrations.md) and
 the repository's `integrations/` folder. Hosts execute action argument lists

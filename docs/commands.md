@@ -885,6 +885,24 @@ brief.
 
 ### `sous serve`
 
+`--port <n>` chooses the loopback port; `0` chooses a free one. `--open` opens
+the printed address. `--page-api 1` selects the web-page contract required by the
+Shellbell plugin; another value is refused before starting. Older Sous builds
+without this option need updating before the current integration can be used.
+
+Opening the page reads the cached board; it never builds a first cache or queries
+configured trackers on its own. When no usable snapshot is available, **Load board**
+starts one explicit refresh, which may query GitHub, GitLab and configured providers.
+Concurrent clicks share one build. Loading has a two-minute bound, belongs to the
+running server, and is cancelled when it stops. Failure remains visible with Retry.
+This action is not saved in the pending-operation queue and is not retried on reconnect.
+The page recreates failed event streams with bounded backoff. New actions are refused
+while it knows the connection is unavailable; operations with uncertain delivery keep
+their IDs for reconciliation. For `/api/act`, 4xx is pre-execution refusal and this
+API does not return an upstream 503. The local Shellbell door can refuse it with 503.
+Other server errors or a lost response leave delivery uncertain. This is Sous's API
+contract; it is not a guarantee about arbitrary HTTP pages served through Shellbell.
+
 The board as a web page on this computer, for as long as you keep it open.
 It updates live. The Inbox shows what to act on, in the terminal's order
 (needs you, in progress, ready to review, on you); the sidebar adds agent

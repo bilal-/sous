@@ -11,6 +11,9 @@ upgraded, never broken.
 
 ### Added
 
+- Include a declarative Shellbell plugin package for the local web board.
+  Shellbell owns discovery and installation; Sous must already be installed.
+
 - `sous recall` and each project's brief now include what Claude Code
   remembers about the project on its own, so every agent, in any project, can
   find it. sous only reads those files and never changes them; their ids start

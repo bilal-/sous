@@ -17,7 +17,8 @@ const el = (tag, cls, text) => {
 };
 
 const state = {
-  snap: null, items: new Map(), tokens: null, live: false, seen: 0,
+  snap: null, items: new Map(), tokens: null, live: false, connected: false, seen: 0,
+  unavailable: "", boardLoading: false, boardLoadError: "",
   // Where the person is: kept in the address.
   view: "inbox", project: null, q: "", open: null,
   // term: the terminal sous serve opens tabs in ({name, why, open}).
@@ -300,22 +301,85 @@ function applyEvent(e) {
   render();
 }
 
+let eventStream = null, reconnectTimer = null, reconnectDelay = 1000;
 function connect() {
+  if (reconnectTimer !== null) clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+  eventStream?.close();
   const es = new EventSource("/api/events");
+  eventStream = es;
+  const retry = () => {
+    if (eventStream !== es || reconnectTimer !== null) return;
+    es.close();
+    state.connected = false;
+    setLive(false);
+    const delay = reconnectDelay;
+    reconnectDelay = Math.min(15000, reconnectDelay * 2);
+    reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, delay);
+  };
+  es.onopen = () => { if (eventStream === es) { state.connected = true; renderBoardLoad(); } };
   es.onmessage = (m) => {
+    if (eventStream !== es) return;
     try { applyEvent(JSON.parse(m.data)); } catch (err) { console.error(err); }
   };
-  es.onerror = () => setLive(false);
-  es.addEventListener("end", () => { es.close(); setTimeout(connect, 2000); });
+  es.onerror = retry;
+  es.addEventListener("end", retry);
 }
 
 function setLive(on, why) {
   state.live = on;
+  if (on) { state.unavailable = ""; reconnectDelay = 1000; }
+  else if (why) state.unavailable = why;
   const l = $("live");
   l.className = "live " + (on ? "on" : "off");
-  if (on) l.textContent = "live";
-  else l.textContent = state.seen ? "reconnecting · seen " + age(new Date(state.seen).toISOString()) + " ago" : (why || "connecting");
+  l.textContent = on ? "live" : state.unavailable || (state.seen
+    ? "reconnecting · seen " + age(new Date(state.seen).toISOString()) + " ago" : "connecting");
+  renderBoardLoad();
   if (on) resendPending();
+}
+
+function renderBoardLoad() {
+  $("board-load").hidden = !!state.snap && !state.unavailable;
+  const button = $("load-board");
+  button.disabled = !state.connected || state.boardLoading;
+  button.textContent = state.boardLoading ? "Loading…" : state.boardLoadError ? "Retry loading" : "Load board";
+  $("board-load-status").textContent = state.boardLoadError || (state.boardLoading
+    ? "Loading your configured projects and providers. This may take up to two minutes."
+    : !state.connected ? "Waiting for a connection to sous."
+      : /snapshot|--refresh/i.test(state.unavailable) ? "" : state.unavailable);
+  if (!state.snap) {
+    $("counts").textContent = state.boardLoading ? "Loading the board…" : "No board loaded";
+    $("board").setAttribute("aria-busy", state.boardLoading ? "true" : "false");
+  }
+}
+
+async function loadBoard() {
+  if (!state.connected || state.boardLoading) return;
+  state.boardLoading = true; state.boardLoadError = ""; renderBoardLoad();
+  // This is deliberately NOT an integration act(): no persisted op and no
+  // automatic replay of an explicit provider-query decision after reconnect.
+  const started = Date.now(); let polls = 0;
+  const fail = (message) => { state.boardLoading = false; state.boardLoadError = message; renderBoardLoad(); };
+  const poll = async () => {
+    try {
+      const response = await fetch("/api/board-load", { cache: "no-store" });
+      if (!response.ok) throw Error("Could not check board loading. Reconnect and try again.");
+      const result = await response.json();
+      if (result.error) { fail(result.error); return; }
+      if (result.loading) {
+        if (++polls >= 120 || Date.now() - started > 120000) { fail("Loading is taking too long. Check sous and try again."); return; }
+        setTimeout(poll, 1000);
+      } else {
+        state.boardLoading = false; renderBoardLoad();
+        if (result.ready) connect();
+      }
+    } catch (err) { fail(err.message || "Could not load the board. Try again."); }
+  };
+  try {
+    const response = await fetch("/api/board-load", { method: "POST" });
+    if (!response.ok) throw Error("Board loading was refused. Update sous or reconnect, then try again.");
+    await poll();
+  } catch (err) { fail(err.message || "Could not load the board. Try again."); }
 }
 
 // ---- Where the person is ------------------------------------------------
@@ -1086,6 +1150,10 @@ function pending() {
 function savePending(p) { localStorage.setItem(PENDING, JSON.stringify(p)); }
 
 async function act(action, target, extra = {}, quiet = false) {
+  if (!state.live || !state.connected) {
+    toast("Sous is reconnecting. Try the action again when it is live.", "--needs");
+    return "refused";
+  }
   const body = { action, op: newOp(), target, ...extra };
   const p = pending();
   p[body.op] = body;
@@ -1098,6 +1166,15 @@ async function send(body, quiet) {
   let res, out;
   try {
     res = await fetch("/api/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    // Sous page API 1 returns 4xx only before execution and does not use
+    // upstream 503 for action outcomes. Shellbell's local 503 is also pre-send.
+    // This is a Sous endpoint contract, not a generic Pages HTTP guarantee.
+    if ((res.status >= 400 && res.status < 500) || res.status === 503) {
+      const p = pending(); delete p[body.op]; savePending(p);
+      toast("The action was refused. Reconnect and choose it again.", "--needs");
+      return "refused";
+    }
+    if (!res.ok) throw Error("delivery uncertain");
     out = await res.json();
   } catch {
     toast("Not sent yet; it goes when sous is back.", "--needs");
@@ -1134,7 +1211,7 @@ async function send(body, quiet) {
 
 let resending = false;
 async function resendPending() {
-  if (resending) return;
+  if (resending || !state.live || !state.connected) return;
   resending = true;
   for (const body of Object.values(pending())) await send(body);
   resending = false;
@@ -1159,6 +1236,7 @@ function canOpen(item) {
 // openTab asks sous to open project in a new terminal tab, with its agent
 // started there or just its shell.
 async function openTab(project, agent) {
+  if (!state.live || !state.connected) { toast("Sous is reconnecting.", "--needs"); return; }
   let res, out;
   try {
     res = await fetch("/api/open", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project, agent }) });
@@ -1346,6 +1424,7 @@ function onKey(e) {
 document.addEventListener("DOMContentLoaded", () => {
   for (const b of document.querySelectorAll("[data-close]")) b.addEventListener("click", () => b.closest("dialog").close());
   $("confirm-yes").value = "yes";
+  $("load-board").addEventListener("click", loadBoard);
   $("new-task").addEventListener("click", () => openTask());
   $("view-run").addEventListener("click", () => openTask(state.project));
   $("view-open").addEventListener("click", () => openTab(state.project, true));
