@@ -7,12 +7,20 @@ upgraded, never broken.
 
 ## [Unreleased]
 
-## [0.26.0]
+## [0.27.0]
 
 ### Added
 
 - Include a declarative Shellbell plugin package for the local web board.
   Shellbell owns discovery and installation; Sous must already be installed.
+- Offer an explicit **Load board** action when the web board has no cached
+  content. Opening the board stays inert; loading can query configured providers.
+- Support the versioned `sous serve --page-api 1` startup contract for hosts
+  that manage the board's process and sign-in.
+
+## [0.26.0]
+
+### Added
 
 - `sous recall` and each project's brief now include what Claude Code
   remembers about the project on its own, so every agent, in any project, can
