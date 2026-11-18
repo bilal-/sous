@@ -7,6 +7,36 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.28.0]
+
+### Added
+
+- Hook and skill wiring for seven additional agents (`sous setup` and
+  `sous doctor`): Qwen Code, Gemini CLI, pi, Copilot CLI, Cursor, Factory
+  Droid and Kimi Code (with headless runner support for Qwen Code, Gemini CLI
+  and pi).
+- `Stop` and `PreCompact` progress-capture hooks for Claude Code and Codex so
+  mid-session work is recorded even when a session ends abruptly.
+- Per-branch and rolling session history in `sessions.json` (upgraded to v2),
+  automatically recording git branch, user prompt intent, modified files and
+  last commit alongside the assistant's last message.
+- Automatic repo-first + `~/.sous/`-fallback next steps on `sous`, `sous here`,
+  `sous serve`, and session start hooks: `STATUS.md` and `FOLLOWUPS.md` stay
+  preferred when present, falling back to private handoff memories and captured
+  sessions when absent, and surfacing newer session activity and multi-branch
+  recent sessions in `sous here`.
+- Unified `sous recall` across private memories, agent memories, repo
+  `STATUS.md`/`FOLLOWUPS.md`, open notes and session history, with prefix and
+  project-name matching and `--show` support for `d:`, `n:` and `s:` records.
+- Stronger automatic workflow guidance in `SKILL.md`, `SessionStart` hooks and
+  `sous help` so agents restore context on startup and update `STATUS.md` (when
+  present) or save private handoffs proactively.
+
+### Fixed
+
+- Add descriptive `statusMessage` labels to Codex's `hooks.json` entries so
+  Codex `/hooks` displays each hook's purpose instead of `Unnamed hook`.
+
 ## [0.27.0]
 
 ### Added

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -82,5 +83,25 @@ func TestNextStep(t *testing.T) {
 	}
 	if got, _, err := NextStep(t.TempDir()); got != "" || err != nil {
 		t.Fatalf("no file: got %q, %v", got, err)
+	}
+}
+
+func TestReadStatusAndFollowupsAll(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "status.md", "# Status\n\nAuth works after switching to cursors.\nBlockers: waiting on staging key.\n\n## Next step\n- run migration tests\n")
+	st, err := ReadStatus(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !st.Exists || st.Path != "status.md" || st.NextStep != "run migration tests" || !strings.Contains(st.Summary, "Auth works") || !strings.Contains(st.Body, "Blockers:") {
+		t.Fatalf("%+v", st)
+	}
+	write(t, dir, "followups.md", "- [ ] open item <!-- sous:0123456789ab -->\n- [ ] plain item\n- [x] done item\n")
+	all, _, err := FollowupsAll(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(all, []string{"open item", "plain item"}) {
+		t.Fatalf("all = %q", all)
 	}
 }

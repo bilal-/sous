@@ -46,11 +46,11 @@ Installing runs `sous setup` for you. It:
 * finds your projects in the usual places (`~/code`, `~/src`, `~/projects`,
   `~/workspace`, `~/Developer` and a few more). It looks two folders deep,
   so `~/code` finds `~/code/acme/api`.
-* adds session hooks for Claude Code and Codex, and for Antigravity and
-  opencode when they are installed. It also adds the `sous` skill for them
-  and for any agent that reads the shared `~/.agents/skills` folder (Gemini
-  CLI, Kimi, Cursor and others). [Using sous with your agent](agents.md)
-  covers each one.
+* adds session hooks for Claude Code and Codex, and when installed for
+  Antigravity, opencode, Qwen Code, Gemini CLI, pi, Copilot CLI, Cursor,
+  Factory Droid and Kimi Code. It also adds the `sous` skill for them and for
+  any agent that reads the shared `~/.agents/skills` folder.
+  [Using sous with your agent](agents.md) covers each one.
 * adds one line to your shell's startup file (zsh, bash or fish), so new
   terminals show the board.
 * writes a menu bar script for [SwiftBar](https://swiftbar.app).
@@ -108,14 +108,14 @@ sous is young. Here is what it supports, and what it doesn't yet.
 |---|---|
 | macOS and Linux, on amd64 and arm64 | Windows |
 | the board in new **zsh**, **bash** and **fish** shells | other shells (run `sous --ambient` from their startup file) |
-| session hooks for **Claude Code**, **Codex**, **Antigravity** and **opencode**; the sous skill for them and for **Gemini CLI, Kimi, Cursor** and other agents that read `~/.agents/skills` | session hooks for other agents |
+| session hooks and/or extensions for **Claude Code**, **Codex**, **Antigravity**, **opencode**, **Qwen Code**, **Gemini CLI**, **pi**, **Copilot CLI**, **Cursor**, **Factory Droid** and **Kimi Code**; the `sous` skill for their folders and `~/.agents/skills` | session hooks for unverified tools such as Amp, Goose or Cline |
 | git: uncommitted files, unpushed commits, stashes, branches with no upstream | |
 | **GitHub**: reviews asked of you, changes asked on your pull requests, failing checks on your pull requests, unread notifications that mention or assign you; filing and closing issues | CI on branches without a pull request |
 | **GitLab**: merge requests to review, yours awaiting review; filing and closing issues | GitLab to do items |
 | `FOLLOWUPS.md` in the project as a simple tracker | Jira, Linear, Gitea, Bitbucket (plugins welcome) |
-| sourced project memory, keyword recall, verification, supersession and explicit sharing | automatic transcript extraction and semantic search |
+| sourced project memory, keyword/prefix recall across memories, docs, notes & session history, verification, supersession and explicit sharing | automatic transcript summarization and vector search |
 | named efforts linking projects, commitments, memories and dependencies | |
-| handing a task to **Claude Code**, **Codex**, **Antigravity** or **opencode** in the background, in its own git worktree, and following it on the board | runs that survive a restart, retries and reviews (a runner plugin's job) |
+| handing a task to **Claude Code**, **Codex**, **Antigravity**, **opencode**, **Qwen Code**, **Gemini CLI** or **pi** in the background, in its own git worktree, and following it on the board (**Copilot CLI**, **Cursor**, **Factory Droid** and **Kimi Code** support hooks and interactive launches) | runs that survive a restart, retries and reviews (a runner plugin's job) |
 | the board as a web page on this computer, for mouse and touch, any screen size | |
 | a menu bar view through [SwiftBar](https://swiftbar.app) on macOS | a Linux tray icon |
 | plugins in any language, on a contract that only grows until 1.0 | a contract frozen for good (that is what 1.0 means) |
@@ -137,10 +137,14 @@ you want to keep your notes and history. Then delete:
 
 * `~/.local/bin/sous` (or `brew uninstall sous`) and `~/.sous`
 * the `sous` skill folders in `~/.claude/skills`, `~/.codex/skills`,
-  `~/.agents/skills` and `~/.gemini/config/skills`
-* the `sous hook` entries in `~/.claude/settings.json` and
-  `~/.codex/hooks.json`, the `sous` group in `~/.gemini/config/hooks.json`,
-  and `~/.config/opencode/plugins/sous.js`
+  `~/.agents/skills`, `~/.gemini/config/skills`, `~/.qwen/skills`,
+  `~/.gemini/skills`, `~/.pi/agent/skills` and `~/.copilot/skills`
+* the `sous hook` entries in `~/.claude/settings.json`, `~/.codex/hooks.json`,
+  `~/.qwen/settings.json`, `~/.gemini/settings.json`, `~/.cursor/hooks.json`,
+  `~/.factory/hooks.json`, `~/.copilot/hooks/sous.json` and
+  `~/.kimi-code/config.toml`, the `sous` group in
+  `~/.gemini/config/hooks.json`, `~/.config/opencode/plugins/sous.js`, and
+  `~/.pi/agent/extensions/sous.ts`
 * the `# sous:` comment and the line under it in your shell's startup files
   (for fish, the file `~/.config/fish/conf.d/sous.fish`)
 * the `sous` folder in your cache folder (`~/Library/Caches/sous` on macOS,

@@ -410,6 +410,30 @@ func TestAgentsMayCommitAndNoMore(t *testing.T) {
 				if !strings.HasPrefix(args, want) || resume && args != want {
 					t.Errorf("opencode resume=%v: %q", resume, args)
 				}
+			case "qwen":
+				want := lines("--approval-mode", "auto-edit", "--output-format", "json", "--", "")
+				if resume {
+					want = lines("--approval-mode", "auto-edit", "--output-format", "json", "--resume", "s", "--", "go on")
+				}
+				if !strings.HasPrefix(args, want) || resume && args != want {
+					t.Errorf("qwen resume=%v: %q", resume, args)
+				}
+			case "gemini":
+				want := lines("--approval-mode", "auto_edit", "--output-format", "json", "-p=")
+				if resume {
+					want = lines("--approval-mode", "auto_edit", "--output-format", "json", "--resume", "s", "-p=go on")
+				}
+				if !strings.HasPrefix(args, want) || resume && args != want {
+					t.Errorf("gemini resume=%v: %q", resume, args)
+				}
+			case "pi":
+				want := lines("-p", "--mode", "json", "--", "")
+				if resume {
+					want = lines("-p", "--mode", "json", "--session", "s", "--", "go on")
+				}
+				if !strings.HasPrefix(args, want) || resume && args != want {
+					t.Errorf("pi resume=%v: %q", resume, args)
+				}
 			default:
 				t.Errorf("%s: say here what a run of it may do", name)
 			}

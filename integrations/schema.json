@@ -11,7 +11,7 @@
   ],
   "$defs": {
     "memoryScope": {"type": "object", "required": ["workspace", "project"], "properties": {"workspace": {"type": "string"}, "project": {"type": "string"}, "remote": {"type": "string"}}},
-    "nextStep": {"type": "object", "required": ["project", "step", "updated"], "properties": {"project": {"type": "string"}, "step": {"type": "string"}, "updated": {"type": "string", "format": "date-time"}}},
+    "nextStep": {"type": "object", "required": ["project", "step", "updated"], "properties": {"project": {"type": "string"}, "step": {"type": "string"}, "updated": {"type": "string", "format": "date-time"}, "source": {"type": "string"}, "branch": {"type": "string"}}},
     "effortSummary": {"type": "object", "required": ["id", "name", "projects", "open", "completed", "blocked", "unavailable", "stale", "archived", "attention"], "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "projects": {"type": "array", "items": {"$ref": "#/$defs/memoryScope"}}, "open": {"type": "integer", "minimum": 0}, "completed": {"type": "integer", "minimum": 0}, "blocked": {"type": "integer", "minimum": 0}, "unavailable": {"type": "integer", "minimum": 0}, "stale": {"type": "boolean"}, "archived": {"type": "boolean"}, "attention": {"$ref": "#/$defs/strings"}}},
 
     "strings": {"type": "array", "items": {"type": "string"}},

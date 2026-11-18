@@ -42,12 +42,24 @@ func Check(home, sousHome, exe, shell, goos, zdotdir string) []Result {
 	return append(out, checkShell(home, sousHome, exe, shell, goos, zdotdir))
 }
 
-func checkHook(home string, h hookSpec, exe string) Result {
-	moment := "session start"
-	if h.Role == harness.RoleEnd {
-		moment = "session end"
+func hookMoment(h hookSpec) string {
+	if h.Role == harness.RoleStart {
+		return "session start"
 	}
-	r := Result{Name: h.Display + " hook (" + moment + ")", Fix: "sous setup"}
+	endCount := 0
+	for _, k := range h.Hooks {
+		if k.Role == harness.RoleEnd {
+			endCount++
+		}
+	}
+	if endCount <= 1 || strings.EqualFold(h.Event, "SessionEnd") || h.Event == harness.RoleEnd {
+		return "session end"
+	}
+	return h.Event
+}
+
+func checkHook(home string, h hookSpec, exe string) Result {
+	r := Result{Name: h.Display + " hook (" + hookMoment(h) + ")", Fix: "sous setup"}
 	file := h.file(home)
 	cmds, err := h.Format.Commands(file, h.Event)
 	switch {

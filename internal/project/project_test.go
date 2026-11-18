@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -218,5 +219,17 @@ func TestResolveNoMatchNamesUnreadableFolders(t *testing.T) {
 	_, err := Resolve([]string{filepath.Join(home, "gone")}, nil, "api", home, home, io.Discard)
 	if !errors.Is(err, ErrNoMatch) || !strings.Contains(err.Error(), "1 project folder could not be read") {
 		t.Fatalf("%v", err)
+	}
+}
+
+func TestWorkingSnapshot(t *testing.T) {
+	repo := testutil.Repo(t, filepath.Join(t.TempDir(), "api"), true, "")
+	os.WriteFile(filepath.Join(repo, "notes.txt"), []byte("hi\n"), 0o644)
+	ws := WorkingSnapshot(repo)
+	if ws.Branch != "main" || !slices.Contains(ws.DirtyFiles, "notes.txt") || len(ws.RecentCommits) == 0 {
+		t.Fatalf("unexpected snapshot: %+v", ws)
+	}
+	if empty := WorkingSnapshot(t.TempDir()); empty.Branch != "" || len(empty.DirtyFiles) != 0 {
+		t.Fatalf("non-repo must be empty: %+v", empty)
 	}
 }

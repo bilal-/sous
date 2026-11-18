@@ -42,6 +42,9 @@ var antigravity = Harness{
 	Last: func(transcript string) string {
 		return lastLine(transcript, `"PLANNER_RESPONSE"`, agyText)
 	},
+	LastUser: func(transcript string) string {
+		return lastLine(transcript, `"USER_INPUT"`, agyUserText)
+	},
 	// agy -p runs one prompt with nobody there: file edits are accepted,
 	// and a command the person's Antigravity settings do not allow is
 	// refused (denied_actions), never approved.
@@ -90,6 +93,18 @@ func agyText(line []byte) string {
 	return l.Content
 }
 
+// agyUserText is what the user asked on one transcript line, or "".
+func agyUserText(line []byte) string {
+	var l struct {
+		Type    string `json:"type"`
+		Content string `json:"content"`
+	}
+	if json.Unmarshal(line, &l) != nil || l.Type != "USER_INPUT" {
+		return ""
+	}
+	return l.Content
+}
+
 func agyArgs() []string { return []string{"--output-format", "json", "--mode", "accept-edits"} }
 
 // agyRun is what agy -p --output-format json prints at the end.
@@ -133,9 +148,9 @@ func (NamedHooksJSON) Place(file, event string, cmd Cmd) (bool, error) {
 	return editJSON(file, func(doc map[string]any) bool {
 		group := child(doc, sousGroup)
 		handlers, _ := group[event].([]any)
-		kept, placed, changed := placeIn(handlers, cmd, false)
+		kept, placed, changed := placeIn(handlers, cmd, false, "command", nil)
 		if !placed {
-			kept, changed = append(kept, handler(cmd)), true
+			kept, changed = append(kept, (HooksJSON{}).handler(cmd)), true
 		}
 		if changed {
 			group[event] = kept

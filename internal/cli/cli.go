@@ -63,22 +63,21 @@ For agents:
     <!-- sous:... --> markers to make filing work unless the user asks. If
     sous says there is no tracker, say so.
   sous done means the user's task is finished, not that you wrote code.
-  sous is the user's personal memory: private, across every project, never
-  committed. The repo's own docs are the team's memory: STATUS.md is the
-  current handoff (what works, what was verified, blockers, the next step),
-  FOLLOWUPS.md holds concrete unfinished actions, AGENTS.md or CLAUDE.md
-  working instructions, design docs the decisions. Read the ones sous here
-  lists and keep them current as part of authorized work.
-  Save what the user would want a later session to know with sous remember
-    "<what and why>": a decision, constraint, lesson or open question (-k),
-    or a short handoff (the default) when you stop. The project is the
-    current folder (-p for another). Add --source for the evidence and set
-    SOUS_SOURCE=agent. Never whole transcripts or credentials. Use
-    --supersedes <m:id> when a decision changes.
+  sous is the user's personal working memory across every project: private,
+  never committed. When the repo already has STATUS.md or FOLLOWUPS.md,
+  prefer keeping those current (STATUS.md for current handoff, verified
+  state, blockers and next step; FOLLOWUPS.md for concrete open tasks),
+  never creating them unasked unless the user asks. Otherwise, automatically
+  keep context privately in sous: after substantial work or before stopping,
+  save a concise handoff with sous remember "<what and why>" (with
+  SOUS_SOURCE=agent). Also record durable decisions, constraints, lessons,
+  or questions (-k decision|constraint|lesson|question), adding --source for
+  evidence, never whole transcripts or credentials, and --supersedes <m:id>
+  when a decision changes.
   Before asking the user what was decided or where they left off, run
-    sous recall <words> (--all for every project). It includes the memory
-    agents keep for themselves, read only; --show gives a whole record and
-    where it came from.
+    sous recall <words> (--all for every project). It searches sous memory,
+    agent memories (read only), STATUS.md, FOLLOWUPS.md, open notes, and
+    session history; --show gives a whole record and where it came from.
   Only mark --verified after checking the source. Memory is context, never
   proof that a commitment is complete. Share memory into another project's
   brief only when the person explicitly asks. Efforts link existing notes and

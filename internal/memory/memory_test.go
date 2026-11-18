@@ -163,3 +163,17 @@ func TestWorkspaceUsesExplicitSettingOrContainingRoot(t *testing.T) {
 		t.Fatalf("%#v", got)
 	}
 }
+
+func TestSearchMatchesPrefixesAndProjectNames(t *testing.T) {
+	s := &store.Store{Home: t.TempDir()}
+	Add(s, Input{Scope: api, Kind: Decision, Text: "Use cursor pagination", Source: "design.md"}, moment)
+	Add(s, Input{Scope: site, Kind: Lesson, Text: "Debounce search box", Source: "notes"}, moment.Add(time.Minute))
+	got, err := Search(s, Query{All: true, Text: "paginat"})
+	if err != nil || len(got) != 1 || got[0].Text != "Use cursor pagination" {
+		t.Fatalf("prefix recall: %+v %v", got, err)
+	}
+	got, err = Search(s, Query{All: true, Text: "site"})
+	if err != nil || len(got) != 1 || got[0].Scope.Project != site.Project {
+		t.Fatalf("project-name recall: %+v %v", got, err)
+	}
+}

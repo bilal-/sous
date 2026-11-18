@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/project"
 	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
@@ -128,4 +129,118 @@ func TestBriefHereIsShortAndSaysWhatItCut(t *testing.T) {
 	b.Reset()
 	RenderHere(&b, d, now, false)
 	testutil.Contains(t, b.String(), "task 8")
+}
+
+func TestNextStepsFallbackAndHereContext(t *testing.T) {
+	strPtr := func(s string) *string { return &s }
+	s := &store.Store{Home: t.TempDir()}
+	ws := t.TempDir()
+	if real, err := filepath.EvalSymlinks(ws); err == nil {
+		ws = real
+	}
+	repoSess := testutil.Repo(t, filepath.Join(ws, "repo-sess"), false, "")
+	repoHandoff := testutil.Repo(t, filepath.Join(ws, "repo-handoff"), false, "")
+	repoStatus := testutil.Repo(t, filepath.Join(ws, "repo-status"), false, "")
+	t0 := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
+
+	// repoSess has no STATUS.md, only two branch sessions in history.
+	if err := session.Record(s, repoSess, session.Session{
+		Agent: "codex", SessionID: "cx-1", Ended: t0,
+		Branch: "feat/old", LastMessage: strPtr("built parser"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Record(s, repoSess, session.Session{
+		Agent: "claude", SessionID: "cl-1", Ended: t0.Add(2 * time.Hour),
+		Branch: "feat/auth", Prompt: strPtr("fix token refresh"), Files: []string{"auth.go", "auth_test.go"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// repoHandoff has an older session and a newer private handoff memory.
+	if err := session.Record(s, repoHandoff, session.Session{
+		Agent: "claude", SessionID: "cl-2", Ended: t0,
+		Branch: "main", LastMessage: strPtr("older session summary"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Roots: []string{ws}}
+	if _, _, err := memory.Add(s, memory.Input{
+		Scope: memory.ForProject(cfg, project.Project{Path: repoHandoff}),
+		Kind:  memory.Handoff,
+		Text:  "wait for Sam to merge schema change",
+	}, t0.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+
+	// repoStatus has STATUS.md written before a newer session.
+	statusPath := filepath.Join(repoStatus, project.StatusFile)
+	if err := os.WriteFile(statusPath, []byte("# Status\n\nWorking on billing rollout.\n\n## Next step\n- deploy canary\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(statusPath, t0, t0); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Record(s, repoStatus, session.Session{
+		Agent: "gemini", SessionID: "gm-1", Ended: t0.Add(3 * time.Hour),
+		Branch: "main", LastMessage: strPtr("ran load test"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	ps := []project.Project{{Path: repoSess}, {Path: repoHandoff}, {Path: repoStatus}}
+	steps := nextSteps(ps, s, cfg, nil)
+	if len(steps) != 3 {
+		t.Fatalf("got %d next steps: %+v", len(steps), steps)
+	}
+	byProj := map[string]NextStep{}
+	for _, st := range steps {
+		byProj[st.Project] = st
+	}
+	if byProj[repoSess].Source != "session" || byProj[repoSess].Branch != "feat/auth" || byProj[repoSess].Step != "fix token refresh" {
+		t.Fatalf("session fallback: %+v", byProj[repoSess])
+	}
+	if byProj[repoHandoff].Source != "handoff" || byProj[repoHandoff].Step != "wait for Sam to merge schema change" {
+		t.Fatalf("handoff fallback: %+v", byProj[repoHandoff])
+	}
+	if byProj[repoStatus].Source != project.StatusFile || byProj[repoStatus].Step != "deploy canary" {
+		t.Fatalf("STATUS.md must take preference: %+v", byProj[repoStatus])
+	}
+
+	var boardBuf bytes.Buffer
+	renderNext(&boardBuf, steps, t0.Add(4*time.Hour))
+	testutil.Contains(t, boardBuf.String(), "next up · from STATUS.md and recent work", "[session · feat/auth] fix token refresh", "[handoff] wait for Sam", "deploy canary")
+
+	in := Inputs{Store: s, Cfg: cfg, Now: t0.Add(4 * time.Hour), Timeout: 2 * time.Second}
+	hereSess, err := BuildHere(context.Background(), in, repoSess)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hb bytes.Buffer
+	RenderHere(&hb, hereSess, t0.Add(4*time.Hour), false)
+	testutil.Contains(t, hb.String(),
+		`last session · claude · 2026-10-01 · feat/auth · working on: "fix token refresh"`,
+		"files · auth.go, auth_test.go",
+		`recent · codex · feat/old · 2026-10-01 · "built parser"`,
+		"next step · fix token refresh (session, feat/auth, updated",
+	)
+	hb.Reset()
+	RenderHere(&hb, hereSess, t0.Add(4*time.Hour), true)
+	for _, l := range strings.Split(hb.String(), "\n") {
+		if utf8.RuneCountInString(l) > text.LineRunes {
+			t.Fatalf("brief line exceeds %d runes: %q", text.LineRunes, l)
+		}
+	}
+
+	hereStatus, err := BuildHere(context.Background(), in, repoStatus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hb.Reset()
+	RenderHere(&hb, hereStatus, t0.Add(4*time.Hour), false)
+	testutil.Contains(t, hb.String(),
+		"next step · deploy canary (STATUS.md, updated 4h ago)",
+		"status · Working on billing rollout.",
+		"note · session activity is newer than STATUS.md",
+	)
 }

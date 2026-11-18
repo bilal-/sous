@@ -31,9 +31,9 @@ Tests run inside the test process against a throwaway `HOME` and
 `sous` process, the test binary plays that part (`SOUS_TEST_AS_BINARY=1`).
 **Never** run `sous setup` in a test, and never point a test at the real
 `~/.sous`, `~/.claude`, `~/.codex`, `~/.gemini`, `~/.agents`, `~/.config/opencode` or
-`~/.zshrc`. GitHub, GitLab, Claude
-Code, Codex, Antigravity and opencode are never called for real; tests
-use small fake `gh`, `glab` and agent scripts.
+`~/.zshrc`. GitHub, GitLab, Claude Code, Codex, Antigravity, opencode, Qwen Code,
+Gemini CLI, pi, Copilot CLI, Cursor, Factory Droid and Kimi Code are never called
+for real; tests use small fake `gh`, `glab` and agent scripts.
 
 Write the test first, watch it fail, then make it pass. The files in
 `internal/board/testdata` pin the exact look of the board and of `here`.
@@ -65,7 +65,7 @@ Examples, tests and docs use made up names only: `acme/api`, `Sam`,
     internal/tracker    gh and glab: which account or host a project uses, running them safely, and the ref format
     internal/tracker/trackertest   fake gh and glab for tests
     internal/harness/harnesstest   a fake agent that ends a run the way every built in agent does
-    internal/harness    every agent tool sous works with (Claude Code, Codex, Antigravity, opencode), one file each: skills, hooks and their file layout, hook input, transcripts, headless runs
+    internal/harness    every agent tool sous works with (Claude Code, Codex, Antigravity, opencode, Qwen Code, Gemini CLI, pi, Copilot CLI, Cursor, Factory Droid and Kimi Code), one file each: skills, hooks and their file layout, hook input, transcripts, headless runs
     internal/launcher   the launcher contract; every harness is a built in launcher
     internal/runs       starting runs, asking runners how they are going, replies, stop and clean
     internal/runner     the runner contract, a built in runner for each harness that runs headless, and their watcher

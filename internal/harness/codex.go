@@ -17,13 +17,16 @@ var codex = Harness{
 	Bin:      "codex",
 	SkillDir: func(home string) string { return filepath.Join(home, ".codex", "skills") },
 	HookFile: func(home string) string { return filepath.Join(home, ".codex", "hooks.json") },
-	Format:   HooksJSON{},
+	Format:   HooksJSON{StatusMessage: true},
 	Hooks: []Hook{
 		{Role: RoleStart, Event: "SessionStart"},
+		{Role: RoleEnd, Event: "Stop"},
+		{Role: RoleEnd, Event: "PreCompact"},
 		{Role: RoleEnd, Event: "SessionEnd", Flag: "codex-session-end"},
 	},
-	Parse: parseHookJSON,
-	Last:  func(transcript string) string { return lastLine(transcript, `"assistant"`, codexText) },
+	Parse:    parseHookJSON,
+	Last:     func(transcript string) string { return lastLine(transcript, `"assistant"`, codexText) },
+	LastUser: func(transcript string) string { return lastLine(transcript, `"user"`, codexUserText) },
 	// Codex runs in its workspace-write sandbox; no permission check is
 	// skipped.
 	Headless: &Headless{
@@ -42,7 +45,12 @@ var codex = Harness{
 }
 
 // codexText is the text of one assistant message in a rollout, or "".
-func codexText(line []byte) string {
+func codexText(line []byte) string { return codexLine(line, "assistant", "output_text") }
+
+// codexUserText is the text of one user message in a rollout, or "".
+func codexUserText(line []byte) string { return codexLine(line, "user", "input_text") }
+
+func codexLine(line []byte, wantRole, kind string) string {
 	var l struct {
 		Type    string `json:"type"`
 		Payload struct {
@@ -51,10 +59,10 @@ func codexText(line []byte) string {
 			Content json.RawMessage `json:"content"`
 		} `json:"payload"`
 	}
-	if json.Unmarshal(line, &l) != nil || l.Type != "response_item" || l.Payload.Type != "message" || l.Payload.Role != "assistant" {
+	if json.Unmarshal(line, &l) != nil || l.Type != "response_item" || l.Payload.Type != "message" || l.Payload.Role != wantRole {
 		return ""
 	}
-	return contentText(l.Payload.Content, "output_text")
+	return contentText(l.Payload.Content, kind)
 }
 
 // codexLastFile is where Codex writes its last message: the run folder,

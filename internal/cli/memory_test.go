@@ -156,3 +156,65 @@ func TestAgentMemoryIsReadNeverWritten(t *testing.T) {
 		t.Fatalf("config: %d %s", code, errs)
 	}
 }
+
+func TestRecallSearchesDocsNotesSessionsAndPrefixes(t *testing.T) {
+	f := fixture(t)
+	api := f.mkrepo("acme/api", true)
+	site := f.mkrepo("acme/site", true)
+
+	if err := os.WriteFile(filepath.Join(api, "STATUS.md"), []byte("# Status\n\nMigrating webhooks to idempotent keys.\n\n## Next step\n- verify webhook retries\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "FOLLOWUPS.md"), []byte("# Follow-ups\n- [ ] audit marketing cache headers\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, errs, code := f.runIn(api, "note", "ask Sam about sandbox credentials"); code != 0 {
+		t.Fatalf("note: %d %s", code, errs)
+	}
+	f.runStdin(hookJSON(map[string]any{
+		"cwd":          api,
+		"session_id":   "s-recall-1",
+		"prompt":       "investigate billing timeout",
+		"last_message": "fixed connection pooling in worker",
+	}), "hook", "session-end", "claude")
+
+	// Prefix matching ("webhook" matches "webhooks") finds STATUS.md in project scope.
+	out, errs, code := f.runIn(api, "recall", "webhook", "--json")
+	if code != 0 || !strings.Contains(out, `"d:`) || !strings.Contains(out, "verify webhook retries") {
+		t.Fatalf("status recall: %d %s %s", code, out, errs)
+	}
+	var got struct {
+		Records []struct{ ID, Source, Text string }
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil || len(got.Records) == 0 {
+		t.Fatalf("decode: %v %s", err, out)
+	}
+	showOut, showErr, code := f.run("recall", "--show", got.Records[0].ID)
+	if code != 0 || !strings.Contains(showOut, "Migrating webhooks to idempotent keys.") {
+		t.Fatalf("show doc: %d %s %s", code, showOut, showErr)
+	}
+
+	// Cross-project search (--all) finds FOLLOWUPS.md in site, open notes, and sessions.
+	if out, errs, code := f.runIn(api, "recall", "--all", "audit"); code != 0 || !strings.Contains(out, "FOLLOWUPS.md") || !strings.Contains(out, "audit marketing cache headers") {
+		t.Fatalf("followups recall: %d %s %s", code, out, errs)
+	}
+	if out, errs, code := f.runIn(api, "recall", "credent"); code != 0 || !strings.Contains(out, "n:1") || !strings.Contains(out, "sandbox credentials") {
+		t.Fatalf("note recall: %d %s %s", code, out, errs)
+	}
+	if out, errs, code := f.runIn(api, "recall", "pool", "--json"); code != 0 || !strings.Contains(out, `"s:`) || !strings.Contains(out, "connection pooling") {
+		t.Fatalf("session recall: %d %s %s", code, out, errs)
+	} else {
+		var sGot struct {
+			Records []struct{ ID string }
+		}
+		if err := json.Unmarshal([]byte(out), &sGot); err != nil || len(sGot.Records) == 0 {
+			t.Fatalf("decode session: %v %s", err, out)
+		}
+		if sShow, sErr, code := f.run("recall", "--show", sGot.Records[0].ID); code != 0 || !strings.Contains(sShow, "fixed connection pooling in worker") || !strings.Contains(sShow, "investigate billing timeout") {
+			t.Fatalf("show session: %d %s %s", code, sShow, sErr)
+		}
+	}
+	if out, _, code := f.run("recall", "--show", "n:1"); code != 0 || !strings.Contains(out, "ask Sam about sandbox credentials") {
+		t.Fatalf("show note: %d %s", code, out)
+	}
+}

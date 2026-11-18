@@ -160,14 +160,17 @@ func (d *Data) JSON() BoardJSON {
 
 // HereJSON is sous here --json.
 type HereJSON struct {
-	Context       Context            `json:"context"`
-	Documents     []project.Document `json:"documents"`
-	DocumentError string             `json:"document_error,omitempty"`
-	Project       string             `json:"project"`
-	Name          string             `json:"name"`
-	Remote        *string            `json:"remote"`
-	Facts         project.Facts      `json:"facts"`
-	Session       *SessionItem       `json:"session"` // the last agent session here, if one was recorded
+	Context        Context            `json:"context"`
+	Documents      []project.Document `json:"documents"`
+	DocumentError  string             `json:"document_error,omitempty"`
+	Next           *NextStep          `json:"next,omitempty"`
+	Status         *project.StatusDoc `json:"status,omitempty"`
+	Project        string             `json:"project"`
+	Name           string             `json:"name"`
+	Remote         *string            `json:"remote"`
+	Facts          project.Facts      `json:"facts"`
+	Session        *SessionItem       `json:"session"` // the last agent session here, if one was recorded
+	RecentSessions []SessionItem      `json:"recent_sessions,omitempty"`
 	Waiting
 	RecentlyClosed []Item                `json:"recently_closed"` // closed in their tracker this week
 	Plugins        []signal.PluginStatus `json:"plugins"`
@@ -180,6 +183,10 @@ type SessionItem struct {
 	ID          string    `json:"id"`
 	EndedAt     time.Time `json:"ended_at"`
 	LastMessage *string   `json:"last_message"`
+	Branch      string    `json:"branch,omitempty"`
+	Prompt      *string   `json:"prompt,omitempty"`
+	Files       []string  `json:"files,omitempty"`
+	Commit      string    `json:"commit,omitempty"`
 }
 
 // JSON is the resume view as --json shows it.
@@ -188,15 +195,24 @@ func (h *HereData) JSON() HereJSON {
 	out := HereJSON{Project: h.Project, Name: h.Name, Remote: h.Remote, Facts: h.Facts, Waiting: s.waiting(),
 		RecentlyClosed: Items(s.RecentlyClosed), Plugins: h.Plugins, AsOf: h.RenderedAt}
 	out.Documents, out.DocumentError = h.Documents, h.DocumentError
+	out.Next, out.Status = h.Next, h.Status
 	out.Context = h.Context
 	if h.Session != nil {
 		out.Session = sessionItem(*h.Session)
+	}
+	for _, rs := range h.RecentSessions {
+		if item := sessionItem(rs); item != nil {
+			out.RecentSessions = append(out.RecentSessions, *item)
+		}
 	}
 	return out
 }
 
 func sessionItem(s session.Session) *SessionItem {
-	return &SessionItem{Agent: s.Agent, ID: s.SessionID, EndedAt: s.Ended, LastMessage: s.LastMessage}
+	return &SessionItem{
+		Agent: s.Agent, ID: s.SessionID, EndedAt: s.Ended, LastMessage: s.LastMessage,
+		Branch: s.Branch, Prompt: s.Prompt, Files: append([]string(nil), s.Files...), Commit: s.Commit,
+	}
 }
 
 // NoteJSON is sous show --json: one note in full.

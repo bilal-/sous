@@ -185,8 +185,10 @@ unreadable documents are shown as unavailable.
 
 Agents read these documents when resuming work and keep the handoff current
 as part of authorized changes. Creating a shared document or publishing a
-private note still requires the person's explicit request. Agent guidance
-lives in `sous help`, not the skill.
+private note still requires the person's explicit request. When `STATUS.md`
+is absent or has no next step, `sous` and `here` fall back privately to the
+newest open `handoff` memory or recorded agent session in `~/.sous/`. Agent
+guidance lives in `sous help`, not in long command flags inside the skill.
 
 ## Durable context and connected work
 
@@ -235,11 +237,16 @@ The board shows active effort summaries. Project briefings include relevant
 memories and efforts, limited to five of each in the brief form. The newest of
 each memory kind gets a place before remaining slots fill by recency, so repeated
 handoffs do not bury a standing constraint. JSON retains full context. All reads
-are local; no model endpoint, embeddings, transcript extraction or daemon is
-required. Agents capture useful context during authorized work and cite the
-project's own documents. The session-start hook opens by telling each agent
-that sous is personal memory, and how to keep (`remember`), find (`recall`) and
-note (`note`) things in it. Keyword retrieval remains explicit about its limits.
+are local; no model endpoint, embeddings or daemon is required. Lifecycle hooks
+capture branch, prompt intent, touched files, last commit and last message into
+rolling session history across turns, compaction and exits. Agents capture
+useful context during authorized work and cite the project's own documents.
+The session-start hook opens by telling each agent that sous is personal
+working memory, and how to find (`recall`), keep (`remember`) and note (`note`)
+things in it, preferring repo `STATUS.md` and `FOLLOWUPS.md` when present.
+`sous recall` searches across saved memories, read-only agent memories, repo
+`STATUS.md`/`FOLLOWUPS.md`, open notes and session history using word, prefix and
+project-name matching while remaining explicit about keyword-search limits.
 
 ## Private action retries
 

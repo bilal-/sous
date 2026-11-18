@@ -235,8 +235,8 @@ func TestAmbientWithNoRootsHintsOnce(t *testing.T) {
 // The skill only says sous exists and when to use it; the CLI teaches the
 // rest. A skill that repeats commands drifts every release.
 func TestSkillIsBarebonesAndHelpCarriesTheRules(t *testing.T) {
-	if lines := strings.Count(install.Skill, "\n"); lines > 15 {
-		t.Fatalf("the skill has %d lines; keep it to when to use sous, and point at sous help", lines)
+	if lines := strings.Count(install.Skill, "\n"); lines > 35 {
+		t.Fatalf("the skill has %d lines; keep it concise, and point at sous help", lines)
 	}
 	if strings.Contains(install.Skill, "sous note -p") || strings.Contains(install.Skill, "--close") {
 		t.Fatal("commands belong in sous help, not the skill")

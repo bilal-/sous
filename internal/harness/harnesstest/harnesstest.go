@@ -24,5 +24,8 @@ echo '{"result":` + q + `,"session_id":"` + Session + `"}'
 echo '{"thread_id":"` + Session + `"}'
 echo '` + msg + `' > "$out"
 echo '{"conversation_id":"` + Session + `","response":` + q + `}'
-echo '{"type":"text","sessionID":"` + Session + `","part":{"type":"text","text":` + q + `}}'`
+echo '{"type":"text","sessionID":"` + Session + `","part":{"type":"text","text":` + q + `}}'
+echo '{"session_id":"` + Session + `","response":` + q + `}'
+echo '{"type":"session","id":"` + Session + `"}'
+echo '{"type":"agent_end","messages":[{"role":"assistant","content":[{"type":"text","text":` + q + `}]}]}'`
 }

@@ -2,6 +2,7 @@ package harness
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"io"
@@ -26,7 +27,7 @@ func lastLine(path string, mark string, said func([]byte) string) string {
 	}
 	var last string
 	eachLineFromEnd(f, st.Size(), func(line []byte) bool {
-		if !bytes.Contains(line, []byte(mark)) {
+		if mark != "" && !bytes.Contains(line, []byte(mark)) {
 			return true
 		}
 		last = said(line)
@@ -57,22 +58,60 @@ func contentText(content json.RawMessage, kind string) string {
 	return s
 }
 
-// parseHookJSON reads the hook input Claude Code and Codex send: snake_case
-// JSON whose source is startup for a new session. Nothing at all, or
-// something unreadable, is a new session with no details: the hook's own
-// folder stands in for the project.
+// partsText joins Gemini/Qwen style parts: [{"text":"..."}].
+func partsText(parts json.RawMessage) string {
+	var items []struct {
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(parts, &items) == nil {
+		var texts []string
+		for _, p := range items {
+			if p.Text != "" {
+				texts = append(texts, p.Text)
+			}
+		}
+		return strings.Join(texts, " ")
+	}
+	var s string
+	json.Unmarshal(parts, &s)
+	return s
+}
+
+// parseHookJSON reads the hook input Claude Code, Codex, Qwen, Gemini, Cursor,
+// Copilot, Droid and opencode send. Nothing at all, or something unreadable, is
+// a new session with no details: the hook's own folder stands in for the project.
 func parseHookJSON(b []byte) Input {
 	var in struct {
-		SessionID      string `json:"session_id"`
-		CWD            string `json:"cwd"`
-		Source         string `json:"source"` // startup | resume | clear | compact | fork
-		TranscriptPath string `json:"transcript_path"`
-		LastMessage    string `json:"last_message"` // sous's own plugins send it
+		SessionID            string   `json:"session_id"`
+		SessionIDCamel       string   `json:"sessionId"`
+		ConversationID       string   `json:"conversation_id"`
+		CWD                  string   `json:"cwd"`
+		WorkspaceRoots       []string `json:"workspace_roots"`
+		Source               string   `json:"source"` // startup | resume | clear | compact | fork | new
+		TranscriptPath       string   `json:"transcript_path"`
+		Prompt               string   `json:"prompt"`
+		InitialPrompt        string   `json:"initialPrompt"`
+		LastPrompt           string   `json:"last_prompt"`
+		LastMessage          string   `json:"last_message"` // sous's own plugins send it
+		LastAssistantMessage string   `json:"last_assistant_message"`
+		PromptResponse       string   `json:"prompt_response"`
 	}
 	if json.Unmarshal(b, &in) != nil {
 		return Input{Fresh: true}
 	}
-	return Input{SessionID: in.SessionID, CWD: in.CWD, TranscriptPath: in.TranscriptPath, LastMessage: in.LastMessage, Fresh: in.Source == "" || in.Source == "startup"}
+	cwd := in.CWD
+	if cwd == "" && len(in.WorkspaceRoots) > 0 {
+		cwd = in.WorkspaceRoots[0]
+	}
+	fresh := in.Source == "" || in.Source == "startup" || in.Source == "new"
+	return Input{
+		SessionID:      cmp.Or(in.SessionID, in.SessionIDCamel, in.ConversationID),
+		CWD:            cwd,
+		TranscriptPath: in.TranscriptPath,
+		Prompt:         cmp.Or(in.Prompt, in.InitialPrompt, in.LastPrompt),
+		LastMessage:    cmp.Or(in.LastMessage, in.LastAssistantMessage, in.PromptResponse),
+		Fresh:          fresh,
+	}
 }
 
 // eachLineFromEnd calls fn for each line of r, last line first, until fn

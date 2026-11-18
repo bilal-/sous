@@ -1119,6 +1119,12 @@
         "updated": {
           "type": "string",
           "format": "date-time"
+        },
+        "source": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
         }
       }
     },

@@ -43,7 +43,8 @@ Before you send a change:
 * **Write the test first.** Show the problem with a failing test, then fix
   it. Tests use throwaway `HOME` and `SOUS_HOME`, and never touch your real
   sous state, agent settings or shell files. GitHub, GitLab, Claude Code,
-  Codex, Antigravity and opencode are replaced by small fake scripts.
+  Codex, Antigravity, opencode, Qwen Code, Gemini CLI, pi, Copilot CLI, Cursor,
+  Factory Droid and Kimi Code are replaced by small fake scripts.
 * **Use made up data.** Examples, tests and docs use invented projects,
   people and hosts (`acme/api`, `Sam`, `git.example.org`). Never real ones.
 * **Keep `make ci` passing**, and add a line to

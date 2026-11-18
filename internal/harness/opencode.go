@@ -2,14 +2,8 @@ package harness
 
 import (
 	_ "embed"
-	"encoding/json"
-	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
-
-	"github.com/bilal-/sous/internal/store"
 )
 
 // opencode: no shell hooks, but plugins: sous writes one (OpencodePlugin)
@@ -67,51 +61,10 @@ var opencodePlugin string
 // read back from.
 type OpencodePlugin struct{}
 
-var pluginHook = regexp.MustCompile(`(?m)^// sous hook (\S+): (.*)$`)
-
-// pluginHeader starts every plugin file sous writes.
-const pluginHeader = "// sous:"
-
 func (OpencodePlugin) Place(file, event string, cmd Cmd) (bool, error) {
-	if strings.ContainsAny(cmd.String(), "\n\r") {
-		return false, fmt.Errorf("a hook command cannot hold a line break: %q", cmd.String())
-	}
-	changed := false
-	err := store.EditFile(file, 0o644, func(b []byte) ([]byte, error) {
-		if len(b) > 0 && !strings.HasPrefix(string(b), pluginHeader) {
-			return nil, fmt.Errorf("%s is not a plugin sous wrote; move it away, then sous setup", file)
-		}
-		cmds := map[string]string{}
-		for _, m := range pluginHook.FindAllStringSubmatch(string(b), -1) {
-			cmds[m[1]] = m[2]
-		}
-		cmds[event] = cmd.String()
-		js := func(s string) string { q, _ := json.Marshal(s); return string(q) }
-		out := strings.NewReplacer("{{start}}", cmds[RoleStart], "{{end}}", cmds[RoleEnd],
-			"{{startJSON}}", js(cmds[RoleStart]), "{{endJSON}}", js(cmds[RoleEnd]),
-			"{{timeoutMs}}", fmt.Sprint(HookTimeout.Milliseconds())).Replace(opencodePlugin)
-		if out == string(b) {
-			return nil, nil
-		}
-		changed = true
-		return []byte(out), nil
-	})
-	return changed, err
+	return (ScriptPlugin{Template: opencodePlugin}).Place(file, event, cmd)
 }
 
 func (OpencodePlugin) Commands(file, event string) ([]string, error) {
-	b, err := os.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-	var out []string
-	for _, m := range pluginHook.FindAllStringSubmatch(string(b), -1) {
-		if m[1] == event && m[2] != "" {
-			out = append(out, m[2])
-		}
-	}
-	if len(out) == 0 && !strings.HasPrefix(string(b), pluginHeader) {
-		return nil, fmt.Errorf("%s is not a plugin sous wrote", file)
-	}
-	return out, nil
+	return (ScriptPlugin{Template: opencodePlugin}).Commands(file, event)
 }

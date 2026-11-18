@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/bilal-/sous/internal/config"
+	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/store"
 	"github.com/bilal-/sous/internal/text"
@@ -31,22 +33,37 @@ type Data struct {
 	Checked          int                   `json:"checked"`
 	Unavailable      int                   `json:"unavailable"`
 	RenderedAt       time.Time             `json:"rendered_at"`
-	// Next is each project's next step from its STATUS.md, the project
-	// least recently updated first: the one most easily forgotten.
+	// Next is each project's next step (from STATUS.md first, falling back to
+	// private sous handoff memory or the latest session), the project least
+	// recently updated first: the one most easily forgotten.
 	Next []NextStep `json:"next,omitempty"`
 }
 
-// NextStep is where a project's own handoff says to pick up, and when that
+// NextStep is where a project's handoff says to pick up, and when that
 // handoff last changed.
 type NextStep struct {
 	Project string    `json:"project"`
 	Step    string    `json:"step"`
 	Updated time.Time `json:"updated"`
+	Source  string    `json:"source,omitempty"`
+	Branch  string    `json:"branch,omitempty"`
 }
 
-// nextSteps reads each project's STATUS.md. One that cannot be read is
-// said on warn and left out; it is a guide, not an obligation source.
-func nextSteps(ps []project.Project, warn io.Writer) []NextStep {
+// nextSteps reads each project's STATUS.md first, falling back privately to
+// the newest open handoff memory or recorded session when STATUS.md is absent
+// or has no Next step. Unreadable sources are reported on warn and skipped.
+func nextSteps(ps []project.Project, s *store.Store, cfg *config.Config, warn io.Writer) []NextStep {
+	var sessions map[string]session.Session
+	var mems []memory.Record
+	if s != nil {
+		var err error
+		if sessions, err = session.All(s); err != nil && warn != nil {
+			fmt.Fprintf(warn, "sous: cannot read sessions: %v\n", err)
+		}
+		if mems, err = memory.All(s); err != nil && warn != nil {
+			fmt.Fprintf(warn, "sous: cannot read memories: %v\n", err)
+		}
+	}
 	var out []NextStep
 	for _, p := range ps {
 		step, at, err := project.NextStep(p.Path)
@@ -57,11 +74,71 @@ func nextSteps(ps []project.Project, warn io.Writer) []NextStep {
 			continue
 		}
 		if step != "" {
-			out = append(out, NextStep{Project: p.Path, Step: step, Updated: at.UTC()})
+			out = append(out, NextStep{Project: p.Path, Step: step, Updated: at.UTC(), Source: project.StatusFile})
+			continue
+		}
+		if fb, ok := privateNextStep(p, cfg, mems, sessions); ok {
+			out = append(out, fb)
 		}
 	}
 	slices.SortStableFunc(out, func(a, b NextStep) int { return a.Updated.Compare(b.Updated) })
 	return out
+}
+
+func privateNextStep(p project.Project, cfg *config.Config, mems []memory.Record, sessions map[string]session.Session) (NextStep, bool) {
+	sc := memory.ForProject(cfg, p)
+	var best memory.Record
+	hasHandoff := false
+	for _, r := range mems {
+		if r.ForgottenAt != nil || r.SupersededBy != "" || r.Kind != memory.Handoff {
+			continue
+		}
+		if !r.VisibleTo(sc) {
+			continue
+		}
+		if !hasHandoff || r.CreatedAt.After(best.CreatedAt) {
+			best = r
+			hasHandoff = true
+		}
+	}
+	sess, hasSess := sessions[p.Path]
+	if !hasSess {
+		if main, ok := project.MainOf(p.Path); ok {
+			sess, hasSess = sessions[main]
+		}
+	}
+	sessText := ""
+	if hasSess {
+		sessText = sessionStep(sess)
+	}
+	if hasHandoff && (!hasSess || sessText == "" || !sess.Ended.After(best.CreatedAt)) {
+		return NextStep{
+			Project: p.Path,
+			Step:    text.OneLine(best.Text),
+			Updated: best.CreatedAt.UTC(),
+			Source:  "handoff",
+		}, true
+	}
+	if hasSess && sessText != "" {
+		return NextStep{
+			Project: p.Path,
+			Step:    sessText,
+			Updated: sess.Ended.UTC(),
+			Source:  "session",
+			Branch:  sess.Branch,
+		}, true
+	}
+	return NextStep{}, false
+}
+
+func sessionStep(s session.Session) string {
+	if s.LastMessage != nil && strings.TrimSpace(*s.LastMessage) != "" {
+		return text.OneLine(*s.LastMessage)
+	}
+	if s.Prompt != nil && strings.TrimSpace(*s.Prompt) != "" {
+		return text.OneLine(*s.Prompt)
+	}
+	return ""
 }
 
 type Inputs struct {
@@ -149,7 +226,7 @@ func Build(ctx context.Context, in Inputs) (*Data, error) {
 	if len(in.Roots) > 0 {
 		es, problems = scopeEfforts(es, problems, known)
 	}
-	return &Data{Projects: ps, Signals: sigs, Threads: ths, Plugins: col.Plugins, Checked: len(ps), Unavailable: unavailable, RenderedAt: in.Now.UTC(), Efforts: es, ContextAttention: problems, Next: nextSteps(ps, in.Warn)}, nil
+	return &Data{Projects: ps, Signals: sigs, Threads: ths, Plugins: col.Plugins, Checked: len(ps), Unavailable: unavailable, RenderedAt: in.Now.UTC(), Efforts: es, ContextAttention: problems, Next: nextSteps(ps, in.Store, in.Cfg, in.Warn)}, nil
 }
 
 // The width of a row's text on the board, and what the board says when it
@@ -269,13 +346,32 @@ func renderNext(w io.Writer, next []NextStep, now time.Time) {
 	if len(next) == 0 {
 		return
 	}
-	fmt.Fprintln(w, "\n  next up · from each project's STATUS.md")
+	hasFallback := false
+	for _, n := range next {
+		if n.Source != "" && n.Source != project.StatusFile {
+			hasFallback = true
+			break
+		}
+	}
+	if hasFallback {
+		fmt.Fprintln(w, "\n  next up · from STATUS.md and recent work")
+	} else {
+		fmt.Fprintln(w, "\n  next up · from each project's STATUS.md")
+	}
 	for i, n := range next {
 		if i == NextShown {
 			fmt.Fprintf(w, "  … %d more · sous --json lists them all\n", len(next)-NextShown)
 			break
 		}
-		fmt.Fprintf(w, "  %-14s  %-24s  %-60s  %s\n", "", text.Ellipsize(filepath.Base(n.Project), 24), text.Ellipsize(n.Step, lineText), text.Age(now, n.Updated))
+		step := n.Step
+		if n.Source != "" && n.Source != project.StatusFile {
+			tag := n.Source
+			if n.Branch != "" {
+				tag += " · " + n.Branch
+			}
+			step = "[" + tag + "] " + step
+		}
+		fmt.Fprintf(w, "  %-14s  %-24s  %-60s  %s\n", "", text.Ellipsize(filepath.Base(n.Project), 24), text.Ellipsize(step, lineText), text.Age(now, n.Updated))
 	}
 }
 

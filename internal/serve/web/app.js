@@ -668,7 +668,9 @@ function renderNext(proj, v) {
       b.addEventListener("click", () => go({ project: n.project }));
       li.append(b);
     }
-    li.append(el("span", "next-step", n.step), el("span", "next-age", age(n.updated) === "now" ? "updated just now" : "updated " + age(n.updated) + " ago"));
+    const when = age(n.updated) === "now" ? "updated just now" : "updated " + age(n.updated) + " ago";
+    const meta = n.source ? (n.branch ? n.source + " · " + n.branch + " · " + when : n.source + " · " + when) : when;
+    li.append(el("span", "next-step", n.step), el("span", "next-age", meta));
     list.append(li);
   }
 }

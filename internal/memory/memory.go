@@ -337,13 +337,23 @@ func Find(s *store.Store, q Query) (Result, error) {
 		if !allowed || q.IDs != nil && !slices.Contains(q.IDs, r.ID) {
 			continue
 		}
-		found := map[string]bool{}
-		for _, w := range words(r.Text + " " + r.Source) {
-			found[w] = true
+		found := words(r.Text + " " + r.Source + " " + filepath.Base(r.Scope.Project) + " " + string(r.Kind))
+		wordSet := map[string]bool{}
+		for _, w := range found {
+			wordSet[w] = true
 		}
 		for _, term := range terms {
-			if found[term] {
-				scores[r.ID]++
+			if wordSet[term] {
+				scores[r.ID] += 3
+				continue
+			}
+			if len([]rune(term)) >= 3 {
+				for _, w := range found {
+					if strings.HasPrefix(w, term) || strings.Contains(w, term) {
+						scores[r.ID]++
+						break
+					}
+				}
 			}
 		}
 		if len(terms) > 0 && scores[r.ID] == 0 {

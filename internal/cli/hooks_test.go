@@ -70,16 +70,21 @@ func TestHooksCLI(t *testing.T) {
 	}
 	cs, _ := os.ReadFile(filepath.Join(f.Home, ".claude", "settings.json"))
 	cx, _ := os.ReadFile(filepath.Join(f.Home, ".codex", "hooks.json"))
-	if strings.Count(string(cs), "hook session-start claude") != 1 || strings.Count(string(cs), "hook session-end claude") != 1 || !strings.Contains(string(cs), "/other/thing") {
+	if strings.Count(string(cs), "hook session-start claude") != 1 || strings.Count(string(cs), "hook session-end claude") != 3 || !strings.Contains(string(cs), "/other/thing") {
 		t.Errorf("claude settings:\n%s", cs)
 	}
-	if strings.Count(string(cx), "hook session-start codex") != 1 || strings.Contains(string(cx), "session-end codex") {
+	if strings.Count(string(cx), "hook session-start codex") != 1 || strings.Count(string(cx), "hook session-end codex") != 2 || strings.Contains(string(cx), "SessionEnd") || !strings.Contains(string(cx), `"statusMessage": "sous: load project context"`) {
 		t.Errorf("codex hooks:\n%s", cx)
 	}
 	f.run("setup")
 	cs, _ = os.ReadFile(filepath.Join(f.Home, ".claude", "settings.json"))
 	if strings.Count(string(cs), "hook session-start claude") != 1 {
 		t.Error("setup must be idempotent")
+	}
+	f.run("setup", "--no-shell", "--codex-session-end")
+	cx, _ = os.ReadFile(filepath.Join(f.Home, ".codex", "hooks.json"))
+	if strings.Count(string(cx), "hook session-end codex") != 3 || !strings.Contains(string(cx), "SessionEnd") {
+		t.Errorf("codex session-end flag:\n%s", cx)
 	}
 }
 
@@ -316,12 +321,13 @@ func TestSetupGivesEveryAgentTheSkill(t *testing.T) {
 		t.Fatalf("%s", out)
 	}
 	g := fixture(t)
-	os.Remove(filepath.Join(g.Home, "bin", "agy")) // Antigravity is not here
+	os.Remove(filepath.Join(g.Home, "bin", "agy"))    // neither Antigravity nor Gemini CLI is here
+	os.Remove(filepath.Join(g.Home, "bin", "gemini")) //
 	testutil.OnlyGit(t)
 	t.Setenv("PATH", filepath.Join(g.Home, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 	g.run("setup", "--no-shell")
 	if _, err := os.Stat(filepath.Join(g.Home, ".gemini")); err == nil {
-		t.Fatal("no Antigravity folder is created when Antigravity is not installed")
+		t.Fatal("no .gemini folder is created when neither Antigravity nor Gemini CLI is installed")
 	}
 }
 
@@ -452,4 +458,87 @@ func TestOpencodeHooks(t *testing.T) {
 	if out, _, _ := f.run("here", p); !strings.Contains(out, `last session · opencode`) || !strings.Contains(out, "wired the export and its test") {
 		t.Fatalf("the session's end is recorded, on one line:\n%s", out)
 	}
+}
+
+func TestNewAgentHooksStartEndAndSetup(t *testing.T) {
+	f := fixture(t)
+	out, errs, code := f.run("setup", "--no-shell")
+	if code != 0 || !strings.Contains(out, "sous is set up") {
+		t.Fatalf("setup: %d %s %s", code, out, errs)
+	}
+	for _, rel := range []string{
+		".qwen/settings.json",
+		".qwen/skills/sous/SKILL.md",
+		".gemini/settings.json",
+		".gemini/skills/sous/SKILL.md",
+		".pi/agent/extensions/sous.ts",
+		".pi/agent/skills/sous/SKILL.md",
+		".copilot/hooks/sous.json",
+		".cursor/hooks.json",
+		".factory/hooks.json",
+		".kimi-code/config.toml",
+	} {
+		if _, err := os.Stat(filepath.Join(f.Home, rel)); err != nil {
+			t.Errorf("missing installed artifact %s: %v", rel, err)
+		}
+	}
+
+	p := f.mkrepo("acme/api", true)
+	os.WriteFile(filepath.Join(p, "untracked.txt"), []byte("wip\n"), 0o644)
+
+	// Qwen speaks plain text stdout (like Claude/Codex); Gemini speaks hookSpecificOutput JSON.
+	qOut, qErr, code := f.runStdin(hookJSON(map[string]any{"session_id": "qwen-1", "cwd": p, "source": "startup"}), "hook", "session-start", "qwen")
+	if code != 0 || qErr != "" || !strings.Contains(qOut, "api · main") {
+		t.Fatalf("qwen session-start: %d %q %q", code, qOut, qErr)
+	}
+	gOut, gErr, code := f.runStdin(hookJSON(map[string]any{"session_id": "gemini-1", "cwd": p, "source": "startup"}), "hook", "session-start", "gemini")
+	var reply struct {
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	if code != 0 || gErr != "" || json.Unmarshal([]byte(gOut), &reply) != nil || !strings.Contains(reply.HookSpecificOutput.AdditionalContext, "api · main") {
+		t.Fatalf("gemini session-start: %d %q %q", code, gOut, gErr)
+	}
+
+	// Kimi deduplicates UserPromptSubmit injections once per session_id.
+	kimi1 := hookJSON(map[string]any{"session_id": "km-1", "cwd": p, "prompt": "check billing"})
+	if out, errs, code := f.runStdin(kimi1, "hook", "session-start", "kimi"); code != 0 || errs != "" || !strings.Contains(out, "api · main") {
+		t.Fatalf("kimi first prompt: %d %q %q", code, out, errs)
+	}
+	if out, errs, code := f.runStdin(kimi1, "hook", "session-start", "kimi"); code != 0 || errs != "" || out != "" {
+		t.Fatalf("kimi repeat prompt should inject nothing: %d %q %q", code, out, errs)
+	}
+	kimi2 := hookJSON(map[string]any{"session_id": "km-2", "cwd": p, "prompt": "new session"})
+	if out, _, code := f.runStdin(kimi2, "hook", "session-start", "kimi"); code != 0 || !strings.Contains(out, "api · main") {
+		t.Fatalf("kimi new session: %d %q", code, out)
+	}
+
+	// Copilot, Cursor, Pi, and Droid record rich end state (prompt, branch, files, message).
+	for _, tc := range []struct {
+		agent string
+		input string
+	}{
+		{"pi", hookJSON(map[string]any{"session_id": "pi-1", "cwd": p, "prompt": "refactor router", "last_message": "split route table"})},
+		{"cursor", hookJSON(map[string]any{"conversation_id": "cu-1", "workspace_roots": []string{p}, "prompt": "audit middleware", "last_assistant_message": "checked headers"})},
+		{"copilot", hookJSON(map[string]any{"sessionId": "cp-1", "cwd": p, "initialPrompt": "write migration"})},
+		{"droid", hookJSON(map[string]any{"session_id": "dr-1", "cwd": p, "prompt": "fix webhook retry", "last_assistant_message": "added exponential backoff"})},
+	} {
+		if out, errs, code := f.runStdin(tc.input, "hook", "session-end", tc.agent); code != 0 || errs != "" || (out != "" && strings.TrimSpace(out) != "{}") {
+			t.Fatalf("%s session-end: %d %q %q", tc.agent, code, out, errs)
+		}
+	}
+	hereOut, _, code := f.run("here", p)
+	if code != 0 {
+		t.Fatal(code)
+	}
+	testutil.Contains(t, hereOut,
+		"last session · droid",
+		"added exponential backoff",
+		"prompt: \"fix webhook retry\"",
+		"files · untracked.txt",
+		"recent · copilot · main",
+		"recent · cursor · main",
+	)
 }

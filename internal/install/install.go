@@ -100,7 +100,7 @@ func hookSpecs(home string) []hookSpec {
 // Hooks adds the session hooks for the sous at exe: every harness's, and
 // the optional ones only when their flag is in flags.
 func Hooks(home, exe string, flags []string) ([]string, error) {
-	extra := map[string]bool{} // harness → an optional end hook is on
+	recorded := map[string]bool{} // harness → at least one RoleEnd hook was installed
 	for _, x := range hookSpecs(home) {
 		if x.Flag != "" && !slices.Contains(flags, x.Flag) {
 			continue
@@ -108,13 +108,13 @@ func Hooks(home, exe string, flags []string) ([]string, error) {
 		if _, err := x.Format.Place(x.file(home), x.Event, harness.Cmd{Exe: exe, Role: x.Role, Agent: x.Name}); err != nil {
 			return nil, fmt.Errorf("%s: %w", x.file(home), err)
 		}
-		extra[x.Name] = extra[x.Name] || x.Flag != "" && x.Role == harness.RoleEnd
+		recorded[x.Name] = recorded[x.Name] || x.Role == harness.RoleEnd
 	}
 	var done []string
 	for _, h := range here(home) {
 		note := ""
-		if extra[h.Name] {
-			note = " and when it ends"
+		if recorded[h.Name] {
+			note = " and records your context as you work"
 		}
 		done = append(done, h.Display+": sees where you left off when a session starts"+note+", and has the sous skill")
 	}

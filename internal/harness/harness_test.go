@@ -495,6 +495,74 @@ await after["experimental.chat.system.transform"]({}, { system: [] })
 	}
 }
 
+func TestPiExtensionSpeaksTheHookInput(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("no node")
+	}
+	dir := t.TempDir()
+	got := filepath.Join(dir, "got")
+	fake := filepath.Join(dir, "sous")
+	os.WriteFile(fake, []byte("#!/bin/sh\nin=$(cat)\nprintf '%s\\n' \"$in\" >> "+got+"\necho context\n"), 0o755)
+	plugin := filepath.Join(dir, "sous.mjs")
+	for _, role := range []string{RoleStart, RoleEnd} {
+		if _, err := (PiExtension{}).Place(plugin, role, Cmd{Exe: fake, Role: role, Agent: "pi"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	drive := filepath.Join(dir, "drive.mjs")
+	os.WriteFile(drive, []byte(`import init from "./sous.mjs"
+const handlers = {}
+init({ on: (ev, fn) => { (handlers[ev] ||= []).push(fn) } })
+const ctx = {
+  cwd: "/code/acme/api",
+  sessionManager: {
+    getSessionId: () => "pi_1",
+    getSessionFile: () => "/tmp/pi_1.jsonl",
+    getBranch: () => [],
+  },
+}
+await handlers.session_start[0]({ reason: "startup" }, ctx)
+const res = await handlers.before_agent_start[0]({}, ctx)
+if (!res || !res.message || res.message.content !== "context") throw new Error("missing injected message")
+const res2 = await handlers.before_agent_start[0]({}, ctx)
+if (res2 !== undefined) throw new Error("injected twice")
+await handlers.agent_end[0]({ messages: [
+  { role: "user", content: [{ type: "text", text: "add tests" }] },
+  { role: "assistant", content: [{ type: "text", text: "all green" }] },
+] }, ctx)
+`), 0o644)
+	if out, err := exec.Command(node, drive).CombinedOutput(); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	var lines []string
+	for deadline := time.Now().Add(5 * time.Second); len(lines) < 2 && time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+		b, _ := os.ReadFile(got)
+		s := strings.TrimSpace(string(b))
+		if s != "" {
+			lines = strings.Split(s, "\n")
+		}
+	}
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines: %q", len(lines), lines)
+	}
+	var startIn, endIn Input
+	for _, l := range lines {
+		in := pi.Parse([]byte(l))
+		if in.LastMessage != "" {
+			endIn = in
+		} else {
+			startIn = in
+		}
+	}
+	if !startIn.Fresh || startIn.SessionID != "pi_1" || startIn.CWD != "/code/acme/api" {
+		t.Fatalf("start: %+v", startIn)
+	}
+	if endIn.SessionID != "pi_1" || endIn.Prompt != "add tests" || endIn.LastMessage != "all green" {
+		t.Fatalf("end: %+v", endIn)
+	}
+}
+
 // Odd hook files: one holding null is an empty one, not a crash; values
 // that are not hook groups (a "$schema") are passed over when reading.
 func TestHookFilesThatAreOdd(t *testing.T) {
@@ -589,6 +657,37 @@ func TestEveryHarnessConforms(t *testing.T) {
 			freshInput:   `{"session_id":"s1","cwd":"/code/acme/api","source":"startup"}`,
 			resumedInput: `{"session_id":"s1","cwd":"/code/acme/api","source":"resume"}`,
 		},
+		"qwen": {
+			freshInput:   `{"session_id":"s1","cwd":"/code/acme/api","transcript_path":"/t.jsonl","source":"startup"}`,
+			resumedInput: `{"session_id":"s1","cwd":"/code/acme/api","source":"resume"}`,
+			transcript:   `{"type":"assistant","message":{"role":"model","parts":[{"text":"Done: the index is rebuilt."}]}}` + "\n",
+		},
+		"gemini": {
+			freshInput:   `{"session_id":"s1","cwd":"/code/acme/api","transcript_path":"/t.json","source":"startup"}`,
+			resumedInput: `{"session_id":"s1","cwd":"/code/acme/api","source":"resume"}`,
+			transcript:   `{"messages":[{"type":"user","content":[{"text":"rebuild it"}]},{"type":"gemini","content":[{"text":"Done: the index is rebuilt."}]}]}`,
+		},
+		"pi": {
+			freshInput:   `{"session_id":"s1","cwd":"/code/acme/api","transcript_path":"/t.jsonl","source":"startup"}`,
+			resumedInput: `{"session_id":"s1","cwd":"/code/acme/api","source":"resume"}`,
+			transcript:   `{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"Done: the index is rebuilt."}]}}` + "\n",
+		},
+		"copilot": {
+			freshInput:   `{"sessionId":"s1","cwd":"/code/acme/api","source":"new"}`,
+			resumedInput: `{"sessionId":"s1","cwd":"/code/acme/api","source":"resume"}`,
+		},
+		"cursor": {
+			freshInput:   `{"conversation_id":"s1","workspace_roots":["/code/acme/api"],"source":"startup"}`,
+			resumedInput: `{"conversation_id":"s1","workspace_roots":["/code/acme/api"],"source":"resume"}`,
+		},
+		"droid": {
+			freshInput:   `{"session_id":"s1","cwd":"/code/acme/api","source":"startup"}`,
+			resumedInput: `{"session_id":"s1","cwd":"/code/acme/api","source":"resume"}`,
+		},
+		"kimi": {
+			freshInput:   `{"session_id":"s1","cwd":"/code/acme/api","source":"startup"}`,
+			resumedInput: `{"session_id":"s1","cwd":"/code/acme/api","source":"resume"}`,
+		},
 	}
 	for _, h := range All {
 		c, ok := cases[h.Name]
@@ -649,5 +748,78 @@ func TestEveryHarnessConforms(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLastUserAndTOMLAndFlatHookPreservation(t *testing.T) {
+	dir := t.TempDir()
+	// LastUser across transcript formats
+	for _, tc := range []struct {
+		h    Harness
+		body string
+		want string
+	}{
+		{claude, `{"type":"user","message":{"content":[{"type":"text","text":"fix login"}]}}` + "\n", "fix login"},
+		{codex, `{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"fix login"}]}}` + "\n", "fix login"},
+		{antigravity, `{"type":"USER_INPUT","content":"fix login"}` + "\n", "fix login"},
+		{qwen, `{"type":"user","message":{"role":"user","parts":[{"text":"fix login"}]}}` + "\n", "fix login"},
+		{gemini, `{"messages":[{"type":"user","content":[{"text":"fix login"}]},{"type":"gemini","content":[{"text":"done"}]}]}`, "fix login"},
+		{pi, `{"type":"message","message":{"role":"user","content":[{"type":"text","text":"fix login"}]}}` + "\n", "fix login"},
+	} {
+		p := filepath.Join(dir, tc.h.Name+".tr")
+		os.WriteFile(p, []byte(tc.body), 0o644)
+		if got := tc.h.LastUser(p); got != tc.want {
+			t.Errorf("%s LastUser: got %q, want %q", tc.h.Name, got, tc.want)
+		}
+	}
+	// TOMLHooks preserves unrelated config and other [[hooks]].
+	tomlFile := filepath.Join(dir, "config.toml")
+	os.WriteFile(tomlFile, []byte("model = \"kimi-k2\"\n\n[[hooks]]\nevent = \"Stop\"\ncommand = \"other-hook\"\n"), 0o644)
+	if changed, err := (TOMLHooks{}).Place(tomlFile, "Stop", Cmd{Exe: "/bin/sous", Role: RoleEnd, Agent: "kimi"}); err != nil || !changed {
+		t.Fatal(changed, err)
+	}
+	b, _ := os.ReadFile(tomlFile)
+	if !strings.Contains(string(b), `model = "kimi-k2"`) || !strings.Contains(string(b), `command = "other-hook"`) || !strings.Contains(string(b), `/bin/sous hook session-end kimi`) {
+		t.Fatalf("unexpected toml:\n%s", b)
+	}
+	// FlatHooksJSON preserves other hooks.
+	flatFile := filepath.Join(dir, "cursor.json")
+	os.WriteFile(flatFile, []byte(`{"version":1,"hooks":{"stop":[{"command":"other"}]}}`), 0o644)
+	if changed, err := (FlatHooksJSON{}).Place(flatFile, "stop", Cmd{Exe: "/bin/sous", Role: RoleEnd, Agent: "cursor"}); err != nil || !changed {
+		t.Fatal(changed, err)
+	}
+	fb, _ := os.ReadFile(flatFile)
+	if !strings.Contains(string(fb), `"command": "other"`) || !strings.Contains(string(fb), `/bin/sous hook session-end cursor`) {
+		t.Fatalf("unexpected flat json:\n%s", fb)
+	}
+}
+
+func TestHooksJSONStatusMessageUpdatesExistingAndIsIdempotent(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "hooks.json")
+	os.WriteFile(p, []byte(`{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"other-tool start"}]},{"hooks":[{"type":"command","command":"/bin/sous hook session-start codex","timeout":10}]}]}}`), 0o644)
+
+	for _, hk := range codex.Hooks {
+		cmd := Cmd{Exe: "/bin/sous", Role: hk.Role, Agent: codex.Name}
+		changed, err := codex.Format.Place(p, hk.Event, cmd)
+		if err != nil || !changed {
+			t.Fatalf("Place(%s): changed=%v err=%v", hk.Event, changed, err)
+		}
+		again, err := codex.Format.Place(p, hk.Event, cmd)
+		if err != nil || again {
+			t.Fatalf("second Place(%s): changed=%v err=%v", hk.Event, again, err)
+		}
+	}
+	b, _ := os.ReadFile(p)
+	s := string(b)
+	for _, want := range []string{
+		"other-tool start",
+		`"statusMessage": "sous: load project context"`,
+		`"statusMessage": "sous: record turn context"`,
+		`"statusMessage": "sous: record context before compact"`,
+		`"statusMessage": "sous: record session end"`,
+	} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("missing %q in:\n%s", want, s)
+		}
 	}
 }

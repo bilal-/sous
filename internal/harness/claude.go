@@ -19,10 +19,13 @@ var claude = Harness{
 	Format:   HooksJSON{},
 	Hooks: []Hook{
 		{Role: RoleStart, Event: "SessionStart"},
+		{Role: RoleEnd, Event: "Stop"},
+		{Role: RoleEnd, Event: "PreCompact"},
 		{Role: RoleEnd, Event: "SessionEnd"},
 	},
-	Parse: parseHookJSON,
-	Last:  func(transcript string) string { return lastLine(transcript, `"assistant"`, claudeText) },
+	Parse:    parseHookJSON,
+	Last:     func(transcript string) string { return lastLine(transcript, `"assistant"`, claudeText) },
+	LastUser: func(transcript string) string { return lastLine(transcript, `"user"`, claudeUserText) },
 	// Every prompt follows "--", so text that starts with a dash is never
 	// read as a flag. The permissions are the person's own: file edits
 	// accepted and the tools its settings allow; no permission check is
@@ -30,8 +33,8 @@ var claude = Harness{
 	Headless: &Headless{
 		Start:   func(r Run) []string { return append(claudeArgs(), "--", r.Prompt) },
 		Resume:  func(r Run) []string { return append(claudeArgs(), "--resume", r.Session, "--", r.Answer) },
-		Session: func(log []byte) string { return claudeResult(log).SessionID },
-		Last:    func(_ Run, log []byte) string { return claudeResult(log).Result },
+		Session: func(log []byte) string { return claudeResult(log, false).SessionID },
+		Last:    func(_ Run, log []byte) string { return claudeResult(log, true).Result },
 	},
 	Memory: &Memory{Dir: claudeMemoryDir, Projects: claudeMemories},
 }
@@ -101,14 +104,19 @@ func unfold(dir, rest string, listed map[string][]string) (string, bool) {
 }
 
 // claudeText is the text of one assistant transcript line, or "".
-func claudeText(line []byte) string {
+func claudeText(line []byte) string { return claudeLine(line, "assistant") }
+
+// claudeUserText is the user text of one user transcript line, or "".
+func claudeUserText(line []byte) string { return claudeLine(line, "user") }
+
+func claudeLine(line []byte, wantType string) string {
 	var l struct {
 		Type    string `json:"type"`
 		Message struct {
 			Content json.RawMessage `json:"content"`
 		} `json:"message"`
 	}
-	if json.Unmarshal(line, &l) != nil || l.Type != "assistant" {
+	if json.Unmarshal(line, &l) != nil || l.Type != wantType {
 		return ""
 	}
 	return contentText(l.Message.Content, "text")
@@ -129,7 +137,9 @@ type claudeRun struct {
 	SessionID string `json:"session_id"`
 }
 
-// claudeResult is the last result Claude printed.
-func claudeResult(log []byte) claudeRun {
-	return lastJSON(log, func(r claudeRun) bool { return r.SessionID != "" })
+// claudeResult is the last result Claude printed (requiring Result when nonEmpty).
+func claudeResult(log []byte, nonEmpty bool) claudeRun {
+	return lastJSON(log, func(r claudeRun) bool {
+		return r.SessionID != "" && (!nonEmpty || r.Result != "")
+	})
 }

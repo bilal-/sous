@@ -25,9 +25,10 @@ func sessionIntro(e *Env) string {
 	if onPath, err := exec.LookPath("sous"); err != nil || stableExe(e.Exe) != onPath {
 		sous = e.Exe
 	}
-	return "[sous] The user's personal memory and to-dos across every project, private and never committed. Keep: " +
-		sous + ` remember "<what and why>" (-k decision|constraint|lesson|question; a handoff by default). Find: ` +
-		sous + ` recall <words> (--all for every project). To-do: ` + sous + ` note "<task>". The repo's STATUS.md and FOLLOWUPS.md are the team's. ` +
+	return "[sous] Automatic cross-repo working memory (private in ~/.sous/, never committed). " +
+		"Read the context below and any repo STATUS.md/FOLLOWUPS.md first; before asking what was decided or left off, run `" + sous + " recall <words>` (--all across projects). " +
+		"Save durable decisions, constraints, or lessons with `" + sous + " remember \"<what and why>\"` (-k decision|constraint|lesson|question), and to-dos with `" + sous + " note \"<task>\"`. " +
+		"When wrapping up work, update the repo's STATUS.md/FOLLOWUPS.md first if present (never create them unasked), otherwise save a concise private handoff with `" + sous + " remember`. " +
 		"Run " + sous + " help for the rest."
 }
 
@@ -46,7 +47,7 @@ func cmdHook(e *Env, a argv) int {
 	say := ""
 	switch args[0] {
 	case harness.RoleStart:
-		say = sessionStart(e, in)
+		say = sessionStart(e, in, h)
 	case harness.RoleEnd:
 		guarded(func() { hook.RecordEnd(e.store(), in, h, e.Cwd, e.UserHome, time.Now()) })
 	}
@@ -65,7 +66,7 @@ func cmdHook(e *Env, a argv) int {
 // project, what waits there; outside any, what waits across them; on a
 // fresh session, the runs waiting too. "" when there is nothing, or it
 // took too long.
-func sessionStart(e *Env, in harness.Input) string {
+func sessionStart(e *Env, in harness.Input, h harness.Harness) string {
 	// Plugins and tracker probes must finish inside the guard; when it
 	// fires first, cancelling kills their process groups.
 	var buf bytes.Buffer
@@ -76,18 +77,25 @@ func sessionStart(e *Env, in harness.Input) string {
 	defer sub.close()
 	var runs string
 	if !guarded(func() {
-		if root, ok := hook.StartRoot(in, e.Cwd, e.UserHome); ok {
+		now := time.Now()
+		if root, ok := hook.ShouldStart(sub.store(), in, h, e.Cwd, e.UserHome, now); ok {
 			showHere(sub, root, project.Project{Path: root}, memory.CurrentDirectory)
-		} else if in.Fresh {
+			if in.Fresh {
+				runs = runsWaiting(sub)
+			}
+			return
+		}
+		if _, inRepo := hook.StartRoot(in, e.Cwd, e.UserHome); inRepo {
+			// A per-prompt hook already injected context for this session.
+			return
+		}
+		if in.Fresh {
 			// Outside any project: what waits across them. The notes as
 			// they are now; what trackers and git said, from the saved
 			// board (never built here: this must stay quick).
-			now := time.Now()
 			if c, err := board.ReadCurrentCache(sub.store(), now); err == nil && c.Data != nil {
 				fmt.Fprintln(&buf, board.Summary(c.Data, now))
 			}
-		}
-		if in.Fresh {
 			runs = runsWaiting(sub)
 		}
 	}) || buf.Len()+len(runs) == 0 {

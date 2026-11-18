@@ -1,11 +1,14 @@
 ---
 name: sous
-description: Use when the user asks what is waiting on them, where they left off, or what was decided before, in this project or another; says "note this", "remember", "remind me", "later", "follow up", "file this", or "sous"; when a decision, preference or lesson worth keeping comes up, or a session is wrapping up and its next step should be kept; when work is being put off (a TODO for another day, something to check with a person, an idea for another project); or when the user wants a task handed to an agent to do in the background ("have an agent fix X"). sous is the user's personal memory and to-do list across every project, private and never committed (a repo's own STATUS.md and FOLLOWUPS.md are the team's); it hands work to agents and tracks it, but never does the work itself.
+description: Use automatically on session startup, when restoring context across projects, before asking what was decided or where work left off, whenever a durable decision, constraint, lesson, or follow-up comes up, when wrapping up work (updating repo STATUS.md/FOLLOWUPS.md when present else saving a private handoff in sous), or when handing a task to a background agent.
 ---
 
 # sous
 
-sous is a command on this machine. Run `sous help` first: it lists every
-command and the rules for agents. Every command also answers `--help`, and
-sous's own output suggests the next step. Follow the CLI; this skill only
-tells you it is there.
+`sous` is the user's automatic cross-repo working memory and to-do board. Run `sous help` first: it lists every command and all rules for agents, and every command supports `--help`.
+
+Workflow:
+- **Start:** Read any `sous` briefing injected by session hooks (or run `sous here`), plus any repo `STATUS.md` or `FOLLOWUPS.md` listed there.
+- **Recall before asking:** Search past context across memories, agent memories, `STATUS.md`, `FOLLOWUPS.md`, open notes, and session history with `sous recall`.
+- **Capture proactively:** Record lasting decisions, constraints, lessons, and questions with `sous remember`, and open to-dos or postponed work with `sous note` when appropriate.
+- **Wrap up automatically:** Prefer updating `STATUS.md` and `FOLLOWUPS.md` when the repo already uses them (never create them unasked); otherwise save a concise private handoff with `sous remember`.

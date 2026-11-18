@@ -35,11 +35,13 @@ ambiguous, briefings keep local project facts and notes visible, report the
 problem, and omit private memory and effort context.
 
 When you hand a task to an agent (`sous go --run`), the built in runners
-start Claude Code, Codex, Antigravity or opencode on your machine. Each
+start Claude Code, Codex, Antigravity, opencode, Qwen Code, Gemini CLI or pi on
+your machine (while Copilot CLI, Cursor, Factory Droid and Kimi Code support
+session hooks and interactive `sous go` launches without headless runs). Each
 works in a separate git worktree, which shares git metadata with the
-original repository. Claude accepts file edits and is allowed the git
-commands needed to commit; Codex uses a workspace-write sandbox with extra
-writable git object, ref, log and worktree metadata directories.
+original repository. Claude, Qwen Code, Gemini CLI and pi accept file edits and
+run inside the worktree's git guards; Codex uses a workspace-write sandbox with
+extra writable git object, ref, log and worktree metadata directories.
 Antigravity uses accept-edits mode, and opencode uses its configured
 permissions. See [the command guide](docs/commands.md#handing-work-to-an-agent)
 for the details.

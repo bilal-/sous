@@ -44,7 +44,21 @@ const marker = "<!-- sous:"
 // file itself, in file order, and when the file last changed. No file is
 // none, not an error; a file that cannot be read is an error.
 func Followups(root string) ([]string, time.Time, error) {
-	all, at, err := readOptional(filepath.Join(root, FollowupsFile))
+	return readFollowups(root, true)
+}
+
+// FollowupsAll returns every open box in root's FOLLOWUPS.md (case-insensitive),
+// stripping sous markers so recall and summaries stay readable.
+func FollowupsAll(root string) ([]string, time.Time, error) {
+	return readFollowups(root, false)
+}
+
+func readFollowups(root string, skipSous bool) ([]string, time.Time, error) {
+	name := FollowupsFile
+	if !skipSous {
+		name = findCaseFile(root, FollowupsFile)
+	}
+	all, at, err := readOptional(filepath.Join(root, name))
 	if err != nil || all == nil {
 		return nil, at, err
 	}
@@ -53,10 +67,18 @@ func Followups(root string) ([]string, time.Time, error) {
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for sc.Scan() {
 		line := sc.Text()
-		if Box(line) != "open" || strings.Contains(line, marker) {
+		if Box(line) != "open" {
+			continue
+		}
+		if skipSous && strings.Contains(line, marker) {
 			continue
 		}
 		_, item, _ := strings.Cut(line, "[ ]")
+		if !skipSous {
+			if before, _, hasMarker := strings.Cut(item, marker); hasMarker {
+				item = before
+			}
+		}
 		if item = strings.TrimSpace(item); item != "" {
 			out = append(out, item)
 		}
@@ -64,15 +86,53 @@ func Followups(root string) ([]string, time.Time, error) {
 	return out, at, sc.Err()
 }
 
+// StatusDoc holds what a project's STATUS.md says, beyond a single Next step.
+type StatusDoc struct {
+	Exists   bool      `json:"exists"`
+	Path     string    `json:"path,omitempty"`
+	Updated  time.Time `json:"updated,omitempty"`
+	NextStep string    `json:"next_step,omitempty"`
+	Summary  string    `json:"summary,omitempty"`
+	Body     string    `json:"-"`
+}
+
+// ReadStatus reads root's STATUS.md (case-insensitive), returning its next
+// step, a concise plain-text summary of the rest, and its full body (capped at
+// 32 KiB) for search.
+func ReadStatus(root string) (StatusDoc, error) {
+	name := findCaseFile(root, StatusFile)
+	all, at, err := readOptional(filepath.Join(root, name))
+	if err != nil || all == nil {
+		return StatusDoc{}, err
+	}
+	const maxBody = 32768
+	if len(all) > maxBody {
+		all = all[:maxBody]
+	}
+	body := string(all)
+	return StatusDoc{
+		Exists:   true,
+		Path:     name,
+		Updated:  at.UTC(),
+		NextStep: parseNextStep(all),
+		Summary:  summarizeStatus(body),
+		Body:     body,
+	}, nil
+}
+
 // NextStep is the next step root's STATUS.md gives, and when the file last
 // changed: the first line under a heading that names the next step ("##
 // Next step", "## Next"), or a line that starts "Next step:" or "Next:".
 // "" when the file has none.
 func NextStep(root string) (string, time.Time, error) {
-	all, at, err := readOptional(filepath.Join(root, StatusFile))
+	all, at, err := readOptional(filepath.Join(root, findCaseFile(root, StatusFile)))
 	if err != nil || all == nil {
 		return "", at, err
 	}
+	return parseNextStep(all), at, nil
+}
+
+func parseNextStep(all []byte) string {
 	under := false
 	sc := bufio.NewScanner(bytes.NewReader(all))
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -85,7 +145,7 @@ func NextStep(root string) (string, time.Time, error) {
 		}
 		if under {
 			if step := listItem(line); step != "" {
-				return step, at, nil
+				return step
 			}
 			continue
 		}
@@ -93,12 +153,49 @@ func NextStep(root string) (string, time.Time, error) {
 		for _, p := range []string{"next step:", "next steps:", "next:"} {
 			if len(plain) > len(p) && strings.EqualFold(plain[:len(p)], p) {
 				if step := strings.TrimSpace(plain[len(p):]); step != "" {
-					return step, at, nil
+					return step
 				}
 			}
 		}
 	}
-	return "", at, sc.Err()
+	return ""
+}
+
+func summarizeStatus(body string) string {
+	var parts []string
+	total := 0
+	for _, raw := range strings.Split(body, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "# ") {
+			continue
+		}
+		if strings.HasPrefix(line, "##") {
+			h := strings.TrimSpace(strings.TrimLeft(line, "#"))
+			if h == "" {
+				continue
+			}
+			line = h + ":"
+		}
+		parts = append(parts, line)
+		total += len([]rune(line))
+		if total >= 400 || len(parts) >= 8 {
+			break
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func findCaseFile(root, target string) string {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return target
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.EqualFold(e.Name(), target) {
+			return e.Name()
+		}
+	}
+	return target
 }
 
 // listItem is a line's text without its bullet, number or box.

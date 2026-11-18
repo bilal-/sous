@@ -3,6 +3,7 @@ package hook
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -64,5 +65,31 @@ func TestRecordEndStoresTheLastMessage(t *testing.T) {
 				t.Fatalf("%s: %+v", tc.agent, sess)
 			}
 		}
+	}
+}
+
+func TestRecordEndCapturesBranchPromptAndFiles(t *testing.T) {
+	repo := testutil.Repo(t, filepath.Join(t.TempDir(), "api"), true, "")
+	if real, err := filepath.EvalSymlinks(repo); err == nil {
+		repo = real
+	}
+	testutil.Git(t, repo, "checkout", "-b", "feat/memory")
+	os.WriteFile(filepath.Join(repo, "work.go"), []byte("package main\n"), 0o644)
+	tr := filepath.Join(t.TempDir(), "t.jsonl")
+	os.WriteFile(tr, []byte(`{"type":"user","message":{"content":[{"type":"text","text":"wire branch capture"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"added branch field"}]}}
+`), 0o644)
+	s := &store.Store{Home: t.TempDir()}
+	h, _ := harness.Find("claude")
+	if err := RecordEnd(s, harness.Input{SessionID: "s1", CWD: repo, TranscriptPath: tr}, h, "", "", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	hist, err := session.ForProject(s, repo)
+	if err != nil || len(hist) != 1 {
+		t.Fatalf("%+v %v", hist, err)
+	}
+	got := hist[0]
+	if got.Branch != "feat/memory" || got.Prompt == nil || *got.Prompt != "wire branch capture" || !slices.Contains(got.Files, "work.go") {
+		t.Fatalf("missing rich capture: %+v", got)
 	}
 }

@@ -157,9 +157,11 @@ says what is waiting in it:
   itself (with a `<!-- sous:… -->` marker) are notes already and are not
   read twice.
 * The next step in `STATUS.md` is listed under **next up**, the project
-  touched longest ago first. sous takes the first line under a heading
-  such as `## Next step`, `## Next steps`, `## Next up` or `## Next`, or a
-  line that starts `Next step:` or `Next:`.
+  touched longest ago first (falling back privately to your newest open
+  handoff memory or captured session when a project has no `STATUS.md`). sous
+  takes the first line under a heading such as `## Next step`,
+  `## Next steps`, `## Next up` or `## Next`, or a line that starts
+  `Next step:` or `Next:`.
 
 ```
   next up · from each project's STATUS.md
@@ -169,7 +171,8 @@ says what is waiting in it:
 
 The follow-ups come from the built in `followups` signal, which never leaves
 this machine, so session starts and `sous here` show them too. JSON gives the
-next steps as `next`: each `project`, `step` and when the file was `updated`.
+next steps as `next`: each `project`, `step`, `updated`, and optional `source`
+and `branch`.
 
 Options: `--json`: every section, ideas and snoozed included (see
 [What `--json` gives](#what---json-gives)), with `configured`, `projects`,
@@ -206,9 +209,11 @@ message. `here <path>` explicitly selects the physical scope; `sous <project>` a
 Where you left off in the project you are in, or the one at `path`:
 
 * the branch, the last commit and its message
-* how your last agent session there ended (Claude Code, Antigravity,
-  opencode, and Codex when `sous setup --codex-session-end` asked it to
-  report session ends)
+* recent agent session context (branch, prompt, touched files and last
+  message across Claude Code, Codex, Antigravity, opencode, Qwen Code,
+  Gemini CLI, pi, Copilot CLI, Cursor, Factory Droid and Kimi Code — recorded
+  on turn stops, compaction and session end; Codex `SessionEnd` is optional via
+  `sous setup --codex-session-end`), plus recent sessions on other branches
 * what is on you and on others in this project, including snoozed rows
 * your ideas for this project
 * notes that were closed in their tracker lately, marked
@@ -253,8 +258,10 @@ person explicitly asks to file them. A review reminder points to
 `sous review -p <project>`; session hooks only show the hint, staying offline.
 With `--json`, `documents` lists each relative `path`, `purpose` and any
 `error`; `document_error` reports a failure to list the project's documents.
-When `STATUS.md` gives a next step, the brief has a `next step ·` line and
-JSON has `next`.
+When `STATUS.md` gives a next step (or a private handoff/session fallback
+exists), the brief has a `next step ·` line (plus `status` summary and a
+notice if session activity is newer than `STATUS.md`) and JSON includes
+`next`, `status`, and `recent_sessions`.
 
 Project context also includes current sourced memories and active efforts linked
 to this project. The brief shows at most five of each, preserving the newest of
@@ -520,9 +527,13 @@ stays forgotten on retry; write a new capture with a new key if intended.
 
 ### `sous recall [query]`
 
-Find current memories in this project, including memories explicitly shared
-with it. A query matches words and ranks by overlap, then recency. This is
-keyword search; paraphrases may not match. An empty result succeeds.
+Find current context in this project, including memories explicitly shared
+with it, read-only agent memories (`a:`), repo `STATUS.md` and `FOLLOWUPS.md`
+docs (`d:`), open sous notes (`n:`), and rolling session history (`s:`).
+Query terms match exact words as well as prefixes/substrings (of 3+ characters),
+project names and kinds, ranking by overlap then recency. An empty result
+succeeds. (`--history` and `--effort` restrict search to saved `sous remember`
+records.)
 
 * `-p <project>`: read another project's context.
 * `--workspace <name>`: explicitly search all projects in one workspace.
@@ -532,10 +543,11 @@ keyword search; paraphrases may not match. An empty result succeeds.
 * `--history`: include superseded records. Forgotten content is never returned.
 * `--kind <kind>`: restrict to a kind accepted by `remember`.
 * `--limit <n>`: return at most 1–1000 results; without it, return all matches.
-* `--show <m:id>`: show one full record, its scope, source, author, timestamps,
-  verification, replacement links and sharing grants. Takes no query or other
-  filter. An explicit ID can read any scope, including a forgotten tombstone.
-  For an `a:` id, it shows the agent's file instead of verification.
+* `--show <id>`: show one full record, its scope, source, author, timestamps,
+  and details (`m:` sous memory with verification, replacement links and sharing
+  grants; `a:` read-only agent memory; `d:` repo `STATUS.md`/`FOLLOWUPS.md`;
+  `n:` open note; `s:` captured session). Takes no query or other filter. An
+  explicit ID can read any scope, including a forgotten tombstone.
 * `--json`: `{records, total_count, truncated}`, with full text and provenance
   in `records`; a record read from an agent's memory also has `path`. An empty search has `records: []`, `total_count: 0` and
   `truncated: false`. `--show` returns one record instead.
@@ -798,7 +810,8 @@ terminals, but have no `sous go` wrapper yet.)
 
 Options:
 
-* `-a <agent>` (or `--agent`): which agent to start: `claude`, `codex`, `agy`, `opencode`, or
+* `-a <agent>` (or `--agent`): which agent to start: `claude`, `codex`, `agy`,
+  `opencode`, `qwen`, `gemini`, `pi`, `copilot`, `cursor`, `droid`, `kimi`, or
   the name of a launcher plugin. The default is `agent` in configuration,
   or `claude`.
 * `--where`: only print the project folder `go` would use, and start
@@ -830,8 +843,10 @@ EOF
 ```
 
 `--run -` reads the brief from standard input; write what to do, why, and
-what done means. `-a` picks the runner (`claude`, `codex`, `agy`, `opencode`, or a runner
-plugin); the default is `runner` in configuration, or `agent` when that is
+what done means. `-a` picks the runner (`claude`, `codex`, `agy`, `opencode`,
+`qwen`, `gemini`, `pi`, or a runner plugin; `copilot`, `cursor`, `droid`, and
+`kimi` support hooks and interactive launches without headless runner mode);
+the default is `runner` in configuration, or `agent` when that is
 not set. This response excerpt names the
 run's number and the commands to check on it:
 
@@ -853,8 +868,10 @@ file edits, may run `git add`, `git commit`, `git status`, `git diff` and
 workspace-write sandbox with extra writable git object, ref, log and
 worktree metadata directories; the shared repo's hooks and settings are
 not added to those roots. Antigravity uses accept-edits mode and reports
-commands denied by its settings as needing you. opencode uses its
-configured permissions. A run is stopped after `run_minutes` (60 by default).
+commands denied by its settings as needing you. opencode and pi use their
+configured tool permissions, and Qwen Code (`auto-edit`) and Gemini CLI
+(`auto_edit`) accept file edits. A run is stopped after `run_minutes` (60 by
+default).
 
 The attempt deadline also bounds its project check. Stopping still reaches an
 owned agent or check if its watcher has died; a resumed attempt ignores old stop
@@ -1022,14 +1039,13 @@ it did.
   keeps the roots you have, or looks in the usual places (`~/code`, `~/src`,
   `~/dev`, `~/projects`, `~/workspace`, `~/repos`, `~/git`, `~/Developer`,
   `~/Projects`, `~/Documents/GitHub`) and uses those that hold git repos.
-* **Agents.** Adds session hooks for Claude Code (session start and end),
-  Codex (session start), and when they are installed Antigravity (the
-  first model call of a conversation, and each turn's end) and opencode (a
-  plugin that does the same). Puts the `sous` skill
-  in Claude Code's and Codex's skill folders, Antigravity's IDE skill folder, and the
-  shared `~/.agents/skills` folder that Gemini CLI, Kimi, Cursor and others
-  read. A sous that moved updates its hooks rather than adding a second
-  set.
+* **Agents.** Adds session hooks (start, turn stop, compaction and session end
+  where supported) for Claude Code, Codex, and when installed Antigravity,
+  opencode, Qwen Code, Gemini CLI, pi, Copilot CLI, Cursor, Factory Droid
+  and Kimi Code. Puts the `sous` skill in Claude Code's, Codex's, Qwen Code's,
+  Gemini CLI's, pi's and Antigravity's skill folders, and in `~/.agents/skills`
+  (shared by opencode, Cursor, Kimi Code and others). A sous that moved
+  updates its hooks rather than adding a second set.
 * **Shell.** Adds one line to your shell's startup file so new terminals
   show the board: `~/.zshrc` for zsh (or the one in `$ZDOTDIR`),
   `~/.bashrc` for bash, and on macOS also the login file bash reads there
@@ -1100,15 +1116,18 @@ the command that fixes it. It diagnoses your setup without changing your
 settings or repairing files. It checks:
 
 * config.toml and your project folders (and how many projects are in them)
-* the agent hooks (Claude Code, Codex, and Antigravity and opencode when
-  installed), and that they run this sous
+* the agent hooks (Claude Code, Codex, and when installed Antigravity,
+  opencode, Qwen Code, Gemini CLI, pi, Copilot CLI, Cursor, Factory Droid
+  and Kimi Code), and that they run this sous
 * the sous skill in every folder agents read, and that it is current
 * the line in your shell's startup file, and that `sous` is on your PATH
 * `gh` and `glab`: installed, logged in, each configured account or host,
   and whether each GitHub login can read notifications
 * each plugin you listed, and that its name is one sous will use
-* the agent each built in runner starts (`claude`, `codex`, `agy`, `opencode`): a missing one
-  is worth a look, since `go --run` cannot use it
+* the agent each built in runner starts (`claude`, `codex`, `agy`, `opencode`,
+  `qwen`, `gemini`, `pi`; `copilot`, `cursor`, `droid` and `kimi` have hooks
+  and launchers without headless runner mode): a missing one is worth a look,
+  since `go --run` cannot use it
 * when a project allows `remote_runs`: which ones, that each one's runner
   exists (and, for a plugin, describes itself), that it has a `check`, and
   any publishing credentials in sous's environment (`GH_TOKEN`,
@@ -1224,8 +1243,8 @@ plugin. See [plugins.md](plugins.md).
 |---|---|
 | `sous signal <name> scan` | Run a built in signal (`git`, `followups`, `github`, `gitlab`). Project folders on standard input, one JSON line per finding out. |
 | `sous backend <name> <call> ...` | Run a built in backend (`markdown`, `github`, `gitlab`): `detect`, `file`, `status`, `close` or `url`. |
-| `sous launcher <name> run <folder>` | Start a built in launcher (`claude`, `codex`, `agy`, `opencode`) in a folder. |
-| `sous runner <name> <call> ...` | Run a built in runner (`claude`, `codex`, `agy`, `opencode`): `describe`, `start`, `status`, `reply`, `stop`, `approve`, `discard` and `clean`. |
+| `sous launcher <name> run <folder>` | Start a built in launcher (`claude`, `codex`, `agy`, `opencode`, `qwen`, `gemini`, `pi`, `copilot`, `cursor`, `droid`, `kimi`) in a folder. |
+| `sous runner <name> <call> ...` | Run a built in runner (`claude`, `codex`, `agy`, `opencode`, `qwen`, `gemini`, `pi`; `copilot`, `cursor`, `droid` and `kimi` launch without headless runner mode): `describe`, `start`, `status`, `reply`, `stop`, `approve`, `discard` and `clean`. |
 | `sous runner check <program> [--project <folder>] [--wait <seconds>] [--json]` | Check any runner program against the runner contract: it starts a real run, then stops it. Exit `1` lists what it broke. |
 | `sous hook session-start\|session-end <agent>` | What the agent hooks run. Always exits `0` and never holds up a session. |
 
@@ -1298,7 +1317,7 @@ remote_runs = "true"           # a host (a phone through Shellbell) may start ru
 | `roots` | none | Folders to look for projects in, two folders deep. A root that is itself a repo counts. |
 | `ignore` | none | Patterns like `scratch/*` or `*/tmp`, matched against `org/name`. |
 | `agent` | `claude` | The agent `sous go` starts when `-a` is not given. |
-| `runner` | `agent` | The runner `sous go --run` hands work to when `-a` is not given: `claude`, `codex`, `agy`, `opencode`, or a runner plugin's name. |
+| `runner` | `agent` | The runner `sous go --run` hands work to when `-a` is not given: `claude`, `codex`, `agy`, `opencode`, `qwen`, `gemini`, `pi`, or a runner plugin's name (`copilot`, `cursor`, `droid`, `kimi` launch without headless runner mode). |
 | `refresh_hours` | `4` | How old the saved board may get, and how often new shells print it. |
 | `run_minutes` | `60` | How long a run by a built in runner may take before it is stopped. |
 | `gitlab_hosts` | none | GitLab servers to use, beyond the ones `glab` is logged in to. |
@@ -1322,7 +1341,7 @@ Everything lives in `~/.sous` (or `SOUS_HOME`).
 | `config.toml` | your settings |
 | `threads.json` | your notes |
 | `observed.json` | what sous has seen before: when each row first appeared, and what you snoozed |
-| `sessions.json` | the last agent session in each project |
+| `sessions.json` | versioned latest agent sessions per project and branch, plus rolling session history (branch, prompt, touched files and last message) |
 | `memory.json` | versioned private memories, provenance, verification, sharing and forgotten tombstones |
 | `efforts.json` | versioned links between projects, notes, memories, references and dependencies |
 | `cache.json` | the saved board, for new shells and the menu bar |

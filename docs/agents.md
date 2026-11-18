@@ -5,10 +5,12 @@ it. What differs is how much `sous setup` does for you.
 
 ## Claude Code
 
-`sous setup` adds two hooks. When a session starts in a project, the agent
-sees where you left off. When it ends, sous keeps the session's last message
-for next time. The `sous` skill tells Claude that sous is there and when to
-use it, and `sous help` teaches it the rest. So you can say things like:
+`sous setup` adds four hooks (`SessionStart`, `Stop`, `PreCompact` and
+`SessionEnd`). When a session starts in a project, Claude sees where you left
+off; turn stops, compaction and session end record progress (branch, prompt,
+touched files and last message) automatically. The `sous` skill tells Claude
+that sous is there and when to use it, and `sous help` teaches it the rest. So
+you can say things like:
 
 * "what's waiting on me?"
 * "note for billing that I owe Sam the pricing copy"
@@ -19,15 +21,17 @@ Claude asks before anything reaches a shared tracker.
 
 ## Codex
 
-The same skill, and a hook when a session starts. Run
-`sous setup --codex-session-end` to add the optional end hook on versions
-that support it. Codex makes you review and trust new or changed hooks
-through `/hooks` before they run. Setup installs the hooks and `sous doctor`
-checks they are there, but neither can trust them for you. See
+The same skill, plus `SessionStart`, `Stop` and `PreCompact` hooks by default.
+Run `sous setup --codex-session-end` to add the optional `SessionEnd` hook on
+versions that support it. Setup adds descriptive `statusMessage` labels to
+Codex's hooks so `/hooks` shows sous's purpose instead of `Unnamed hook`.
+Codex makes you review and trust new or changed hooks through `/hooks` before
+they run. Setup installs the hooks and `sous doctor` checks they are there, but
+neither can trust them for you. See
 [Codex's hook documentation](https://developers.openai.com/codex/hooks).
 
-Once the end hook runs, `sous here` shows how your last Codex session ended.
-Without it, `sous here` still shows the last commit and your notes.
+Once hooks run, `sous here` shows your recent Codex work automatically.
+Without them, `sous here` still shows the last commit and your notes.
 
 ## Antigravity
 
@@ -58,14 +62,39 @@ starts, and records the agent's last message when the session goes idle.
 The skill comes from `~/.agents/skills`. `sous go --run -a opencode` hands it
 a task in the background, with the permissions your opencode config gives.
 
-## Gemini CLI, Kimi, Cursor and others
+## Qwen Code, Gemini CLI and pi
+
+* **Qwen Code:** `sous setup` installs `SessionStart`, `Stop`, `PreCompact` and
+  `SessionEnd` in `~/.qwen/settings.json` and the skill in `~/.qwen/skills`.
+  `sous go --run -a qwen` runs headless.
+* **Gemini CLI:** `sous setup` installs `SessionStart` (injecting JSON
+  `hookSpecificOutput.additionalContext`), `AfterAgent`, `PreCompress` and
+  `SessionEnd` in `~/.gemini/settings.json` and the skill in `~/.gemini/skills`.
+  `sous go --run -a gemini` runs headless.
+* **pi:** `sous setup` writes `~/.pi/agent/extensions/sous.ts` (`session_start`,
+  `before_agent_start`, `agent_end`, `session_before_compact`,
+  `session_shutdown`) and the skill in `~/.pi/agent/skills`.
+  `sous go --run -a pi` runs headless.
+
+## Copilot CLI, Cursor, Factory Droid and Kimi Code
+
+`sous setup` wires hooks automatically when each tool is installed:
+
+* **Copilot CLI:** `~/.copilot/hooks/sous.json` (`sessionStart`, `sessionEnd`).
+* **Cursor:** `~/.cursor/hooks.json` (`sessionStart`, `stop`, `preCompact`,
+  `sessionEnd`).
+* **Factory Droid:** `~/.factory/hooks.json` (`SessionStart`, `Stop`,
+  `PreCompact`, `SessionEnd`).
+* **Kimi Code:** `[[hooks]]` in `~/.kimi-code/config.toml` (`UserPromptSubmit`
+  injecting startup context once per session, plus `Stop` and `SessionEnd`).
+
+## Other agents
 
 Many agents read skills from a shared folder, `~/.agents/skills`, and
-`sous setup` puts the sous skill there. These agents then know sous is there
-and when to use it. They don't get the summary at the start of a session
-yet. For that, add a line to the agent's instructions file (such as
-`AGENTS.md` or `GEMINI.md`) asking it to run `sous here --brief` when a
-session starts.
+`sous setup` puts the sous skill there. Agents without built in hook support
+(such as Amp, Goose or Cline) won't get automatic session-start injection yet.
+For those, add a line to the agent's instructions file (such as `AGENTS.md`)
+asking it to run `sous here --brief` when a session starts.
 
 For an agent that reads no skills folder, `sous setup --print-skill` prints
 the skill so you can paste it into its instructions.

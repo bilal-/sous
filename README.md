@@ -22,13 +22,16 @@ left off, and what was decided, across every project.
 
 It keeps track on its own. Every time you look, it reads each project's git
 state, your reviews, and the follow-ups and next step the project keeps in
-`FOLLOWUPS.md` and `STATUS.md`. It records how each agent session ended, and
-agents save the decisions and lessons worth keeping, each with its source.
+`FOLLOWUPS.md` and `STATUS.md` — falling back to your private handoff memories
+and captured agent sessions when those files aren't in the repo. Agents save
+the decisions and lessons worth keeping, each with its source.
 
 When you open a terminal you see what's waiting across every project. When an
-agent session starts (Claude Code, Codex, Antigravity or opencode), the agent
-is told where you left off in that project and what was decided there. It
-still works on the days you forget sous exists.
+agent session starts (Claude Code, Codex, Antigravity, opencode, Qwen Code,
+Gemini CLI, pi, Copilot CLI, Cursor, Factory Droid or Kimi Code), the agent
+is told where you left off in that project, its branch and recent files, and what
+was decided there — and turn/compaction/exit hooks capture progress along the way.
+It still works on the days you forget sous exists.
 
 ```
 sous · ~/.local/bin/sous · one memory across all your projects

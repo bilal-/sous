@@ -27,13 +27,15 @@ type HereData struct {
 	Context       Context            `json:"context"`
 	Documents     []project.Document `json:"documents"`
 	DocumentError string             `json:"document_error,omitempty"`
-	// Next is the next step the project's STATUS.md gives; nil when none.
+	// Next is the next step STATUS.md gives, or a private handoff/session fallback; nil when none.
 	Next           *NextStep             `json:"next,omitempty"`
+	Status         *project.StatusDoc    `json:"status,omitempty"`
 	Project        string                `json:"project"`
 	Name           string                `json:"name"`
 	Remote         *string               `json:"remote"`
 	Facts          project.Facts         `json:"facts"`
 	Session        *session.Session      `json:"session"`
+	RecentSessions []session.Session     `json:"recent_sessions,omitempty"`
 	Signals        []signal.Observed     `json:"signals"`
 	Plugins        []signal.PluginStatus `json:"plugins"`
 	Threads        []thread.View         `json:"threads"`
@@ -72,7 +74,10 @@ func BuildHereTarget(ctx context.Context, in Inputs, target HereTarget) (*HereDa
 	if d.Documents, err = project.Documents(root); err != nil {
 		d.DocumentError = err.Error()
 	}
-	if n := nextSteps([]project.Project{{Path: root}}, in.Warn); len(n) == 1 {
+	if st, err := project.ReadStatus(root); err == nil && st.Exists {
+		d.Status = &st
+	}
+	if n := nextSteps([]project.Project{{Path: root, Remote: d.Remote}}, in.Store, in.Cfg, in.Warn); len(n) == 1 {
 		d.Next = &n[0]
 	}
 	col := signal.Collect(ctx, in.Signals, []string{root}, in.Timeout)
@@ -84,9 +89,27 @@ func BuildHereTarget(ctx context.Context, in Inputs, target HereTarget) (*HereDa
 	if err != nil {
 		return nil, err
 	}
+	sessKey := root
 	if sess, ok := sessions[root]; ok {
 		d.Session = &sess
+	} else if main, ok := project.MainOf(root); ok {
+		if sess, ok := sessions[main]; ok {
+			d.Session = &sess
+			sessKey = main
+		}
 	}
+	hist, err := session.ForProject(in.Store, sessKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(hist) == 0 {
+		if main, ok := project.MainOf(root); ok && main != sessKey {
+			if hist, err = session.ForProject(in.Store, main); err != nil {
+				return nil, err
+			}
+		}
+	}
+	d.RecentSessions = pickRecentSessions(hist, d.Session, 3)
 	remote := ""
 	if d.Remote != nil {
 		remote = *d.Remote
@@ -155,7 +178,41 @@ func RenderHere(w io.Writer, d *HereData, now time.Time, brief bool) {
 		fmt.Fprintln(w, "project docs · "+strings.Join(paths, " · "))
 	}
 	if d.Next != nil {
-		fmt.Fprintf(w, "next step · %s (%s, updated %s ago)\n", d.Next.Step, project.StatusFile, text.Age(now, d.Next.Updated))
+		src := project.StatusFile
+		if d.Next.Source != "" {
+			src = d.Next.Source
+		}
+		extra := ""
+		if d.Next.Branch != "" && d.Next.Branch != d.Facts.Branch {
+			extra = ", " + text.Ellipsize(d.Next.Branch, 28)
+		}
+		tail := fmt.Sprintf(" (%s%s, updated %s ago)", src, extra, text.Age(now, d.Next.Updated))
+		if brief {
+			tail = fmt.Sprintf(" (%s%s, %s ago)", src, extra, text.Age(now, d.Next.Updated))
+			fmt.Fprintln(w, text.Ellipsize(text.Fit("next step · ", d.Next.Step, tail), text.LineRunes))
+		} else {
+			fmt.Fprintf(w, "next step · %s%s\n", d.Next.Step, tail)
+		}
+		if d.Status != nil && d.Status.Summary != "" {
+			if brief {
+				fmt.Fprintln(w, text.Ellipsize(text.Fit("  status · ", d.Status.Summary, ""), text.LineRunes))
+			} else {
+				fmt.Fprintf(w, "  status · %s\n", d.Status.Summary)
+			}
+		}
+		if d.Status != nil && d.Status.Exists && d.Next.Source == project.StatusFile && d.Session != nil && d.Session.Ended.After(d.Next.Updated) {
+			msg := "  note · session activity is newer than " + project.StatusFile
+			if brief {
+				msg = text.Ellipsize(msg, text.LineRunes)
+			}
+			fmt.Fprintln(w, msg)
+		}
+	} else if d.Status != nil && d.Status.Summary != "" {
+		if brief {
+			fmt.Fprintln(w, text.Ellipsize(text.Fit("status · ", d.Status.Summary, ""), text.LineRunes))
+		} else {
+			fmt.Fprintf(w, "status · %s\n", d.Status.Summary)
+		}
 	}
 	fmt.Fprintf(w, "on you: %d · on others: %d · ideas: %d\n", len(s.Me), len(s.Them), len(s.Ideas))
 	// What an agent hears at session start stays short: a few rows of each
@@ -224,6 +281,21 @@ func renderHereHeader(w io.Writer, d *HereData, s Sections, now time.Time, brief
 		fmt.Fprintln(w, line)
 	}
 	fmt.Fprintln(w, sessionLine(d.Session, brief))
+	if d.Session != nil && len(d.Session.Files) > 0 {
+		filesLine := "  files · " + strings.Join(d.Session.Files, ", ")
+		if brief {
+			filesLine = text.Ellipsize(filesLine, text.LineRunes)
+		}
+		fmt.Fprintln(w, filesLine)
+	}
+	recentShown := 0
+	for _, rs := range d.RecentSessions {
+		if brief && recentShown >= 2 {
+			break
+		}
+		recentShown++
+		fmt.Fprintln(w, recentSessionLine(rs, brief))
+	}
 	if len(s.Why) > 0 {
 		fmt.Fprintf(w, "  (%s)\n", strings.Join(s.Why, " · "))
 	}
@@ -234,13 +306,97 @@ func sessionLine(sess *session.Session, brief bool) string {
 		return "last session · none recorded"
 	}
 	line := fmt.Sprintf("last session · %s · %s", sess.Agent, sess.Ended.Format("2006-01-02"))
-	if sess.LastMessage == nil || *sess.LastMessage == "" {
+	if sess.Branch != "" {
+		branch := sess.Branch
+		if brief {
+			branch = text.Ellipsize(branch, 32)
+		}
+		line += " · " + branch
+	}
+	if sess.LastMessage != nil && *sess.LastMessage != "" {
+		if brief {
+			return text.Ellipsize(text.Fit(line+` · ended: "`, *sess.LastMessage, `"`), text.LineRunes)
+		}
+		line += fmt.Sprintf(" · ended: %q", *sess.LastMessage)
+		if sess.Prompt != nil && *sess.Prompt != "" && *sess.Prompt != *sess.LastMessage {
+			line += fmt.Sprintf(" · prompt: %q", text.Ellipsize(text.OneLine(*sess.Prompt), 80))
+		}
 		return line
 	}
-	if brief {
-		return text.Fit(line+` · ended: "`, *sess.LastMessage, `"`)
+	if sess.Prompt != nil && *sess.Prompt != "" {
+		if brief {
+			return text.Ellipsize(text.Fit(line+` · working on: "`, *sess.Prompt, `"`), text.LineRunes)
+		}
+		return line + fmt.Sprintf(" · working on: %q", *sess.Prompt)
 	}
-	return line + fmt.Sprintf(" · ended: %q", *sess.LastMessage)
+	return line
+}
+
+func recentSessionLine(rs session.Session, brief bool) string {
+	who := rs.Agent
+	if rs.Branch != "" {
+		branch := rs.Branch
+		if brief {
+			branch = text.Ellipsize(branch, 28)
+		}
+		who += " · " + branch
+	}
+	summary := sessionStep(rs)
+	head := fmt.Sprintf("  recent · %s · %s", who, rs.Ended.Format("2006-01-02"))
+	if summary == "" {
+		if brief {
+			return text.Ellipsize(head, text.LineRunes)
+		}
+		return head
+	}
+	if brief {
+		return text.Ellipsize(text.Fit(head+` · "`, summary, `"`), text.LineRunes)
+	}
+	return fmt.Sprintf("%s · %q", head, text.Ellipsize(summary, 90))
+}
+
+func pickRecentSessions(hist []session.Entry, current *session.Session, max int) []session.Session {
+	if len(hist) == 0 || max <= 0 {
+		return nil
+	}
+	seenID := map[string]bool{}
+	seenBranch := map[string]bool{}
+	if current != nil {
+		if current.SessionID != "" {
+			seenID[current.SessionID] = true
+		}
+		if current.Branch != "" {
+			seenBranch[current.Branch] = true
+		}
+	}
+	var out []session.Session
+	// First pass: different branches so multi-branch work shows up cleanly.
+	for _, e := range hist {
+		if len(out) >= max {
+			break
+		}
+		if e.SessionID != "" && seenID[e.SessionID] {
+			continue
+		}
+		if e.Branch == "" || seenBranch[e.Branch] {
+			continue
+		}
+		seenID[e.SessionID] = true
+		seenBranch[e.Branch] = true
+		out = append(out, e.Session)
+	}
+	// Second pass: earlier distinct sessions on the same or empty branch.
+	for _, e := range hist {
+		if len(out) >= max {
+			break
+		}
+		if e.SessionID != "" && seenID[e.SessionID] {
+			continue
+		}
+		seenID[e.SessionID] = true
+		out = append(out, e.Session)
+	}
+	return out
 }
 
 // hereLine is a row as here lists it, on one line: id, text, age, then

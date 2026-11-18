@@ -405,6 +405,52 @@ func ReadFacts(root string) (Facts, error) {
 	return f, nil
 }
 
+// WorkingState captures fast local git context (branch, modified files, recent
+// commit subjects) for automatic session recording and resume briefings.
+type WorkingState struct {
+	Branch        string   `json:"branch,omitempty"`
+	DirtyFiles    []string `json:"dirty_files,omitempty"`
+	RecentCommits []string `json:"recent_commits,omitempty"`
+}
+
+func WorkingSnapshot(root string) WorkingState {
+	if _, err := Git(root, "rev-parse", "--is-inside-work-tree"); err != nil {
+		return WorkingState{}
+	}
+	var ws WorkingState
+	if b, err := Git(root, "branch", "--show-current"); err == nil {
+		ws.Branch = strings.TrimSpace(b)
+	}
+	if ws.Branch == "" {
+		ws.Branch = "(detached)"
+	}
+	if st, err := Git(root, "status", "--porcelain"); err == nil && st != "" {
+		for _, line := range strings.Split(st, "\n") {
+			if len(line) < 4 {
+				continue
+			}
+			path := strings.TrimSpace(line[3:])
+			if _, after, renamed := strings.Cut(path, " -> "); renamed {
+				path = after
+			}
+			if path != "" {
+				ws.DirtyFiles = append(ws.DirtyFiles, path)
+				if len(ws.DirtyFiles) >= 8 {
+					break
+				}
+			}
+		}
+	}
+	if logOut, err := Git(root, "log", "-n", "3", "--format=%s"); err == nil && logOut != "" {
+		for _, subj := range strings.Split(logOut, "\n") {
+			if subj = strings.TrimSpace(subj); subj != "" {
+				ws.RecentCommits = append(ws.RecentCommits, subj)
+			}
+		}
+	}
+	return ws
+}
+
 // likelyRootNames are where people usually keep their repos, under home.
 var likelyRootNames = []string{"code", "src", "dev", "projects", "workspace", "repos", "git", "Developer", "Projects", "Documents/GitHub"}
 

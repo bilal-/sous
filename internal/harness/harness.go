@@ -39,6 +39,9 @@ type Harness struct {
 	// Last is the last thing it said in a transcript, as it said it; ""
 	// when there is none. nil when its hook says it instead.
 	Last func(transcript string) string
+	// LastUser is the last substantive user prompt in a transcript; ""
+	// when there is none, or nil when not read from transcripts.
+	LastUser func(transcript string) string
 	// Headless runs it on a task with nobody watching; nil when it cannot.
 	Headless *Headless
 	// Memory is where it keeps its own notes about each project. sous
@@ -70,6 +73,8 @@ type Input struct {
 	SessionID      string
 	CWD            string // "" when it sent none: the hook's own folder is used
 	TranscriptPath string
+	// Prompt: the user's latest prompt, when the hook sends it directly.
+	Prompt string
 	// LastMessage: what it said last, when it sends that rather than a
 	// transcript to read it from.
 	LastMessage string
@@ -98,7 +103,17 @@ type Headless struct {
 }
 
 // All is every harness sous knows, in the order setup reports them.
-var All = []Harness{claude, codex, antigravity, opencode}
+var All = []Harness{claude, codex, antigravity, opencode, qwen, gemini, pi, copilot, cursor, droid, kimi}
+
+// fileExists reports whether any relative path under home exists as a regular file.
+func fileExists(home string, paths ...string) bool {
+	for _, p := range paths {
+		if st, err := os.Stat(filepath.Join(home, p)); err == nil && !st.IsDir() {
+			return true
+		}
+	}
+	return false
+}
 
 // Here: h is on this machine, as far as setup and doctor are concerned.
 func (h Harness) Here(home string) bool { return h.Present == nil || h.Present(home) }

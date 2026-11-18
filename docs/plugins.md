@@ -68,8 +68,9 @@ Every kind of plugin ends every call with the same exit codes:
 
 The sections below say which of these each call may use.
 
-The built ins (git, GitHub, GitLab, FOLLOWUPS.md, and the Claude Code, Codex,
-Antigravity and opencode launchers and runners) work through this same door.
+The built ins (git, GitHub, GitLab, FOLLOWUPS.md, and the launchers and runners
+for Claude Code, Codex, Antigravity, opencode, Qwen Code, Gemini CLI, pi,
+Copilot CLI, Cursor, Factory Droid and Kimi Code) work through this same door.
 You can call them by hand to see real input and output:
 
     echo ~/code/acme/api | sous signal git scan
@@ -293,9 +294,9 @@ Rules that matter:
 * **Stay in your lane.** A run should never push or publish without the
   person saying so; they review the result.
 
-The built in runners (`claude`, `codex`, `agy`, `opencode`) are small on
-purpose: each starts one agent in a git worktree, records how it ended,
-and passes on a reply.
+The built in headless runners (`claude`, `codex`, `agy`, `opencode`, `qwen`,
+`gemini`, `pi`; `copilot`, `cursor`, `droid` and `kimi` are launchers without
+headless runner mode) are small on purpose: each starts one agent in a git worktree, records how it ended, and passes on a reply.
 They do not retry, review or automatically resume after a restart. A
 saved agent session can carry on after an explicit reply. Automatic
 recovery belongs in a runner plugin.
