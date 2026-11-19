@@ -1,7 +1,8 @@
 # sous brand kit
 
-The ticket-rail prompt: shellbell's `>_` with two tickets lined up onto the
-cursor. One memory across all your projects, for you and your agents.
+The ticket-rail prompt: shellbell's `>_` with two order tickets held on the
+rail above the cursor — what is waiting, and where you left off. One memory
+across all your projects, for you and your agents.
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="svg/horizontal-on-dark.svg"><img src="svg/horizontal-on-light.svg" alt="sous" width="220"></picture>
 
@@ -15,8 +16,9 @@ third. They share one mark language, so they read as a set:
 - the same bold `>` chevron and `_` cursor, drawn from the same geometry
 - the same glossy ink plate for app icons
 - the same lowercase JetBrains Mono Bold wordmark, and Manrope for copy
-- one glyph and one colour each: shellbell rings (two rays, amber); sous
-  lines up what is waiting (two tickets, violet)
+- one glyph and one colour each: shellbell rings when a terminal needs you
+  (two rays, amber); sous keeps your place — what is waiting and where you left
+  off (two rail tickets, violet)
 
 ## Pick an asset
 
@@ -34,7 +36,7 @@ third. They share one mark language, so they read as a set:
 | Role | Value | Use |
 | --- | --- | --- |
 | Violet | `#A78BFA` | The mark, on dark |
-| Deep violet | `#7C3AED` | The mark, on light |
+| Deep violet | `#7C3AED` | The mark on light backgrounds (`#6D28D9` for accessible violet UI text and links on light paper `#F8F7F4`) |
 | Ink | `#17191D` | Wordmark on light, the icon plate |
 | Paper | `#F8F7F4` | Wordmark on dark |
 | Black / white | `#000000` / `#FFFFFF` | One colour uses |
@@ -45,6 +47,15 @@ the report page has its own colour roles in `internal/report/report.html.tmpl`.
 
 The wordmark is always lowercase `sous`, in one colour. Its letters are
 outlined from JetBrains Mono Bold, so no logo needs a font to display.
+
+## Words
+
+`keeps your place` · `where you left off` · `what's waiting` · `what was decided` · `plain files`
+
+Write plainly about what sous stores and reads. Avoid AI hype (`understands`,
+`learns`, `smart`, `intent`, `second brain`). Keep kitchen metaphor light:
+`"Yes, chef."` appears only as a quiet sign-off in a footer, never as a
+headline or error message.
 
 ## Use
 

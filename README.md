@@ -15,23 +15,30 @@ One memory across all your projects, for you and your agents.
 
 **[getsous.dev](https://getsous.dev)**
 
-Each agent's memory stays inside the repo it worked in, and so does yours.
-Step away from a project for a week and you lose track of what you were doing
-and what comes next. sous brings it into one place: what's waiting, where you
-left off, and what was decided, across every project.
+Bounce between half a dozen repos and two or three coding agents in a day and
+context splinters fast: which branch had the fix, what the last session changed,
+why you chose one approach over another, and which review or unpushed branch has
+been quietly waiting all week. `sous` keeps your place in plain files on your
+machine, with two halves that feed each other:
 
-It keeps track on its own. Every time you look, it reads each project's git
-state, your reviews, and the follow-ups and next step the project keeps in
-`FOLLOWUPS.md` and `STATUS.md` — falling back to your private handoff memories
-and captured agent sessions when those files aren't in the repo. Agents save
-the decisions and lessons worth keeping, each with its source.
+* **Resume (`sous here` and lifecycle hooks):** step back into a project — or
+  start a session in Claude Code, Codex, Antigravity, opencode, Qwen Code,
+  Gemini CLI, pi, Copilot CLI, Cursor, Factory Droid or Kimi Code — and see
+  where you left off: git branch and uncommitted or unpushed work, how the last
+  session ended (your prompt, touched files and last message), recent work on
+  other branches, the next step, and decisions or constraints worth keeping.
+  Lifecycle hooks record progress automatically where each agent supports it.
+* **Choose (`sous`):** open a terminal outside a repo (or run `sous` anytime) to
+  see what's waiting on you, what's waiting on others, unfinished git work, and
+  where each project picks up next across all your project folders.
 
-When you open a terminal you see what's waiting across every project. When an
-agent session starts (Claude Code, Codex, Antigravity, opencode, Qwen Code,
-Gemini CLI, pi, Copilot CLI, Cursor, Factory Droid or Kimi Code), the agent
-is told where you left off in that project, its branch and recent files, and what
-was decided there — and turn/compaction/exit hooks capture progress along the way.
-It still works on the days you forget sous exists.
+Repo `STATUS.md` and `FOLLOWUPS.md` stay the team's record when present: when
+`STATUS.md` has a next step it takes precedence, and when a repo doesn't keep
+one `sous` falls back to your private handoffs and captured sessions in
+`~/.sous` (and flags when session activity is newer than `STATUS.md`). Agents
+save decisions, constraints, lessons and handoffs with `sous remember` (with an
+optional `--source` pointer), and `sous` also reads Claude Code's own
+per-project memory files without modifying them.
 
 ```
 sous · ~/.local/bin/sous · one memory across all your projects
@@ -48,68 +55,101 @@ sous · 2 on you · 1 on others · 2 unfinished
   s:4515743b9362  audio-app                 11 files uncommitted · feat/history                           3mo
   s:fe9c4922caf6  chime                     6 commits unpushed · main                                     6d
 
+  next up · from STATUS.md and recent work
+                  audio-app                 [session · feat/history] wire waveform scrub to undo          14d
+                  chime                     retry a slow shard, then deploy                               6d
+
   26 checked · 0 unavailable · as of 09:02 · sous snooze <id> to hide a row
 ```
 
-**On you** is what needs you: reviews people asked you for, and notes you
-marked as yours. **On others** is what you're waiting for. **Unfinished** is
-work you left behind in git: uncommitted files, unpushed commits, stashes,
-oldest first. Every row says how long it has been waiting. When you hand
-tasks to agents, they get their own groups at the top: **needs you**, **in
-progress** and **ready to review**.
+**On you** is what needs you: reviews people asked you for, follow-ups, and
+notes you marked as yours. **On others** is what you're waiting for.
+**Unfinished** is work left behind in git: uncommitted files, unpushed commits
+and stashes, oldest first. **Next up** shows where untouched projects pick up,
+from `STATUS.md` or private recent work. When you hand tasks to agents in the
+background, they get their own groups at the top: **needs you**, **in progress**
+and **ready to review**.
+
+Inside one project, `sous here` (or `sous chime` from anywhere) shows where you
+left off:
+
+```
+chime · main · last commit 1d ago
+  "Add retry backoff around webhook delivery"
+  6 commits unpushed · main
+last session · claude · 2026-09-26 · main · ended: "isolated the flaky shard test; staging canary is ready"
+  recent · codex · feat/metrics · 2026-09-24 · "added queue latency histogram"
+next step · retry a slow shard, then deploy (STATUS.md, updated 6d ago)
+  status · Webhook queue cutover is live at 50%. Waiting on Priya's sign-off for 100%.
+  note · session activity is newer than STATUS.md
+on you: 1 · on others: 0 · ideas: 0
+  4  confirm alert threshold with Priya  2d
+
+memory · 1 current
+  sous recall -p /ws/acme/chime --history for previous decisions and handoffs
+  m:1 decision · acme/chime · Keep webhook delivery idempotent on event ID · docs/webhooks.md · verified
+  sous recall --show <m:id> for a complete record and its source
+
+  sous note "…" to add · sous done <n> to close · sous kind <n> me to escalate
+```
 
 ## Why it helps
 
-GitHub, GitLab, issue trackers, a notes app and your own memory each know a
-slice of your work, and each has to be opened to be useful. What slips is
-what nobody reminds you about: the review someone asked for on Tuesday, the
-branch you never pushed, the "I'll fix that later" in a project you haven't
-opened in two weeks.
+GitHub, GitLab, issue trackers, repo handoff files and each agent's transcript
+each hold a slice of your work, and each has to be opened separately. What slips
+is what nothing surfaces when you switch context: the constraint settled three
+sessions ago, the review requested on Tuesday, or the branch you never pushed in
+a repo you haven't opened in two weeks.
 
-sous pulls those slices into one list and puts it where you already look:
-your terminal, your agent, a menu bar, or a page in your browser.
+`sous` joins live repo and tracker state with what you and your agents keep in
+`~/.sous`, then feeds that context back into your next shell and your next agent
+session.
 
 ```mermaid
 flowchart LR
-    git[git in every project] --> sous
-    gh[GitHub reviews] --> sous
-    gl[GitLab merge requests] --> sous
-    notes[your own notes] --> sous
-    sous[(sous board)] --> shell[new terminal]
-    sous --> agent[agent session starts]
-    sous --> web[sous serve in a browser]
-    shell --> pick{you pick one}
-    agent --> pick
-    web --> pick
-    pick -->|sous go api| work[agent starts in that project,<br/>already knowing where you left off]
+    live["live: git, GitHub, GitLab, STATUS.md, FOLLOWUPS.md"] --> sous["sous"]
+    kept["kept in ~/.sous: notes, memories, sessions, efforts"] --> sous
+    sous --> brief["brief: sous here, session-start hook"]
+    sous --> board["board: sous, new shell, sous serve"]
+    brief --> work["you and your agent work"]
+    board --> work
+    work --> capture["hooks, sous remember, sous note"]
+    capture --> kept
 ```
 
-It's for you if you work across many projects, often with AI agents, start
-your agents from a terminal, and want a nudge rather than another tool to
-manage. It's probably not for you if you mostly work in one project, or your
-team already runs everything through one tracker you check every day.
+It's for you if you work across several repositories, switch between terminal
+sessions or coding agents, and want plain-file working memory rather than
+another service to maintain. It's probably not for you if you live in a single
+repo all week, or your team already runs every detail through one tracker you
+keep open all day.
 
 ## What sous is, and isn't
 
-sous is an index, not a tracker. Your work stays where it lives: in git, on
-GitHub or GitLab, or in a project's own `FOLLOWUPS.md`. sous keeps pointers,
-your private notes, sourced memory and links between efforts, and works out
-the live state again each time you look.
+sous is working memory and an index of live work, not a tracker. Upstream state
+stays where it lives: in git, on GitHub or GitLab, or in a project's own
+`STATUS.md` and `FOLLOWUPS.md`. `~/.sous` keeps plain JSON files on your machine
+for private notes, sourced memories, per-branch and rolling session history, and
+links between efforts, working out live repo and tracker state again each time
+you look.
 
-It has no priorities, due dates, assignees or sprints. The board groups rows
-by whose move it is, oldest first. It needs no API key and runs no
-background service. It can hand a task to an agent in the background and
-follow it, but the agent (through a runner) does the work, not sous. The
-full design is in [docs/design.md](docs/design.md).
+* **No model inside.** `sous` makes no LLM calls, computes no embeddings, needs
+  no API key and runs no background service. It records what happened, keeps
+  what you or your agent asked to remember, and searches locally by word, prefix
+  and project name.
+* **No workflow ceremony.** There are no priorities, due dates, assignees or
+  sprints — rows group by whose move it is, oldest first. It can hand a task to
+  an agent in a worktree and follow it, while the agent (through a runner) does
+  the work. The full design is in [docs/design.md](docs/design.md).
 
 ## Install
 
     curl -fsSL https://raw.githubusercontent.com/bilal-/sous/main/install.sh | sh
 
 Or `brew install bilal-/tap/sous && sous setup`. Installing finds your
-projects, adds the agent hooks and the shell line, and tells you what it
-did. Open a new terminal and the board is there. You need `git`; `gh` and
-`glab` are optional and sous uses the logins they already have.
+projects, adds the agent hooks and skills where each tool supports them, adds
+the shell line, and tells you what it did. Open a new terminal and the board is
+there. You need `git`; `gh` and `glab` are optional and sous uses the logins
+they already have.
 
 [Installing and setting up sous](docs/setup.md) covers building from source,
 updating, what setup changes, configuration, what works today, and how to
@@ -117,9 +157,11 @@ uninstall.
 
 ## A quick tour
 
-    sous                                    the board, fresh
-    sous go api                             start your agent in a project, with where you left off
+    sous                                    the board across all your projects
     sous here                               where you left off in this project
+    sous go api                             start your agent in a project, with where you left off
+    sous remember -k decision --source docs/webhooks.md "Keep webhook delivery idempotent on event ID"
+    sous recall --all "webhook"             search memories, STATUS.md, notes and sessions across projects
     sous note -p billing -k me "send the pricing copy to Sam"
     sous snooze 3 2                         hide note 3 for two days
     sous done 3                             close it

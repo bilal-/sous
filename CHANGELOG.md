@@ -7,6 +7,27 @@ upgraded, never broken.
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-11-18
+
+### Fixed
+
+- Stop repeating `STATUS.md`'s next step inside the `status ·` summary line in
+  `sous here` by skipping `Next` / `Next step` / `Next up` sections and inline
+  `Next step:` / `Next:` lines when summarizing `STATUS.md`.
+- Restore per-branch sessions from `sessions.json`'s `branches` map in
+  `sous here` even after a project's older branch sessions have rolled past the
+  200-entry global session history ring, prioritizing the checked-out branch's
+  last session when switching back to it.
+- Remove `preCompact` from Cursor's hook list in `docs/agents.md` to match what
+  `sous setup` installs (`sessionStart`, `stop`, `sessionEnd`).
+
+### Changed
+
+- Refresh `README.md`, `brand/README.md`, `brand/tools/brand-art.mjs`, the
+  Shellbell plugin description and `sous serve`'s header label around working
+  memory (`where you left off` + `what's waiting`), adding a test-pinned
+  `sous here` example and the `Next up` board section to `README.md`.
+
 ## [0.28.0]
 
 ### Added
@@ -18,7 +39,7 @@ upgraded, never broken.
 - `Stop` and `PreCompact` progress-capture hooks for Claude Code and Codex so
   mid-session work is recorded even when a session ends abruptly.
 - Per-branch and rolling session history in `sessions.json` (upgraded to v2),
-  automatically recording git branch, user prompt intent, modified files and
+  automatically recording git branch, user prompt, modified files and
   last commit alongside the assistant's last message.
 - Automatic repo-first + `~/.sous/`-fallback next steps on `sous`, `sous here`,
   `sous serve`, and session start hooks: `STATUS.md` and `FOLLOWUPS.md` stay

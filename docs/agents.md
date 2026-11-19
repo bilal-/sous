@@ -81,8 +81,7 @@ a task in the background, with the permissions your opencode config gives.
 `sous setup` wires hooks automatically when each tool is installed:
 
 * **Copilot CLI:** `~/.copilot/hooks/sous.json` (`sessionStart`, `sessionEnd`).
-* **Cursor:** `~/.cursor/hooks.json` (`sessionStart`, `stop`, `preCompact`,
-  `sessionEnd`).
+* **Cursor:** `~/.cursor/hooks.json` (`sessionStart`, `stop`, `sessionEnd`).
 * **Factory Droid:** `~/.factory/hooks.json` (`SessionStart`, `Stop`,
   `PreCompact`, `SessionEnd`).
 * **Kimi Code:** `[[hooks]]` in `~/.kimi-code/config.toml` (`UserPromptSubmit`

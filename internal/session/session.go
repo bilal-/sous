@@ -134,7 +134,7 @@ func Record(s *store.Store, root string, sess Session) error {
 			if d.Branches[root] == nil {
 				d.Branches[root] = map[string]Session{}
 			}
-			d.Branches[root][sess.Branch] = sess
+			d.Branches[root][sess.Branch] = mergeSameSession(d.Branches[root][sess.Branch], sess)
 		}
 		updated := false
 		if sess.SessionID != "" && sess.SessionID != "unknown" {
@@ -231,6 +231,20 @@ func ForProject(s *store.Store, root string) ([]Entry, error) {
 		if sess, ok := d.Sessions[root]; ok {
 			out = append(out, Entry{Project: root, Session: sess})
 		}
+	}
+	return out, nil
+}
+
+// BranchesForProject returns the latest recorded session per git branch for one
+// repo root.
+func BranchesForProject(s *store.Store, root string) (map[string]Session, error) {
+	d, err := store.Load[Doc](s, "sessions", sessionsFile)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]Session, len(d.Branches[root]))
+	for branch, sess := range d.Branches[root] {
+		out[branch] = sess
 	}
 	return out, nil
 }

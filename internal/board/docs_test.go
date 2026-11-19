@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bilal-/sous/internal/memory"
 	"github.com/bilal-/sous/internal/project"
+	"github.com/bilal-/sous/internal/session"
 	"github.com/bilal-/sous/internal/signal"
 	"github.com/bilal-/sous/internal/thread"
 )
@@ -55,6 +57,10 @@ func TestReadmeBoardIsWhatSousPrints(t *testing.T) {
 			{Tagged: signal.Tagged{Signal: signal.Signal{ID: "s:fe9c4922caf6", Project: "/ws/acme/chime", Kind: signal.Unfinished, Text: "6 commits unpushed · main"}}, FirstSeen: docDays(6)},
 			{Tagged: signal.Tagged{Signal: signal.Signal{ID: "s:4515743b9362", Project: "/ws/oss/audio-app", Kind: signal.Unfinished, Text: "11 files uncommitted · feat/history"}}, FirstSeen: docDays(90)},
 		},
+		Next: []NextStep{
+			{Project: "/ws/oss/audio-app", Step: "wire waveform scrub to undo", Updated: docDays(14), Source: "session", Branch: "feat/history"},
+			{Project: "/ws/acme/chime", Step: "retry a slow shard, then deploy", Updated: docDays(6), Source: project.StatusFile},
+		},
 		Plugins: []signal.PluginStatus{{Name: "git", Status: "ok"}, {Name: "github", Status: "ok"}},
 		Checked: 26, RenderedAt: docNow,
 	}
@@ -63,6 +69,77 @@ func TestReadmeBoardIsWhatSousPrints(t *testing.T) {
 	Render(&b, d)
 	if !strings.Contains(readDoc(t, "README.md"), "```\n"+b.String()+"```\n") {
 		t.Errorf("README.md's board is not what sous prints. Put this in its code block:\n%s", b.String())
+	}
+}
+
+func TestReadmeHereIsWhatSousPrints(t *testing.T) {
+	lastCommit := docDays(1)
+	endedMain := docDays(1)
+	endedBranch := docDays(3)
+	verifiedAt := docDays(10)
+	msgMain := "isolated the flaky shard test; staging canary is ready"
+	msgBranch := "added queue latency histogram"
+	d := &HereData{
+		Project: "/ws/acme/chime", Name: "chime", RenderedAt: docNow,
+		Facts: project.Facts{
+			Branch:      "main",
+			LastCommit:  &lastCommit,
+			LastSubject: "Add retry backoff around webhook delivery",
+		},
+		Session: &session.Session{
+			Agent:       "claude",
+			SessionID:   "cl-1",
+			Ended:       endedMain,
+			Branch:      "main",
+			LastMessage: &msgMain,
+		},
+		RecentSessions: []session.Session{{
+			Agent:       "codex",
+			SessionID:   "cx-1",
+			Ended:       endedBranch,
+			Branch:      "feat/metrics",
+			LastMessage: &msgBranch,
+		}},
+		Next: &NextStep{
+			Project: "/ws/acme/chime",
+			Step:    "retry a slow shard, then deploy",
+			Updated: docDays(6),
+			Source:  project.StatusFile,
+		},
+		Status: &project.StatusDoc{
+			Exists:   true,
+			Path:     project.StatusFile,
+			Updated:  docDays(6),
+			NextStep: "retry a slow shard, then deploy",
+			Summary:  "Webhook queue cutover is live at 50%. Waiting on Priya's sign-off for 100%.",
+		},
+		Signals: []signal.Observed{
+			{Tagged: signal.Tagged{Signal: signal.Signal{ID: "s:fe9c4922caf6", Project: "/ws/acme/chime", Kind: signal.Unfinished, Text: "6 commits unpushed · main"}}, FirstSeen: docDays(6)},
+		},
+		Threads: []thread.View{
+			{Thread: thread.Thread{ID: 4, Project: "/ws/acme/chime", Kind: thread.Me, Text: "confirm alert threshold with Priya", Since: docDays(2)}},
+		},
+		Context: Context{
+			Available:    true,
+			Scope:        memory.Scope{Project: "/ws/acme/chime"},
+			historyFlag:  "-p",
+			historyValue: "/ws/acme/chime",
+			historyLabel: "previous decisions and handoffs",
+			Memories: []memory.Record{{
+				ID:         "m:1",
+				Scope:      memory.Scope{Project: "/ws/acme/chime"},
+				Kind:       memory.Decision,
+				Text:       "Keep webhook delivery idempotent on event ID",
+				Source:     "docs/webhooks.md",
+				Author:     "claude",
+				VerifiedAt: &verifiedAt,
+			}},
+		},
+	}
+	var b bytes.Buffer
+	RenderHere(&b, d, docNow, false)
+	if !strings.Contains(readDoc(t, "README.md"), "```\n"+b.String()+"```\n") {
+		t.Errorf("README.md's sous here block is not what sous prints. Put this in its code block:\n%s", b.String())
 	}
 }
 

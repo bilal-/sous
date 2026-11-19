@@ -1,7 +1,7 @@
 // Geometry authority for the sous mark. sous is shellbell's sibling: the
-// same prompt chevron and cursor (>_), plate and gloss; where shellbell
-// rings (two rays), sous lines up what is waiting (two tickets stacked onto
-// the cursor). Shellbell is amber-500; sous is violet-400.
+// same prompt chevron and cursor (>_), plate and gloss; shellbell rings when a
+// terminal needs you (two rays, amber); sous keeps your place — what is waiting
+// and where you left off (two rail tickets, violet).
 // Bounds: 0..360 x 0..280, as shellbell's.
 export const VIOLET = '#A78BFA';
 export const VIOLET_DEEP = '#7C3AED'; // the mark on light backgrounds

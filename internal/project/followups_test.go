@@ -93,7 +93,7 @@ func TestReadStatusAndFollowupsAll(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !st.Exists || st.Path != "status.md" || st.NextStep != "run migration tests" || !strings.Contains(st.Summary, "Auth works") || !strings.Contains(st.Body, "Blockers:") {
+	if !st.Exists || st.Path != "status.md" || st.NextStep != "run migration tests" || !strings.Contains(st.Summary, "Auth works") || strings.Contains(st.Summary, "run migration tests") || !strings.Contains(st.Body, "Blockers:") {
 		t.Fatalf("%+v", st)
 	}
 	write(t, dir, "followups.md", "- [ ] open item <!-- sous:0123456789ab -->\n- [ ] plain item\n- [x] done item\n")
@@ -103,5 +103,43 @@ func TestReadStatusAndFollowupsAll(t *testing.T) {
 	}
 	if !slices.Equal(all, []string{"open item", "plain item"}) {
 		t.Fatalf("all = %q", all)
+	}
+}
+
+func TestSummarizeStatusSkipsNextStepHeadingsAndInlineLines(t *testing.T) {
+	for _, c := range []struct {
+		name, body, want string
+	}{
+		{
+			name: "next step section at end",
+			body: "# Status\n\nAuth works after switching to cursors.\nBlockers: waiting on Sam's staging key.\n\n## Next step\n- retry a slow shard, then deploy\n- verify staging\n",
+			want: "Auth works after switching to cursors. Blockers: waiting on Sam's staging key.",
+		},
+		{
+			name: "next up section before another section",
+			body: "# Status\n\n## Next up\n- migrate the cache\n\n## Done\n- shipped cursor pagination\n\n## Nextjs upgrade\n- router ready\n",
+			want: "Done: - shipped cursor pagination Nextjs upgrade: - router ready",
+		},
+		{
+			name: "short next heading",
+			body: "### Next\nreview Sam's copy\n\n## Context\nPricing draft is in docs/pricing.md.\n",
+			want: "Context: Pricing draft is in docs/pricing.md.",
+		},
+		{
+			name: "inline next lines",
+			body: "# Status\n\nBilling rollout at 50%.\n**Next step:** deploy canary\nNext steps: check logs\nNext: announce internally\nMonitoring looks clean.\n",
+			want: "Billing rollout at 50%. Monitoring looks clean.",
+		},
+		{
+			name: "only next step yields empty summary",
+			body: "# Status\n\n## Next step\n- cut v0.28.1\n",
+			want: "",
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := summarizeStatus(c.body); got != c.want {
+				t.Fatalf("got %q, want %q", got, c.want)
+			}
+		})
 	}
 }

@@ -49,7 +49,7 @@ func rootOf(in harness.Input, fallback, home string) (string, bool) {
 }
 
 // RecordEnd remembers the session state in its project: which agent, branch,
-// prompt intent, modified files, latest commit, when it ended, and its last
+// user prompt, modified files, latest commit, when it ended, and its last
 // message. fallback is the hook's own folder when the agent sent none.
 func RecordEnd(s *store.Store, in harness.Input, h harness.Harness, fallback, home string, now time.Time) error {
 	root, ok := rootOf(in, fallback, home)

@@ -238,7 +238,7 @@ memories and efforts, limited to five of each in the brief form. The newest of
 each memory kind gets a place before remaining slots fill by recency, so repeated
 handoffs do not bury a standing constraint. JSON retains full context. All reads
 are local; no model endpoint, embeddings or daemon is required. Lifecycle hooks
-capture branch, prompt intent, touched files, last commit and last message into
+capture branch, your prompt, touched files, last commit and last message into
 rolling session history across turns, compaction and exits. Agents capture
 useful context during authorized work and cite the project's own documents.
 The session-start hook opens by telling each agent that sous is personal

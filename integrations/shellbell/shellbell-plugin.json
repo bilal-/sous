@@ -3,7 +3,7 @@
   "id": "sous",
   "version": "1.0.0",
   "name": "Sous",
-  "description": "What's waiting on you, across your projects",
+  "description": "Working memory and what's waiting across your projects",
   "homepage": "https://getsous.dev",
   "platforms": [
     "darwin",

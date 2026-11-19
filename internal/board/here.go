@@ -98,6 +98,25 @@ func BuildHereTarget(ctx context.Context, in Inputs, target HereTarget) (*HereDa
 			sessKey = main
 		}
 	}
+	branches, err := session.BranchesForProject(in.Store, sessKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(branches) == 0 {
+		if main, ok := project.MainOf(root); ok && main != sessKey {
+			if branches, err = session.BranchesForProject(in.Store, main); err != nil {
+				return nil, err
+			}
+			if len(branches) > 0 {
+				sessKey = main
+			}
+		}
+	}
+	if d.Session == nil && d.Facts.Branch != "" {
+		if bs, ok := branches[d.Facts.Branch]; ok {
+			d.Session = &bs
+		}
+	}
 	hist, err := session.ForProject(in.Store, sessKey)
 	if err != nil {
 		return nil, err
@@ -109,7 +128,8 @@ func BuildHereTarget(ctx context.Context, in Inputs, target HereTarget) (*HereDa
 			}
 		}
 	}
-	d.RecentSessions = pickRecentSessions(hist, d.Session, 3)
+	hist = mergeBranchHistory(hist, sessKey, branches)
+	d.RecentSessions = pickRecentSessions(hist, d.Session, d.Facts.Branch, 3)
 	remote := ""
 	if d.Remote != nil {
 		remote = *d.Remote
@@ -355,45 +375,115 @@ func recentSessionLine(rs session.Session, brief bool) string {
 	return fmt.Sprintf("%s · %q", head, text.Ellipsize(summary, 90))
 }
 
-func pickRecentSessions(hist []session.Entry, current *session.Session, max int) []session.Session {
+func mergeBranchHistory(hist []session.Entry, root string, branches map[string]session.Session) []session.Entry {
+	if len(branches) == 0 {
+		return hist
+	}
+	type key struct {
+		id     string
+		branch string
+		ended  time.Time
+	}
+	seen := make(map[key]bool, len(hist))
+	for _, e := range hist {
+		seen[key{e.SessionID, e.Branch, e.Ended.UTC()}] = true
+	}
+	added := false
+	for _, bs := range branches {
+		k := key{bs.SessionID, bs.Branch, bs.Ended.UTC()}
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		hist = append(hist, session.Entry{Project: root, Session: bs})
+		added = true
+	}
+	if added {
+		sort.SliceStable(hist, func(i, j int) bool {
+			if !hist[i].Ended.Equal(hist[j].Ended) {
+				return hist[i].Ended.After(hist[j].Ended)
+			}
+			if hist[i].Project != hist[j].Project {
+				return hist[i].Project < hist[j].Project
+			}
+			if hist[i].SessionID != hist[j].SessionID {
+				return hist[i].SessionID < hist[j].SessionID
+			}
+			return hist[i].Branch < hist[j].Branch
+		})
+	}
+	return hist
+}
+
+func pickRecentSessions(hist []session.Entry, current *session.Session, activeBranch string, max int) []session.Session {
 	if len(hist) == 0 || max <= 0 {
 		return nil
 	}
 	seenID := map[string]bool{}
 	seenBranch := map[string]bool{}
+	picked := make([]bool, len(hist))
 	if current != nil {
-		if current.SessionID != "" {
+		if current.SessionID != "" && current.SessionID != "unknown" {
 			seenID[current.SessionID] = true
 		}
 		if current.Branch != "" {
 			seenBranch[current.Branch] = true
 		}
 	}
+	skip := func(i int, e session.Entry) bool {
+		if picked[i] {
+			return true
+		}
+		if e.SessionID != "" && e.SessionID != "unknown" && seenID[e.SessionID] {
+			return true
+		}
+		if current != nil && e.SessionID == current.SessionID && e.Branch == current.Branch && e.Ended.Equal(current.Ended) {
+			return true
+		}
+		return false
+	}
+	take := func(i int, e session.Entry) {
+		picked[i] = true
+		if e.SessionID != "" && e.SessionID != "unknown" {
+			seenID[e.SessionID] = true
+		}
+		if e.Branch != "" {
+			seenBranch[e.Branch] = true
+		}
+	}
 	var out []session.Session
+	// Priority pass: when checked out on a branch different from the latest
+	// project session, surface the checked-out branch's last session first.
+	if activeBranch != "" && current != nil && current.Branch != activeBranch && !seenBranch[activeBranch] {
+		for i, e := range hist {
+			if e.Branch != activeBranch || skip(i, e) {
+				continue
+			}
+			take(i, e)
+			out = append(out, e.Session)
+			break
+		}
+	}
 	// First pass: different branches so multi-branch work shows up cleanly.
-	for _, e := range hist {
+	for i, e := range hist {
 		if len(out) >= max {
 			break
 		}
-		if e.SessionID != "" && seenID[e.SessionID] {
+		if skip(i, e) || e.Branch == "" || seenBranch[e.Branch] {
 			continue
 		}
-		if e.Branch == "" || seenBranch[e.Branch] {
-			continue
-		}
-		seenID[e.SessionID] = true
-		seenBranch[e.Branch] = true
+		take(i, e)
 		out = append(out, e.Session)
 	}
 	// Second pass: earlier distinct sessions on the same or empty branch.
-	for _, e := range hist {
+	for i, e := range hist {
 		if len(out) >= max {
 			break
 		}
-		if e.SessionID != "" && seenID[e.SessionID] {
+		if skip(i, e) {
 			continue
 		}
-		seenID[e.SessionID] = true
+		take(i, e)
 		out = append(out, e.Session)
 	}
 	return out

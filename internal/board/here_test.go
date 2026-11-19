@@ -244,3 +244,98 @@ func TestNextStepsFallbackAndHereContext(t *testing.T) {
 		"note · session activity is newer than STATUS.md",
 	)
 }
+
+func TestBuildHereRestoresBranchSessionsEvictedPastMaxHistory(t *testing.T) {
+	strPtr := func(s string) *string { return &s }
+	s := &store.Store{Home: t.TempDir()}
+	ws := t.TempDir()
+	if real, err := filepath.EvalSymlinks(ws); err == nil {
+		ws = real
+	}
+	repo := testutil.Repo(t, filepath.Join(ws, "acme-api"), true, "")
+	t0 := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
+
+	// Record sessions across five branches in repo, oldest on feat/billing.
+	branches := []struct {
+		branch, id, msg string
+		offset          time.Duration
+	}{
+		{"feat/billing", "s-bill", "wired Sam's invoice webhook", 0},
+		{"feat/search", "s-srch", "indexed prefix tokens", time.Minute},
+		{"feat/export", "s-exp", "streamed CSV rows", 2 * time.Minute},
+		{"feat/webhooks", "s-wh", "added HMAC verification", 3 * time.Minute},
+		{"main", "s-main", "cut staging tag", 4 * time.Minute},
+	}
+	for _, b := range branches {
+		if err := session.Record(s, repo, session.Session{
+			Agent: "claude", SessionID: b.id, Branch: b.branch,
+			LastMessage: strPtr(b.msg), Ended: t0.Add(b.offset),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Evict every repo entry from the 200-entry global rolling history ring.
+	for i := 0; i < session.MaxHistory+10; i++ {
+		if err := session.Record(s, "/ws/acme/other", session.Session{
+			Agent:       "codex",
+			SessionID:   fmt.Sprintf("other-%d", i),
+			Branch:      "main",
+			LastMessage: strPtr("other project work"),
+			Ended:       t0.Add(time.Hour + time.Duration(i)*time.Second),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Sanity-check that global rolling history no longer holds any repo branch entries.
+	globalHist, err := session.History(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range globalHist {
+		if e.Project == repo {
+			t.Fatalf("expected repo entries evicted from global history, found %+v", e)
+		}
+	}
+
+	// Switch repo back to the oldest branch (feat/billing) and build here.
+	testutil.Git(t, repo, "checkout", "-q", "-b", "feat/billing")
+	in := Inputs{Store: s, Cfg: &config.Config{Roots: []string{ws}}, Now: t0.Add(5 * time.Hour), Timeout: 2 * time.Second}
+	d, err := BuildHere(context.Background(), in, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Session == nil || d.Session.SessionID != "s-main" {
+		t.Fatalf("expected latest project session s-main, got %+v", d.Session)
+	}
+	if len(d.RecentSessions) != 3 {
+		t.Fatalf("expected 3 recent branch sessions restored from d.Branches, got %+v", d.RecentSessions)
+	}
+	if d.RecentSessions[0].Branch != "feat/billing" || d.RecentSessions[0].SessionID != "s-bill" {
+		t.Fatalf("expected checked-out branch feat/billing prioritized first in RecentSessions, got %+v", d.RecentSessions)
+	}
+
+	var hb bytes.Buffer
+	RenderHere(&hb, d, t0.Add(5*time.Hour), false)
+	testutil.Contains(t, hb.String(),
+		`last session · claude · 2026-10-01 · main · ended: "cut staging tag"`,
+		`recent · claude · feat/billing · 2026-10-01 · "wired Sam's invoice webhook"`,
+		`recent · claude · feat/webhooks · 2026-10-01 · "added HMAC verification"`,
+		`recent · claude · feat/export · 2026-10-01 · "streamed CSV rows"`,
+	)
+
+	// When d.Sessions has no entry for root, d.Branches[root][branch] restores d.Session directly.
+	sBranchOnly := &store.Store{Home: t.TempDir()}
+	branchJSON := fmt.Sprintf(`{"version":2,"sessions":{},"branches":{%q:{"feat/billing":{"agent":"claude","session_id":"s-bill","ended":"2026-10-01T10:00:00Z","last_message":"wired Sam's invoice webhook","branch":"feat/billing"}}},"history":[]}`, repo)
+	if err := os.WriteFile(filepath.Join(sBranchOnly.Home, "sessions.json"), []byte(branchJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dBranchOnly, err := BuildHere(context.Background(), Inputs{Store: sBranchOnly, Cfg: &config.Config{Roots: []string{ws}}, Now: t0.Add(5 * time.Hour), Timeout: 2 * time.Second}, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dBranchOnly.Session == nil || dBranchOnly.Session.SessionID != "s-bill" {
+		t.Fatalf("expected d.Session restored from d.Branches when sessions[root] is absent, got %+v", dBranchOnly.Session)
+	}
+}

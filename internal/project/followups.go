@@ -132,6 +132,21 @@ func NextStep(root string) (string, time.Time, error) {
 	return parseNextStep(all), at, nil
 }
 
+func isNextHeading(h string) bool {
+	h = strings.ToLower(strings.TrimSpace(h))
+	return h == "next" || strings.HasPrefix(h, "next step") || strings.HasPrefix(h, "next up")
+}
+
+func isInlineNextLine(line string) bool {
+	plain := strings.TrimSpace(strings.ReplaceAll(listItem(line), "**", ""))
+	for _, p := range []string{"next step:", "next steps:", "next:"} {
+		if len(plain) >= len(p) && strings.EqualFold(plain[:len(p)], p) {
+			return true
+		}
+	}
+	return false
+}
+
 func parseNextStep(all []byte) string {
 	under := false
 	sc := bufio.NewScanner(bytes.NewReader(all))
@@ -139,8 +154,8 @@ func parseNextStep(all []byte) string {
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
 		if strings.HasPrefix(line, "#") {
-			h := strings.ToLower(strings.TrimSpace(strings.TrimLeft(line, "#")))
-			under = h == "next" || strings.HasPrefix(h, "next step") || strings.HasPrefix(h, "next up")
+			h := strings.TrimSpace(strings.TrimLeft(line, "#"))
+			under = isNextHeading(h)
 			continue
 		}
 		if under {
@@ -164,17 +179,21 @@ func parseNextStep(all []byte) string {
 func summarizeStatus(body string) string {
 	var parts []string
 	total := 0
+	skip := false
 	for _, raw := range strings.Split(body, "\n") {
 		line := strings.TrimSpace(raw)
-		if line == "" || strings.HasPrefix(line, "# ") {
+		if line == "" {
 			continue
 		}
-		if strings.HasPrefix(line, "##") {
+		if strings.HasPrefix(line, "#") {
 			h := strings.TrimSpace(strings.TrimLeft(line, "#"))
-			if h == "" {
+			skip = isNextHeading(h)
+			if skip || h == "" || strings.HasPrefix(line, "# ") || !strings.HasPrefix(line, "##") {
 				continue
 			}
 			line = h + ":"
+		} else if skip || isInlineNextLine(line) {
+			continue
 		}
 		parts = append(parts, line)
 		total += len([]rune(line))

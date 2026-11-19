@@ -1,4 +1,4 @@
-// Package board assembles and renders the cross-project attention list.
+// Package board assembles and renders the cross-project board and per-project resume view.
 package board
 
 import (

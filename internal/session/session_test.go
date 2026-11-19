@@ -31,6 +31,10 @@ func TestRecordUpserts(t *testing.T) {
 	if hist[0].Branch != "main" || hist[1].Branch != "feat/auth" || hist[1].Prompt == nil || *hist[1].Prompt != "fix auth" || hist[1].LastMessage == nil || *hist[1].LastMessage != "wired cursor pagination" {
 		t.Fatalf("preserved context lost: %+v", hist)
 	}
+	branches, err := BranchesForProject(s, "/ws/p")
+	if err != nil || len(branches) != 2 || branches["feat/auth"].SessionID != "a" || branches["main"].SessionID != "b" {
+		t.Fatalf("branches = %+v, err=%v", branches, err)
+	}
 }
 
 func TestMigratesV1AndPreservesSessions(t *testing.T) {
